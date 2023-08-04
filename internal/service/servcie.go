@@ -53,7 +53,6 @@ func (s *Service) Connect() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Connected to %s\n", s.Connection.Addr())
 
 	s.Connection.SetStatus(connection.StatusOnline)
 	s.Address = s.Connection.Addr()
