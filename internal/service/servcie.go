@@ -26,7 +26,7 @@ func NewService(host, port, specFileName string) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Spec file loaded successfully, current spec: %s", spec.Name)
+	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
 	// // Connect to server
 	// conn, err := connection.New(host+":"+port, spec, utils.ReadMessageLength, utils.WriteMessageLength)
@@ -42,6 +42,11 @@ func NewService(host, port, specFileName string) (*Service, error) {
 		MessageSpec:  spec,
 		Transactions: make([]Transaction, 0),
 	}, nil
+}
+
+// Function to return current specification
+func (s *Service) GetSpec() *iso8583.MessageSpec {
+	return s.MessageSpec
 }
 
 func (s *Service) Close() error {

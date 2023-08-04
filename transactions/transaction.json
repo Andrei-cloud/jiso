@@ -1,23 +1,35 @@
 [
     {
-        "0": "0800",
-        "7": "auto",
-        "11": "auto",
-        "37": "auto",
-        "70": 1
+        "name": "Sign On",
+        "description": "Network Managment: Sign On",
+        "fields": {
+            "0": "0800",
+            "7": "auto",
+            "11": "auto",
+            "37": "auto",
+            "70": 1
+        }
     },
     {
-    "0": "0800",
-    "7": "auto",
-    "11": "auto",
-    "37": "auto",
-    "70": 301
+        "name": "Echo",
+        "description": "Network Managment: Echo",
+        "fields": {
+            "0": "0800",
+            "7": "auto",
+            "11": "auto",
+            "37": "auto",
+            "70": 301
+        }
     },
     {
-        "0": "0800",
-        "7": "auto",
-        "11": "auto",
-        "37": "auto",
-        "70": 2
+        "name": "Sign Off",
+        "description": "Network Managment: Sign Off",
+        "fields": {
+            "0": "0800",
+            "7": "auto",
+            "11": "auto",
+            "37": "auto",
+            "70": 2
+        }
     }
 ]
