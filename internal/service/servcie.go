@@ -29,15 +29,9 @@ func NewService(host, port, specFileName string) (*Service, error) {
 	}
 	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
-	// Connect to server
-	conn, err := connection.New(host+":"+port, spec, utils.ReadMessageLength, utils.WriteMessageLength)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Service{
 		MessageSpec:  spec,
-		Connection:   conn,
+		Address:      host + ":" + port,
 		Transactions: make([]Transaction, 0),
 	}, nil
 }
@@ -45,15 +39,21 @@ func NewService(host, port, specFileName string) (*Service, error) {
 // Function to establish connection
 func (s *Service) Connect() error {
 	if s.Connection == nil {
-		return fmt.Errorf("connection is nil")
+		var err error
+		s.Connection, err = connection.New(s.Address, s.MessageSpec, utils.ReadMessageLength, utils.WriteMessageLength)
+		if err != nil {
+			return err
+		}
 	}
 	if s.Connection.Status() == connection.StatusOnline {
 		return nil
 	}
+
 	err := s.Connection.Connect()
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Connected to %s\n", s.Connection.Addr())
 
 	s.Connection.SetStatus(connection.StatusOnline)
 	s.Address = s.Connection.Addr()
@@ -65,15 +65,12 @@ func (s *Service) Disconnect() error {
 	if s.Connection == nil {
 		return nil
 	}
-	if s.Connection.Status() == connection.StatusOffline {
-		return nil
-	}
 	err := s.Connection.Close()
 	if err != nil {
 		return err
 	}
 	s.Connection.SetStatus(connection.StatusOffline)
-	s.Address = ""
+	s.Connection = nil
 	return nil
 }
 
