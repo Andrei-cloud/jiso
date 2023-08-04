@@ -60,6 +60,9 @@ func (cli *CLI) Run() error {
 
 	cli.AddCommand(&cmd.ListCommand{Tc: cli.tc})
 	cli.AddCommand(&cmd.InfoCommand{Tc: cli.tc})
+	cli.AddCommand(&cmd.SendCommand{Tc: cli.tc, Svc: cli.svc})
+	cli.AddCommand(&cmd.ConnectCommand{Svc: cli.svc})
+	cli.AddCommand(&cmd.DisconnectCommand{Svc: cli.svc})
 
 	for {
 		var commandName string
@@ -75,13 +78,13 @@ func (cli *CLI) Run() error {
 			return err
 		}
 
-		if commandName == "quit" {
+		if commandName == "quit" || commandName == "exit" {
 			cli.svc.Close()
 			fmt.Println("Exiting CLI tool")
 			return nil
 		}
 
-		if commandName == "help" {
+		if commandName == "help" || commandName == "h" || commandName == "?" {
 			cli.printHelp()
 			continue
 		}

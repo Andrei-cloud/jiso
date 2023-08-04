@@ -39,7 +39,6 @@ func main() {
 		cli.AddCommand(&cmd.CollectArgsCommand{})
 	}
 
-	cli.AddCommand(&cmd.ExampleCommand{})
 	err = cli.Run()
 	if err != nil {
 		fmt.Printf("Error running CLI: %s\n", err)

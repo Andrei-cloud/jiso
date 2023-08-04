@@ -23,7 +23,7 @@ func (c *InfoCommand) Execute() error {
 
 	qs := []*survey.Question{
 		{
-			Name: "color",
+			Name: "info",
 			Prompt: &survey.Select{
 				Message: "Select transaction:",
 				Options: c.Tc.ListNames(),

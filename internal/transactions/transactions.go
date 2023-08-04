@@ -34,7 +34,7 @@ func NewTransactionCollection(filename string, specs *iso8583.MessageSpec) (*Tra
 
 	fmt.Printf("Transactions loaded successfully. Count: %d\n", len(transactions))
 
-	return &TransactionCollection{transactions: transactions}, nil
+	return &TransactionCollection{transactions: transactions, spec: specs}, nil
 }
 
 func (tc *TransactionCollection) ListNames() []string {
@@ -98,9 +98,6 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 					}
 				}
 			}
-
-			// Print ISO8583 message
-			iso8583.Describe(msg, os.Stdout, iso8583.DoNotFilterFields()...)
 
 			return msg, nil
 		}
