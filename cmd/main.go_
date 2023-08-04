@@ -1,0 +1,136 @@
+package main
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+
+	"log"
+
+	"coreiso/internal/utils"
+
+	"github.com/moov-io/iso8583"
+	connection "github.com/moov-io/iso8583-connection"
+	"github.com/moov-io/iso8583/field"
+)
+
+type Transaction struct {
+	MTI    string              `json:"mti"`
+	Fields map[int]field.Field `json:"fields"`
+}
+
+func main() {
+	// Define command line arguments
+	host := flag.String("host", "localhost", "Hostname to connect to")
+	port := flag.String("port", "9999", "Port to connect to")
+	specFileName := flag.String("spec-file", "", "path to customized specification file in JSON format")
+	file := flag.String("file", "", "path to transaction file in JSON format")
+	flag.Parse()
+
+	if len(os.Args) == 1 {
+		flag.Usage()
+		os.Exit(0)
+	}
+
+	spec, err := utils.CreateSpecFromFile(*specFileName)
+	if err != nil {
+		log.Println("Error reading spect file")
+		os.Exit(1)
+	}
+	log.Printf("Spec file loaded successfully, current spec: %s", spec.Name)
+
+	// Read file
+	data, err := os.ReadFile(*file)
+	if err != nil {
+		log.Println("File reading error", err)
+		return
+	}
+
+	var raw []json.RawMessage
+	err = json.Unmarshal(data, &raw)
+	if err != nil {
+		log.Println("JSON unmarshal into raw error", err)
+		return
+	}
+
+	// Connect to server
+	c, err := connection.New(*host+":"+*port, spec, utils.ReadMessageLength, utils.WriteMessageLength)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = c.Connect()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer c.Close()
+
+	for _, v := range raw {
+		// Create new ISO8583 message
+		msg := iso8583.NewMessage(spec)
+
+		// Parse JSON
+		err = json.Unmarshal(v, &msg)
+		if err != nil {
+			fmt.Println("JSON unmarshal error", err)
+			return
+		}
+
+		fieldMap := make(map[int]interface{})
+		err = json.Unmarshal(v, &fieldMap)
+		if err != nil {
+			fmt.Println("JSON unmarshal error", err)
+			return
+		}
+
+		for i, v := range fieldMap {
+			if i < 2 {
+				continue
+			}
+			msg.Bitmap().Set(i)
+
+			switch v := v.(type) {
+			case string:
+				if v == "auto" {
+					switch i {
+					case 7:
+						msg.Field(i, utils.GetTrxnDateTime())
+					case 11:
+						msg.Field(i, utils.GetCounter().GetStan())
+					case 37:
+						msg.Field(i, utils.GetRRNInstance().GetRRN())
+					}
+				}
+			}
+		}
+
+		// Print ISO8583 message
+		iso8583.Describe(msg, os.Stdout, iso8583.DoNotFilterFields()...)
+
+		// // Send message
+		b, err := msg.Pack()
+
+		log.Printf("\n%v\n", hex.Dump(b))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		response, err := c.Send(msg)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		b, err = response.Pack()
+		log.Printf("\n%v\n", hex.Dump(b))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Print response
+		iso8583.Describe(response, os.Stdout, iso8583.DoNotFilterFields()...)
+	}
+
+	log.Println("Done")
+
+}
