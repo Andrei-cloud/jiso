@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"jiso/internal/cli"
 	cmd "jiso/internal/command"
@@ -17,6 +19,17 @@ func main() {
 	}
 
 	cli := cli.NewCLI()
+
+	// Handle kill and interrupt signals to close the service's connection gracefully
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		cli.Close()
+		fmt.Println("Exiting CLI tool")
+		os.Exit(0)
+	}()
+
 	cli.ClearTerminal()
 
 	if cfg.GetConfig().GetHost() == "" ||

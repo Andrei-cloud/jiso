@@ -107,6 +107,9 @@ func (cli *CLI) printHelp() {
 		}
 	}
 	for _, cmd := range cli.commands {
+		if cmd.Name() == "collect-args" {
+			continue
+		}
 		fmt.Printf("\t%-*s  %s\n", maxNameLen, cmd.Name(), cmd.Synopsis())
 	}
 	fmt.Println()
@@ -126,5 +129,11 @@ func (cli *CLI) ClearTerminal() {
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to clear terminal: %v\n", err)
+	}
+}
+
+func (cli *CLI) Close() {
+	if cli.svc != nil {
+		cli.svc.Close()
 	}
 }
