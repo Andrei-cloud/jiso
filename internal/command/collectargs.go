@@ -3,14 +3,12 @@ package command
 import (
 	"fmt"
 
+	cfg "jiso/internal/config"
+
 	"github.com/AlecAivazis/survey/v2"
 )
 
 type CollectArgsCommand struct {
-	Host         *string
-	Port         *string
-	SpecFileName *string
-	File         *string
 }
 
 func (c *CollectArgsCommand) Name() string {
@@ -24,7 +22,7 @@ func (c *CollectArgsCommand) Synopsis() string {
 func (c *CollectArgsCommand) Execute() error {
 	questions := []*survey.Question{}
 
-	if *c.Host == "" {
+	if cfg.GetConfig().GetHost() == "" {
 		questions = append(questions, &survey.Question{
 			Name: "host",
 			Prompt: &survey.Input{
@@ -35,7 +33,7 @@ func (c *CollectArgsCommand) Execute() error {
 		})
 	}
 
-	if *c.Port == "" {
+	if cfg.GetConfig().GetPort() == "" {
 		questions = append(questions, &survey.Question{
 			Name: "port",
 			Prompt: &survey.Input{
@@ -46,7 +44,7 @@ func (c *CollectArgsCommand) Execute() error {
 		})
 	}
 
-	if *c.SpecFileName == "" {
+	if cfg.GetConfig().GetSpec() == "" {
 		questions = append(questions, &survey.Question{
 			Name: "specfile",
 			Prompt: &survey.Input{
@@ -57,7 +55,7 @@ func (c *CollectArgsCommand) Execute() error {
 		})
 	}
 
-	if *c.File == "" {
+	if cfg.GetConfig().GetFile() == "" {
 		questions = append(questions, &survey.Question{
 			Name: "file",
 			Prompt: &survey.Input{
@@ -85,22 +83,10 @@ func (c *CollectArgsCommand) Execute() error {
 		return err
 	}
 
-	if *c.Host == "" {
-		*c.Host = answers.Host
-	}
-
-	if *c.Port == "" {
-		*c.Port = answers.Port
-	}
-
-	if *c.SpecFileName == "" {
-		*c.SpecFileName = answers.SpecFile
-	}
-
-	if *c.File == "" {
-		*c.File = answers.File
-	}
-
+	cfg.GetConfig().SetHost(answers.Host)
+	cfg.GetConfig().SetPort(answers.Port)
+	cfg.GetConfig().SetSpec(answers.SpecFile)
+	cfg.GetConfig().SetFile(answers.File)
 	fmt.Println("Arguments collected successfully")
 
 	return nil

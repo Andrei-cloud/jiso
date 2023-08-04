@@ -9,7 +9,7 @@ import (
 
 	"log"
 
-	"coreiso/internal/utils"
+	"common/utils"
 
 	"github.com/moov-io/iso8583"
 	connection "github.com/moov-io/iso8583-connection"
@@ -21,7 +21,7 @@ type Transaction struct {
 	Fields map[int]field.Field `json:"fields"`
 }
 
-func main() {
+func Aain_aa() {
 	// Define command line arguments
 	host := flag.String("host", "localhost", "Hostname to connect to")
 	port := flag.String("port", "9999", "Port to connect to")

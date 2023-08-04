@@ -2,20 +2,30 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
 
 	cmd "jiso/internal/command"
+	cfg "jiso/internal/config"
+	"jiso/internal/service"
 
 	"github.com/AlecAivazis/survey/v2"
 )
 
 type CLI struct {
 	commands map[string]cmd.Command
+	svc      *service.Service
 }
 
 func NewCLI() *CLI {
 	return &CLI{
 		commands: make(map[string]cmd.Command),
 	}
+}
+
+func (cli *CLI) setService(svc *service.Service) {
+	cli.svc = svc
 }
 
 func (cli *CLI) AddCommand(command cmd.Command) {
@@ -29,6 +39,16 @@ func (cli *CLI) Run() error {
 			return err
 		}
 	}
+	svc, err := service.NewService(
+		cfg.GetConfig().GetHost(),
+		cfg.GetConfig().GetPort(),
+		cfg.GetConfig().GetSpec(),
+	)
+	if err != nil {
+		return err
+	}
+
+	cli.setService(svc)
 
 	for {
 		var commandName string
@@ -36,7 +56,7 @@ func (cli *CLI) Run() error {
 			{
 				Name: "command",
 				Prompt: &survey.Input{
-					Message: "Enter command name:",
+					Message: "Enter command:",
 				},
 			},
 		}, &commandName)
@@ -45,12 +65,18 @@ func (cli *CLI) Run() error {
 		}
 
 		if commandName == "quit" {
+			cli.svc.Close()
 			fmt.Println("Exiting CLI tool")
 			return nil
 		}
 
 		if commandName == "help" {
 			cli.printHelp()
+			continue
+		}
+
+		if commandName == "clear" || commandName == "cls" {
+			cli.ClearTerminal()
 			continue
 		}
 
@@ -73,7 +99,7 @@ func (cli *CLI) prompt(questions []*survey.Question, response interface{}) error
 }
 
 func (cli *CLI) printHelp() {
-	fmt.Println("Available commands:")
+	fmt.Print("Available commands:\n\n")
 	maxNameLen := 0
 	for _, cmd := range cli.commands {
 		if len(cmd.Name()) > maxNameLen {
@@ -81,6 +107,24 @@ func (cli *CLI) printHelp() {
 		}
 	}
 	for _, cmd := range cli.commands {
-		fmt.Printf("%-*s  %s\n", maxNameLen, cmd.Name(), cmd.Synopsis())
+		fmt.Printf("\t%-*s  %s\n", maxNameLen, cmd.Name(), cmd.Synopsis())
+	}
+	fmt.Println()
+
+	fmt.Println("Type 'clear' or 'cls' to clear the terminal")
+	fmt.Println("Type 'help' to see this list again")
+	fmt.Println("Type 'quit' to exit the CLI tool")
+}
+
+func (cli *CLI) ClearTerminal() {
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/c", "cls")
+	} else {
+		cmd = exec.Command("clear")
+	}
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to clear terminal: %v\n", err)
 	}
 }
