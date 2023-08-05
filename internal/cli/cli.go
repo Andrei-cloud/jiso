@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sync"
+	"time"
 
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
@@ -12,18 +14,29 @@ import (
 	"jiso/internal/transactions"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/moov-io/iso8583"
 )
 
 type CLI struct {
 	commands map[string]cmd.Command
 	svc      *service.Service
 	tc       *transactions.TransactionCollection
+
+	// Background worker state
+	workers map[string]*workerState
+	mu      sync.Mutex
+}
+
+type workerState struct {
+	command  cmd.BgCommand
+	interval time.Duration
+	ticker   *time.Ticker
+	done     chan struct{}
 }
 
 func NewCLI() *CLI {
 	return &CLI{
 		commands: make(map[string]cmd.Command),
+		workers:  make(map[string]*workerState),
 	}
 }
 
@@ -63,6 +76,7 @@ func (cli *CLI) Run() error {
 	cli.AddCommand(&cmd.SendCommand{Tc: cli.tc, Svc: cli.svc})
 	cli.AddCommand(&cmd.ConnectCommand{Svc: cli.svc})
 	cli.AddCommand(&cmd.DisconnectCommand{Svc: cli.svc})
+	cli.AddCommand(&cmd.BackgroundCommand{Tc: cli.tc, Svc: cli.svc, Wrk: cli})
 
 	for {
 		var commandName string
@@ -78,32 +92,41 @@ func (cli *CLI) Run() error {
 			return err
 		}
 
-		if commandName == "quit" || commandName == "exit" {
+		switch commandName {
+		case "quit", "exit":
+			cli.stopAllWorkers()
 			cli.svc.Close()
 			fmt.Println("Exiting CLI tool")
 			return nil
-		}
-
-		if commandName == "help" || commandName == "h" || commandName == "?" {
+		case "help", "h", "?":
 			cli.printHelp()
-			continue
-		}
-
-		if commandName == "clear" || commandName == "cls" {
+		case "clear", "cls":
 			cli.ClearTerminal()
-			continue
-		}
+		case "status":
+			cli.printWorkerStatus()
+		case "stop-all":
+			cli.stopAllWorkers()
+		case "stop":
+			if len(cli.workers) == 0 {
+				fmt.Println("No background workers running")
+				break
+			}
+			err := cli.stopWorker()
+			if err != nil {
+				fmt.Printf("Error stopping worker: %s\n", err)
+			}
+		default:
+			command, ok := cli.commands[commandName]
+			if !ok {
+				fmt.Printf("Invalid command: %s\n", commandName)
+				continue
+			}
 
-		command, ok := cli.commands[commandName]
-		if !ok {
-			fmt.Printf("Invalid command: %s\n", commandName)
-			continue
-		}
-
-		fmt.Printf("%s: %s\n", command.Name(), command.Synopsis())
-		err = command.Execute()
-		if err != nil {
-			fmt.Printf("Error executing command: %s\n", err)
+			fmt.Printf("%s: %s\n", command.Name(), command.Synopsis())
+			err = command.Execute()
+			if err != nil {
+				fmt.Printf("Error executing command: %s\n", err)
+			}
 		}
 	}
 }
@@ -147,18 +170,13 @@ func (cli *CLI) printHelp() {
 	}
 	fmt.Println()
 
-	fmt.Println("Type 'clear' or 'cls' to clear the terminal")
-	fmt.Println("Type 'help' to see this list again")
-	fmt.Println("Type 'quit' to exit the CLI tool")
-}
+	fmt.Print(`Workers controll commands:
+Type 'status' to see the status of background workers
+Type 'stop-all' to stop all background workers
+Type 'stop' to stop a specific background worker
 
-func (cli *CLI) setService(svc *service.Service) {
-	cli.svc = svc
-}
-
-func (cli *CLI) getSpec() *iso8583.MessageSpec {
-	if cli.svc == nil {
-		return nil
-	}
-	return cli.svc.GetSpec()
+Other commands:
+Type 'clear' or 'cls' to clear the terminal
+Type 'help' to see this list again
+Type 'quit' to exit the CLI tool`)
 }

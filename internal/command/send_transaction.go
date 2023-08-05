@@ -13,8 +13,9 @@ import (
 )
 
 type SendCommand struct {
-	Tc  *transactions.TransactionCollection
-	Svc *service.Service
+	Tc    *transactions.TransactionCollection
+	Svc   *service.Service
+	start time.Time
 }
 
 func (c *SendCommand) Name() string {
@@ -57,12 +58,12 @@ func (c *SendCommand) Execute() error {
 	// Print ISO8583 message
 	iso8583.Describe(msg, os.Stdout, iso8583.DoNotFilterFields()...)
 
-	start := time.Now()
+	c.start = time.Now()
 	response, err := c.Svc.Send(msg)
 	if err != nil {
 		return err
 	}
-	elapsed := time.Since(start)
+	elapsed := time.Since(c.start)
 
 	// Print response
 	iso8583.Describe(response, os.Stdout, iso8583.DoNotFilterFields()...)
@@ -70,4 +71,27 @@ func (c *SendCommand) Execute() error {
 	// Print elapsed time
 	fmt.Printf("\nElapsed time: %s\n", elapsed.Round(time.Millisecond))
 	return nil
+}
+
+func (c *SendCommand) StartClock() {
+	c.start = time.Now()
+}
+
+func (c *SendCommand) ExecuteBackground(trxnName string) error {
+	msg, err := c.Tc.Compose(trxnName)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Svc.BackgroundSend(msg)
+	if err != nil {
+		return err
+	}
+
+	// check response
+
+	return nil
+}
+func (c *SendCommand) Duration() time.Duration {
+	return time.Since(c.start)
 }

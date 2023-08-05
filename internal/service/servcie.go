@@ -114,6 +114,22 @@ func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	return response, nil
 }
 
+func (s *Service) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error) {
+	if s.Connection == nil {
+		return nil, fmt.Errorf("connection is nil")
+	}
+	if s.Connection.Status() == connection.StatusOffline {
+		return nil, fmt.Errorf("connection is offline")
+	}
+
+	response, err := s.Connection.Send(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
 // Function to close connection
 func (s *Service) Close() error {
 	if s.Connection == nil {
