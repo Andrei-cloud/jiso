@@ -78,57 +78,7 @@ func (cli *CLI) Run() error {
 	cli.AddCommand(&cmd.DisconnectCommand{Svc: cli.svc})
 	cli.AddCommand(&cmd.BackgroundCommand{Tc: cli.tc, Svc: cli.svc, Wrk: cli})
 
-	for {
-		var commandName string
-		err := cli.prompt([]*survey.Question{
-			{
-				Name: "command",
-				Prompt: &survey.Input{
-					Message: "Enter command:",
-				},
-			},
-		}, &commandName)
-		if err != nil {
-			return err
-		}
-
-		switch commandName {
-		case "quit", "exit":
-			cli.stopAllWorkers()
-			cli.svc.Close()
-			fmt.Println("Exiting CLI tool")
-			return nil
-		case "help", "h", "?":
-			cli.printHelp()
-		case "clear", "cls":
-			cli.ClearTerminal()
-		case "status":
-			cli.printWorkerStatus()
-		case "stop-all":
-			cli.stopAllWorkers()
-		case "stop":
-			if len(cli.workers) == 0 {
-				fmt.Println("No background workers running")
-				break
-			}
-			err := cli.stopWorker()
-			if err != nil {
-				fmt.Printf("Error stopping worker: %s\n", err)
-			}
-		default:
-			command, ok := cli.commands[commandName]
-			if !ok {
-				fmt.Printf("Invalid command: %s\n", commandName)
-				continue
-			}
-
-			fmt.Printf("%s: %s\n", command.Name(), command.Synopsis())
-			err = command.Execute()
-			if err != nil {
-				fmt.Printf("Error executing command: %s\n", err)
-			}
-		}
-	}
+	return cli.runWithHistory()
 }
 
 func (cli *CLI) ClearTerminal() {

@@ -14,6 +14,7 @@ type BgCommand interface {
 	ExecuteBackground(string) error
 	StartClock()
 	Duration() time.Duration
+	Stats() int
 }
 
 type WorkerController interface {

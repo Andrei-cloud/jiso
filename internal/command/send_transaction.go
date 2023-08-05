@@ -5,6 +5,7 @@ import (
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -13,9 +14,10 @@ import (
 )
 
 type SendCommand struct {
-	Tc    *transactions.TransactionCollection
-	Svc   *service.Service
-	start time.Time
+	Tc     *transactions.TransactionCollection
+	Svc    *service.Service
+	start  time.Time
+	counts int
 }
 
 func (c *SendCommand) Name() string {
@@ -78,6 +80,11 @@ func (c *SendCommand) StartClock() {
 }
 
 func (c *SendCommand) ExecuteBackground(trxnName string) error {
+	if strings.Contains(trxnName, "#") {
+		parts := strings.Split(trxnName, "#")
+		trxnName = parts[0]
+	}
+
 	msg, err := c.Tc.Compose(trxnName)
 	if err != nil {
 		return err
@@ -88,9 +95,14 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		return err
 	}
 
+	c.counts++
 	// check response
 
 	return nil
+}
+
+func (c *SendCommand) Stats() int {
+	return c.counts
 }
 func (c *SendCommand) Duration() time.Duration {
 	return time.Since(c.start)
