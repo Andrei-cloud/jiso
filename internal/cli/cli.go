@@ -16,6 +16,8 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 )
 
+var Version string = "v0.1.1"
+
 type CLI struct {
 	commands map[string]cmd.Command
 	svc      *service.Service
@@ -127,6 +129,12 @@ Type 'stop' to stop a specific background worker
 
 Other commands:
 Type 'clear' or 'cls' to clear the terminal
-Type 'help' to see this list again
+Type 'help' to see this list agai
+Type 'version' to see the version of the CLI tool
 Type 'quit' to exit the CLI tool`)
+}
+
+func (cli *CLI) printVersion() {
+	fmt.Printf("JISO CLI (JSON ISO8583) tool version %s\n", Version)
+	fmt.Println("(c) 2023 Andrey Babikov <andrei.babikov@gmail.com>")
 }

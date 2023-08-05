@@ -39,6 +39,8 @@ func (cli *CLI) runWithHistory() error {
 			return nil
 		case "help", "h", "?":
 			cli.printHelp()
+		case "version", "v":
+			cli.printVersion()
 		case "clear", "cls":
 			cli.ClearTerminal()
 		case "status":

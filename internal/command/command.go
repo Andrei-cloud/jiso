@@ -15,6 +15,8 @@ type BgCommand interface {
 	StartClock()
 	Duration() time.Duration
 	Stats() int
+	MeanExecutionTime() time.Duration
+	StandardDeviation() time.Duration
 }
 
 type WorkerController interface {

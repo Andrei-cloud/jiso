@@ -125,7 +125,7 @@ func (cli *CLI) printWorkerStatus() {
 	}
 
 	// Define the table headers
-	headers := []string{"Name", "Runs", "Interval", "Duration"}
+	headers := []string{"Name", "Runs", "Interval", "Duration", "Mean", "StdDev"}
 
 	// Define the table rows
 	var rows [][]string
@@ -135,6 +135,8 @@ func (cli *CLI) printWorkerStatus() {
 			strconv.Itoa(worker.command.Stats()),
 			worker.interval.String(),
 			worker.command.Duration().String(),
+			worker.command.MeanExecutionTime().String(),
+			worker.command.StandardDeviation().String(),
 		}
 		rows = append(rows, row)
 	}

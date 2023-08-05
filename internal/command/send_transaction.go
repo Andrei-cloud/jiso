@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -14,10 +15,12 @@ import (
 )
 
 type SendCommand struct {
-	Tc     *transactions.TransactionCollection
-	Svc    *service.Service
-	start  time.Time
-	counts int
+	Tc            *transactions.TransactionCollection
+	Svc           *service.Service
+	start         time.Time
+	counts        int
+	executionTime time.Duration
+	variance      time.Duration
 }
 
 func (c *SendCommand) Name() string {
@@ -90,13 +93,17 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		return err
 	}
 
+	executionStart := time.Now()
 	_, err = c.Svc.BackgroundSend(msg)
 	if err != nil {
 		return err
 	}
-
+	t := time.Since(executionStart)
+	c.executionTime += t
 	c.counts++
-	// check response
+
+	diff := t - c.MeanExecutionTime()
+	c.variance += diff * diff
 
 	return nil
 }
@@ -106,4 +113,13 @@ func (c *SendCommand) Stats() int {
 }
 func (c *SendCommand) Duration() time.Duration {
 	return time.Since(c.start)
+}
+func (c *SendCommand) MeanExecutionTime() time.Duration {
+	return c.executionTime / time.Duration(c.counts)
+}
+
+func (c *SendCommand) StandardDeviation() time.Duration {
+	locVariance := c.variance
+	locVariance /= time.Duration(c.counts)
+	return time.Duration(math.Sqrt(float64(locVariance)))
 }
