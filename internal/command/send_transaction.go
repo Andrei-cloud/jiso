@@ -1,6 +1,7 @@
 package command
 
 import (
+	"flag"
 	"fmt"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
@@ -75,6 +76,24 @@ func (c *SendCommand) Execute() error {
 
 	// Print elapsed time
 	fmt.Printf("\nElapsed time: %s\n", elapsed.Round(time.Millisecond))
+	return nil
+}
+
+func (c *SendCommand) Parse(args []string) error {
+	fs := flag.NewFlagSet("send", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s send [OPTIONS]\n", os.Args[0])
+		fmt.Fprintln(os.Stderr, "Options:")
+		fs.PrintDefaults()
+	}
+
+	err := fs.Parse(args)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Parse any additional command-line arguments here
+
 	return nil
 }
 

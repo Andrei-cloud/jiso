@@ -2,6 +2,8 @@ package config
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"sync"
 )
 
@@ -29,6 +31,13 @@ func (c *Config) Parse() error {
 	port := flag.String("port", "", "Port to connect to")
 	specFileName := flag.String("spec-file", "", "path to customized specification file in JSON format")
 	file := flag.String("file", "", "path to transaction file in JSON format")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: jiso [OPTIONS]\n")
+		fmt.Fprintln(os.Stderr, "Options:")
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	c.host = *host

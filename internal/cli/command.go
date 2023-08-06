@@ -57,24 +57,16 @@ func (cli *CLI) runWithHistory() error {
 				fmt.Printf("Error stopping worker: %s\n", err)
 			}
 		default:
-			// cmdParts := strings.Fields(cmd)
-			// cmdName := cmdParts[0]
-			// args := cmdParts[1:]
+			parts := strings.Fields(command)
+			cmdName := parts[0]
 
-			command, ok := cli.commands[command]
+			cmd, ok := cli.commands[cmdName]
 			if !ok {
-				fmt.Printf("Invalid command: %s\n", command)
+				fmt.Printf("Invalid command: %s\n", cmdName)
 				continue
 			}
 
-			// err := command.Parse(args)
-			// if err != nil {
-			//     fmt.Printf("Error parsing command arguments: %s\n", err)
-			//     continue
-			// }
-
-			fmt.Printf("%s: %s\n", command.Name(), command.Synopsis())
-			err := command.Execute()
+			err = cmd.Execute()
 			if err != nil {
 				fmt.Printf("Error executing command: %s\n", err)
 			}
