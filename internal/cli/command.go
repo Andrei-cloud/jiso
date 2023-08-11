@@ -43,8 +43,8 @@ func (cli *CLI) runWithHistory() error {
 			cli.printVersion()
 		case "clear", "cls":
 			cli.ClearTerminal()
-		case "status":
-			cli.printWorkerStatus()
+		case "stats", "status":
+			cli.printWorkerStats()
 		case "stop-all":
 			cli.stopAllWorkers()
 		case "stop":

@@ -38,7 +38,11 @@ func (cli *CLI) StartWorker(name string, command cmd.BgCommand, interval time.Du
 			}
 			index++
 		}
-		fmt.Printf("Worker with name '%s' already exists, new instance will be named '%s'\n", name[:len(name)-2], name)
+		fmt.Printf(
+			"Worker with name '%s' already exists, new instance will be named '%s'\n",
+			name[:len(name)-2],
+			name,
+		)
 	}
 
 	ticker := time.NewTicker(interval)
@@ -115,7 +119,7 @@ func (cli *CLI) stopAllWorkers() {
 	}
 }
 
-func (cli *CLI) printWorkerStatus() {
+func (cli *CLI) printWorkerStats() {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 
@@ -138,6 +142,11 @@ func (cli *CLI) printWorkerStatus() {
 			worker.command.MeanExecutionTime().String(),
 			worker.command.StandardDeviation().String(),
 		}
+		for rc, count := range worker.command.ResponseCodes() {
+			headers = append(headers, rc)
+			row = append(row, strconv.FormatUint(count, 10))
+		}
+
 		rows = append(rows, row)
 	}
 

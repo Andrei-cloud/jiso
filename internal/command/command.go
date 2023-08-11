@@ -17,6 +17,7 @@ type BgCommand interface {
 	Stats() int
 	MeanExecutionTime() time.Duration
 	StandardDeviation() time.Duration
+	ResponseCodes() map[string]uint64
 }
 
 type WorkerController interface {

@@ -4,6 +4,7 @@ import (
 	"common/utils"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/moov-io/iso8583"
 	connection "github.com/moov-io/iso8583-connection"
@@ -40,7 +41,13 @@ func NewService(host, port, specFileName string) (*Service, error) {
 func (s *Service) Connect() error {
 	if s.Connection == nil {
 		var err error
-		s.Connection, err = connection.New(s.Address, s.MessageSpec, utils.ReadMessageLength, utils.WriteMessageLength)
+		s.Connection, err = connection.New(
+			s.Address,
+			s.MessageSpec,
+			utils.ReadMessageLength,
+			utils.WriteMessageLength,
+			connection.ConnectTimeout(4*time.Second),
+		)
 		if err != nil {
 			return err
 		}

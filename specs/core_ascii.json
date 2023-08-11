@@ -10,7 +10,7 @@
 		},
 		"1": {
 			"type": "Bitmap",
-			"length": 16,
+			"length": 8,
 			"description": "Bitmap",
 			"enc": "HexToASCII",
 			"prefix": "Hex.Fixed"

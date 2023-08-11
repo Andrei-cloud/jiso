@@ -21,6 +21,7 @@ type SendCommand struct {
 	counts        int
 	executionTime time.Duration
 	variance      time.Duration
+	respCodes     map[string]uint64
 }
 
 func (c *SendCommand) Name() string {
@@ -83,6 +84,10 @@ func (c *SendCommand) StartClock() {
 }
 
 func (c *SendCommand) ExecuteBackground(trxnName string) error {
+	if c.respCodes == nil {
+		c.respCodes = make(map[string]uint64)
+	}
+
 	if strings.Contains(trxnName, "#") {
 		parts := strings.Split(trxnName, "#")
 		trxnName = parts[0]
@@ -94,13 +99,21 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	}
 
 	executionStart := time.Now()
-	_, err = c.Svc.BackgroundSend(msg)
+	resp, err := c.Svc.BackgroundSend(msg)
 	if err != nil {
 		return err
 	}
 	t := time.Since(executionStart)
 	c.executionTime += t
 	c.counts++
+
+	rc := resp.GetField(39)
+	rc_str, err := rc.String()
+	if err != nil {
+		return err
+	}
+
+	c.respCodes[rc_str]++
 
 	diff := t - c.MeanExecutionTime()
 	c.variance += diff * diff
@@ -122,4 +135,8 @@ func (c *SendCommand) StandardDeviation() time.Duration {
 	locVariance := c.variance
 	locVariance /= time.Duration(c.counts)
 	return time.Duration(math.Sqrt(float64(locVariance)))
+}
+
+func (c *SendCommand) ResponseCodes() map[string]uint64 {
+	return c.respCodes
 }
