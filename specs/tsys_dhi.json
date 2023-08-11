@@ -28,27 +28,27 @@
 			"description": "Processing Code",
 			"prefix": "ASCII.Fixed",
 			"tag": {
-				"sort": "sort.StringsByInt"
+				"sort": "StringsByInt"
 			},
-			"subfields":{
+			"subfields": {
 				"1": {
 					"type": "String",
 					"length": 2,
-					"description": "Transaction Code",
+					"description": "Transaction Type",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
 				},
 				"2": {
 					"type": "String",
 					"length": 2,
-					"description": "From Account Type",
+					"description": "From Account",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
 				},
-				"3cd": {
+				"3": {
 					"type": "String",
 					"length": 2,
-					"description": "To Account Type",
+					"description": "To Account",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
 				}
