@@ -10,7 +10,7 @@
 		},
 		"1": {
 			"type": "Bitmap",
-			"length": 16,
+			"length": 8,
 			"description": "Bitmap",
 			"enc": "HexToASCII",
 			"prefix": "Hex.Fixed"
@@ -94,6 +94,13 @@
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
+		"8": {
+			"type": "String",
+			"length": 8,
+			"description": "Billing Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
 		"10": {
 			"type": "String",
 			"length": 8,
@@ -136,6 +143,20 @@
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
+		"16": {
+			"type": "String",
+			"length": 4,
+			"description": "Conversion Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"17": {
+			"type": "String",
+			"length": 4,
+			"description": "Capture Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
 		"18": {
 			"type": "String",
 			"length": 4,
@@ -159,7 +180,7 @@
 		},
 		"22": {
 			"type": "String",
-			"length": 3,
+			"length": 4,
 			"description": "Point of Sale (POS) Entry Mode",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
@@ -174,7 +195,7 @@
 		"24": {
 			"type": "String",
 			"length": 3,
-			"description": "Function Code",
+			"description": "Network International Identifier",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
@@ -185,10 +206,31 @@
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
+		"26": {
+			"type": "String",
+			"length": 1,
+			"description": "Point of Service Condition Code",
+			"enc": "BCD",
+			"prefix": "BCD.Fixed"
+		},
 		"28": {
 			"type": "String",
 			"length": 9,
 			"description": "Transaction Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"29": {
+			"type": "String",
+			"length": 9,
+			"description": "Settlement Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"30": {
+			"type": "String",
+			"length": 9,
+			"description": "Original Transaction Amount",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
@@ -203,6 +245,13 @@
 			"type": "String",
 			"length": 11,
 			"description": "Forwarding Institution Identification Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"35": {
+			"type": "String",
+			"length": 37,
+			"description": "Track 2 data",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		},
@@ -236,7 +285,7 @@
 		},
 		"41": {
 			"type": "String",
-			"length": 16,
+			"length": 8,
 			"description": "Card Acceptor Terminal Identification",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
@@ -257,8 +306,8 @@
 		},
 		"44": {
 			"type": "String",
-			"length": 99,
-			"description": "Additional Data",
+			"length": 25,
+			"description": "Additional Response Data",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		},
@@ -271,7 +320,7 @@
 		},
 		"48": {
 			"type": "String",
-			"length": 999,
+			"length": 255,
 			"description": "Additional data (Private)",
 			"enc": "ASCII",
 			"prefix": "ASCII.LLL"
@@ -320,24 +369,31 @@
 		},
 		"55": {
 			"type": "String",
-			"length": 999,
+			"length": 255,
 			"description": "ICC Data – EMV Having Multiple Tags",
 			"enc": "ASCII",
 			"prefix": "ASCII.LLL"
 		},
 		"56": {
 			"type": "String",
-			"length": 999,
-			"description": "Reserved (ISO)",
+			"length": 36,
+			"description": "Original Data",
 			"enc": "ASCII",
-			"prefix": "ASCII.LLL"
+			"prefix": "ASCII.Fixed"
 		},
 		"60": {
 			"type": "String",
-			"length": 999,
-			"description": "Reserved (National)",
+			"length": 14,
+			"description": "Additional POS Information",
 			"enc": "ASCII",
-			"prefix": "ASCII.LLL"
+			"prefix": "ASCII.LL"
+		},
+		"61": {
+			"type": "String",
+			"length": 36,
+			"description": "Other Amounts",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
 		},
 		"63": {
 			"type": "String",
@@ -345,6 +401,20 @@
 			"description": "Reserved (Private)",
 			"enc": "ASCII",
 			"prefix": "ASCII.LLL"
+		},
+		"64": {
+			"type": "String",
+			"length": 8,
+			"description": "MAC",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"66": {
+			"type": "String",
+			"length": 1,
+			"description": "Settlement Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
 		},
 		"70": {
 			"type": "Numeric",
@@ -357,10 +427,70 @@
 				"pad": "0"
 			}
 		},
-		"90": {
+		"73": {
 			"type": "String",
-			"length": 42,
-			"description": "Original Data Elements",
+			"length": 6,
+			"description": "Action Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"74": {
+			"type": "String",
+			"length": 10,
+			"description": "Number Credits",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"90": {
+			"type": "Composite",
+			"length": 6,
+			"description": "Original Data",
+			"prefix": "ASCII.Fixed",
+			"tag": {
+				"sort": "StringsByInt"
+			},
+			"subfields": {
+				"1": {
+					"type": "String",
+					"length": 4,
+					"description": "Original message type",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"2": {
+					"type": "String",
+					"length": 5,
+					"description": "Original trace number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"3": {
+					"type": "String",
+					"length": 10,
+					"description": "Original transaction date/time",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"4": {
+					"type": "String",
+					"length": 20,
+					"description": "Original acquirer ID \u0026 forwarding institution ID",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		},
+		"91": {
+			"type": "String",
+			"length": 1,
+			"description": "File Update Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"94": {
+			"type": "String",
+			"length": 12,
+			"description": "Service indicator",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
@@ -370,6 +500,27 @@
 			"description": "Replacement Amounts",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
+		},
+		"96": {
+			"type": "String",
+			"length": 16,
+			"description": "Unique Reference Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"97": {
+			"type": "String",
+			"length": 16,
+			"description": "Amount Net Settlement",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"101": {
+			"type": "String",
+			"length": 17,
+			"description": "File Name",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
 		},
 		"102": {
 			"type": "String",
@@ -387,29 +538,36 @@
 		},
 		"104": {
 			"type": "String",
-			"length": 28,
+			"length": 255,
 			"description": "Transaction Specific Data",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		},
 		"118": {
 			"type": "String",
-			"length": 28,
+			"length": 99,
 			"description": "Transaction Specific Data",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		},
 		"120": {
 			"type": "String",
-			"length": 28,
+			"length": 999,
 			"description": "Transaction Specific Data",
 			"enc": "ASCII",
-			"prefix": "ASCII.LL"
+			"prefix": "ASCII.LLL"
 		},
 		"122": {
 			"type": "String",
-			"length": 28,
-			"description": "Transaction Specific Data",
+			"length": 25,
+			"description": "Remaining Open-To-Use",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"126": {
+			"type": "String",
+			"length": 25,
+			"description": "Private Use Fields",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		}
