@@ -4,15 +4,17 @@ import (
 	"common/utils"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 
 	"github.com/moov-io/iso8583"
 )
 
 type Transaction struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Fields      json.RawMessage `json:"fields"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Fields      json.RawMessage  `json:"fields"`
+	Dataset     []map[int]string `json:"dataset"`
 }
 
 type TransactionCollection struct {
@@ -20,7 +22,10 @@ type TransactionCollection struct {
 	transactions []Transaction
 }
 
-func NewTransactionCollection(filename string, specs *iso8583.MessageSpec) (*TransactionCollection, error) {
+func NewTransactionCollection(
+	filename string,
+	specs *iso8583.MessageSpec,
+) (*TransactionCollection, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -94,6 +99,16 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 							msg.Field(i, utils.GetCounter().GetStan())
 						case 37:
 							msg.Field(i, utils.GetRRNInstance().GetRRN())
+						}
+					} else if v == "random" {
+						if len(t.Dataset) > 0 {
+							// Pick a random value from the preloaded dataset
+							randIndex := rand.Intn(len(t.Dataset))
+							randomValues := t.Dataset[randIndex]
+
+							for i, v := range randomValues {
+								msg.Field(i, v)
+							}
 						}
 					}
 				}
