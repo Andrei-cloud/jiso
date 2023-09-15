@@ -1,0 +1,619 @@
+{
+	"name": "ISO8583_DHI",
+	"fields": {
+		"0": {
+			"type": "String",
+			"length": 4,
+			"description": "Message Type Indicator",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"1": {
+			"type": "Bitmap",
+			"length": 8,
+			"description": "Bitmap",
+			"enc": "HexToASCII",
+			"prefix": "Hex.Fixed"
+		},
+		"2": {
+			"type": "String",
+			"length": 19,
+			"description": "Primary Account Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"3": {
+			"type": "Composite",
+			"length": 6,
+			"description": "Processing Code",
+			"prefix": "ASCII.Fixed",
+			"tag": {
+				"sort": "StringsByInt"
+			},
+			"subfields": {
+				"1": {
+					"type": "String",
+					"length": 2,
+					"description": "Transaction Type",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"2": {
+					"type": "String",
+					"length": 2,
+					"description": "From Account",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"3": {
+					"type": "String",
+					"length": 2,
+					"description": "To Account",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		},
+		"4": {
+			"type": "String",
+			"length": 12,
+			"description": "Transaction Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed",
+			"padding": {
+				"type": "Left",
+				"pad": "0"
+			}
+		},
+		"5": {
+			"type": "String",
+			"length": 12,
+			"description": "Settlement Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed",
+			"padding": {
+				"type": "Left",
+				"pad": "0"
+			}
+		},
+		"6": {
+			"type": "String",
+			"length": 12,
+			"description": "Billing Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed",
+			"padding": {
+				"type": "Left",
+				"pad": "0"
+			}
+		},
+		"7": {
+			"type": "String",
+			"length": 10,
+			"description": "Transmission Date \u0026 Time",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"8": {
+			"type": "String",
+			"length": 8,
+			"description": "Billing Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"10": {
+			"type": "String",
+			"length": 8,
+			"description": "Cardholder Billing Conversion Rate",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"11": {
+			"type": "String",
+			"length": 6,
+			"description": "Systems Trace Audit Number (STAN)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"12": {
+			"type": "String",
+			"length": 6,
+			"description": "Local Transaction Time",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"13": {
+			"type": "String",
+			"length": 4,
+			"description": "Local Transaction Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"14": {
+			"type": "String",
+			"length": 4,
+			"description": "Expiration Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"15": {
+			"type": "String",
+			"length": 4,
+			"description": "Settlement Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"16": {
+			"type": "String",
+			"length": 4,
+			"description": "Conversion Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"17": {
+			"type": "String",
+			"length": 4,
+			"description": "Capture Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"18": {
+			"type": "String",
+			"length": 4,
+			"description": "Merchant Type",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"19": {
+			"type": "String",
+			"length": 3,
+			"description": "Acquiring Institution Country Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"21": {
+			"type": "String",
+			"length": 3,
+			"description": "Forwarding Institution Country Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"22": {
+			"type": "String",
+			"length": 4,
+			"description": "Point of Sale (POS) Entry Mode",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"23": {
+			"type": "String",
+			"length": 3,
+			"description": "Card Sequence Number (CSN)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"24": {
+			"type": "String",
+			"length": 3,
+			"description": "Network International Identifier",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"25": {
+			"type": "String",
+			"length": 2,
+			"description": "Point of Service Condition Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"26": {
+			"type": "String",
+			"length": 1,
+			"description": "Point of Service Condition Code",
+			"enc": "BCD",
+			"prefix": "BCD.Fixed"
+		},
+		"28": {
+			"type": "String",
+			"length": 9,
+			"description": "Transaction Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"29": {
+			"type": "String",
+			"length": 9,
+			"description": "Settlement Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"30": {
+			"type": "String",
+			"length": 9,
+			"description": "Original Transaction Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"32": {
+			"type": "String",
+			"length": 11,
+			"description": "Acquiring Institution Identification Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"33": {
+			"type": "String",
+			"length": 11,
+			"description": "Forwarding Institution Identification Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"35": {
+			"type": "String",
+			"length": 37,
+			"description": "Track 2 data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"37": {
+			"type": "String",
+			"length": 12,
+			"description": "Retrieval Reference Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"38": {
+			"type": "String",
+			"length": 6,
+			"description": "Authorization Identification Response",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"39": {
+			"type": "String",
+			"length": 2,
+			"description": "Response Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"40": {
+			"type": "String",
+			"length": 3,
+			"description": "Service Restriction Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"41": {
+			"type": "String",
+			"length": 8,
+			"description": "Card Acceptor Terminal Identification",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"42": {
+			"type": "String",
+			"length": 15,
+			"description": "Card Acceptor Identification Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"43": {
+			"type": "String",
+			"length": 40,
+			"description": "Card Acceptor Name/Location",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"44": {
+			"type": "String",
+			"length": 25,
+			"description": "Additional Response Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"45": {
+			"type": "String",
+			"length": 76,
+			"description": "Track 1 Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"48": {
+			"type": "String",
+			"length": 255,
+			"description": "Additional data (Private)",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
+		},
+		"49": {
+			"type": "String",
+			"length": 3,
+			"description": "Transaction Currency Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"50": {
+			"type": "String",
+			"length": 3,
+			"description": "Settlement Currency Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"51": {
+			"type": "String",
+			"length": 3,
+			"description": "Cardholder Billing Currency Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"52": {
+			"type": "String",
+			"length": 8,
+			"description": "PIN Data",
+			"enc": "HexToASCII",
+			"prefix": "Hex.Fixed"
+		},
+		"53": {
+			"type": "String",
+			"length": 16,
+			"description": "Security Related Control Information",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"54": {
+			"type": "String",
+			"length": 120,
+			"description": "Additional Amounts",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
+		},
+		"55": {
+			"type": "String",
+			"length": 255,
+			"description": "ICC Data – EMV Having Multiple Tags",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
+		},
+		"56": {
+			"type": "String",
+			"length": 36,
+			"description": "Original Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"60": {
+			"type": "String",
+			"length": 14,
+			"description": "Additional POS Information",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"61": {
+			"type": "String",
+			"length": 36,
+			"description": "Other Amounts",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"63": {
+			"type": "String",
+			"length": 999,
+			"description": "Reserved (Private)",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
+		},
+		"64": {
+			"type": "String",
+			"length": 8,
+			"description": "MAC",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"66": {
+			"type": "String",
+			"length": 1,
+			"description": "Settlement Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"70": {
+			"type": "Numeric",
+			"length": 3,
+			"description": "Network Management Information Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed",
+			"padding": {
+				"type": "Left",
+				"pad": "0"
+			}
+		},
+		"73": {
+			"type": "String",
+			"length": 6,
+			"description": "Action Date",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"74": {
+			"type": "String",
+			"length": 10,
+			"description": "Number Credits",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"90": {
+			"type": "Composite",
+			"length": 6,
+			"description": "Original Data",
+			"prefix": "ASCII.Fixed",
+			"tag": {
+				"sort": "StringsByInt"
+			},
+			"subfields": {
+				"1": {
+					"type": "String",
+					"length": 4,
+					"description": "Original message type",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"2": {
+					"type": "String",
+					"length": 5,
+					"description": "Original trace number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"3": {
+					"type": "String",
+					"length": 10,
+					"description": "Original transaction date/time",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"4": {
+					"type": "String",
+					"length": 20,
+					"description": "Original acquirer ID \u0026 forwarding institution ID",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		},
+		"91": {
+			"type": "String",
+			"length": 1,
+			"description": "File Update Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"94": {
+			"type": "String",
+			"length": 12,
+			"description": "Service indicator",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"95": {
+			"type": "String",
+			"length": 42,
+			"description": "Replacement Amounts",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"96": {
+			"type": "String",
+			"length": 16,
+			"description": "Unique Reference Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"97": {
+			"type": "String",
+			"length": 16,
+			"description": "Amount Net Settlement",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"101": {
+			"type": "String",
+			"length": 17,
+			"description": "File Name",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"102": {
+			"type": "String",
+			"length": 28,
+			"description": "From Account Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"103": {
+			"type": "String",
+			"length": 28,
+			"description": "To Account Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"104": {
+			"type": "String",
+			"length": 255,
+			"description": "Transaction Specific Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"118": {
+			"type": "String",
+			"length": 99,
+			"description": "Transaction Specific Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"120": {
+			"type": "String",
+			"length": 999,
+			"description": "Transaction Specific Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
+		},
+		"122": {
+			"type": "String",
+			"length": 25,
+			"description": "Remaining Open-To-Use",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"126": {
+			"type": "Composite",
+			"length": 255,
+			"description": "Private use field",
+			"prefix": "ASCII.LL",
+			"bitmap": {
+					"type": "Bitmap",
+					"length": 8,
+					"description": "Bitmap",
+					"enc": "HexToASCII",
+					"prefix": "Hex.Fixed",
+					"disableautoexpand": true
+			},
+			"subfields": {
+				"6": {
+					"type": "String",
+					"length": 2,
+					"description": "Cardholder certificate Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"7": {
+					"type": "String",
+					"length": 2,
+					"description": "Merchant certificate Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"8": {
+					"type": "String",
+					"length": 2,
+					"description": "Transaction ID",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"9": {
+					"type": "String",
+					"length": 20,
+					"description": "CAVV",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"10": {
+					"type": "String",
+					"length": 6,
+					"description": "CVV2",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		}
+	}
+}
