@@ -565,11 +565,55 @@
 			"prefix": "ASCII.LL"
 		},
 		"126": {
-			"type": "String",
-			"length": 25,
-			"description": "Private Use Fields",
-			"enc": "ASCII",
-			"prefix": "ASCII.LL"
+			"type": "Composite",
+			"length": 255,
+			"description": "Private use field",
+			"prefix": "ASCII.LL",
+			"bitmap": {
+					"type": "Bitmap",
+					"length": 8,
+					"description": "Bitmap",
+					"enc": "HexToASCII",
+					"prefix": "Hex.Fixed",
+					"disableautoexpand": true
+			},
+			"subfields": {
+				"6": {
+					"type": "String",
+					"length": 2,
+					"description": "Cardholder certificate Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"7": {
+					"type": "String",
+					"length": 2,
+					"description": "Merchant certificate Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"8": {
+					"type": "String",
+					"length": 2,
+					"description": "Transaction ID",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"9": {
+					"type": "String",
+					"length": 20,
+					"description": "CAVV",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"10": {
+					"type": "String",
+					"length": 6,
+					"description": "CVV2",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
 		}
 	}
 }

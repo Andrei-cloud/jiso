@@ -2,12 +2,13 @@ package command
 
 import (
 	"fmt"
-	"jiso/internal/service"
-	"jiso/internal/transactions"
 	"math"
 	"os"
 	"strings"
 	"time"
+
+	"jiso/internal/service"
+	"jiso/internal/transactions"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/moov-io/iso8583"
@@ -61,8 +62,19 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
+	rawMsg, err := msg.Pack()
+	if err != nil {
+		return err
+	}
+
+	rebuioldMsg := iso8583.NewMessage(msg.GetSpec())
+	err = rebuioldMsg.Unpack(rawMsg)
+	if err != nil {
+		return err
+	}
+
 	// Print ISO8583 message
-	iso8583.Describe(msg, os.Stdout, iso8583.DoNotFilterFields()...)
+	iso8583.Describe(rebuioldMsg, os.Stdout, iso8583.DoNotFilterFields()...)
 
 	c.start = time.Now()
 	response, err := c.Svc.Send(msg)
@@ -124,9 +136,11 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 func (c *SendCommand) Stats() int {
 	return c.counts
 }
+
 func (c *SendCommand) Duration() time.Duration {
 	return time.Since(c.start)
 }
+
 func (c *SendCommand) MeanExecutionTime() time.Duration {
 	return c.executionTime / time.Duration(c.counts)
 }

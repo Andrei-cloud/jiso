@@ -6,6 +6,10 @@ import (
 	"testing"
 
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/encoding"
+	"github.com/moov-io/iso8583/field"
+	"github.com/moov-io/iso8583/prefix"
+	"github.com/moov-io/iso8583/specs"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -110,7 +114,6 @@ func (suite *TransactionCollectionSuite) TestCompose() {
 	value, err = msg.GetField(37).String()
 	suite.NoError(err)
 	suite.NotEmpty(value)
-
 }
 
 func (suite *TransactionCollectionSuite) TestListFormatted() {
@@ -118,6 +121,226 @@ func (suite *TransactionCollectionSuite) TestListFormatted() {
 	suite.Len(formatted, 2)
 	suite.Contains(formatted, "test1 - Test transaction 1")
 	suite.Contains(formatted, "test2 - Test transaction 2")
+}
+
+func (suite *TransactionCollectionSuite) TestCompositeField() {
+	compositeTestSpecWithSizedBitmap := &field.Spec{
+		Length:      30,
+		Description: "Test Spec",
+		Pref:        prefix.ASCII.LL,
+		Bitmap: field.NewBitmap(&field.Spec{
+			Length:            8,
+			Description:       "Bitmap",
+			Enc:               encoding.BytesToASCIIHex,
+			Pref:              prefix.Hex.Fixed,
+			DisableAutoExpand: true,
+		}),
+		Subfields: map[string]field.Field{
+			"1": field.NewString(&field.Spec{
+				Length:      2,
+				Description: "String Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.LL,
+			}),
+			"2": field.NewString(&field.Spec{
+				Length:      2,
+				Description: "String Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.LL,
+			}),
+			"3": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"4": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"5": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"6": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"7": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"8": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"9": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"10": field.NewString(&field.Spec{
+				Length:      6,
+				Description: "Numeric Field",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+		},
+	}
+
+	data := struct {
+		F1  *field.String
+		F2  *field.String
+		F3  *field.String
+		F4  *field.String
+		F5  *field.String
+		F6  *field.String
+		F7  *field.String
+		F8  *field.String
+		F9  *field.String
+		F10 *field.String
+	}{
+		F10: field.NewStringValue("11 456"),
+	}
+
+	composite := field.NewComposite(compositeTestSpecWithSizedBitmap)
+	err := composite.Marshal(&data)
+	suite.NoError(err)
+
+	packed, err := composite.Pack()
+	suite.NoError(err)
+	suite.Equal("22004000000000000011 456", string(packed))
+}
+
+func (suite *TransactionCollectionSuite) TestSpecWithCompositeField() {
+	specJSON := []byte(`{
+		"name": "ISO8583_DHI",
+		"fields": {
+			"1": {
+				"type": "Composite",
+				"length": 255,
+				"description": "Private use field",
+				"prefix": "ASCII.LL",
+				"bitmap": {
+						"type": "Bitmap",
+						"length": 8,
+						"description": "Bitmap",
+						"enc": "HexToASCII",
+						"prefix": "Hex.Fixed",
+						"disableautoexpand": true
+				},
+				"subfields": {
+					"1": {
+						"type": "String",
+						"length": 2,
+						"description": "Cardholder certificate Serial Number",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"2": {
+						"type": "String",
+						"length": 2,
+						"description": "Merchant certificate Serial Number",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"3": {
+						"type": "String",
+						"length": 2,
+						"description": "Transaction ID",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"4": {
+						"type": "String",
+						"length": 20,
+						"description": "CAVV",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"5": {
+						"type": "String",
+						"length": 20,
+						"description": "CAVV",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"6": {
+						"type": "String",
+						"length": 2,
+						"description": "Cardholder certificate Serial Number",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"7": {
+						"type": "String",
+						"length": 2,
+						"description": "Merchant certificate Serial Number",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"8": {
+						"type": "String",
+						"length": 2,
+						"description": "Transaction ID",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"9": {
+						"type": "String",
+						"length": 20,
+						"description": "CAVV",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					},
+					"10": {
+						"type": "String",
+						"length": 6,
+						"description": "CVV2",
+						"enc": "ASCII",
+						"prefix": "ASCII.Fixed"
+					}
+				}
+			}
+		}
+	}`)
+
+	spec, err := specs.Builder.ImportJSON(specJSON)
+	suite.NoError(err)
+
+	data := struct {
+		F1  *field.String
+		F2  *field.String
+		F3  *field.String
+		F4  *field.String
+		F5  *field.String
+		F6  *field.String
+		F7  *field.String
+		F8  *field.String
+		F9  *field.String
+		F10 *field.String
+	}{
+		F10: field.NewStringValue("11 456"),
+	}
+
+	compositeRestored := field.NewComposite(spec.Fields[1].Spec())
+	err = compositeRestored.Marshal(&data)
+	suite.NoError(err)
+
+	packed, err := compositeRestored.Pack()
+	suite.NoError(err)
+	suite.Equal("22004000000000000011 456", string(packed))
 }
 
 func TestTransactionCollectionSuite(t *testing.T) {
