@@ -23,15 +23,11 @@
 			"prefix": "ASCII.LL"
 		},
 		"3": {
-			"type": "Numeric",
+			"type": "String",
 			"length": 6,
 			"description": "Processing Code",
 			"enc": "ASCII",
-			"prefix": "ASCII.Fixed",
-			"padding": {
-				"type": "Left",
-				"pad": "0"
-			}
+			"prefix": "ASCII.Fixed"
 		},
 		"4": {
 			"type": "String",
