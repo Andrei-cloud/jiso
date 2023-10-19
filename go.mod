@@ -27,4 +27,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/moov-io/iso8583 => /Users/andrei/godev/iso8583
+replace github.com/moov-io/iso8583 => /home/andy/dev/iso8583

@@ -1,9 +1,9 @@
 package service
 
 import (
-	"common/utils"
 	"encoding/hex"
 	"fmt"
+	"jiso/internal/utils"
 	"time"
 
 	"github.com/moov-io/iso8583"
@@ -38,14 +38,21 @@ func NewService(host, port, specFileName string) (*Service, error) {
 }
 
 // Function to establish connection
-func (s *Service) Connect() error {
+func (s *Service) Connect(naps bool) error {
 	if s.Connection == nil {
 		var err error
+		readFunc := utils.ReadMessageLength
+		writeFunc := utils.WriteMessageLength
+		if naps {
+			readFunc = utils.NapsReadLengthWrapper(readFunc)
+			writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
+		}
+
 		s.Connection, err = connection.New(
 			s.Address,
 			s.MessageSpec,
-			utils.ReadMessageLength,
-			utils.WriteMessageLength,
+			readFunc,
+			writeFunc,
 			connection.ConnectTimeout(4*time.Second),
 		)
 		if err != nil {

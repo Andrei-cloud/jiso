@@ -1,5 +1,5 @@
 {
-	"name": "ISO8583_CoreASCII",
+	"name": "ISO8583_NAPS",
 	"fields": {
 		"0": {
 			"type": "String",
@@ -302,7 +302,7 @@
 		},
 		"41": {
 			"type": "String",
-			"length": 8,
+			"length": 16,
 			"description": "Card Acceptor Terminal Identification",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
@@ -379,10 +379,10 @@
 		},
 		"52": {
 			"type": "String",
-			"length": 8,
+			"length": 16,
 			"description": "PIN Data",
-			"enc": "HexToASCII",
-			"prefix": "Hex.Fixed"
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
 		},
 		"53": {
 			"type": "String",
@@ -435,10 +435,10 @@
 		},
 		"60": {
 			"type": "String",
-			"length": 999,
-			"description": "Reserved (National)",
+			"length": 16,
+			"description": "Terminal Data",
 			"enc": "ASCII",
-			"prefix": "ASCII.LLL"
+			"prefix": "ASCII.LL"
 		},
 		"61": {
 			"type": "String",

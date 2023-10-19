@@ -1,8 +1,8 @@
 package command
 
 import (
-	"common/utils"
 	"fmt"
+	"jiso/internal/utils"
 
 	"jiso/internal/service"
 	"jiso/internal/transactions"
@@ -29,7 +29,7 @@ func (c *ConnectCommand) Execute() error {
 			Name: "length",
 			Prompt: &survey.Select{
 				Message: "Select length type:",
-				Options: []string{"ascii4", "binary2", "bcd2"},
+				Options: []string{"ascii4", "binary2", "bcd2", "NAPS"},
 			},
 		},
 	}
@@ -43,7 +43,8 @@ func (c *ConnectCommand) Execute() error {
 	utils.SelectLength(lenType)
 
 	fmt.Println("Connecting to server...")
-	err = c.Svc.Connect()
+	naps := (lenType == "NAPS")
+	err = c.Svc.Connect(naps)
 	if err != nil {
 		return err
 	}

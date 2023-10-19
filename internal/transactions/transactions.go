@@ -1,9 +1,10 @@
 package transactions
 
 import (
-	"common/utils"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"jiso/internal/utils"
 	"math/rand"
 	"os"
 
@@ -67,10 +68,10 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 	for _, t := range tc.transactions {
 		if t.Name == name {
 			// Create new ISO8583 message
-			msg := iso8583.NewMessage(tc.spec)
+			dummymsg := iso8583.NewMessage(tc.spec)
 
 			// Parse JSON
-			err := json.Unmarshal(t.Fields, &msg)
+			err := json.Unmarshal(t.Fields, &dummymsg)
 			if err != nil {
 				fmt.Println("JSON unmarshal error", err)
 				return nil, err
@@ -83,11 +84,20 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 				return nil, err
 			}
 
+			msg := iso8583.NewMessage(tc.spec)
+
+			for i, f := range dummymsg.GetFields() {
+				if v, err := f.Bytes(); err == nil {
+					if !bytes.Equal(v, []byte("random")) {
+						msg.BinaryField(i, v)
+					}
+				}
+			}
+
 			for i, v := range fieldMap {
 				if i < 2 {
 					continue
 				}
-				msg.Bitmap().Set(i)
 
 				switch v := v.(type) {
 				case string:
@@ -107,6 +117,9 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 							randomValues := t.Dataset[randIndex]
 
 							for i, v := range randomValues {
+								if len(v) == 0 {
+									continue
+								}
 								msg.Field(i, v)
 							}
 						}
