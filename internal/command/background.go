@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"jiso/internal/service"
@@ -42,6 +43,14 @@ func (c *BackgroundCommand) Execute() error {
 			},
 		},
 		{
+			Name: "workers",
+			Prompt: &survey.Input{
+				Default: "1",
+				Message: "Enter number of workers:",
+			},
+			Validate: survey.Required,
+		},
+		{
 			Name: "interval",
 			Prompt: &survey.Input{
 				Default: "1s",
@@ -54,6 +63,7 @@ func (c *BackgroundCommand) Execute() error {
 	answers := struct {
 		TrxnName string
 		Interval string
+		Workers  string
 	}{}
 
 	err := survey.Ask(qs, &answers)
@@ -66,9 +76,14 @@ func (c *BackgroundCommand) Execute() error {
 		return err
 	}
 
+	numWorkers, err := strconv.Atoi(answers.Workers)
+	if err != nil {
+		return err
+	}
+
 	command := &SendCommand{Tc: c.Tc, Svc: c.Svc}
 	command.StartClock()
-	c.Wrk.StartWorker(answers.TrxnName, command, interval)
+	c.Wrk.StartWorker(answers.TrxnName, command, numWorkers, interval)
 
 	return nil
 }

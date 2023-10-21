@@ -2,11 +2,13 @@ package cli
 
 import (
 	"fmt"
-	cmd "jiso/internal/command"
-	"jiso/internal/service"
+	"math/rand"
 	"os"
 	"strconv"
 	"time"
+
+	cmd "jiso/internal/command"
+	"jiso/internal/service"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/moov-io/iso8583"
@@ -24,7 +26,12 @@ func (cli *CLI) getSpec() *iso8583.MessageSpec {
 	return cli.svc.GetSpec()
 }
 
-func (cli *CLI) StartWorker(name string, command cmd.BgCommand, interval time.Duration) {
+func (cli *CLI) StartWorker(
+	name string,
+	command cmd.BgCommand,
+	numWorkers int,
+	interval time.Duration,
+) {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 
@@ -45,32 +52,37 @@ func (cli *CLI) StartWorker(name string, command cmd.BgCommand, interval time.Du
 		)
 	}
 
-	ticker := time.NewTicker(interval)
 	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				//fmt.Printf("Executing background command '%s'\n", name)
-				err := command.ExecuteBackground(name)
-				if err != nil {
-					fmt.Printf("Error executing background command '%s': %s\n", name, err)
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			jitter := time.Duration(rand.Int63n(int64(interval / 2)))
+			ticker := time.NewTicker(interval + jitter)
+			for {
+				select {
+				case <-ticker.C:
+					err := command.ExecuteBackground(name)
+					if err != nil {
+						fmt.Printf("Error executing background command '%s': %s\n", name, err)
+					}
+				case <-done:
+					ticker.Stop()
+					return
 				}
-			case <-done:
-				//fmt.Printf("Stopping background command '%s'\n", name)
-				return
 			}
-		}
-	}()
+		}()
 
-	cli.workers[name] = &workerState{
-		command:  command,
-		interval: interval,
-		ticker:   ticker,
-		done:     done,
+		cli.workers[fmt.Sprintf("%s#%d", name, i)] = &workerState{
+			command:  command,
+			interval: interval,
+			done:     done,
+		}
 	}
 
-	fmt.Printf("Started background command '%s' with interval %s\n", name, interval)
+	fmt.Printf(
+		"Started background worker for command '%s' with interval %s\n",
+		name,
+		interval,
+	)
 }
 
 func (cli *CLI) stopWorker() error {

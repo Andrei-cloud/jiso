@@ -21,5 +21,5 @@ type BgCommand interface {
 }
 
 type WorkerController interface {
-	StartWorker(name string, command BgCommand, interval time.Duration)
+	StartWorker(name string, command BgCommand, num int, interval time.Duration)
 }

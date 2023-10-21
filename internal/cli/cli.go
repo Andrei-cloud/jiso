@@ -31,7 +31,6 @@ type CLI struct {
 type workerState struct {
 	command  cmd.BgCommand
 	interval time.Duration
-	ticker   *time.Ticker
 	done     chan struct{}
 }
 
