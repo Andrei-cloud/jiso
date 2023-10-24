@@ -2,12 +2,14 @@ package service
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"jiso/internal/utils"
 	"time"
 
 	"github.com/moov-io/iso8583"
 	connection "github.com/moov-io/iso8583-connection"
+	isoutl "github.com/moov-io/iso8583/utils"
 )
 
 type Service struct {
@@ -53,6 +55,19 @@ func (s *Service) Connect(naps bool) error {
 			s.MessageSpec,
 			readFunc,
 			writeFunc,
+			connection.ErrorHandler(func(err error) {
+				fmt.Printf("Error encountered wile processing transaction request: %s\n", err)
+				var unpackErr *iso8583.UnpackError
+				if errors.As(err, &unpackErr) {
+					fmt.Printf("Unpack error: %s\n", unpackErr)
+					fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
+					return
+				}
+				var safeErr *isoutl.SafeError
+				if errors.As(err, &safeErr) {
+					fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
+				}
+			}),
 			connection.ConnectTimeout(4*time.Second),
 		)
 		if err != nil {

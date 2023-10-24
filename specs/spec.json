@@ -438,11 +438,11 @@
 			"length": 16,
 			"description": "Terminal Data",
 			"enc": "ASCII",
-			"prefix": "ASCII.LL"
+			"prefix": "ASCII.LLL"
 		},
 		"61": {
 			"type": "String",
-			"length": 999,
+			"length": 19,
 			"description": "Reserved (Private)",
 			"enc": "ASCII",
 			"prefix": "ASCII.LLL"
@@ -505,12 +505,19 @@
 			"length": 28,
 			"description": "From Account Number",
 			"enc": "ASCII",
-			"prefix": "ASCII.LL"
+			"prefix": "ASCII.LLL"
 		},
 		"103": {
 			"type": "String",
 			"length": 28,
 			"description": "To Account Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"125": {
+			"type": "String",
+			"length": 12,
+			"description": "POS Settlement Data",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		}

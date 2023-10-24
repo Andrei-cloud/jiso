@@ -70,12 +70,12 @@ func (cli *CLI) StartWorker(
 				}
 			}
 		}()
+	}
 
-		cli.workers[fmt.Sprintf("%s#%d", name, i)] = &workerState{
-			command:  command,
-			interval: interval,
-			done:     done,
-		}
+	cli.workers[name] = &workerState{
+		command:  command,
+		interval: interval,
+		done:     done,
 	}
 
 	fmt.Printf(

@@ -10,7 +10,8 @@ import (
 
 var header network.Header
 
-const NAPSPREFIXString = "ISO016000070"
+const NAPSPREFIXATM = "ISO016000070"
+const NAPSPREFIXPOS = "ISO026000070"
 
 func SelectLength(lenType string) {
 	switch lenType {
@@ -45,7 +46,7 @@ func WriteMessageLength(w io.Writer, length int) (int, error) {
 }
 
 func NapsWriteLengthWrapper(h func(w io.Writer, length int) (int, error)) func(w io.Writer, length int) (int, error) {
-	NAPSPREFIX := []byte(NAPSPREFIXString)
+	NAPSPREFIX := []byte(NAPSPREFIXATM)
 	return func(w io.Writer, length int) (int, error) {
 		// First, call the original function with the modified length.
 		n, err := h(w, length+len(NAPSPREFIX))
@@ -65,7 +66,7 @@ func NapsWriteLengthWrapper(h func(w io.Writer, length int) (int, error)) func(w
 }
 
 func NapsReadLengthWrapper(h func(r io.Reader) (int, error)) func(r io.Reader) (int, error) {
-	NAPSPREFIX := []byte(NAPSPREFIXString)
+	NAPSPREFIX := []byte(NAPSPREFIXATM)
 	return func(r io.Reader) (int, error) {
 		// First, call the original function to read the message length.
 		length, err := h(r)
@@ -81,7 +82,7 @@ func NapsReadLengthWrapper(h func(r io.Reader) (int, error)) func(r io.Reader) (
 		}
 
 		// Check if the read prefix matches the expected NAPSPREFIX.
-		if !bytes.Equal(napsPrefixBuffer, NAPSPREFIX) {
+		if !bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXATM)) && !bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXPOS)) {
 			return length, fmt.Errorf("NAPSPREFIX mismatch: expected %s, got %s", NAPSPREFIX, napsPrefixBuffer)
 		}
 
