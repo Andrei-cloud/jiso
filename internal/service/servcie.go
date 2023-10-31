@@ -4,8 +4,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"jiso/internal/utils"
+	"io"
 	"time"
+
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 	connection "github.com/moov-io/iso8583-connection"
@@ -66,6 +68,10 @@ func (s *Service) Connect(naps bool) error {
 				var safeErr *isoutl.SafeError
 				if errors.As(err, &safeErr) {
 					fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
+				}
+				if errors.Is(err, io.EOF) {
+					fmt.Println("Connection closed")
+					s.Disconnect()
 				}
 			}),
 			connection.ConnectTimeout(4*time.Second),

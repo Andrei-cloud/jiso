@@ -142,10 +142,12 @@ func (cli *CLI) printWorkerStats() {
 
 	// Define the table headers
 	headers := []string{"Name", "Runs", "Interval", "Duration", "Mean", "StdDev"}
+	rcodes := []string{}
 
 	// Define the table rows
 	var rows [][]string
 	for name, worker := range cli.workers {
+		rccounts := worker.command.ResponseCodes()
 		row := []string{
 			name,
 			strconv.Itoa(worker.command.Stats()),
@@ -154,9 +156,18 @@ func (cli *CLI) printWorkerStats() {
 			worker.command.MeanExecutionTime().String(),
 			worker.command.StandardDeviation().String(),
 		}
-		for rc, count := range worker.command.ResponseCodes() {
-			headers = append(headers, rc)
-			row = append(row, strconv.FormatUint(count, 10))
+		for rc := range rccounts {
+			rcodes = append(rcodes, rc)
+		}
+
+		headers = append(headers, rcodes...)
+
+		for _, rc := range rcodes {
+			if count, ok := rccounts[rc]; ok {
+				row = append(row, strconv.FormatUint(count, 10))
+				continue
+			}
+			row = append(row, "n/a")
 		}
 
 		rows = append(rows, row)

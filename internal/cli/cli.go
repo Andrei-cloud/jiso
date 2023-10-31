@@ -122,6 +122,7 @@ func (cli *CLI) printHelp() {
 	fmt.Println()
 
 	fmt.Print(`Workers controll commands:
+Type 'reload' to reload specs and transactions (NA)
 Type 'status' to see the status of background workers
 Type 'stop-all' to stop all background workers
 Type 'stop' to stop a specific background worker
