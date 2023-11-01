@@ -110,6 +110,9 @@ func (s *Service) Disconnect() error {
 
 // Connection status
 func (s *Service) IsConnected() bool {
+	if s.Connection == nil {
+		return false
+	}
 	return s.Connection.Status() == connection.StatusOnline
 }
 

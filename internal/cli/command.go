@@ -47,6 +47,17 @@ func (cli *CLI) runWithHistory() error {
 			cli.printWorkerStats()
 		case "stop-all":
 			cli.stopAllWorkers()
+		case "reload":
+			if cli.svc.IsConnected() {
+				fmt.Println("Connection is open. Disconnect first.")
+				break
+			}
+			cli.stopAllWorkers()
+			cli.svc.Close()
+			err := cli.InitService()
+			if err != nil {
+				fmt.Printf("Error reloading service: %s\n", err)
+			}
 		case "stop":
 			if len(cli.workers) == 0 {
 				fmt.Println("No background workers running")

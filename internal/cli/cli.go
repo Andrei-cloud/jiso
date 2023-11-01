@@ -52,22 +52,7 @@ func (cli *CLI) Run() error {
 			return err
 		}
 	}
-	svc, err := service.NewService(
-		cfg.GetConfig().GetHost(),
-		cfg.GetConfig().GetPort(),
-		cfg.GetConfig().GetSpec(),
-	)
-	if err != nil {
-		return err
-	}
-
-	cli.setService(svc)
-
-	// New transcation collection
-	cli.tc, err = transactions.NewTransactionCollection(
-		cfg.GetConfig().GetFile(),
-		cli.getSpec(),
-	)
+	err := cli.InitService()
 	if err != nil {
 		return err
 	}
@@ -122,7 +107,7 @@ func (cli *CLI) printHelp() {
 	fmt.Println()
 
 	fmt.Print(`Workers controll commands:
-Type 'reload' to reload specs and transactions (NA)
+Type 'reload' to reload specs and transactions
 Type 'status' to see the status of background workers
 Type 'stop-all' to stop all background workers
 Type 'stop' to stop a specific background worker
@@ -137,4 +122,25 @@ Type 'quit' to exit the CLI tool`)
 func (cli *CLI) printVersion() {
 	fmt.Printf("JISO CLI (JSON ISO8583) tool version %s\n", Version)
 	fmt.Println("(c) 2023 Andrey Babikov <andrei.babikov@gmail.com>")
+}
+
+func (cli *CLI) InitService() error {
+	svc, err := service.NewService(
+		cfg.GetConfig().GetHost(),
+		cfg.GetConfig().GetPort(),
+		cfg.GetConfig().GetSpec(),
+	)
+	if err != nil {
+		return err
+	}
+
+	cli.setService(svc)
+
+	// New transcation collection
+	cli.tc, err = transactions.NewTransactionCollection(
+		cfg.GetConfig().GetFile(),
+		cli.getSpec(),
+	)
+
+	return err
 }
