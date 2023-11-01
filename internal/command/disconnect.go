@@ -23,11 +23,8 @@ func (c *DisconnectCommand) Synopsis() string {
 
 func (c *DisconnectCommand) Execute() error {
 	fmt.Println("Disconnecting...")
-	if c.Svc.Connection == nil {
-		return fmt.Errorf("connection is nil")
-	}
-	if c.Svc.Connection.Status() != connection.StatusOnline {
-		return fmt.Errorf("connection is offline")
+	if c.Svc.Connection == nil || c.Svc.Connection.Status() != connection.StatusOnline {
+		return ErrConnectionOffline
 	}
 	err := c.Svc.Disconnect()
 	if err != nil {

@@ -1,7 +1,6 @@
 package command
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -27,11 +26,8 @@ func (c *BackgroundCommand) Synopsis() string {
 }
 
 func (c *BackgroundCommand) Execute() error {
-	if c.Svc.Connection == nil {
-		return fmt.Errorf("connection is nil")
-	}
-	if c.Svc.Connection.Status() != connection.StatusOnline {
-		return fmt.Errorf("connection is offline")
+	if c.Svc.Connection == nil || c.Svc.Connection.Status() != connection.StatusOnline {
+		return ErrConnectionOffline
 	}
 
 	qs := []*survey.Question{

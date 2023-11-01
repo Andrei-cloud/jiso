@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"jiso/internal/service"
@@ -15,6 +16,8 @@ import (
 	connection "github.com/moov-io/iso8583-connection"
 )
 
+var ErrConnectionOffline = fmt.Errorf("connection is offline")
+
 type SendCommand struct {
 	Tc            *transactions.TransactionCollection
 	Svc           *service.Service
@@ -23,6 +26,7 @@ type SendCommand struct {
 	executionTime time.Duration
 	variance      time.Duration
 	respCodes     map[string]uint64
+	respCodesLock sync.Mutex
 }
 
 func (c *SendCommand) Name() string {
@@ -35,10 +39,10 @@ func (c *SendCommand) Synopsis() string {
 
 func (c *SendCommand) Execute() error {
 	if c.Svc.Connection == nil {
-		return fmt.Errorf("connection is nil")
+		return ErrConnectionOffline
 	}
 	if c.Svc.Connection.Status() != connection.StatusOnline {
-		return fmt.Errorf("connection is offline")
+		return ErrConnectionOffline
 	}
 
 	qs := []*survey.Question{
@@ -125,7 +129,9 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		return err
 	}
 
+	c.respCodesLock.Lock()
 	c.respCodes[rc_str]++
+	c.respCodesLock.Unlock()
 
 	diff := t - c.MeanExecutionTime()
 	c.variance += diff * diff

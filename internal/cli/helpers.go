@@ -63,6 +63,8 @@ func (cli *CLI) StartWorker(
 					err := command.ExecuteBackground(name)
 					if err != nil {
 						fmt.Printf("Error executing background command '%s': %s\n", name, err)
+						ticker.Stop()
+						return
 					}
 				case <-done:
 					ticker.Stop()

@@ -9,6 +9,9 @@ help:
 run: ## Run the service
 	@go run ./cmd/main.go
 
+build: ## Build the service
+	@go build -o jiso ./cmd/main.go
+
 # default target, when make executed without arguments
 all: help
 

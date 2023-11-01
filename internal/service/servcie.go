@@ -120,11 +120,8 @@ func (s *Service) GetSpec() *iso8583.MessageSpec {
 
 // Function to Send iso8583 message
 func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
-	if s.Connection == nil {
-		return nil, fmt.Errorf("connection is nil")
-	}
-	if s.Connection.Status() == connection.StatusOffline {
-		return nil, fmt.Errorf("connection is offline")
+	if s.Connection == nil || s.Connection.Status() == connection.StatusOffline {
+		return nil, connection.ErrConnectionClosed
 	}
 
 	// // Send message
@@ -150,11 +147,8 @@ func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 }
 
 func (s *Service) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error) {
-	if s.Connection == nil {
-		return nil, fmt.Errorf("connection is nil")
-	}
-	if s.Connection.Status() == connection.StatusOffline {
-		return nil, fmt.Errorf("connection is offline")
+	if s.Connection == nil || s.Connection.Status() == connection.StatusOffline {
+		return nil, connection.ErrConnectionClosed
 	}
 
 	response, err := s.Connection.Send(msg)
