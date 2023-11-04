@@ -2,11 +2,12 @@ package command
 
 import (
 	"fmt"
+
 	"jiso/internal/transactions"
 )
 
 type ListCommand struct {
-	Tc *transactions.TransactionCollection
+	Tc **transactions.TransactionCollection
 }
 
 func (c *ListCommand) Name() string {
@@ -18,7 +19,7 @@ func (c *ListCommand) Synopsis() string {
 }
 
 func (c *ListCommand) Execute() error {
-	list := c.Tc.ListFormatted()
+	list := (**c.Tc).ListFormatted()
 	// Print list of transactions by line
 	for _, line := range list {
 		fmt.Printf("\t%s\n", line)

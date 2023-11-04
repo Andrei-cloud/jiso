@@ -19,7 +19,7 @@ import (
 var ErrConnectionOffline = fmt.Errorf("connection is offline")
 
 type SendCommand struct {
-	Tc            *transactions.TransactionCollection
+	Tc            **transactions.TransactionCollection
 	Svc           *service.Service
 	start         time.Time
 	counts        int
@@ -50,7 +50,7 @@ func (c *SendCommand) Execute() error {
 			Name: "send",
 			Prompt: &survey.Select{
 				Message: "Select transaction:",
-				Options: c.Tc.ListNames(),
+				Options: (**c.Tc).ListNames(),
 			},
 		},
 	}
@@ -61,7 +61,7 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
-	msg, err := c.Tc.Compose(trxnName)
+	msg, err := (**c.Tc).Compose(trxnName)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		trxnName = parts[0]
 	}
 
-	msg, err := c.Tc.Compose(trxnName)
+	msg, err := (**c.Tc).Compose(trxnName)
 	if err != nil {
 		return err
 	}

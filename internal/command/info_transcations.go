@@ -2,13 +2,14 @@ package command
 
 import (
 	"fmt"
+
 	"jiso/internal/transactions"
 
 	"github.com/AlecAivazis/survey/v2"
 )
 
 type InfoCommand struct {
-	Tc *transactions.TransactionCollection
+	Tc **transactions.TransactionCollection
 }
 
 func (c *InfoCommand) Name() string {
@@ -20,13 +21,12 @@ func (c *InfoCommand) Synopsis() string {
 }
 
 func (c *InfoCommand) Execute() error {
-
 	qs := []*survey.Question{
 		{
 			Name: "info",
 			Prompt: &survey.Select{
 				Message: "Select transaction:",
-				Options: c.Tc.ListNames(),
+				Options: (**c.Tc).ListNames(),
 			},
 		},
 	}
@@ -37,7 +37,7 @@ func (c *InfoCommand) Execute() error {
 		return err
 	}
 
-	name, desc, body, err := c.Tc.Info(trxnName)
+	name, desc, body, err := (**c.Tc).Info(trxnName)
 	if err != nil {
 		return err
 	}

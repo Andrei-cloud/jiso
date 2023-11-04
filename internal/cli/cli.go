@@ -57,12 +57,12 @@ func (cli *CLI) Run() error {
 		return err
 	}
 
-	cli.AddCommand(&cmd.ListCommand{Tc: cli.tc})
-	cli.AddCommand(&cmd.InfoCommand{Tc: cli.tc})
-	cli.AddCommand(&cmd.SendCommand{Tc: cli.tc, Svc: cli.svc})
+	cli.AddCommand(&cmd.ListCommand{Tc: &cli.tc})
+	cli.AddCommand(&cmd.InfoCommand{Tc: &cli.tc})
+	cli.AddCommand(&cmd.SendCommand{Tc: &cli.tc, Svc: cli.svc})
 	cli.AddCommand(&cmd.ConnectCommand{Svc: cli.svc})
 	cli.AddCommand(&cmd.DisconnectCommand{Svc: cli.svc})
-	cli.AddCommand(&cmd.BackgroundCommand{Tc: cli.tc, Svc: cli.svc, Wrk: cli})
+	cli.AddCommand(&cmd.BackgroundCommand{Tc: &cli.tc, Svc: cli.svc, Wrk: cli})
 
 	return cli.runWithHistory()
 }

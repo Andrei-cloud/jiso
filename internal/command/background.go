@@ -12,7 +12,7 @@ import (
 )
 
 type BackgroundCommand struct {
-	Tc  *transactions.TransactionCollection
+	Tc  **transactions.TransactionCollection
 	Svc *service.Service
 	Wrk WorkerController
 }
@@ -35,7 +35,7 @@ func (c *BackgroundCommand) Execute() error {
 			Name: "trxnname",
 			Prompt: &survey.Select{
 				Message: "Select transaction:",
-				Options: c.Tc.ListNames(),
+				Options: (**c.Tc).ListNames(),
 			},
 		},
 		{
