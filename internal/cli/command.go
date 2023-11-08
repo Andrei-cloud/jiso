@@ -46,6 +46,7 @@ func (cli *CLI) runWithHistory() error {
 		case "stats", "status":
 			cli.printWorkerStats()
 		case "stop-all":
+			cli.printWorkerStats()
 			cli.stopAllWorkers()
 		case "reload":
 			if cli.svc.IsConnected() {
