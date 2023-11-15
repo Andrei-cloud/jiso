@@ -302,7 +302,7 @@
 		},
 		"41": {
 			"type": "String",
-			"length": 16,
+			"length": 8,
 			"description": "Card Acceptor Terminal Identification",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
