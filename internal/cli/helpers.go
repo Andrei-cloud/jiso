@@ -36,15 +36,7 @@ func (cli *CLI) StartWorker(
 	defer cli.mu.Unlock()
 
 	if _, ok := cli.workers[name]; ok {
-		index := 1
-		for {
-			newName := fmt.Sprintf("%s#%d", name, index)
-			if _, ok := cli.workers[newName]; !ok {
-				name = newName
-				break
-			}
-			index++
-		}
+		name = generateUniqueWorkerName(name, cli.workers)
 		fmt.Printf(
 			"Worker with name '%s' already exists, new instance will be named '%s'\n",
 			name[:len(name)-2],
@@ -54,6 +46,8 @@ func (cli *CLI) StartWorker(
 
 	done := make(chan struct{})
 	for i := 0; i < numWorkers; i++ {
+		workerState := cli.createWorkerState(command, interval)
+		cli.workers[name] = workerState
 		go func() {
 			jitter := time.Duration(rand.Int63n(int64(interval / 2)))
 			ticker := time.NewTicker(interval + jitter)
@@ -72,12 +66,6 @@ func (cli *CLI) StartWorker(
 				}
 			}
 		}()
-	}
-
-	cli.workers[name] = &workerState{
-		command:  command,
-		interval: interval,
-		done:     done,
 	}
 
 	fmt.Printf(
@@ -181,4 +169,24 @@ func (cli *CLI) printWorkerStats() {
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.AppendBulk(rows)
 	table.Render()
+}
+
+func generateUniqueWorkerName(baseName string, workers map[string]*workerState) string {
+	index := 1
+	newName := baseName
+	for {
+		if _, exists := workers[newName]; !exists {
+			return newName
+		}
+		newName = fmt.Sprintf("%s#%d", baseName, index)
+		index++
+	}
+}
+
+func (cli *CLI) createWorkerState(command cmd.BgCommand, interval time.Duration) *workerState {
+	return &workerState{
+		command:  command,
+		interval: interval,
+		done:     make(chan struct{}),
+	}
 }

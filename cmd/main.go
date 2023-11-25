@@ -32,10 +32,7 @@ func main() {
 
 	cli.ClearTerminal()
 
-	if cfg.GetConfig().GetHost() == "" ||
-		cfg.GetConfig().GetPort() == "" ||
-		cfg.GetConfig().GetSpec() == "" ||
-		cfg.GetConfig().GetFile() == "" {
+	if !validateConfig() {
 		cli.AddCommand(&cmd.CollectArgsCommand{})
 	}
 
@@ -43,4 +40,12 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error running CLI: %s\n", err)
 	}
+}
+
+func validateConfig() bool {
+	config := cfg.GetConfig()
+	return config.GetHost() != "" &&
+		config.GetPort() != "" &&
+		config.GetSpec() != "" &&
+		config.GetFile() != ""
 }

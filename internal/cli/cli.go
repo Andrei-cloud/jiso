@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -42,6 +43,9 @@ func NewCLI() *CLI {
 }
 
 func (cli *CLI) AddCommand(command cmd.Command) {
+	if _, exists := cli.commands[command.Name()]; exists {
+		log.Fatalf("Command '%s' is already registered", command.Name())
+	}
 	cli.commands[command.Name()] = command
 }
 
@@ -81,6 +85,12 @@ func (cli *CLI) ClearTerminal() {
 }
 
 func (cli *CLI) Close() {
+	cli.mu.Lock()
+	defer cli.mu.Unlock()
+	for _, worker := range cli.workers {
+		close(worker.done)
+	}
+
 	if cli.svc != nil {
 		cli.svc.Close()
 	}

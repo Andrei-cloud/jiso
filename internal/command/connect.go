@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"jiso/internal/utils"
 
@@ -31,6 +32,13 @@ func (c *ConnectCommand) Execute() error {
 				Message: "Select length type:",
 				Options: []string{"ascii4", "binary2", "bcd2", "NAPS"},
 			},
+			Validate: func(ans interface{}) error {
+				validTypes := map[string]bool{"ascii4": true, "binary2": true, "bcd2": true, "NAPS": true}
+				if _, valid := validTypes[ans.(string)]; !valid {
+					return errors.New("invalid length type selected")
+				}
+				return nil
+			},
 		},
 	}
 
@@ -46,8 +54,9 @@ func (c *ConnectCommand) Execute() error {
 	naps := (lenType == "NAPS")
 	err = c.Svc.Connect(naps)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
 	}
-	fmt.Printf("Connected to server: %s\n", c.Svc.Address)
+	fmt.Printf("Successfully connected to server: %s\n", c.Svc.Address)
+
 	return nil
 }

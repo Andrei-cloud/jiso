@@ -21,15 +21,22 @@ func (c *DisconnectCommand) Synopsis() string {
 	return "Closes connection to server."
 }
 
+// disconnect.go
+
+// Improved error handling and clarity in the Execute() method.
 func (c *DisconnectCommand) Execute() error {
 	fmt.Println("Disconnecting...")
-	if c.Svc.Connection == nil || c.Svc.Connection.Status() != connection.StatusOnline {
-		return ErrConnectionOffline
+	if c.Svc.Connection == nil {
+		return fmt.Errorf("no active connection")
 	}
-	err := c.Svc.Disconnect()
-	if err != nil {
-		return err
+	if c.Svc.Connection.Status() != connection.StatusOnline {
+		return fmt.Errorf("connection is not online")
 	}
+
+	if err := c.Svc.Disconnect(); err != nil {
+		return fmt.Errorf("failed to disconnect: %w", err)
+	}
+
 	fmt.Println("Disconnected from server")
 	return nil
 }

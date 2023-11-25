@@ -30,7 +30,7 @@ func NewService(host, port, specFileName string) (*Service, error) {
 	// Load message spec
 	spec, err := utils.CreateSpecFromFile(specFileName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load spec file: %w", err)
 	}
 	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
@@ -44,40 +44,9 @@ func NewService(host, port, specFileName string) (*Service, error) {
 // Function to establish connection
 func (s *Service) Connect(naps bool) error {
 	if s.Connection == nil {
-		var err error
-		readFunc := utils.ReadMessageLength
-		writeFunc := utils.WriteMessageLength
-		if naps {
-			readFunc = utils.NapsReadLengthWrapper(readFunc)
-			writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
-		}
-
-		s.Connection, err = connection.New(
-			s.Address,
-			s.MessageSpec,
-			readFunc,
-			writeFunc,
-			connection.ErrorHandler(func(err error) {
-				fmt.Printf("Error encountered wile processing transaction request: %s\n", err)
-				var unpackErr *iso8583.UnpackError
-				if errors.As(err, &unpackErr) {
-					fmt.Printf("Unpack error: %s\n", unpackErr)
-					fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
-					return
-				}
-				var safeErr *isoutl.SafeError
-				if errors.As(err, &safeErr) {
-					fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
-				}
-				if errors.Is(err, io.EOF) {
-					fmt.Println("Connection closed")
-					s.Disconnect()
-				}
-			}),
-			connection.ConnectTimeout(4*time.Second),
-		)
+		err := s.establishConnection(naps)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to establish connection: %w", err)
 		}
 	}
 	if s.Connection.Status() == connection.StatusOnline {
@@ -92,6 +61,42 @@ func (s *Service) Connect(naps bool) error {
 	s.Connection.SetStatus(connection.StatusOnline)
 	s.Address = s.Connection.Addr()
 	return nil
+}
+
+func (s *Service) establishConnection(naps bool) error {
+	var err error
+	readFunc := utils.ReadMessageLength
+	writeFunc := utils.WriteMessageLength
+	if naps {
+		readFunc = utils.NapsReadLengthWrapper(readFunc)
+		writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
+	}
+
+	s.Connection, err = connection.New(
+		s.Address,
+		s.MessageSpec,
+		readFunc,
+		writeFunc,
+		connection.ErrorHandler(func(err error) {
+			fmt.Printf("Error encountered wile processing transaction request: %s\n", err)
+			var unpackErr *iso8583.UnpackError
+			if errors.As(err, &unpackErr) {
+				fmt.Printf("Unpack error: %s\n", unpackErr)
+				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
+				return
+			}
+			var safeErr *isoutl.SafeError
+			if errors.As(err, &safeErr) {
+				fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
+			}
+			if errors.Is(err, io.EOF) {
+				fmt.Println("Connection closed")
+				s.Disconnect()
+			}
+		}),
+		connection.ConnectTimeout(4*time.Second),
+	)
+	return err
 }
 
 // Function to disconnect

@@ -1,6 +1,8 @@
 package command
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -27,7 +29,7 @@ func (c *BackgroundCommand) Synopsis() string {
 
 func (c *BackgroundCommand) Execute() error {
 	if c.Svc.Connection == nil || c.Svc.Connection.Status() != connection.StatusOnline {
-		return ErrConnectionOffline
+		return fmt.Errorf("connection is offline")
 	}
 
 	qs := []*survey.Question{
@@ -44,7 +46,13 @@ func (c *BackgroundCommand) Execute() error {
 				Default: "1",
 				Message: "Enter number of workers:",
 			},
-			Validate: survey.Required,
+			Validate: func(ans interface{}) error {
+				_, err := strconv.Atoi(ans.(string))
+				if err != nil {
+					return errors.New("please enter a valid number")
+				}
+				return nil
+			},
 		},
 		{
 			Name: "interval",
