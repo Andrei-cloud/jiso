@@ -11,6 +11,7 @@ import (
 
 	"github.com/moov-io/iso8583"
 	connection "github.com/moov-io/iso8583-connection"
+	"github.com/moov-io/iso8583/network"
 	isoutl "github.com/moov-io/iso8583/utils"
 )
 
@@ -42,9 +43,9 @@ func NewService(host, port, specFileName string) (*Service, error) {
 }
 
 // Function to establish connection
-func (s *Service) Connect(naps bool) error {
+func (s *Service) Connect(naps bool, header network.Header) error {
 	if s.Connection == nil {
-		err := s.establishConnection(naps)
+		err := s.establishConnection(naps, header)
 		if err != nil {
 			return fmt.Errorf("failed to establish connection: %w", err)
 		}
@@ -55,7 +56,7 @@ func (s *Service) Connect(naps bool) error {
 
 	err := s.Connection.Connect()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect: %w", err)
 	}
 
 	s.Connection.SetStatus(connection.StatusOnline)
@@ -63,10 +64,10 @@ func (s *Service) Connect(naps bool) error {
 	return nil
 }
 
-func (s *Service) establishConnection(naps bool) error {
+func (s *Service) establishConnection(naps bool, header network.Header) error {
 	var err error
-	readFunc := utils.ReadMessageLength
-	writeFunc := utils.WriteMessageLength
+	readFunc := utils.ReadMessageLengthWrapper(header)
+	writeFunc := utils.WriteMessageLengthWrapper(header)
 	if naps {
 		readFunc = utils.NapsReadLengthWrapper(readFunc)
 		writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
@@ -106,8 +107,9 @@ func (s *Service) Disconnect() error {
 	}
 	err := s.Connection.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to close connection: %w", err)
 	}
+
 	s.Connection.SetStatus(connection.StatusOffline)
 	s.Connection = nil
 	return nil
@@ -137,7 +139,7 @@ func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 
 	fmt.Printf("\n%v\n", hex.Dump(b))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to pack message: %w", err)
 	}
 
 	response, err := s.Connection.Send(msg)
@@ -148,7 +150,7 @@ func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	b, err = response.Pack()
 	fmt.Printf("\n%v\n", hex.Dump(b))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to pack response: %w", err)
 	}
 
 	return response, nil
@@ -161,7 +163,7 @@ func (s *Service) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error)
 
 	response, err := s.Connection.Send(msg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
 	return response, nil

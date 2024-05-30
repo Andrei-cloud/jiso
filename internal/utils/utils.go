@@ -37,6 +37,10 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 }
 
 func RandString(n int) string {
+	if n < 0 {
+		return ""
+	}
+
 	sb := strings.Builder{}
 	sb.Grow(n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
@@ -55,12 +59,15 @@ func RandString(n int) string {
 	return sb.String()
 }
 
+func ResponseMTI(mti string) string {
+	if len(mti) < 4 {
+		return ""
+	}
+	return mti[:2] + "1" + mti[3:]
+}
+
 func GetTrxnDateTime() string {
 	currentTime := time.Now()
 	// The format is defined based on the following time: Mon Jan 2 15:04:05 -0700 MST 2006
 	return currentTime.Format("0102150405")
-}
-
-func ResponseMTI(mti string) string {
-	return mti[:2] + "1" + mti[3:]
 }

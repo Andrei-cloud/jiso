@@ -3,10 +3,13 @@ package transactions
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"jiso/internal/utils"
 	"math/rand"
 	"os"
+	"strings"
+
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 )
@@ -27,15 +30,24 @@ func NewTransactionCollection(
 	filename string,
 	specs *iso8583.MessageSpec,
 ) (*TransactionCollection, error) {
+	// Check for path traversal sequences
+	if strings.Contains(filename, "../") || strings.Contains(filename, "..\\") {
+		return nil, errors.New("invalid filename")
+	}
+
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	var transactions []Transaction
 	err = json.Unmarshal(data, &transactions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
+	}
+
+	if len(transactions) == 0 {
+		return nil, errors.New("no transactions found in the file")
 	}
 
 	fmt.Printf("Transactions loaded successfully. Count: %d\n", len(transactions))

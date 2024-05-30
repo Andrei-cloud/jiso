@@ -5,47 +5,56 @@ import (
 	"fmt"
 	"io"
 
+	connection "github.com/moov-io/iso8583-connection"
 	"github.com/moov-io/iso8583/network"
 )
 
 var header network.Header
 
-const NAPSPREFIXATM = "ISO016000070"
-const NAPSPREFIXPOS = "ISO026000070"
+const (
+	NAPSPREFIXATM = "ISO016000070"
+	NAPSPREFIXPOS = "ISO026000070"
+)
 
-func SelectLength(lenType string) {
+func SelectLength(lenType string) (network.Header, error) {
 	switch lenType {
 	case "ascii4":
-		header = network.NewASCII4BytesHeader()
+		return network.NewASCII4BytesHeader(), nil
 	case "binary2", "NAPS":
-		header = NewBinary2BytesAdapter()
+		return NewBinary2BytesAdapter(), nil
 	case "bcd2":
-		header = network.NewBCD2BytesHeader()
+		return network.NewBCD2BytesHeader(), nil
 	default:
-		header = network.NewASCII4BytesHeader()
+		return nil, fmt.Errorf("unknown length type: %s", lenType)
 	}
 }
 
-func ReadMessageLength(r io.Reader) (int, error) {
-	n, err := header.ReadFrom(r)
-	if err != nil {
-		return n, err
-	}
+func ReadMessageLengthWrapper(header network.Header) connection.MessageLengthReader {
+	return func(r io.Reader) (int, error) {
+		n, err := header.ReadFrom(r)
+		if err != nil {
+			return n, err
+		}
 
-	return header.Length(), nil
+		return header.Length(), nil
+	}
 }
 
-func WriteMessageLength(w io.Writer, length int) (int, error) {
-	header.SetLength(length)
-	n, err := header.WriteTo(w)
-	if err != nil {
-		return n, fmt.Errorf("writing message header: %w", err)
-	}
+func WriteMessageLengthWrapper(header network.Header) connection.MessageLengthWriter {
+	return func(w io.Writer, length int) (int, error) {
+		header.SetLength(length)
+		n, err := header.WriteTo(w)
+		if err != nil {
+			return n, fmt.Errorf("writing message header: %w", err)
+		}
 
-	return n, nil
+		return n, nil
+	}
 }
 
-func NapsWriteLengthWrapper(h func(w io.Writer, length int) (int, error)) func(w io.Writer, length int) (int, error) {
+func NapsWriteLengthWrapper(
+	h func(w io.Writer, length int) (int, error),
+) func(w io.Writer, length int) (int, error) {
 	NAPSPREFIX := []byte(NAPSPREFIXATM)
 	return func(w io.Writer, length int) (int, error) {
 		// First, call the original function with the modified length.
@@ -65,7 +74,9 @@ func NapsWriteLengthWrapper(h func(w io.Writer, length int) (int, error)) func(w
 	}
 }
 
-func NapsReadLengthWrapper(h func(r io.Reader) (int, error)) func(r io.Reader) (int, error) {
+func NapsReadLengthWrapper(
+	h func(r io.Reader) (int, error),
+) func(r io.Reader) (int, error) {
 	NAPSPREFIX := []byte(NAPSPREFIXATM)
 	return func(r io.Reader) (int, error) {
 		// First, call the original function to read the message length.
@@ -82,8 +93,13 @@ func NapsReadLengthWrapper(h func(r io.Reader) (int, error)) func(r io.Reader) (
 		}
 
 		// Check if the read prefix matches the expected NAPSPREFIX.
-		if !bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXATM)) && !bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXPOS)) {
-			return length, fmt.Errorf("NAPSPREFIX mismatch: expected %s, got %s", NAPSPREFIX, napsPrefixBuffer)
+		if !bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXATM)) &&
+			!bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXPOS)) {
+			return length, fmt.Errorf(
+				"NAPSPREFIX mismatch: expected %s, got %s",
+				NAPSPREFIX,
+				napsPrefixBuffer,
+			)
 		}
 
 		// If everything is fine, return the length.

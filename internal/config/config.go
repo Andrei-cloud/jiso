@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
+	file         string
 	host         string
 	port         string
 	specFileName string
-	file         string
+	mu           sync.RWMutex
 }
 
 var (
@@ -29,7 +30,11 @@ func GetConfig() *Config {
 func (c *Config) Parse() error {
 	host := flag.String("host", "", "Hostname to connect to")
 	port := flag.String("port", "", "Port to connect to")
-	specFileName := flag.String("spec-file", "", "path to customized specification file in JSON format")
+	specFileName := flag.String(
+		"spec-file",
+		"",
+		"path to customized specification file in JSON format",
+	)
 	file := flag.String("file", "", "path to transaction file in JSON format")
 
 	flag.Usage = func() {
@@ -70,24 +75,31 @@ func (c *Config) SetSpec(specFileName string) {
 }
 
 func (c *Config) SetFile(file string) {
-	if file == "" {
-		return
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.file = file
 }
 
 func (c *Config) GetHost() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.host
 }
 
 func (c *Config) GetPort() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.port
 }
 
 func (c *Config) GetSpec() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.specFileName
 }
 
 func (c *Config) GetFile() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.file
 }

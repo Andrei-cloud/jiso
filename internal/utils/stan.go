@@ -23,10 +23,14 @@ func GetCounter() *counter {
 }
 
 func (c *counter) GetStan() string {
-	val := atomic.AddUint32(&c.value, 1) % 1000000
-	if val == 0 {
-		atomic.StoreUint32(&c.value, 1)
-		val = 1
+	var val uint32
+	for {
+		val = atomic.AddUint32(&c.value, 1) % 1000000
+		if val != 0 {
+			break
+		}
+		// If val is 0, we decrement the counter to -1, so that the next increment will set it to 0 again.
+		atomic.AddUint32(&c.value, ^uint32(0))
 	}
 	return fmt.Sprintf("%06d", val)
 }
