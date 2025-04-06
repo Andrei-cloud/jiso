@@ -11,6 +11,7 @@ import (
 
 	"github.com/moov-io/iso8583"
 	connection "github.com/moov-io/iso8583-connection"
+	iso8583errors "github.com/moov-io/iso8583/errors"
 	"github.com/moov-io/iso8583/network"
 	isoutl "github.com/moov-io/iso8583/utils"
 )
@@ -80,7 +81,7 @@ func (s *Service) establishConnection(naps bool, header network.Header) error {
 		writeFunc,
 		connection.ErrorHandler(func(err error) {
 			fmt.Printf("Error encountered wile processing transaction request: %s\n", err)
-			var unpackErr *iso8583.UnpackError
+			var unpackErr *iso8583errors.UnpackError
 			if errors.As(err, &unpackErr) {
 				fmt.Printf("Unpack error: %s\n", unpackErr)
 				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
