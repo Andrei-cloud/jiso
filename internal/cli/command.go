@@ -1,11 +1,15 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/chzyer/readline"
 )
+
+// ErrExitProgram is a special error type to signal a clean exit from the CLI
+var ErrExitProgram = errors.New("exit program")
 
 func (cli *CLI) runWithHistory() error {
 	rl, err := readline.NewEx(&readline.Config{
@@ -32,10 +36,12 @@ func (cli *CLI) runWithHistory() error {
 		}
 
 		err = cli.handleCommand(command)
-		if err != nil {
+		if err == ErrExitProgram {
+			// Exit cleanly when ErrExitProgram is returned
+			return nil
+		} else if err != nil {
 			fmt.Println(err)
 		}
-
 	}
 
 	return nil
@@ -49,7 +55,7 @@ func (cli *CLI) handleCommand(command string) error {
 		cli.stopAllWorkers()
 		cli.svc.Close()
 		fmt.Println("Exiting CLI tool")
-		return nil
+		return ErrExitProgram // Return special error to signal program exit
 	case "help", "h", "?":
 		cli.printHelp()
 	case "version", "v":
