@@ -48,7 +48,10 @@ func (cli *CLI) runWithHistory() error {
 }
 
 func (cli *CLI) handleCommand(command string) error {
-	var err error
+	// Log command if debug mode is enabled
+	if cli.config.debugMode {
+		fmt.Printf("DEBUG: Executing command: %s\n", command)
+	}
 
 	switch command {
 	case "quit", "exit":
@@ -77,6 +80,7 @@ func (cli *CLI) handleCommand(command string) error {
 		err := cli.InitService()
 		if err != nil {
 			fmt.Printf("Error reloading service: %s\n", err)
+			// Return nil instead of err, since we've already printed the error
 		}
 	case "stop":
 		if len(cli.workers) == 0 {
@@ -86,6 +90,7 @@ func (cli *CLI) handleCommand(command string) error {
 		err := cli.stopWorker()
 		if err != nil {
 			fmt.Printf("Error stopping worker: %s\n", err)
+			// Return nil instead of err, since we've already printed the error
 		}
 	default:
 		parts := strings.Fields(command)
@@ -96,10 +101,11 @@ func (cli *CLI) handleCommand(command string) error {
 			return fmt.Errorf("unknown command: %s", command)
 		}
 
-		err = cmd.Execute()
+		err := cmd.Execute()
 		if err != nil {
 			fmt.Printf("Error executing command: %s\n", err)
+			return nil // Return nil instead of err, since we've already printed the error
 		}
 	}
-	return err
+	return nil // Always return nil for handled commands and errors
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -14,6 +15,25 @@ import (
 	"github.com/moov-io/iso8583"
 	"github.com/olekukonko/tablewriter"
 )
+
+type workerStats struct {
+	totalRuns     int
+	successRuns   int
+	failedRuns    int
+	lastRunTime   time.Time
+	responseCodes map[string]uint64
+	durations     []time.Duration
+	errors        []string
+}
+
+// workerState represents the state of a background worker.
+type workerState struct {
+	command      cmd.BgCommand
+	interval     time.Duration
+	done         chan struct{}
+	stats        workerStats
+	lastActivity time.Time
+}
 
 func (cli *CLI) setService(svc *service.Service) {
 	cli.svc = svc
@@ -26,6 +46,7 @@ func (cli *CLI) getSpec() *iso8583.MessageSpec {
 	return cli.svc.GetSpec()
 }
 
+// Update StartWorker to track better statistics
 func (cli *CLI) StartWorker(
 	name string,
 	command cmd.BgCommand,
@@ -35,44 +56,96 @@ func (cli *CLI) StartWorker(
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 
-	if _, ok := cli.workers[name]; ok {
-		name = generateUniqueWorkerName(name, cli.workers)
-		fmt.Printf(
-			"Worker with name '%s' already exists, new instance will be named '%s'\n",
-			name[:len(name)-2],
-			name,
-		)
-	}
+	baseWorkerName := name
 
-	done := make(chan struct{})
 	for i := 0; i < numWorkers; i++ {
-		workerState := cli.createWorkerState(command, interval)
-		cli.workers[name] = workerState
-		go func() {
+		// Create a unique name for each worker
+		if i > 0 {
+			name = fmt.Sprintf("%s#%d", baseWorkerName, i)
+		}
+
+		// Check if this specific worker name exists
+		if _, ok := cli.workers[name]; ok {
+			name = generateUniqueWorkerName(name, cli.workers)
+			fmt.Printf(
+				"Worker with name '%s' already exists, new instance will be named '%s'\n",
+				baseWorkerName,
+				name,
+			)
+		}
+
+		// Initialize worker with stats
+		locWorkerState := &workerState{
+			command:      command,
+			interval:     interval,
+			done:         make(chan struct{}),
+			lastActivity: time.Now(),
+			stats: workerStats{
+				responseCodes: make(map[string]uint64),
+				durations:     make([]time.Duration, 0, 100), // Pre-allocate space
+				errors:        make([]string, 0),
+			},
+		}
+
+		cli.workers[name] = locWorkerState
+
+		// Start the worker goroutine with its own done channel
+		go func(workerName string, worker *workerState) {
 			jitter := time.Duration(rand.Int63n(int64(interval / 2)))
 			ticker := time.NewTicker(interval + jitter)
 			for {
 				select {
 				case <-ticker.C:
-					err := command.ExecuteBackground(name)
-					if err != nil {
-						fmt.Printf("Error executing background command '%s': %s\n", name, err)
-						ticker.Stop()
-						return
+					startTime := time.Now()
+					worker.lastActivity = startTime
+
+					err := command.ExecuteBackground(workerName)
+
+					duration := time.Since(startTime)
+
+					// Add duration with bounds checking
+					if len(worker.stats.durations) >= 1000 {
+						// Keep only last 1000 samples to prevent unbounded growth
+						worker.stats.durations = worker.stats.durations[1:]
 					}
-				case <-done:
+					worker.stats.durations = append(worker.stats.durations, duration)
+					worker.stats.totalRuns++
+
+					if err != nil {
+						worker.stats.failedRuns++
+						worker.stats.errors = append(
+							worker.stats.errors,
+							fmt.Sprintf("%s: %s", time.Now().Format(time.RFC3339), err),
+						)
+						// Keep only last 10 errors
+						if len(worker.stats.errors) > 10 {
+							worker.stats.errors = worker.stats.errors[1:]
+						}
+
+						fmt.Printf("Error executing background command '%s': %s\n",
+							workerName, err)
+					} else {
+						worker.stats.successRuns++
+					}
+
+					// Update response code statistics
+					for rc, count := range command.ResponseCodes() {
+						worker.stats.responseCodes[rc] = count
+					}
+
+				case <-worker.done:
 					ticker.Stop()
 					return
 				}
 			}
-		}()
-	}
+		}(name, locWorkerState)
 
-	fmt.Printf(
-		"Started background worker for command '%s' with interval %s\n",
-		name,
-		interval,
-	)
+		fmt.Printf(
+			"Started background worker '%s' with interval %s\n",
+			name,
+			interval,
+		)
+	}
 }
 
 func (cli *CLI) stopWorker() error {
@@ -130,45 +203,107 @@ func (cli *CLI) printWorkerStats() {
 		return
 	}
 
-	// Define the table headers
-	headers := []string{"Name", "Runs", "Interval", "Duration", "Mean", "StdDev"}
-	rcodes := []string{}
+	// Create a more detailed view of worker statistics
+	fmt.Println("\n--- Worker Statistics ---")
 
-	// Define the table rows
-	var rows [][]string
-	for name, worker := range cli.workers {
-		rccounts := worker.command.ResponseCodes()
-		row := []string{
+	// Summary table
+	summaryTable := tablewriter.NewWriter(os.Stdout)
+	summaryTable.SetHeader(
+		[]string{"Name", "Total", "Success", "Failed", "Success %", "Last Activity", "Status"},
+	)
+
+	var workerNames []string
+	for name := range cli.workers {
+		workerNames = append(workerNames, name)
+	}
+	sort.Strings(workerNames)
+
+	for _, name := range workerNames {
+		worker := cli.workers[name]
+		totalRuns := worker.stats.totalRuns
+		successRate := 0.0
+		if totalRuns > 0 {
+			successRate = float64(worker.stats.successRuns) / float64(totalRuns) * 100
+		}
+
+		timeSinceLastActivity := time.Since(worker.lastActivity)
+		status := "Active"
+		if timeSinceLastActivity > worker.interval*2 {
+			status = "Stalled"
+		}
+
+		summaryTable.Append([]string{
 			name,
-			strconv.Itoa(worker.command.Stats()),
-			worker.interval.String(),
-			worker.command.Duration().String(),
-			worker.command.MeanExecutionTime().String(),
-			worker.command.StandardDeviation().String(),
-		}
-		for rc := range rccounts {
-			rcodes = append(rcodes, rc)
-		}
-
-		headers = append(headers, rcodes...)
-
-		for _, rc := range rcodes {
-			if count, ok := rccounts[rc]; ok {
-				row = append(row, strconv.FormatUint(count, 10))
-				continue
-			}
-			row = append(row, "n/a")
-		}
-
-		rows = append(rows, row)
+			strconv.Itoa(totalRuns),
+			strconv.Itoa(worker.stats.successRuns),
+			strconv.Itoa(worker.stats.failedRuns),
+			fmt.Sprintf("%.1f%%", successRate),
+			worker.lastActivity.Format("15:04:05"),
+			status,
+		})
 	}
 
-	// Print the table
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader(headers)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.AppendBulk(rows)
-	table.Render()
+	summaryTable.Render()
+	fmt.Println()
+
+	// Response Codes Table
+	fmt.Println("--- Response Codes ---")
+
+	// Collect all unique response codes
+	allRCodes := make(map[string]struct{})
+	for _, worker := range cli.workers {
+		for rc := range worker.stats.responseCodes {
+			allRCodes[rc] = struct{}{}
+		}
+	}
+
+	// Skip if no response codes
+	if len(allRCodes) == 0 {
+		fmt.Println("No response codes recorded")
+	} else {
+		// Convert to sorted slice
+		rcodes := make([]string, 0, len(allRCodes))
+		for rc := range allRCodes {
+			rcodes = append(rcodes, rc)
+		}
+		sort.Strings(rcodes)
+
+		// Create response codes table
+		rcTable := tablewriter.NewWriter(os.Stdout)
+		headers := []string{"Worker"}
+		headers = append(headers, rcodes...)
+		rcTable.SetHeader(headers)
+
+		for _, name := range workerNames {
+			worker := cli.workers[name]
+			row := []string{name}
+
+			for _, rc := range rcodes {
+				count, exists := worker.stats.responseCodes[rc]
+				if exists {
+					row = append(row, strconv.FormatUint(count, 10))
+				} else {
+					row = append(row, "0")
+				}
+			}
+
+			rcTable.Append(row)
+		}
+
+		rcTable.Render()
+	}
+	fmt.Println()
+
+	// Error log if there are any errors
+	for _, name := range workerNames {
+		worker := cli.workers[name]
+		if len(worker.stats.errors) > 0 {
+			fmt.Printf("\nRecent errors for worker %s:\n", name)
+			for _, errMsg := range worker.stats.errors {
+				fmt.Printf("  - %s\n", errMsg)
+			}
+		}
+	}
 }
 
 func generateUniqueWorkerName(baseName string, workers map[string]*workerState) string {
@@ -180,13 +315,5 @@ func generateUniqueWorkerName(baseName string, workers map[string]*workerState) 
 		}
 		newName = fmt.Sprintf("%s#%d", baseName, index)
 		index++
-	}
-}
-
-func (cli *CLI) createWorkerState(command cmd.BgCommand, interval time.Duration) *workerState {
-	return &workerState{
-		command:  command,
-		interval: interval,
-		done:     make(chan struct{}),
 	}
 }

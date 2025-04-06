@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"jiso/internal/utils"
 
@@ -22,9 +23,11 @@ type Transaction struct {
 	Dataset     []map[int]string `json:"dataset"`
 }
 
+// Add a cache for quick transaction lookups
 type TransactionCollection struct {
 	spec         *iso8583.MessageSpec
 	transactions []Transaction
+	cache        map[string]*Transaction // Add transaction cache
 }
 
 func NewTransactionCollection(
@@ -49,8 +52,19 @@ func NewTransactionCollection(
 		return nil, errors.New("no transactions found in the file")
 	}
 
-	fmt.Printf("Transactions loaded successfully. Count: %d\n", len(transactions))
-	return &TransactionCollection{transactions: transactions, spec: specs}, nil
+	tc := &TransactionCollection{
+		transactions: transactions,
+		spec:         specs,
+		cache:        make(map[string]*Transaction),
+	}
+
+	// Pre-populate cache
+	for i := range tc.transactions {
+		tc.cache[tc.transactions[i].Name] = &tc.transactions[i]
+	}
+
+	fmt.Printf("Transactions loaded successfully. Count: %d\n", len(tc.transactions))
+	return tc, nil
 }
 
 func isInvalidFilename(filename string) bool {
@@ -94,11 +108,20 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 }
 
 func (tc *TransactionCollection) findTransaction(name string) (*Transaction, error) {
-	for _, t := range tc.transactions {
-		if t.Name == name {
-			return &t, nil
+	// Check cache first
+	if transaction, exists := tc.cache[name]; exists {
+		return transaction, nil
+	}
+
+	// Fall back to iteration if not in cache
+	for i := range tc.transactions {
+		if tc.transactions[i].Name == name {
+			// Add to cache for future lookups
+			tc.cache[name] = &tc.transactions[i]
+			return &tc.transactions[i], nil
 		}
 	}
+
 	return nil, fmt.Errorf("transaction not found: %s", name)
 }
 
@@ -115,7 +138,7 @@ func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transac
 
 	tc.setAutoFields(msg, fieldMap, t)
 	tc.setStaticFields(msg, dummyMsg)
-	tc.setRandomFields(msg, t.Dataset)
+	tc.applyRandomValues(msg, t.Dataset)
 
 	return nil
 }
@@ -163,29 +186,38 @@ func (tc *TransactionCollection) handleAutoFields(i int, msg *iso8583.Message) {
 	}
 }
 
-func (tc *TransactionCollection) setRandomFields(msg *iso8583.Message, dataSet []map[int]string) {
-	if len(dataSet) > 0 {
-		// Pick a random entry from the dataset
-		randIndex := rand.Intn(len(dataSet))
-		randomValues := dataSet[randIndex]
-
-		for i, v := range randomValues {
-			if v != "" {
-				msg.Field(i, v)
-			}
-		}
-	}
+func (tc *TransactionCollection) handleRandomFields(msg *iso8583.Message, t *Transaction) {
+	// Simply delegate to the consolidated function for random values
+	tc.applyRandomValues(msg, t.Dataset)
 }
 
-func (tc *TransactionCollection) handleRandomFields(msg *iso8583.Message, t *Transaction) {
-	if len(t.Dataset) > 0 {
-		// Pick a random value from the preloaded dataset
-		randIndex := rand.Intn(len(t.Dataset))
-		randomValues := t.Dataset[randIndex]
+// Consolidated random field handling
+func (tc *TransactionCollection) applyRandomValues(msg *iso8583.Message, dataset []map[int]string) {
+	if len(dataset) == 0 {
+		return
+	}
 
-		for i, v := range randomValues {
-			if v != "" {
-				msg.Field(i, v)
+	// Pick a random entry from the dataset using a better RNG
+	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randIndex := randSource.Intn(len(dataset))
+	randomValues := dataset[randIndex]
+
+	// Apply values
+	for fieldID, value := range randomValues {
+		if value == "" {
+			continue
+		}
+
+		// Try to determine correct field type and set accordingly
+		if fieldID >= 2 && fieldID <= 128 {
+			// Get field definition from spec
+			fieldDef := tc.spec.Fields[fieldID]
+			if fieldDef != nil {
+				// Default case or fallback
+				msg.Field(fieldID, value)
+			} else {
+				// Field not in spec, use default handling
+				msg.Field(fieldID, value)
 			}
 		}
 	}

@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
-	"time"
 
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
@@ -24,15 +23,16 @@ type CLI struct {
 	svc      *service.Service
 	tc       *transactions.TransactionCollection
 
+	// Add configuration options
+	config struct {
+		debugMode   bool
+		logLevel    string
+		autoConnect bool
+	}
+
 	// Background worker state
 	workers map[string]*workerState
 	mu      sync.Mutex
-}
-
-type workerState struct {
-	command  cmd.BgCommand
-	interval time.Duration
-	done     chan struct{}
 }
 
 func NewCLI() *CLI {
@@ -124,7 +124,7 @@ Type 'stop' to stop a specific background worker
 
 Other commands:
 Type 'clear' or 'cls' to clear the terminal
-Type 'help' to see this list agai
+Type 'help' to see this list again
 Type 'version' to see the version of the CLI tool
 Type 'quit' to exit the CLI tool`)
 }
@@ -139,6 +139,7 @@ func (cli *CLI) InitService() error {
 		cfg.GetConfig().GetHost(),
 		cfg.GetConfig().GetPort(),
 		cfg.GetConfig().GetSpec(),
+		cli.config.autoConnect,
 	)
 	if err != nil {
 		return err
@@ -153,4 +154,11 @@ func (cli *CLI) InitService() error {
 	)
 
 	return err
+}
+
+// Add a configuration method
+func (cli *CLI) Configure(debugMode bool, logLevel string, autoConnect bool) {
+	cli.config.debugMode = debugMode
+	cli.config.logLevel = logLevel
+	cli.config.autoConnect = autoConnect
 }
