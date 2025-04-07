@@ -168,7 +168,8 @@ func (tc *TransactionCollection) setAutoFields(
 func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, dummyMsg *iso8583.Message) {
 	for i, f := range dummyMsg.GetFields() {
 		if v, err := f.Bytes(); err == nil {
-			if !bytes.Equal(v, []byte("random")) {
+			// Skip fields with value "auto" or "random" as they are handled separately
+			if !bytes.Equal(v, []byte("auto")) && !bytes.Equal(v, []byte("random")) {
 				msg.BinaryField(i, v)
 			}
 		}
@@ -176,13 +177,55 @@ func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, dummyMsg 
 }
 
 func (tc *TransactionCollection) handleAutoFields(i int, msg *iso8583.Message) {
+	// Get field spec to determine the correct auto value based on field description
+	fieldSpec := tc.spec.Fields[i]
+	if fieldSpec == nil {
+		// Field not found in spec, cannot determine auto value
+		return
+	}
+
+	// Look at the field description to determine what kind of auto value to generate
+	description := fieldSpec.Spec().Description
+
 	switch i {
 	case 7:
+		// Field 7: Transmission Date & Time (MMDDhhmmss format)
 		msg.Field(i, utils.GetTrxnDateTime())
 	case 11:
+		// Field 11: Systems Trace Audit Number (STAN)
 		msg.Field(i, utils.GetCounter().GetStan())
+	case 12:
+		// Field 12: Local Transaction Time (hhmmss format)
+		currentTime := time.Now().Format("150405") // hour, minute, second
+		msg.Field(i, currentTime)
+	case 13:
+		// Field 13: Local Transaction Date (MMDD format)
+		currentDate := time.Now().Format("0102") // month, day
+		msg.Field(i, currentDate)
+	case 15:
+		// Field 15: Settlement Date (MMDD format)
+		currentDate := time.Now().Format("0102") // month, day
+		msg.Field(i, currentDate)
+	case 17:
+		// Field 17: Capture Date (MMDD format)
+		currentDate := time.Now().Format("0102") // month, day
+		msg.Field(i, currentDate)
 	case 37:
+		// Field 37: Retrieval Reference Number
 		msg.Field(i, utils.GetRRNInstance().GetRRN())
+	default:
+		// For any other field marked as "auto", try to make an intelligent decision
+		if strings.Contains(description, "Date") {
+			// If it's a date field, use current date in MMDD format
+			msg.Field(i, time.Now().Format("0102"))
+		} else if strings.Contains(description, "Time") {
+			// If it's a time field, use current time in hhmmss format
+			msg.Field(i, time.Now().Format("150405"))
+		} else {
+			// Default to using a random numeric string matching the field's length
+			fieldLength := fieldSpec.Spec().Length
+			msg.Field(i, utils.RandString(fieldLength))
+		}
 	}
 }
 

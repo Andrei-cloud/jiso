@@ -69,5 +69,6 @@ func ResponseMTI(mti string) string {
 func GetTrxnDateTime() string {
 	currentTime := time.Now()
 	// The format is defined based on the following time: Mon Jan 2 15:04:05 -0700 MST 2006
+	// MMDDhhmmss format (month, day, hour, minute, second) - exactly 10 characters
 	return currentTime.Format("0102150405")
 }

@@ -10,6 +10,7 @@ import (
 	"jiso/internal/transactions"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/core"
 )
 
 type ConnectCommand struct {
@@ -40,7 +41,23 @@ func (c *ConnectCommand) Execute() error {
 					"bcd2":    true,
 					"NAPS":    true,
 				}
-				if _, valid := validTypes[ans.(string)]; !valid {
+
+				// Properly handle the response type
+				option, ok := ans.(core.OptionAnswer)
+				if !ok {
+					// Try to convert directly to string as a fallback
+					str, ok := ans.(string)
+					if !ok {
+						return errors.New("unexpected answer type")
+					}
+					if _, valid := validTypes[str]; !valid {
+						return errors.New("invalid length type selected")
+					}
+					return nil
+				}
+
+				// Check if the value is valid
+				if _, valid := validTypes[option.Value]; !valid {
 					return errors.New("invalid length type selected")
 				}
 				return nil
@@ -48,19 +65,23 @@ func (c *ConnectCommand) Execute() error {
 		},
 	}
 
-	var lenType string
-	err := survey.Ask(qs, &lenType)
+	// Answer will be stored here
+	answers := struct {
+		Length string `survey:"length"`
+	}{}
+
+	err := survey.Ask(qs, &answers)
 	if err != nil {
 		return err
 	}
 
-	header, err := utils.SelectLength(lenType)
+	header, err := utils.SelectLength(answers.Length)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("Connecting to server...")
-	naps := (lenType == "NAPS")
+	naps := (answers.Length == "NAPS")
 	err = c.Svc.Connect(naps, header)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
