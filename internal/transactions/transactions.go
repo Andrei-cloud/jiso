@@ -9,11 +9,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
+)
+
+const (
+	transactionCacheFile = "transaction_cache.json"
 )
 
 type Transaction struct {
@@ -23,11 +28,29 @@ type Transaction struct {
 	Dataset     []map[int]string `json:"dataset"`
 }
 
+// TransactionState stores information about transaction state
+type TransactionState struct {
+	LastUsedDataset map[string]int   `json:"last_used_dataset"` // Maps transaction names to last used dataset index
+	TransactionLogs []TransactionLog `json:"transaction_logs"`  // Store recent transaction logs
+}
+
+// TransactionLog tracks usage of transactions
+type TransactionLog struct {
+	Name      string    `json:"name"`
+	Timestamp time.Time `json:"timestamp"`
+	Success   bool      `json:"success"`
+}
+
 // Add a cache for quick transaction lookups
 type TransactionCollection struct {
 	spec         *iso8583.MessageSpec
 	transactions []Transaction
 	cache        map[string]*Transaction // Add transaction cache
+
+	// State management
+	state      TransactionState
+	stateLock  sync.RWMutex
+	persistDir string
 }
 
 func NewTransactionCollection(
@@ -56,6 +79,10 @@ func NewTransactionCollection(
 		transactions: transactions,
 		spec:         specs,
 		cache:        make(map[string]*Transaction),
+		state: TransactionState{
+			LastUsedDataset: make(map[string]int),
+			TransactionLogs: make([]TransactionLog, 0, 100),
+		},
 	}
 
 	// Pre-populate cache
@@ -63,8 +90,146 @@ func NewTransactionCollection(
 		tc.cache[tc.transactions[i].Name] = &tc.transactions[i]
 	}
 
+	// Set the persistence directory to the same as used by the STAN counter
+	tc.SetPersistenceDirectory(utils.GetPersistenceDirectory())
+
+	// Load saved state
+	err = tc.loadState()
+	if err != nil {
+		fmt.Printf("Warning: Failed to load transaction state: %v\n", err)
+	}
+
 	fmt.Printf("Transactions loaded successfully. Count: %d\n", len(tc.transactions))
 	return tc, nil
+}
+
+// SetPersistenceDirectory sets directory for transaction state persistence
+func (tc *TransactionCollection) SetPersistenceDirectory(dir string) error {
+	tc.stateLock.Lock()
+	defer tc.stateLock.Unlock()
+
+	// Create directory if it doesn't exist
+	err := os.MkdirAll(dir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create transaction persistence directory: %w", err)
+	}
+
+	tc.persistDir = dir
+	return nil
+}
+
+// saveState persists transaction state to disk
+func (tc *TransactionCollection) saveState() error {
+	tc.stateLock.RLock()
+	defer tc.stateLock.RUnlock()
+
+	if tc.persistDir == "" {
+		// If persistence directory not set, use default temp directory
+		persistDir := filepath.Join(os.TempDir(), "jiso")
+		if err := tc.SetPersistenceDirectory(persistDir); err != nil {
+			return err
+		}
+	}
+
+	filePath := filepath.Join(tc.persistDir, transactionCacheFile)
+
+	// Marshal data
+	jsonData, err := json.MarshalIndent(tc.state, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal transaction state: %w", err)
+	}
+
+	// Write atomically
+	tempFile := filePath + ".tmp"
+	if err := os.WriteFile(tempFile, jsonData, 0o644); err != nil {
+		return fmt.Errorf("failed to write transaction state to temp file: %w", err)
+	}
+
+	if err := os.Rename(tempFile, filePath); err != nil {
+		return fmt.Errorf("failed to rename transaction temp file: %w", err)
+	}
+
+	return nil
+}
+
+// loadState loads transaction state from disk
+func (tc *TransactionCollection) loadState() error {
+	tc.stateLock.Lock()
+	defer tc.stateLock.Unlock()
+
+	if tc.persistDir == "" {
+		// If persistence directory not set, use default temp directory
+		persistDir := filepath.Join(os.TempDir(), "jiso")
+		if err := tc.SetPersistenceDirectory(persistDir); err != nil {
+			return err
+		}
+	}
+
+	filePath := filepath.Join(tc.persistDir, transactionCacheFile)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// File doesn't exist, nothing to load
+		return nil
+	}
+
+	// Read file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read transaction state: %w", err)
+	}
+
+	// Unmarshal data
+	var state TransactionState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return fmt.Errorf("failed to unmarshal transaction state: %w", err)
+	}
+
+	// Update state
+	tc.state = state
+
+	return nil
+}
+
+// LogTransaction records a transaction and saves state periodically
+func (tc *TransactionCollection) LogTransaction(name string, success bool) {
+	tc.stateLock.Lock()
+
+	// Add to transaction logs
+	tc.state.TransactionLogs = append(tc.state.TransactionLogs, TransactionLog{
+		Name:      name,
+		Timestamp: time.Now(),
+		Success:   success,
+	})
+
+	// Trim logs if they get too large
+	if len(tc.state.TransactionLogs) > 1000 {
+		tc.state.TransactionLogs = tc.state.TransactionLogs[len(tc.state.TransactionLogs)-1000:]
+	}
+
+	tc.stateLock.Unlock()
+
+	// Save state periodically (save every 10 transactions)
+	if len(tc.state.TransactionLogs)%10 == 0 {
+		go tc.saveState() // Don't block the caller
+	}
+}
+
+// GetTransactionHistory returns recent transaction logs
+func (tc *TransactionCollection) GetTransactionHistory(limit int) []TransactionLog {
+	tc.stateLock.RLock()
+	defer tc.stateLock.RUnlock()
+
+	if limit <= 0 || limit > len(tc.state.TransactionLogs) {
+		limit = len(tc.state.TransactionLogs)
+	}
+
+	start := len(tc.state.TransactionLogs) - limit
+	if start < 0 {
+		start = 0
+	}
+
+	return tc.state.TransactionLogs[start:]
 }
 
 func isInvalidFilename(filename string) bool {

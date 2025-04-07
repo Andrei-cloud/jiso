@@ -82,6 +82,11 @@ func (c *SendCommand) Execute() error {
 
 	c.start = time.Now()
 	response, err := c.Svc.Send(msg)
+
+	// Log transaction regardless of success/failure
+	success := err == nil
+	(**c.Tc).LogTransaction(trxnName, success)
+
 	if err != nil {
 		return err
 	}
@@ -111,12 +116,16 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 
 	msg, err := (**c.Tc).Compose(trxnName)
 	if err != nil {
+		// Log failed transaction
+		(**c.Tc).LogTransaction(trxnName, false)
 		return err
 	}
 
 	executionStart := time.Now()
 	resp, err := c.Svc.BackgroundSend(msg)
 	if err != nil {
+		// Log failed transaction
+		(**c.Tc).LogTransaction(trxnName, false)
 		return err
 	}
 	t := time.Since(executionStart)
@@ -126,8 +135,13 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	rc := resp.GetField(39)
 	rc_str, err := rc.String()
 	if err != nil {
+		// Log transaction with partial success
+		(**c.Tc).LogTransaction(trxnName, false)
 		return err
 	}
+
+	// Log successful transaction
+	(**c.Tc).LogTransaction(trxnName, true)
 
 	c.respCodesLock.Lock()
 	c.respCodes[rc_str]++
