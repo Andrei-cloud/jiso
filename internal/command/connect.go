@@ -86,7 +86,17 @@ func (c *ConnectCommand) Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
 	}
-	fmt.Printf("Successfully connected to server: %s\n", c.Svc.Address)
 
+	// Double-check connection status after connecting
+	if c.Svc.Connection == nil {
+		return fmt.Errorf("connection object is nil after connecting to %s", c.Svc.Address)
+	}
+
+	// Verify the connection status one more time
+	if !c.Svc.IsConnected() {
+		return fmt.Errorf("connection to %s is not online", c.Svc.Address)
+	}
+
+	fmt.Printf("Successfully connected to server: %s\n", c.Svc.Address)
 	return nil
 }

@@ -2,14 +2,13 @@ package command
 
 import (
 	"fmt"
-	"math"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
+	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+	"jiso/internal/view"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/moov-io/iso8583"
@@ -19,14 +18,10 @@ import (
 var ErrConnectionOffline = fmt.Errorf("connection is offline")
 
 type SendCommand struct {
-	Tc            **transactions.TransactionCollection
-	Svc           *service.Service
-	start         time.Time
-	counts        int
-	executionTime time.Duration
-	variance      time.Duration
-	respCodes     map[string]uint64
-	respCodesLock sync.Mutex
+	Tc       transactions.Repository
+	Svc      *service.Service
+	stats    *metrics.TransactionStats
+	renderer *view.ISOMessageRenderer
 }
 
 func (c *SendCommand) Name() string {
@@ -38,9 +33,19 @@ func (c *SendCommand) Synopsis() string {
 }
 
 func (c *SendCommand) Execute() error {
+	// Perform thorough connection checks
+	if c.Svc == nil {
+		return fmt.Errorf("service not initialized")
+	}
+
+	if !c.Svc.IsConnected() {
+		return ErrConnectionOffline
+	}
+
 	if c.Svc.Connection == nil {
 		return ErrConnectionOffline
 	}
+
 	if c.Svc.Connection.Status() != connection.StatusOnline {
 		return ErrConnectionOffline
 	}
@@ -50,7 +55,7 @@ func (c *SendCommand) Execute() error {
 			Name: "send",
 			Prompt: &survey.Select{
 				Message: "Select transaction:",
-				Options: (**c.Tc).ListNames(),
+				Options: c.Tc.ListNames(),
 			},
 		},
 	}
@@ -61,7 +66,7 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
-	msg, err := (**c.Tc).Compose(trxnName)
+	msg, err := c.Tc.Compose(trxnName)
 	if err != nil {
 		return err
 	}
@@ -71,53 +76,61 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
-	rebuioldMsg := iso8583.NewMessage(msg.GetSpec())
-	err = rebuioldMsg.Unpack(rawMsg)
+	rebuiltMsg := iso8583.NewMessage(msg.GetSpec())
+	err = rebuiltMsg.Unpack(rawMsg)
 	if err != nil {
 		return err
 	}
 
-	// Print ISO8583 message
-	iso8583.Describe(rebuioldMsg, os.Stdout, iso8583.DoNotFilterFields()...)
+	// Ensure renderer is initialized
+	if c.renderer == nil {
+		c.renderer = view.NewISOMessageRenderer(nil) // Use default stdout
+	}
 
-	c.start = time.Now()
+	// Print ISO8583 message
+	c.renderer.RenderMessage(rebuiltMsg)
+
+	startTime := time.Now()
 	response, err := c.Svc.Send(msg)
 
 	// Log transaction regardless of success/failure
 	success := err == nil
-	(**c.Tc).LogTransaction(trxnName, success)
+	c.Tc.LogTransaction(trxnName, success)
 
 	if err != nil {
 		return err
 	}
-	elapsed := time.Since(c.start)
+	elapsed := time.Since(startTime)
 
-	// Print response
-	iso8583.Describe(response, os.Stdout, iso8583.DoNotFilterFields()...)
+	// Print response and timing using the renderer
+	c.renderer.RenderRequestResponse(rebuiltMsg, response, elapsed)
 
-	// Print elapsed time
-	fmt.Printf("\nElapsed time: %s\n", elapsed.Round(time.Millisecond))
 	return nil
 }
 
 func (c *SendCommand) StartClock() {
-	c.start = time.Now()
+	if c.stats == nil {
+		c.stats = metrics.NewTransactionStats()
+	}
+	c.stats.StartClock()
 }
 
 func (c *SendCommand) ExecuteBackground(trxnName string) error {
-	if c.respCodes == nil {
-		c.respCodes = make(map[string]uint64)
+	// Initialize stats if not already done
+	if c.stats == nil {
+		c.stats = metrics.NewTransactionStats()
 	}
 
+	// Handle transaction with hash suffix
 	if strings.Contains(trxnName, "#") {
 		parts := strings.Split(trxnName, "#")
 		trxnName = parts[0]
 	}
 
-	msg, err := (**c.Tc).Compose(trxnName)
+	msg, err := c.Tc.Compose(trxnName)
 	if err != nil {
 		// Log failed transaction
-		(**c.Tc).LogTransaction(trxnName, false)
+		c.Tc.LogTransaction(trxnName, false)
 		return err
 	}
 
@@ -125,52 +138,59 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	resp, err := c.Svc.BackgroundSend(msg)
 	if err != nil {
 		// Log failed transaction
-		(**c.Tc).LogTransaction(trxnName, false)
+		c.Tc.LogTransaction(trxnName, false)
 		return err
 	}
-	t := time.Since(executionStart)
-	c.executionTime += t
-	c.counts++
+	execTime := time.Since(executionStart)
 
 	rc := resp.GetField(39)
-	rc_str, err := rc.String()
+	rcStr, err := rc.String()
 	if err != nil {
 		// Log transaction with partial success
-		(**c.Tc).LogTransaction(trxnName, false)
+		c.Tc.LogTransaction(trxnName, false)
 		return err
 	}
 
 	// Log successful transaction
-	(**c.Tc).LogTransaction(trxnName, true)
+	c.Tc.LogTransaction(trxnName, true)
 
-	c.respCodesLock.Lock()
-	c.respCodes[rc_str]++
-	c.respCodesLock.Unlock()
-
-	diff := t - c.MeanExecutionTime()
-	c.variance += diff * diff
+	// Record metrics
+	c.stats.RecordExecution(execTime, rcStr)
 
 	return nil
 }
 
 func (c *SendCommand) Stats() int {
-	return c.counts
+	if c.stats == nil {
+		return 0
+	}
+	return c.stats.ExecutionCount()
 }
 
 func (c *SendCommand) Duration() time.Duration {
-	return time.Since(c.start)
+	if c.stats == nil {
+		return 0
+	}
+	return c.stats.Duration()
 }
 
 func (c *SendCommand) MeanExecutionTime() time.Duration {
-	return c.executionTime / time.Duration(c.counts)
+	if c.stats == nil {
+		return 0
+	}
+	return c.stats.MeanExecutionTime()
 }
 
 func (c *SendCommand) StandardDeviation() time.Duration {
-	locVariance := c.variance
-	locVariance /= time.Duration(c.counts)
-	return time.Duration(math.Sqrt(float64(locVariance)))
+	if c.stats == nil {
+		return 0
+	}
+	return c.stats.StandardDeviation()
 }
 
 func (c *SendCommand) ResponseCodes() map[string]uint64 {
-	return c.respCodes
+	if c.stats == nil {
+		return make(map[string]uint64)
+	}
+	return c.stats.ResponseCodes()
 }

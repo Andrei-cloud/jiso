@@ -10,8 +10,10 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/main.go",
+            "cwd": "${workspaceFolder}",
             "env": {},
-            "args": [],
+            "args": ["-host", "localhost", "-port", "9999", "-file", "${workspaceFolder}/transactions/transaction.json", 
+                "-spec-file", "${workspaceFolder}/specs/spec_bcp.json"],
             "console": "externalTerminal"
         }
     ]

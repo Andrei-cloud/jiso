@@ -14,7 +14,7 @@ import (
 )
 
 type BackgroundCommand struct {
-	Tc  **transactions.TransactionCollection
+	Tc  transactions.Repository
 	Svc *service.Service
 	Wrk WorkerController
 }
@@ -37,7 +37,7 @@ func (c *BackgroundCommand) Execute() error {
 			Name: "trxnname",
 			Prompt: &survey.Select{
 				Message: "Select transaction:",
-				Options: (**c.Tc).ListNames(),
+				Options: c.Tc.ListNames(),
 			},
 		},
 		{
@@ -85,9 +85,14 @@ func (c *BackgroundCommand) Execute() error {
 		return err
 	}
 
-	command := &SendCommand{Tc: c.Tc, Svc: c.Svc}
-	command.StartClock()
-	c.Wrk.StartWorker(answers.TrxnName, command, numWorkers, interval)
+	// Start worker with transaction name and parameters
+	workerId, err := c.Wrk.StartWorker(answers.TrxnName, numWorkers, interval)
+	if err != nil {
+		return fmt.Errorf("failed to start worker: %w", err)
+	}
+
+	fmt.Printf("Started background worker %s for transaction %s with %d workers at %s interval\n",
+		workerId, answers.TrxnName, numWorkers, interval)
 
 	return nil
 }

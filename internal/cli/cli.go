@@ -13,7 +13,7 @@ import (
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 
-	"github.com/AlecAivazis/survey/v2"
+	"github.com/moov-io/iso8583"
 )
 
 var Version string = "v0.1.1"
@@ -21,7 +21,8 @@ var Version string = "v0.1.1"
 type CLI struct {
 	commands map[string]cmd.Command
 	svc      *service.Service
-	tc       *transactions.TransactionCollection
+	tc       transactions.Repository
+	factory  *cmd.Factory
 
 	// Add configuration options
 	config struct {
@@ -31,14 +32,14 @@ type CLI struct {
 	}
 
 	// Background worker state
-	workers map[string]*workerState
+	workers map[string]*workerInfo
 	mu      sync.Mutex
 }
 
 func NewCLI() *CLI {
 	return &CLI{
 		commands: make(map[string]cmd.Command),
-		workers:  make(map[string]*workerState),
+		workers:  make(map[string]*workerInfo),
 	}
 }
 
@@ -61,12 +62,16 @@ func (cli *CLI) Run() error {
 		return err
 	}
 
-	cli.AddCommand(&cmd.ListCommand{Tc: &cli.tc})
-	cli.AddCommand(&cmd.InfoCommand{Tc: &cli.tc})
-	cli.AddCommand(&cmd.SendCommand{Tc: &cli.tc, Svc: cli.svc})
-	cli.AddCommand(&cmd.ConnectCommand{Svc: cli.svc})
-	cli.AddCommand(&cmd.DisconnectCommand{Svc: cli.svc})
-	cli.AddCommand(&cmd.BackgroundCommand{Tc: &cli.tc, Svc: cli.svc, Wrk: cli})
+	// Create command factory
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli)
+
+	// Add commands using the factory
+	cli.AddCommand(cli.factory.CreateListCommand())
+	cli.AddCommand(cli.factory.CreateInfoCommand())
+	cli.AddCommand(cli.factory.CreateSendCommand())
+	cli.AddCommand(cli.factory.CreateConnectCommand())
+	cli.AddCommand(cli.factory.CreateDisconnectCommand())
+	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 
 	return cli.runWithHistory()
 }
@@ -96,37 +101,24 @@ func (cli *CLI) Close() {
 	}
 }
 
-func (cli *CLI) prompt(questions []*survey.Question, response interface{}) error {
-	return survey.Ask(questions, response)
-}
-
 func (cli *CLI) printHelp() {
-	fmt.Print("Available commands:\n\n")
-	maxNameLen := 0
-	for _, cmd := range cli.commands {
-		if len(cmd.Name()) > maxNameLen {
-			maxNameLen = len(cmd.Name())
+	fmt.Println("JISO CLI Commands:")
+	fmt.Println("  help, h, ?     - Display this help message")
+	fmt.Println("  version, v     - Display version information")
+	fmt.Println("  clear, cls     - Clear terminal")
+	fmt.Println("  quit, exit     - Exit the program")
+	fmt.Println("  stats, status  - Show worker statistics")
+	fmt.Println("  stop-all       - Stop all background workers")
+	fmt.Println("  reload         - Reload transaction specification and connection")
+	fmt.Println("  stop           - Stop a specific worker")
+	fmt.Println("")
+
+	if len(cli.commands) > 0 {
+		fmt.Println("Available commands:")
+		for name, cmd := range cli.commands {
+			fmt.Printf("  %-14s - %s\n", name, cmd.Synopsis())
 		}
 	}
-	for _, cmd := range cli.commands {
-		if cmd.Name() == "collect-args" {
-			continue
-		}
-		fmt.Printf("\t%-*s  %s\n", maxNameLen, cmd.Name(), cmd.Synopsis())
-	}
-	fmt.Println()
-
-	fmt.Print(`Workers controll commands:
-Type 'reload' to reload specs and transactions
-Type 'status' to see the status of background workers
-Type 'stop-all' to stop all background workers
-Type 'stop' to stop a specific background worker
-
-Other commands:
-Type 'clear' or 'cls' to clear the terminal
-Type 'help' to see this list again
-Type 'version' to see the version of the CLI tool
-Type 'quit' to exit the CLI tool`)
 }
 
 func (cli *CLI) printVersion() {
@@ -147,13 +139,28 @@ func (cli *CLI) InitService() error {
 
 	cli.setService(svc)
 
-	// New transcation collection
-	cli.tc, err = transactions.NewTransactionCollection(
+	// Create transaction collection through the repository interface
+	tcInstance, err := transactions.NewTransactionCollection(
 		cfg.GetConfig().GetFile(),
 		cli.getSpec(),
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	cli.tc = tcInstance
+
+	return nil
+}
+
+// Set service instance
+func (cli *CLI) setService(svc *service.Service) {
+	cli.svc = svc
+}
+
+// Get message spec from service
+func (cli *CLI) getSpec() *iso8583.MessageSpec {
+	return cli.svc.GetSpec()
 }
 
 // Add a configuration method
