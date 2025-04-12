@@ -2,10 +2,9 @@ package command
 
 import (
 	"fmt"
+
 	"jiso/internal/service"
 	"jiso/internal/transactions"
-
-	connection "github.com/moov-io/iso8583-connection"
 )
 
 type DisconnectCommand struct {
@@ -29,11 +28,11 @@ func (c *DisconnectCommand) Execute() error {
 	if c.Svc.Connection == nil {
 		return fmt.Errorf("no active connection")
 	}
-	if c.Svc.Connection.Status() != connection.StatusOnline {
-		return fmt.Errorf("connection is not online")
-	}
 
-	if err := c.Svc.Disconnect(); err != nil {
+	// Allow disconnecting even if connection is in a non-online state
+	// This helps clean up stale connection objects
+	err := c.Svc.Disconnect()
+	if err != nil {
 		return fmt.Errorf("failed to disconnect: %w", err)
 	}
 

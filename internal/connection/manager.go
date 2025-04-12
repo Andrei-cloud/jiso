@@ -36,8 +36,21 @@ func NewManager(host, port string, spec *iso8583.MessageSpec, debugMode bool) *M
 
 // Connect establishes a connection with the ISO8583 server
 func (m *Manager) Connect(naps bool, header network.Header) error {
-	if m.Connection != nil && m.Connection.Status() == moovconnection.StatusOnline {
-		return fmt.Errorf("connection is already established")
+	// If we already have a connection object, check its status.
+	// If it's online, return "already established" error.
+	// Otherwise, close any stale connection first
+	if m.Connection != nil {
+		if m.Connection.Status() == moovconnection.StatusOnline {
+			return fmt.Errorf("connection is already established")
+		} else {
+			// We have a connection object but it's not online
+			// Close it cleanly before attempting a new connection
+			if m.debugMode {
+				fmt.Printf("Cleaning up stale connection to %s\n", m.address)
+			}
+			m.Close()
+			m.Connection = nil
+		}
 	}
 
 	var err error
@@ -71,11 +84,12 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			}
 		}),
 		moovconnection.ConnectTimeout(4*time.Second),
-		moovconnection.ConnectionEstablishedHandler(func(c *moovconnection.Connection) {
+		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
 			c.SetStatus(moovconnection.StatusOnline)
 			if m.debugMode {
 				fmt.Printf("Connection established to %s\n", m.address)
 			}
+			return nil
 		}),
 		moovconnection.ConnectionClosedHandler(func(c *moovconnection.Connection) {
 			c.SetStatus(moovconnection.StatusOffline)
@@ -112,11 +126,6 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	}
 
 	m.Connection.ConnectCtx(context.Background())
-
-	// Verify the connection
-	if err := m.VerifyConnection(); err != nil {
-		return fmt.Errorf("failed to verify connection: %w", err)
-	}
 
 	return nil
 }
@@ -190,80 +199,4 @@ func (m *Manager) Close() error {
 		return m.Connection.Close()
 	}
 	return nil
-}
-
-// VerifyConnection sends a test echo message to confirm connection is fully established
-func (m *Manager) VerifyConnection() error {
-	if m.Connection == nil {
-		return fmt.Errorf("connection not initialized")
-	}
-
-	if m.Connection.Status() != moovconnection.StatusOnline {
-		return fmt.Errorf("connection is offline")
-	}
-
-	// Create a simple ping message (can be network management message or echo)
-	msg := iso8583.NewMessage(m.spec)
-
-	// Network management echo message
-	err := msg.Field(0, "0800")
-	if err != nil {
-		return fmt.Errorf("failed to create verification message: %w", err)
-	}
-
-	// Try to set common fields for a ping/echo message
-	// Note: These might need adjustment based on your ISO8583 specification
-	fields := map[int]string{
-		7:  time.Now().UTC().Format("0102150405"),          // Date and time in MMDDhhmmss format
-		11: fmt.Sprintf("%06d", time.Now().Unix()%1000000), // Trace number
-	}
-
-	for field, value := range fields {
-		if err := msg.Field(field, value); err != nil {
-			// Skip fields that might not be supported in this specification
-			if m.debugMode {
-				fmt.Printf("Warning: failed to set field %d: %v\n", field, err)
-			}
-		}
-	}
-
-	// Set network management code if field 70 is in the spec
-	if m.spec.Fields[70] != nil {
-		if err := msg.Field(70, "301"); err != nil && m.debugMode {
-			fmt.Printf("Warning: failed to set field 70: %v\n", err)
-		}
-	}
-
-	// Send the message and see if we get a response
-	if m.debugMode {
-		fmt.Println("Sending verification message...")
-	}
-
-	// Set a shorter timeout for verification
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	responseCh := make(chan *iso8583.Message, 1)
-	errCh := make(chan error, 1)
-
-	go func() {
-		resp, err := m.Connection.Send(msg)
-		if err != nil {
-			errCh <- err
-			return
-		}
-		responseCh <- resp
-	}()
-
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("connection verification timed out")
-	case err := <-errCh:
-		return fmt.Errorf("connection verification failed: %w", err)
-	case resp := <-responseCh:
-		if m.debugMode {
-			fmt.Println("Verification successful, received response:", resp)
-		}
-		return nil
-	}
 }

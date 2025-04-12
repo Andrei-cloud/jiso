@@ -87,8 +87,8 @@ func (c *SendCommand) Execute() error {
 		c.renderer = view.NewISOMessageRenderer(nil) // Use default stdout
 	}
 
-	// Print ISO8583 message
-	c.renderer.RenderMessage(rebuiltMsg)
+	// Remove the first print of the message to avoid duplication
+	// c.renderer.RenderMessage(rebuiltMsg) - removed
 
 	startTime := time.Now()
 	response, err := c.Svc.Send(msg)
