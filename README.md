@@ -24,8 +24,8 @@ JISO (JSON ISO8583) is a command-line tool for simulating ISO8583 message transa
 Clone the repository and build the executable:
 
 ```bash
-git clone https://github.com/andrei-cloud/SCS.git
-cd SCS/jiso
+git clone https://github.com/Andrei-cloud/jiso.git
+cd jiso
 make build
 ```
 
