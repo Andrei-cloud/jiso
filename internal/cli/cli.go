@@ -93,7 +93,7 @@ func (cli *CLI) Close() {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 	for _, worker := range cli.workers {
-		close(worker.done)
+		worker.cancel()
 	}
 
 	if cli.svc != nil {

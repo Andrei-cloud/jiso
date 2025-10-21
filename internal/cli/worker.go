@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -18,7 +19,8 @@ type workerInfo struct {
 	count               int
 	interval            time.Duration
 	startTime           time.Time
-	done                chan struct{}
+	ctx                 context.Context
+	cancel              context.CancelFunc
 	successful          int
 	failed              int
 	consecutiveFailures int
@@ -30,6 +32,9 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 	// Generate a unique ID for the worker
 	workerID := uuid.New().String()[:8]
 
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Create a new worker state
 	worker := &workerInfo{
 		id:        workerID,
@@ -37,7 +42,8 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 		count:     count,
 		interval:  interval,
 		startTime: time.Now(),
-		done:      make(chan struct{}),
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 
 	// Store the worker
@@ -83,7 +89,7 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 					}
 					worker.mu.Unlock()
 				}
-			case <-worker.done:
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -102,7 +108,7 @@ func (cli *CLI) StopWorker(id string) error {
 		return fmt.Errorf("worker with ID %s not found", id)
 	}
 
-	close(worker.done)
+	worker.cancel()
 	delete(cli.workers, id)
 	return nil
 }
@@ -113,7 +119,7 @@ func (cli *CLI) StopAllWorkers() error {
 	defer cli.mu.Unlock()
 
 	for id, worker := range cli.workers {
-		close(worker.done)
+		worker.cancel()
 		delete(cli.workers, id)
 	}
 	return nil
