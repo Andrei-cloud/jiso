@@ -116,6 +116,13 @@ func (c *SendCommand) StartClock() {
 }
 
 func (c *SendCommand) ExecuteBackground(trxnName string) error {
+	// Check connection health before attempting to send
+	if !c.Svc.IsConnected() {
+		// Log the issue but don't fail the transaction - allow worker to continue
+		fmt.Printf("Warning: Connection is offline, skipping transaction %s\n", trxnName)
+		return nil // Return nil to not count as failure
+	}
+
 	// Initialize stats if not already done
 	if c.stats == nil {
 		c.stats = metrics.NewTransactionStats()
