@@ -19,7 +19,7 @@ type StressTestCommand struct {
 }
 
 func (c *StressTestCommand) Name() string {
-	return "stresstest"
+	return "stress"
 }
 
 func (c *StressTestCommand) Synopsis() string {
@@ -68,6 +68,14 @@ func (c *StressTestCommand) Execute() error {
 			Validate: survey.Required,
 		},
 		{
+			Name: "duration",
+			Prompt: &survey.Input{
+				Default: "1m",
+				Message: "Enter test duration after ramp-up (e.g. '1m', '5m', '10m'):",
+			},
+			Validate: survey.Required,
+		},
+		{
 			Name: "workers",
 			Prompt: &survey.Input{
 				Default: "1",
@@ -93,6 +101,7 @@ func (c *StressTestCommand) Execute() error {
 		TrxnName       string
 		TargetTps      string
 		RampUpDuration string
+		Duration       string
 		Workers        string
 	}{}
 
@@ -111,6 +120,11 @@ func (c *StressTestCommand) Execute() error {
 		return err
 	}
 
+	duration, err := time.ParseDuration(answers.Duration)
+	if err != nil {
+		return err
+	}
+
 	numWorkers, err := strconv.Atoi(answers.Workers)
 	if err != nil {
 		return err
@@ -121,6 +135,7 @@ func (c *StressTestCommand) Execute() error {
 		answers.TrxnName,
 		targetTps,
 		rampUpDuration,
+		duration,
 		numWorkers,
 	)
 	if err != nil {
@@ -129,9 +144,10 @@ func (c *StressTestCommand) Execute() error {
 
 	fmt.Printf("Started stress test worker %s for transaction %s\n", workerId, answers.TrxnName)
 	fmt.Printf(
-		"Target TPS: %d, Ramp-up duration: %s, Workers: %d\n",
+		"Target TPS: %d, Ramp-up duration: %s, Test duration: %s, Workers: %d\n",
 		targetTps,
 		rampUpDuration,
+		duration,
 		numWorkers,
 	)
 

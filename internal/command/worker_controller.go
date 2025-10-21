@@ -14,6 +14,7 @@ type WorkerController interface {
 		name string,
 		targetTps int,
 		rampUpDuration time.Duration,
+		duration time.Duration,
 		numWorkers int,
 	) (string, error)
 

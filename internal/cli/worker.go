@@ -18,6 +18,7 @@ type stressTestWorker struct {
 	name                string
 	targetTps           int
 	rampUpDuration      time.Duration
+	duration            time.Duration
 	numWorkers          int
 	startTime           time.Time
 	ctx                 context.Context
@@ -128,7 +129,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			w.mu.Unlock()
 
 			fmt.Printf(
-				"Worker %s: Step %d/%d - Target: %.1f TPS, Actual: %.1f TPS, Progress: %.1f%%\n",
+				"\rWorker %s: Step %d/%d - Target: %.1f TPS, Actual: %.1f TPS, Progress: %.1f%%",
 				w.id,
 				step+1,
 				rampUpSteps+1,
@@ -139,8 +140,13 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		}
 	}
 
-	// Ramp-up complete, continue at target TPS
-	fmt.Printf("Worker %s: Ramp-up complete. Maintaining %d TPS\n", w.id, w.targetTps)
+	// Ramp-up complete, continue at target TPS for the specified duration
+	fmt.Printf(
+		"\nWorker %s: Ramp-up complete. Maintaining %d TPS for %s\n",
+		w.id,
+		w.targetTps,
+		w.duration,
+	)
 
 	finalInterval := time.Duration(
 		float64(time.Second) / float64(w.targetTps) / float64(w.numWorkers),
@@ -152,7 +158,9 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 	ticker := time.NewTicker(finalInterval)
 	defer ticker.Stop()
 
-	for {
+	testEnd := time.Now().Add(w.duration)
+
+	for time.Now().Before(testEnd) {
 		select {
 		case <-ticker.C:
 			for i := 0; i < w.numWorkers; i++ {
@@ -185,6 +193,8 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			return
 		}
 	}
+
+	fmt.Printf("Worker %s: Test duration elapsed. Stopping.\n", w.id)
 }
 
 // workerInfo holds the state of a background worker
@@ -284,6 +294,7 @@ func (cli *CLI) StartStressTestWorker(
 	name string,
 	targetTps int,
 	rampUpDuration time.Duration,
+	duration time.Duration,
 	numWorkers int,
 ) (string, error) {
 	// Generate a unique ID for the worker
@@ -298,6 +309,7 @@ func (cli *CLI) StartStressTestWorker(
 		name:           name,
 		targetTps:      targetTps,
 		rampUpDuration: rampUpDuration,
+		duration:       duration,
 		numWorkers:     numWorkers,
 		startTime:      time.Now(),
 		ctx:            ctx,
@@ -410,6 +422,7 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 			"actual_tps":           stressWorker.actualTps,
 			"ramp_up_progress":     stressWorker.rampUpProgress,
 			"ramp_up_duration":     stressWorker.rampUpDuration.String(),
+			"duration":             stressWorker.duration.String(),
 			"workers":              stressWorker.numWorkers,
 			"runtime":              time.Since(stressWorker.startTime).Round(time.Second).String(),
 			"successful":           stressWorker.successful,
