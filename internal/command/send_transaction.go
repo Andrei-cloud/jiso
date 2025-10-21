@@ -71,6 +71,11 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
+	// Validate message before sending
+	if err := validateMessage(msg); err != nil {
+		return fmt.Errorf("message validation failed: %w", err)
+	}
+
 	rawMsg, err := msg.Pack()
 	if err != nil {
 		return err
@@ -105,6 +110,22 @@ func (c *SendCommand) Execute() error {
 	// Print response and timing using the renderer
 	c.renderer.RenderRequestResponse(rebuiltMsg, response, elapsed)
 
+	return nil
+}
+
+func validateMessage(msg *iso8583.Message) error {
+	// Basic validation: check if MTI is set
+	field := msg.GetField(0)
+	if field == nil {
+		return fmt.Errorf("MTI field missing")
+	}
+	mti, err := field.String()
+	if err != nil {
+		return fmt.Errorf("MTI field error: %w", err)
+	}
+	if mti == "" {
+		return fmt.Errorf("MTI field is empty")
+	}
 	return nil
 }
 
@@ -168,6 +189,13 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		// Log failed transaction
 		c.Tc.LogTransaction(trxnName, false)
 		return err
+	}
+
+	// Validate message before sending
+	if err := validateMessage(msg); err != nil {
+		// Log failed transaction
+		c.Tc.LogTransaction(trxnName, false)
+		return fmt.Errorf("message validation failed: %w", err)
 	}
 
 	executionStart := time.Now()
