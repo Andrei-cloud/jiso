@@ -111,18 +111,26 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		}),
 	}
 
-	// Attempt to connect with retries
+	// Attempt to connect with retries and exponential backoff
+	maxBackoff := 30 * time.Second
+	baseDelay := 1 * time.Second
+
 	for attempt := 0; attempt <= m.reconnectAttempts; attempt++ {
 		if attempt > 0 {
+			delay := time.Duration(1<<uint(attempt-1)) * baseDelay
+			if delay > maxBackoff {
+				delay = maxBackoff
+			}
 			if m.debugMode {
 				fmt.Printf(
-					"Retrying connection attempt %d/%d to %s\n",
+					"Retrying connection attempt %d/%d to %s after %v\n",
 					attempt,
 					m.reconnectAttempts,
 					m.address,
+					delay,
 				)
 			}
-			time.Sleep(time.Duration(attempt) * time.Second) // Simple backoff
+			time.Sleep(delay)
 		}
 
 		m.Connection, err = moovconnection.New(
@@ -236,14 +244,41 @@ func (m *Manager) Close() error {
 	return nil
 }
 
-// attemptReconnect tries to reconnect in the background
+// attemptReconnect tries to reconnect in the background with exponential backoff
 func (m *Manager) attemptReconnect(naps bool, header network.Header) {
-	// Simple reconnect logic, could be enhanced with backoff
-	time.Sleep(5 * time.Second) // Wait before attempting reconnect
-	err := m.Connect(naps, header)
-	if err != nil {
-		if m.debugMode {
-			fmt.Printf("Reconnection failed: %s\n", err)
+	maxBackoff := 30 * time.Second
+	baseDelay := 1 * time.Second
+
+	for attempt := 1; attempt <= m.reconnectAttempts; attempt++ {
+		delay := time.Duration(1<<uint(attempt-1)) * baseDelay
+		if delay > maxBackoff {
+			delay = maxBackoff
 		}
+
+		if m.debugMode {
+			fmt.Printf(
+				"Waiting %v before reconnection attempt %d/%d\n",
+				delay,
+				attempt,
+				m.reconnectAttempts,
+			)
+		}
+		time.Sleep(delay)
+
+		err := m.Connect(naps, header)
+		if err == nil {
+			if m.debugMode {
+				fmt.Printf("Reconnection successful on attempt %d\n", attempt)
+			}
+			return
+		}
+
+		if m.debugMode {
+			fmt.Printf("Reconnection attempt %d failed: %s\n", attempt, err)
+		}
+	}
+
+	if m.debugMode {
+		fmt.Printf("All reconnection attempts failed\n")
 	}
 }
