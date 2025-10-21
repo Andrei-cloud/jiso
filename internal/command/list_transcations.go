@@ -29,8 +29,7 @@ func (c *ListCommand) Execute() error {
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Transaction Name"})
-
+	// table.SetHeader([]string{"Transaction Name", "Description"})
 	for _, name := range names {
 		table.Append([]string{name})
 	}

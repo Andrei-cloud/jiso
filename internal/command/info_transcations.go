@@ -91,9 +91,9 @@ func (c *InfoCommand) Execute() error {
 
 	// Show details in nice table - using Auto-merge to handle multi-line cells properly
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Field", "Value"})
-	table.SetAutoMergeCells(false)
-	table.SetRowLine(true)
+	// table.SetHeader([]string{"Field", "Value"})
+	// table.SetAutoMergeCells(false)
+	// table.SetRowLine(true)
 	table.Append([]string{"Name", name})
 	table.Append([]string{"MTI", mti})
 	table.Append([]string{"Processing Code", procCode})

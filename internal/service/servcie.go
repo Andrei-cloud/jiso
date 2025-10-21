@@ -19,7 +19,11 @@ type Service struct {
 	debugMode   bool
 }
 
-func NewService(host, port, specFileName string, debugMode bool) (*Service, error) {
+func NewService(
+	host, port, specFileName string,
+	debugMode bool,
+	reconnectAttempts int,
+) (*Service, error) {
 	// Load message spec
 	spec, err := utils.CreateSpecFromFile(specFileName)
 	if err != nil {
@@ -28,7 +32,7 @@ func NewService(host, port, specFileName string, debugMode bool) (*Service, erro
 	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
 	// Create a new connection manager
-	connManager := connection.NewManager(host, port, spec, debugMode)
+	connManager := connection.NewManager(host, port, spec, debugMode, reconnectAttempts)
 
 	return &Service{
 		MessageSpec: spec,

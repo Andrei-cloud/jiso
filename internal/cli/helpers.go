@@ -170,20 +170,9 @@ func (cli *CLI) printWorkerStats() {
 
 	// Create a table for better presentation
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader(
-		[]string{
-			"ID",
-			"Transaction",
-			"Workers",
-			"Interval",
-			"Runtime",
-			"Success",
-			"Failed",
-			"Total",
-		},
-	)
-
+	// table.SetHeader([]string{"Command", "Description"})
 	for _, worker := range workers {
+		// table.Append([]string{fmt.Sprintf("%v", worker["id"]), fmt.Sprintf("%v", worker["name"])})
 		table.Append([]string{
 			fmt.Sprintf("%v", worker["id"]),
 			fmt.Sprintf("%v", worker["name"]),

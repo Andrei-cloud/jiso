@@ -8,11 +8,12 @@ import (
 )
 
 type Config struct {
-	file         string
-	host         string
-	port         string
-	specFileName string
-	mu           sync.RWMutex
+	file              string
+	host              string
+	port              string
+	specFileName      string
+	reconnectAttempts int
+	mu                sync.RWMutex
 }
 
 var (

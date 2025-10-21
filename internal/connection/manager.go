@@ -19,18 +19,25 @@ import (
 
 // Manager handles connections to ISO8583 servers
 type Manager struct {
-	Connection *moovconnection.Connection // Expose Connection as public for backward compatibility
-	address    string
-	spec       *iso8583.MessageSpec
-	debugMode  bool
+	Connection        *moovconnection.Connection // Expose Connection as public for backward compatibility
+	address           string
+	spec              *iso8583.MessageSpec
+	debugMode         bool
+	reconnectAttempts int
 }
 
 // NewManager creates a new connection manager
-func NewManager(host, port string, spec *iso8583.MessageSpec, debugMode bool) *Manager {
+func NewManager(
+	host, port string,
+	spec *iso8583.MessageSpec,
+	debugMode bool,
+	reconnectAttempts int,
+) *Manager {
 	return &Manager{
-		address:   fmt.Sprintf("%s:%s", host, port),
-		spec:      spec,
-		debugMode: debugMode,
+		address:           fmt.Sprintf("%s:%s", host, port),
+		spec:              spec,
+		debugMode:         debugMode,
+		reconnectAttempts: reconnectAttempts,
 	}
 }
 
@@ -61,29 +68,34 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
 	}
 
-	m.Connection, err = moovconnection.New(
-		m.address,
-		m.spec,
-		readFunc,
-		writeFunc,
+	// Add connection options with proper reconnection settings
+	options := []moovconnection.Option{
+		moovconnection.ConnectTimeout(5 * time.Second),
 		moovconnection.ErrorHandler(func(err error) {
-			fmt.Printf("Error encountered while processing transaction request: %s\n", err)
+			if m.debugMode {
+				fmt.Printf("Error encountered: %s\n", err)
+			}
+
 			var unpackErr *iso8583errors.UnpackError
 			if errors.As(err, &unpackErr) {
 				fmt.Printf("Unpack error: %s\n", unpackErr)
 				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
 				return
 			}
+
 			var safeErr *isoutl.SafeError
 			if errors.As(err, &safeErr) {
 				fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
 			}
-			if errors.Is(err, io.EOF) {
+
+			if errors.Is(err, io.EOF) || errors.Is(err, moovconnection.ErrConnectionClosed) {
 				fmt.Println("Connection closed")
-				m.Close()
+				// Attempt to reconnect
+				if m.reconnectAttempts > 0 {
+					go m.attemptReconnect(naps, header)
+				}
 			}
 		}),
-		moovconnection.ConnectTimeout(4*time.Second),
 		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
 			c.SetStatus(moovconnection.StatusOnline)
 			if m.debugMode {
@@ -97,35 +109,58 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 				fmt.Printf("Connection closed to %s\n", m.address)
 			}
 		}),
-		moovconnection.ErrorHandler(func(err error) {
-			if m.debugMode {
-				fmt.Printf("Error encountered: %s\n", err)
-			}
-			var unpackErr *iso8583errors.UnpackError
-			if errors.As(err, &unpackErr) {
-				fmt.Printf("Unpack error: %s\n", unpackErr)
-				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
-				return
-			}
-			var safeErr *isoutl.SafeError
-			if errors.As(err, &safeErr) {
-				fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
-			}
-			if errors.Is(err, io.EOF) {
-				fmt.Println("Connection closed")
-				m.Close()
-			}
-			if errors.Is(err, moovconnection.ErrConnectionClosed) {
-				fmt.Println("Connection closed")
-				m.Close()
-			}
-		}),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to connect to %s: %w", m.address, err)
 	}
 
-	m.Connection.ConnectCtx(context.Background())
+	// Attempt to connect with retries
+	for attempt := 0; attempt <= m.reconnectAttempts; attempt++ {
+		if attempt > 0 {
+			if m.debugMode {
+				fmt.Printf(
+					"Retrying connection attempt %d/%d to %s\n",
+					attempt,
+					m.reconnectAttempts,
+					m.address,
+				)
+			}
+			time.Sleep(time.Duration(attempt) * time.Second) // Simple backoff
+		}
+
+		m.Connection, err = moovconnection.New(
+			m.address,
+			m.spec,
+			readFunc,
+			writeFunc,
+			options...,
+		)
+		if err != nil {
+			if attempt == m.reconnectAttempts {
+				return fmt.Errorf(
+					"failed to create connection after %d attempts: %w",
+					m.reconnectAttempts+1,
+					err,
+				)
+			}
+			continue
+		}
+
+		// Connect with timeout context to prevent hanging indefinitely
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = m.Connection.ConnectCtx(ctx)
+		cancel()
+		if err != nil {
+			if attempt == m.reconnectAttempts {
+				return fmt.Errorf(
+					"failed to establish connection after %d attempts: %w",
+					m.reconnectAttempts+1,
+					err,
+				)
+			}
+			continue
+		}
+
+		// Success
+		break
+	}
 
 	return nil
 }
@@ -199,4 +234,16 @@ func (m *Manager) Close() error {
 		return m.Connection.Close()
 	}
 	return nil
+}
+
+// attemptReconnect tries to reconnect in the background
+func (m *Manager) attemptReconnect(naps bool, header network.Header) {
+	// Simple reconnect logic, could be enhanced with backoff
+	time.Sleep(5 * time.Second) // Wait before attempting reconnect
+	err := m.Connect(naps, header)
+	if err != nil {
+		if m.debugMode {
+			fmt.Printf("Reconnection failed: %s\n", err)
+		}
+	}
 }
