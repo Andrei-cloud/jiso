@@ -13,15 +13,16 @@ import (
 // workerInfo holds the state of a background worker
 // Use a different name to avoid conflict with existing workerState
 type workerInfo struct {
-	id         string
-	name       string
-	count      int
-	interval   time.Duration
-	startTime  time.Time
-	done       chan struct{}
-	successful int
-	failed     int
-	mu         sync.Mutex
+	id                  string
+	name                string
+	count               int
+	interval            time.Duration
+	startTime           time.Time
+	done                chan struct{}
+	successful          int
+	failed              int
+	consecutiveFailures int
+	mu                  sync.Mutex
 }
 
 // StartWorker starts a new worker with the given parameters
@@ -64,8 +65,21 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 					worker.mu.Lock()
 					if err == nil {
 						worker.successful++
+						worker.consecutiveFailures = 0
 					} else {
 						worker.failed++
+						worker.consecutiveFailures++
+					}
+
+					// Circuit breaker: stop worker after 10 consecutive failures
+					if worker.consecutiveFailures >= 10 {
+						fmt.Printf(
+							"Worker %s stopped due to %d consecutive failures\n",
+							worker.id,
+							worker.consecutiveFailures,
+						)
+						worker.mu.Unlock()
+						return
 					}
 					worker.mu.Unlock()
 				}
@@ -123,14 +137,15 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 	for id, worker := range cli.workers {
 		worker.mu.Lock()
 		workerStats := map[string]interface{}{
-			"id":         id,
-			"name":       worker.name,
-			"workers":    worker.count,
-			"interval":   worker.interval.String(),
-			"runtime":    time.Since(worker.startTime).Round(time.Second).String(),
-			"successful": worker.successful,
-			"failed":     worker.failed,
-			"total":      worker.successful + worker.failed,
+			"id":                   id,
+			"name":                 worker.name,
+			"workers":              worker.count,
+			"interval":             worker.interval.String(),
+			"runtime":              time.Since(worker.startTime).Round(time.Second).String(),
+			"successful":           worker.successful,
+			"failed":               worker.failed,
+			"total":                worker.successful + worker.failed,
+			"consecutive_failures": worker.consecutiveFailures,
 		}
 		worker.mu.Unlock()
 
