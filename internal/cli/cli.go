@@ -17,7 +17,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.2.0"
+var Version string = "v0.3.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -33,16 +33,18 @@ type CLI struct {
 	}
 
 	// Background worker state
-	workers      map[string]*workerInfo
-	networkStats *metrics.NetworkingStats
-	mu           sync.Mutex
+	workers       map[string]*workerInfo
+	stressWorkers map[string]*stressTestWorker
+	networkStats  *metrics.NetworkingStats
+	mu            sync.Mutex
 }
 
 func NewCLI() *CLI {
 	return &CLI{
-		commands:     make(map[string]cmd.Command),
-		workers:      make(map[string]*workerInfo),
-		networkStats: metrics.NewNetworkingStats(),
+		commands:      make(map[string]cmd.Command),
+		workers:       make(map[string]*workerInfo),
+		stressWorkers: make(map[string]*stressTestWorker),
+		networkStats:  metrics.NewNetworkingStats(),
 	}
 }
 
@@ -75,6 +77,7 @@ func (cli *CLI) Run() error {
 	cli.AddCommand(cli.factory.CreateConnectCommand())
 	cli.AddCommand(cli.factory.CreateDisconnectCommand())
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
+	cli.AddCommand(cli.factory.CreateStressTestCommand())
 
 	return cli.runWithHistory()
 }
@@ -97,6 +100,9 @@ func (cli *CLI) Close() {
 	defer cli.mu.Unlock()
 	for _, worker := range cli.workers {
 		worker.cancel()
+	}
+	for _, stressWorker := range cli.stressWorkers {
+		stressWorker.cancel()
 	}
 
 	if cli.svc != nil {

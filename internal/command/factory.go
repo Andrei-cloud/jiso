@@ -61,6 +61,15 @@ func (f *Factory) CreateBackgroundCommand() Command {
 	}
 }
 
+// CreateStressTestCommand creates a stress test command
+func (f *Factory) CreateStressTestCommand() Command {
+	return &StressTestCommand{
+		Tc:  f.transactions,
+		Svc: f.service,
+		Wrk: f.controller,
+	}
+}
+
 // CreateListCommand creates a list command
 func (f *Factory) CreateListCommand() Command {
 	return &ListCommand{

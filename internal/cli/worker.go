@@ -12,6 +12,181 @@ import (
 	"github.com/google/uuid"
 )
 
+// stressTestWorker holds the state of a stress test worker
+type stressTestWorker struct {
+	id                  string
+	name                string
+	targetTps           int
+	rampUpDuration      time.Duration
+	numWorkers          int
+	startTime           time.Time
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	networkStats        *metrics.NetworkingStats
+	currentTps          float64
+	actualTps           float64
+	rampUpProgress      float64
+	successful          int
+	failed              int
+	consecutiveFailures int
+	mu                  sync.Mutex
+}
+
+// runStressTest implements the stress testing logic with TPS ramp-up
+func (w *stressTestWorker) runStressTest(cli *CLI) {
+	sendCmd, ok := cli.commands["send"].(*command.SendCommand)
+	if !ok {
+		fmt.Printf("Error: send command not found or has wrong type\n")
+		return
+	}
+
+	sendCmd.StartClock()
+
+	// Start with 1 TPS and ramp up to target TPS
+	startTps := 1.0
+	rampUpSteps := 100 // Number of ramp-up steps
+	stepDuration := w.rampUpDuration / time.Duration(rampUpSteps)
+
+	tpsIncrement := float64(w.targetTps-1) / float64(rampUpSteps)
+
+	fmt.Printf("Stress test worker %s starting ramp-up to %d TPS over %s\n",
+		w.id, w.targetTps, w.rampUpDuration)
+
+	for step := 0; step <= rampUpSteps; step++ {
+		select {
+		case <-w.ctx.Done():
+			return
+		default:
+		}
+
+		// Calculate current target TPS for this step
+		currentTargetTps := startTps + (float64(step) * tpsIncrement)
+		if currentTargetTps > float64(w.targetTps) {
+			currentTargetTps = float64(w.targetTps)
+		}
+
+		w.mu.Lock()
+		w.currentTps = currentTargetTps
+		w.rampUpProgress = float64(step) / float64(rampUpSteps) * 100.0
+		w.mu.Unlock()
+
+		// Calculate interval for this TPS
+		interval := time.Duration(float64(time.Second) / currentTargetTps / float64(w.numWorkers))
+		if interval < time.Millisecond {
+			interval = time.Millisecond // Minimum interval
+		}
+
+		// Run at this TPS for the step duration
+		stepEnd := time.Now().Add(stepDuration)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		stepStart := time.Now()
+		stepTransactions := 0
+
+		for time.Now().Before(stepEnd) {
+			select {
+			case <-ticker.C:
+				for i := 0; i < w.numWorkers; i++ {
+					err := sendCmd.ExecuteBackground(w.name)
+					w.mu.Lock()
+					if err == nil {
+						w.successful++
+						w.consecutiveFailures = 0
+					} else {
+						w.failed++
+						w.consecutiveFailures++
+					}
+
+					// Circuit breaker: record trip if activated
+					if w.consecutiveFailures >= 10 {
+						if w.networkStats != nil {
+							w.networkStats.RecordCircuitBreakerTrip()
+						}
+						fmt.Printf(
+							"Stress test worker %s stopped due to %d consecutive failures\n",
+							w.id,
+							w.consecutiveFailures,
+						)
+						w.mu.Unlock()
+						return
+					}
+					w.mu.Unlock()
+					stepTransactions++
+				}
+			case <-w.ctx.Done():
+				return
+			}
+		}
+
+		// Calculate actual TPS for this step
+		stepDuration := time.Since(stepStart)
+		if stepDuration > 0 {
+			actualTps := float64(stepTransactions) / stepDuration.Seconds()
+			w.mu.Lock()
+			w.actualTps = actualTps
+			w.mu.Unlock()
+
+			fmt.Printf(
+				"Worker %s: Step %d/%d - Target: %.1f TPS, Actual: %.1f TPS, Progress: %.1f%%\n",
+				w.id,
+				step+1,
+				rampUpSteps+1,
+				currentTargetTps,
+				actualTps,
+				w.rampUpProgress,
+			)
+		}
+	}
+
+	// Ramp-up complete, continue at target TPS
+	fmt.Printf("Worker %s: Ramp-up complete. Maintaining %d TPS\n", w.id, w.targetTps)
+
+	finalInterval := time.Duration(
+		float64(time.Second) / float64(w.targetTps) / float64(w.numWorkers),
+	)
+	if finalInterval < time.Millisecond {
+		finalInterval = time.Millisecond
+	}
+
+	ticker := time.NewTicker(finalInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			for i := 0; i < w.numWorkers; i++ {
+				err := sendCmd.ExecuteBackground(w.name)
+				w.mu.Lock()
+				if err == nil {
+					w.successful++
+					w.consecutiveFailures = 0
+				} else {
+					w.failed++
+					w.consecutiveFailures++
+				}
+
+				// Circuit breaker: record trip if activated
+				if w.consecutiveFailures >= 10 {
+					if w.networkStats != nil {
+						w.networkStats.RecordCircuitBreakerTrip()
+					}
+					fmt.Printf(
+						"Stress test worker %s stopped due to %d consecutive failures\n",
+						w.id,
+						w.consecutiveFailures,
+					)
+					w.mu.Unlock()
+					return
+				}
+				w.mu.Unlock()
+			}
+		case <-w.ctx.Done():
+			return
+		}
+	}
+}
+
 // workerInfo holds the state of a background worker
 // Use a different name to avoid conflict with existing workerState
 type workerInfo struct {
@@ -104,19 +279,70 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 	return workerID, nil
 }
 
+// StartStressTestWorker starts a stress test worker with TPS ramp-up
+func (cli *CLI) StartStressTestWorker(
+	name string,
+	targetTps int,
+	rampUpDuration time.Duration,
+	numWorkers int,
+) (string, error) {
+	// Generate a unique ID for the worker
+	workerID := uuid.New().String()[:8]
+
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create a new stress test worker state
+	worker := &stressTestWorker{
+		id:             workerID,
+		name:           name,
+		targetTps:      targetTps,
+		rampUpDuration: rampUpDuration,
+		numWorkers:     numWorkers,
+		startTime:      time.Now(),
+		ctx:            ctx,
+		cancel:         cancel,
+		networkStats:   cli.networkStats,
+		currentTps:     0,
+		actualTps:      0,
+		rampUpProgress: 0.0,
+	}
+
+	// Store the worker
+	cli.mu.Lock()
+	cli.stressWorkers[workerID] = worker
+	cli.mu.Unlock()
+
+	// Start the stress test worker in a goroutine
+	go func() {
+		worker.runStressTest(cli)
+	}()
+
+	return workerID, nil
+}
+
 // StopWorker stops a worker by its ID
 func (cli *CLI) StopWorker(id string) error {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 
+	// Check regular workers first
 	worker, exists := cli.workers[id]
-	if !exists {
-		return fmt.Errorf("worker with ID %s not found", id)
+	if exists {
+		worker.cancel()
+		delete(cli.workers, id)
+		return nil
 	}
 
-	worker.cancel()
-	delete(cli.workers, id)
-	return nil
+	// Check stress test workers
+	stressWorker, exists := cli.stressWorkers[id]
+	if exists {
+		stressWorker.cancel()
+		delete(cli.stressWorkers, id)
+		return nil
+	}
+
+	return fmt.Errorf("worker with ID %s not found", id)
 }
 
 // StopAllWorkers stops all running workers
@@ -128,6 +354,11 @@ func (cli *CLI) StopAllWorkers() error {
 		worker.cancel()
 		delete(cli.workers, id)
 	}
+
+	for id, stressWorker := range cli.stressWorkers {
+		stressWorker.cancel()
+		delete(cli.stressWorkers, id)
+	}
 	return nil
 }
 
@@ -138,19 +369,22 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 
 	stats := make(map[string]interface{})
 
-	if len(cli.workers) == 0 {
+	totalWorkers := len(cli.workers) + len(cli.stressWorkers)
+	if totalWorkers == 0 {
 		stats["active"] = 0
 		return stats
 	}
 
-	stats["active"] = len(cli.workers)
-	workerDetails := make([]map[string]interface{}, 0, len(cli.workers))
+	stats["active"] = totalWorkers
+	workerDetails := make([]map[string]interface{}, 0, totalWorkers)
 
+	// Add regular workers
 	for id, worker := range cli.workers {
 		worker.mu.Lock()
 		workerStats := map[string]interface{}{
 			"id":                   id,
 			"name":                 worker.name,
+			"type":                 "background",
 			"workers":              worker.count,
 			"interval":             worker.interval.String(),
 			"runtime":              time.Since(worker.startTime).Round(time.Second).String(),
@@ -162,6 +396,30 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 		worker.mu.Unlock()
 
 		workerDetails = append(workerDetails, workerStats)
+	}
+
+	// Add stress test workers
+	for id, stressWorker := range cli.stressWorkers {
+		stressWorker.mu.Lock()
+		stressWorkerStats := map[string]interface{}{
+			"id":                   id,
+			"name":                 stressWorker.name,
+			"type":                 "stress_test",
+			"target_tps":           stressWorker.targetTps,
+			"current_tps":          stressWorker.currentTps,
+			"actual_tps":           stressWorker.actualTps,
+			"ramp_up_progress":     stressWorker.rampUpProgress,
+			"ramp_up_duration":     stressWorker.rampUpDuration.String(),
+			"workers":              stressWorker.numWorkers,
+			"runtime":              time.Since(stressWorker.startTime).Round(time.Second).String(),
+			"successful":           stressWorker.successful,
+			"failed":               stressWorker.failed,
+			"total":                stressWorker.successful + stressWorker.failed,
+			"consecutive_failures": stressWorker.consecutiveFailures,
+		}
+		stressWorker.mu.Unlock()
+
+		workerDetails = append(workerDetails, stressWorkerStats)
 	}
 
 	stats["workers"] = workerDetails

@@ -83,6 +83,15 @@ func TestCreateCommands(t *testing.T) {
 		t.Error("CreateBackgroundCommand did not return BackgroundCommand")
 	}
 
+	// Test CreateStressTestCommand
+	stressTestCmd := factory.CreateStressTestCommand()
+	if stressTestCmd == nil {
+		t.Error("CreateStressTestCommand returned nil")
+	}
+	if _, ok := stressTestCmd.(*StressTestCommand); !ok {
+		t.Error("CreateStressTestCommand did not return StressTestCommand")
+	}
+
 	// Test CreateListCommand
 	listCmd := factory.CreateListCommand()
 	if listCmd == nil {
