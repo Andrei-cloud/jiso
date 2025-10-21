@@ -149,14 +149,12 @@ func (c *counter) GetStan() string {
 	}
 
 	// Persist the updated value
-	go func(currentValue uint32) {
-		err := persistData(PersistentData{
-			StanValue: currentValue,
-		})
-		if err != nil {
-			fmt.Printf("Warning: Failed to persist STAN value: %v\n", err)
-		}
-	}(c.value) // Capture the current value to avoid race conditions
+	err := persistData(PersistentData{
+		StanValue: c.value,
+	})
+	if err != nil {
+		fmt.Printf("Warning: Failed to persist STAN value: %v\n", err)
+	}
 
 	return fmt.Sprintf("%06d", val)
 }
