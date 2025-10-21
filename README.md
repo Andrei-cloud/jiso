@@ -71,6 +71,31 @@ Example with custom timeouts:
 go run ./cmd/main.go -host localhost -port 9999 -file ./transactions/transaction.json -spec-file ./specs/spec_bcp.json -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s
 ```
 
+## Testing
+
+### Test Server
+
+JISO includes a built-in test server for local testing and development:
+
+```bash
+# Build the test server
+make testserver
+
+# Run the test server (default: localhost:9999)
+./testserver
+
+# Or run directly
+make run-testserver
+```
+
+The test server accepts ISO 8583 connections and responds to all transaction types with success codes. Use it to test JISO functionality without connecting to a real ISO 8583 server.
+
+### Running Tests
+
+```bash
+go test ./...
+```
+
 ## Usage Examples
 
 ### Basic Workflow

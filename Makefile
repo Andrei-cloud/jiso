@@ -12,6 +12,12 @@ run: ## Run the service
 build: ## Build the service
 	@go build -o jiso ./cmd/main.go
 
+testserver: ## Build the test server
+	@cd server && go build -o ../testserver ./main.go
+
+run-testserver: ## Run the test server
+	@cd server && go run ./main.go
+
 # default target, when make executed without arguments
 all: help
 
