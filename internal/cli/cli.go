@@ -133,6 +133,8 @@ func (cli *CLI) InitService() error {
 		cfg.GetConfig().GetSpec(),
 		cli.config.autoConnect,
 		cfg.GetConfig().GetReconnectAttempts(),
+		cfg.GetConfig().GetConnectTimeout(),
+		cfg.GetConfig().GetTotalConnectTimeout(),
 	)
 	if err != nil {
 		return err

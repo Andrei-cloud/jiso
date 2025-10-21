@@ -19,11 +19,13 @@ import (
 
 // Manager handles connections to ISO8583 servers
 type Manager struct {
-	Connection        *moovconnection.Connection // Expose Connection as public for backward compatibility
-	address           string
-	spec              *iso8583.MessageSpec
-	debugMode         bool
-	reconnectAttempts int
+	Connection          *moovconnection.Connection // Expose Connection as public for backward compatibility
+	address             string
+	spec                *iso8583.MessageSpec
+	debugMode           bool
+	reconnectAttempts   int
+	connectTimeout      time.Duration
+	totalConnectTimeout time.Duration
 }
 
 // NewManager creates a new connection manager
@@ -32,12 +34,15 @@ func NewManager(
 	spec *iso8583.MessageSpec,
 	debugMode bool,
 	reconnectAttempts int,
+	connectTimeout, totalConnectTimeout time.Duration,
 ) *Manager {
 	return &Manager{
-		address:           fmt.Sprintf("%s:%s", host, port),
-		spec:              spec,
-		debugMode:         debugMode,
-		reconnectAttempts: reconnectAttempts,
+		address:             fmt.Sprintf("%s:%s", host, port),
+		spec:                spec,
+		debugMode:           debugMode,
+		reconnectAttempts:   reconnectAttempts,
+		connectTimeout:      connectTimeout,
+		totalConnectTimeout: totalConnectTimeout,
 	}
 }
 
@@ -70,7 +75,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 
 	// Add connection options with proper reconnection settings
 	options := []moovconnection.Option{
-		moovconnection.ConnectTimeout(5 * time.Second),
+		moovconnection.ConnectTimeout(m.connectTimeout),
 		moovconnection.ErrorHandler(func(err error) {
 			if m.debugMode {
 				fmt.Printf("Error encountered: %s\n", err)
@@ -152,7 +157,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		}
 
 		// Connect with timeout context to prevent hanging indefinitely
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), m.totalConnectTimeout)
 		err = m.Connection.ConnectCtx(ctx)
 		cancel()
 		if err != nil {

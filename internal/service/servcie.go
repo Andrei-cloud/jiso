@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"jiso/internal/connection"
 	"jiso/internal/utils"
@@ -23,6 +24,7 @@ func NewService(
 	host, port, specFileName string,
 	debugMode bool,
 	reconnectAttempts int,
+	connectTimeout, totalConnectTimeout time.Duration,
 ) (*Service, error) {
 	// Load message spec
 	spec, err := utils.CreateSpecFromFile(specFileName)
@@ -32,7 +34,15 @@ func NewService(
 	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
 	// Create a new connection manager
-	connManager := connection.NewManager(host, port, spec, debugMode, reconnectAttempts)
+	connManager := connection.NewManager(
+		host,
+		port,
+		spec,
+		debugMode,
+		reconnectAttempts,
+		connectTimeout,
+		totalConnectTimeout,
+	)
 
 	return &Service{
 		MessageSpec: spec,

@@ -2,6 +2,7 @@ package connection
 
 import (
 	"testing"
+	"time"
 
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
@@ -41,7 +42,7 @@ func mockMessageSpec() *iso8583.MessageSpec {
 
 func TestNewManager(t *testing.T) {
 	spec := mockMessageSpec()
-	manager := NewManager("localhost", "8080", spec, true, 3)
+	manager := NewManager("localhost", "8080", spec, true, 3, 5*time.Second, 10*time.Second)
 
 	assert.NotNil(t, manager)
 	assert.Equal(t, "localhost:8080", manager.GetAddress())
@@ -51,7 +52,7 @@ func TestNewManager(t *testing.T) {
 
 func TestManagerConnectionStatus(t *testing.T) {
 	spec := mockMessageSpec()
-	manager := NewManager("localhost", "8080", spec, false, 3)
+	manager := NewManager("localhost", "8080", spec, false, 3, 5*time.Second, 10*time.Second)
 
 	// Initial state should be not connected
 	assert.False(t, manager.IsConnected())
@@ -63,7 +64,7 @@ func TestManagerConnectionStatus(t *testing.T) {
 
 func TestManagerSendWithNoConnection(t *testing.T) {
 	spec := mockMessageSpec()
-	manager := NewManager("localhost", "8080", spec, false, 3)
+	manager := NewManager("localhost", "8080", spec, false, 3, 5*time.Second, 10*time.Second)
 
 	// Create a test message
 	message := iso8583.NewMessage(spec)
