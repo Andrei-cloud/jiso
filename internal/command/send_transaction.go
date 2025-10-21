@@ -247,8 +247,8 @@ func (c *SendCommand) retrySend(msg *iso8583.Message, maxRetries int) (*iso8583.
 		}
 		lastErr = err
 
-		// If connection is closed, don't retry
-		if err == connection.ErrConnectionClosed {
+		// If error is not retriable, don't retry
+		if !isRetriableError(err) {
 			break
 		}
 	}
@@ -355,4 +355,60 @@ func (c *SendCommand) ResponseCodes() map[string]uint64 {
 		return make(map[string]uint64)
 	}
 	return c.stats.ResponseCodes()
+}
+
+func isRetriableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+
+	// Permanent errors - don't retry
+	permanentErrors := []string{
+		"message validation failed",
+		"MTI field",
+		"required field",
+		"field error",
+		"invalid",
+		"authentication failed",
+		"authorization failed",
+		"unauthorized",
+		"forbidden",
+	}
+
+	for _, permErr := range permanentErrors {
+		if strings.Contains(strings.ToLower(errStr), permErr) {
+			return false
+		}
+	}
+
+	// Connection closed is permanent
+	if err == connection.ErrConnectionClosed {
+		return false
+	}
+
+	// Network-related errors are retriable
+	retriableErrors := []string{
+		"timeout",
+		"connection refused",
+		"connection reset",
+		"network is unreachable",
+		"no such host",
+		"temporary failure",
+		"server unavailable",
+		"service unavailable",
+		"internal server error", // Sometimes temporary
+		"bad gateway",           // Network issue
+		"gateway timeout",
+	}
+
+	for _, retErr := range retriableErrors {
+		if strings.Contains(strings.ToLower(errStr), retErr) {
+			return true
+		}
+	}
+
+	// Default: assume retriable for unknown errors (safer to retry)
+	return true
 }
