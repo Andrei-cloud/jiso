@@ -91,7 +91,7 @@ func (c *SendCommand) Execute() error {
 	// c.renderer.RenderMessage(rebuiltMsg) - removed
 
 	startTime := time.Now()
-	response, err := c.Svc.Send(msg)
+	response, err := c.retrySend(msg, 3) // Retry up to 3 times
 
 	// Log transaction regardless of success/failure
 	success := err == nil
@@ -106,6 +106,35 @@ func (c *SendCommand) Execute() error {
 	c.renderer.RenderRequestResponse(rebuiltMsg, response, elapsed)
 
 	return nil
+}
+
+func (c *SendCommand) retrySend(msg *iso8583.Message, maxRetries int) (*iso8583.Message, error) {
+	var lastErr error
+	baseDelay := 500 * time.Millisecond
+	maxDelay := 5 * time.Second
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := time.Duration(1<<uint(attempt-1)) * baseDelay
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+			time.Sleep(delay)
+		}
+
+		resp, err := c.Svc.Send(msg)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+
+		// If connection is closed, don't retry
+		if err == connection.ErrConnectionClosed {
+			break
+		}
+	}
+
+	return nil, lastErr
 }
 
 func (c *SendCommand) StartClock() {
