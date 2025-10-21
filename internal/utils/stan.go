@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -27,6 +28,7 @@ var (
 	once            sync.Once
 	persistLock     sync.Mutex
 	persistenceDir  string
+	persistChan     chan uint32
 )
 
 // SetPersistenceDirectory sets the directory where persistent data will be stored
@@ -133,6 +135,10 @@ func GetCounter() *counter {
 		// Initialize counter with the loaded value
 		counterInstance = &counter{value: data.StanValue}
 		fmt.Printf("STAN counter initialized with persisted value: %d\n", data.StanValue)
+
+		// Start persistence goroutine
+		persistChan = make(chan uint32, 1)
+		go persistWorker()
 	})
 	return counterInstance
 }
@@ -148,13 +154,32 @@ func (c *counter) GetStan() string {
 		atomic.AddUint32(&c.value, ^uint32(0))
 	}
 
-	// Persist the updated value
-	err := persistData(PersistentData{
-		StanValue: c.value,
-	})
-	if err != nil {
-		fmt.Printf("Warning: Failed to persist STAN value: %v\n", err)
+	// Send to persistence worker (non-blocking)
+	select {
+	case persistChan <- c.value:
+	default:
+		// Channel full, skip this update
 	}
 
 	return fmt.Sprintf("%06d", val)
+}
+
+func persistWorker() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastValue uint32
+	for {
+		select {
+		case val := <-persistChan:
+			lastValue = val
+		case <-ticker.C:
+			if lastValue != 0 {
+				err := persistData(PersistentData{StanValue: lastValue})
+				if err != nil {
+					fmt.Printf("Warning: Failed to persist STAN value: %v\n", err)
+				}
+			}
+		}
+	}
 }
