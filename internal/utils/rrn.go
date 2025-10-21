@@ -24,8 +24,9 @@ type RRNPersistentData struct {
 }
 
 var (
-	rrnInstance *RRN
-	rrnOnce     sync.Once
+	rrnInstance    *RRN
+	rrnOnce        sync.Once
+	rrnPersistLock sync.Mutex
 )
 
 func GetRRNInstance() *RRN {
@@ -83,8 +84,8 @@ func loadPersistedRRNData() (RRNPersistentData, error) {
 
 // Persist RRN data to file
 func persistRRNData(data RRNPersistentData) error {
-	persistLock.Lock()
-	defer persistLock.Unlock()
+	rrnPersistLock.Lock()
+	defer rrnPersistLock.Unlock()
 
 	// If persistence directory not set, use default
 	if persistenceDir == "" {
