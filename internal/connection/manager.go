@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"jiso/internal/utils"
@@ -26,6 +27,8 @@ type Manager struct {
 	reconnectAttempts   int
 	connectTimeout      time.Duration
 	totalConnectTimeout time.Duration
+	reconnecting        bool
+	reconnectMu         sync.Mutex
 }
 
 // NewManager creates a new connection manager
@@ -251,6 +254,20 @@ func (m *Manager) Close() error {
 
 // attemptReconnect tries to reconnect in the background with exponential backoff
 func (m *Manager) attemptReconnect(naps bool, header network.Header) {
+	m.reconnectMu.Lock()
+	if m.reconnecting {
+		m.reconnectMu.Unlock()
+		return // Already reconnecting
+	}
+	m.reconnecting = true
+	m.reconnectMu.Unlock()
+
+	defer func() {
+		m.reconnectMu.Lock()
+		m.reconnecting = false
+		m.reconnectMu.Unlock()
+	}()
+
 	maxBackoff := 30 * time.Second
 	baseDelay := 1 * time.Second
 
