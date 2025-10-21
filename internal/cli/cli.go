@@ -132,7 +132,7 @@ func (cli *CLI) printHelp() {
 
 func (cli *CLI) printVersion() {
 	fmt.Printf("JISO CLI (JSON ISO8583) tool version %s\n", Version)
-	fmt.Println("(c) 2023 Andrey Babikov <andrei.babikov@gmail.com>")
+	fmt.Println("(c) 2025 Andrey Babikov <andrei.babikov@gmail.com>")
 }
 
 func (cli *CLI) InitService() error {
