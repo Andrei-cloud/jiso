@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"jiso/internal/metrics"
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
@@ -29,6 +30,7 @@ type Manager struct {
 	totalConnectTimeout time.Duration
 	reconnecting        bool
 	reconnectMu         sync.Mutex
+	networkStats        *metrics.NetworkingStats
 }
 
 // NewManager creates a new connection manager
@@ -38,6 +40,7 @@ func NewManager(
 	debugMode bool,
 	reconnectAttempts int,
 	connectTimeout, totalConnectTimeout time.Duration,
+	networkStats *metrics.NetworkingStats,
 ) *Manager {
 	return &Manager{
 		address:             fmt.Sprintf("%s:%s", host, port),
@@ -46,6 +49,7 @@ func NewManager(
 		reconnectAttempts:   reconnectAttempts,
 		connectTimeout:      connectTimeout,
 		totalConnectTimeout: totalConnectTimeout,
+		networkStats:        networkStats,
 	}
 }
 
@@ -129,6 +133,9 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			if delay > maxBackoff {
 				delay = maxBackoff
 			}
+			if m.networkStats != nil {
+				m.networkStats.RecordBackoff(delay)
+			}
 			if m.debugMode {
 				fmt.Printf(
 					"Retrying connection attempt %d/%d to %s after %v\n",
@@ -141,6 +148,11 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			time.Sleep(delay)
 		}
 
+		if m.networkStats != nil {
+			m.networkStats.RecordReconnectAttempt()
+		}
+
+		startTime := time.Now()
 		m.Connection, err = moovconnection.New(
 			m.address,
 			m.spec,
@@ -149,6 +161,9 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			options...,
 		)
 		if err != nil {
+			if m.networkStats != nil {
+				m.networkStats.RecordReconnectFailure()
+			}
 			if attempt == m.reconnectAttempts {
 				return fmt.Errorf(
 					"failed to create connection after %d attempts: %w",
@@ -164,6 +179,9 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		err = m.Connection.ConnectCtx(ctx)
 		cancel()
 		if err != nil {
+			if m.networkStats != nil {
+				m.networkStats.RecordReconnectFailure()
+			}
 			if attempt == m.reconnectAttempts {
 				return fmt.Errorf(
 					"failed to establish connection after %d attempts: %w",
@@ -175,6 +193,10 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		}
 
 		// Success
+		if m.networkStats != nil {
+			duration := time.Since(startTime)
+			m.networkStats.RecordReconnectSuccess(duration)
+		}
 		break
 	}
 
@@ -252,6 +274,11 @@ func (m *Manager) Close() error {
 	return nil
 }
 
+// SetNetworkingStats sets the networking stats instance
+func (m *Manager) SetNetworkingStats(stats *metrics.NetworkingStats) {
+	m.networkStats = stats
+}
+
 // attemptReconnect tries to reconnect in the background with exponential backoff
 func (m *Manager) attemptReconnect(naps bool, header network.Header) {
 	m.reconnectMu.Lock()
@@ -277,6 +304,10 @@ func (m *Manager) attemptReconnect(naps bool, header network.Header) {
 			delay = maxBackoff
 		}
 
+		if m.networkStats != nil {
+			m.networkStats.RecordBackoff(delay)
+		}
+
 		if m.debugMode {
 			fmt.Printf(
 				"Waiting %v before reconnection attempt %d/%d\n",
@@ -287,12 +318,25 @@ func (m *Manager) attemptReconnect(naps bool, header network.Header) {
 		}
 		time.Sleep(delay)
 
+		if m.networkStats != nil {
+			m.networkStats.RecordReconnectAttempt()
+		}
+
+		startTime := time.Now()
 		err := m.Connect(naps, header)
 		if err == nil {
+			if m.networkStats != nil {
+				duration := time.Since(startTime)
+				m.networkStats.RecordReconnectSuccess(duration)
+			}
 			if m.debugMode {
 				fmt.Printf("Reconnection successful on attempt %d\n", attempt)
 			}
 			return
+		}
+
+		if m.networkStats != nil {
+			m.networkStats.RecordReconnectFailure()
 		}
 
 		if m.debugMode {

@@ -1,6 +1,7 @@
 package command
 
 import (
+	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 )
@@ -9,6 +10,7 @@ import (
 type Factory struct {
 	service      *service.Service
 	transactions transactions.Repository
+	networkStats *metrics.NetworkingStats
 	controller   WorkerController
 }
 
@@ -16,11 +18,13 @@ type Factory struct {
 func NewFactory(
 	svc *service.Service,
 	tx transactions.Repository,
+	networkStats *metrics.NetworkingStats,
 	controller WorkerController,
 ) *Factory {
 	return &Factory{
 		service:      svc,
 		transactions: tx,
+		networkStats: networkStats,
 		controller:   controller,
 	}
 }
@@ -42,8 +46,9 @@ func (f *Factory) CreateDisconnectCommand() Command {
 // CreateSendCommand creates a send command
 func (f *Factory) CreateSendCommand() Command {
 	return &SendCommand{
-		Tc:  f.transactions,
-		Svc: f.service,
+		Tc:           f.transactions,
+		Svc:          f.service,
+		networkStats: f.networkStats,
 	}
 }
 

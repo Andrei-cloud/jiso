@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"jiso/internal/connection"
+	"jiso/internal/metrics"
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
@@ -13,11 +14,12 @@ import (
 )
 
 type Service struct {
-	Address     string
-	Connection  *moovconnection.Connection
-	MessageSpec *iso8583.MessageSpec
-	connManager *connection.Manager
-	debugMode   bool
+	Address      string
+	Connection   *moovconnection.Connection
+	MessageSpec  *iso8583.MessageSpec
+	connManager  *connection.Manager
+	debugMode    bool
+	networkStats *metrics.NetworkingStats
 }
 
 func NewService(
@@ -42,14 +44,21 @@ func NewService(
 		reconnectAttempts,
 		connectTimeout,
 		totalConnectTimeout,
+		nil, // Will be set after service creation
 	)
 
-	return &Service{
-		MessageSpec: spec,
-		Address:     fmt.Sprintf("%s:%s", host, port),
-		connManager: connManager,
-		debugMode:   debugMode,
-	}, nil
+	service := &Service{
+		MessageSpec:  spec,
+		Address:      fmt.Sprintf("%s:%s", host, port),
+		connManager:  connManager,
+		debugMode:    debugMode,
+		networkStats: metrics.NewNetworkingStats(),
+	}
+
+	// Set the networking stats on the manager
+	connManager.SetNetworkingStats(service.networkStats)
+
+	return service, nil
 }
 
 // Connect establishes a connection to the server
@@ -114,4 +123,9 @@ func (s *Service) Close() error {
 		return nil
 	}
 	return s.connManager.Close()
+}
+
+// GetNetworkingStats returns the networking statistics
+func (s *Service) GetNetworkingStats() *metrics.NetworkingStats {
+	return s.networkStats
 }

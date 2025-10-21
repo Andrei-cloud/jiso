@@ -10,6 +10,7 @@ import (
 
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
+	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 
@@ -32,14 +33,16 @@ type CLI struct {
 	}
 
 	// Background worker state
-	workers map[string]*workerInfo
-	mu      sync.Mutex
+	workers      map[string]*workerInfo
+	networkStats *metrics.NetworkingStats
+	mu           sync.Mutex
 }
 
 func NewCLI() *CLI {
 	return &CLI{
-		commands: make(map[string]cmd.Command),
-		workers:  make(map[string]*workerInfo),
+		commands:     make(map[string]cmd.Command),
+		workers:      make(map[string]*workerInfo),
+		networkStats: metrics.NewNetworkingStats(),
 	}
 }
 
@@ -63,7 +66,7 @@ func (cli *CLI) Run() error {
 	}
 
 	// Create command factory
-	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli)
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
 
 	// Add commands using the factory
 	cli.AddCommand(cli.factory.CreateListCommand())

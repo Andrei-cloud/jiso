@@ -18,10 +18,11 @@ import (
 var ErrConnectionOffline = fmt.Errorf("connection is offline")
 
 type SendCommand struct {
-	Tc       transactions.Repository
-	Svc      *service.Service
-	stats    *metrics.TransactionStats
-	renderer *view.ISOMessageRenderer
+	Tc           transactions.Repository
+	Svc          *service.Service
+	stats        *metrics.TransactionStats
+	networkStats *metrics.NetworkingStats
+	renderer     *view.ISOMessageRenderer
 }
 
 func (c *SendCommand) Name() string {
@@ -247,6 +248,11 @@ func (c *SendCommand) retrySend(msg *iso8583.Message, maxRetries int) (*iso8583.
 		}
 		lastErr = err
 
+		// Record error classification
+		if c.networkStats != nil {
+			c.networkStats.RecordError(isRetriableError(err))
+		}
+
 		// If error is not retriable, don't retry
 		if !isRetriableError(err) {
 			break
@@ -301,6 +307,10 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	if err != nil {
 		// Log failed transaction
 		c.Tc.LogTransaction(trxnName, false)
+		// Record error
+		if c.networkStats != nil {
+			c.networkStats.RecordError(isRetriableError(err))
+		}
 		return err
 	}
 	execTime := time.Since(executionStart)

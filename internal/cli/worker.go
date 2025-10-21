@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"jiso/internal/command"
+	"jiso/internal/metrics"
 
 	"github.com/google/uuid"
 )
@@ -21,6 +22,7 @@ type workerInfo struct {
 	startTime           time.Time
 	ctx                 context.Context
 	cancel              context.CancelFunc
+	networkStats        *metrics.NetworkingStats
 	successful          int
 	failed              int
 	consecutiveFailures int
@@ -37,13 +39,14 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 
 	// Create a new worker state
 	worker := &workerInfo{
-		id:        workerID,
-		name:      name,
-		count:     count,
-		interval:  interval,
-		startTime: time.Now(),
-		ctx:       ctx,
-		cancel:    cancel,
+		id:           workerID,
+		name:         name,
+		count:        count,
+		interval:     interval,
+		startTime:    time.Now(),
+		ctx:          ctx,
+		cancel:       cancel,
+		networkStats: cli.networkStats,
 	}
 
 	// Store the worker
@@ -77,8 +80,11 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 						worker.consecutiveFailures++
 					}
 
-					// Circuit breaker: stop worker after 10 consecutive failures
+					// Circuit breaker: record trip if activated
 					if worker.consecutiveFailures >= 10 {
+						if worker.networkStats != nil {
+							worker.networkStats.RecordCircuitBreakerTrip()
+						}
 						fmt.Printf(
 							"Worker %s stopped due to %d consecutive failures\n",
 							worker.id,

@@ -165,25 +165,33 @@ func (cli *CLI) printWorkerStats() {
 	workers, ok := stats["workers"].([]map[string]interface{})
 	if !ok || len(workers) == 0 {
 		fmt.Println("No active workers")
-		return
+	} else {
+		// Create a table for better presentation
+		table := tablewriter.NewWriter(os.Stdout)
+		// table.SetHeader([]string{"ID", "Name", "Count", "Interval", "Runtime", "Success", "Failed", "Total"})
+		for _, worker := range workers {
+			table.Append([]string{
+				fmt.Sprintf("%v", worker["id"]),
+				fmt.Sprintf("%v", worker["name"]),
+				fmt.Sprintf("%v", worker["workers"]),
+				fmt.Sprintf("%v", worker["interval"]),
+				fmt.Sprintf("%v", worker["runtime"]),
+				fmt.Sprintf("%v", worker["successful"]),
+				fmt.Sprintf("%v", worker["failed"]),
+				fmt.Sprintf("%v", worker["total"]),
+			})
+		}
+		table.Render()
 	}
 
-	// Create a table for better presentation
-	table := tablewriter.NewWriter(os.Stdout)
-	// table.SetHeader([]string{"Command", "Description"})
-	for _, worker := range workers {
-		// table.Append([]string{fmt.Sprintf("%v", worker["id"]), fmt.Sprintf("%v", worker["name"])})
-		table.Append([]string{
-			fmt.Sprintf("%v", worker["id"]),
-			fmt.Sprintf("%v", worker["name"]),
-			fmt.Sprintf("%v", worker["workers"]),
-			fmt.Sprintf("%v", worker["interval"]),
-			fmt.Sprintf("%v", worker["runtime"]),
-			fmt.Sprintf("%v", worker["successful"]),
-			fmt.Sprintf("%v", worker["failed"]),
-			fmt.Sprintf("%v", worker["total"]),
-		})
+	// Print networking statistics
+	fmt.Println("\nNetworking Statistics:")
+	if cli.networkStats != nil {
+		netStats := cli.networkStats.GetAllMetrics()
+		for key, value := range netStats {
+			fmt.Printf("  %-30s: %v\n", key, value)
+		}
+	} else {
+		fmt.Println("  Networking stats not available")
 	}
-
-	table.Render()
 }
