@@ -161,6 +161,8 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 	testEnd := time.Now().Add(w.duration)
 	nextSend := time.Now() // Send first transaction immediately
+	successfulAtFinalStart := w.successful
+	finalStartTime := time.Now()
 
 	for time.Now().Before(testEnd) {
 		// Wait until it's time to send the next batch
@@ -198,6 +200,24 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 		// Schedule next send
 		nextSend = nextSend.Add(finalInterval)
+	}
+
+	// Calculate final TPS based on the test duration phase
+	finalDurationActual := time.Since(finalStartTime)
+	if finalDurationActual > 0 {
+		w.mu.Lock()
+		successfulInFinal := w.successful - successfulAtFinalStart
+		finalTps := float64(successfulInFinal) / finalDurationActual.Seconds()
+		w.mu.Unlock()
+
+		fmt.Printf(
+			"Worker %s: Test completed. Target TPS: %d, Actual TPS: %.1f, Total transactions: %d successful, %d failed\n",
+			w.id,
+			w.targetTps,
+			finalTps,
+			w.successful,
+			w.failed,
+		)
 	}
 
 	fmt.Printf("Worker %s: Test duration elapsed. Stopping.\n", w.id)
