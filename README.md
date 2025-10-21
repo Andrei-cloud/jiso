@@ -11,6 +11,8 @@ JISO (JSON ISO8583) is a command-line tool for simulating ISO8583 message transa
 - Transaction metrics collection (response time, success rate, etc.)
 - Interactive command-line interface with command history
 - Persistent counter management for STAN and RRN values
+- Robust networking with automatic reconnection, retry mechanisms, and circuit breakers
+- Configurable timeouts and connection parameters for different environments
 
 ## Installation
 
@@ -48,7 +50,25 @@ This runs the application with the following default parameters:
 2. Or run it manually specifying parameters:
 
 ```bash
-go run ./cmd/main.go -host <hostname> -port <port> -file <transaction-file> -spec-file <spec-file>
+go run ./cmd/main.go -host <hostname> -port <port> -file <transaction-file> -spec-file <spec-file> [OPTIONS]
+```
+
+### Configuration Options
+
+JISO supports several command-line options to customize connection behavior and timeouts:
+
+- `-host <hostname>`: Server hostname (default: none, required)
+- `-port <port>`: Server port (default: none, required)
+- `-file <transaction-file>`: Path to transaction JSON file (default: none, required)
+- `-spec-file <spec-file>`: Path to ISO8583 specification JSON file (default: none, required)
+- `-reconnect-attempts <n>`: Number of reconnection attempts on connection failure (default: 3)
+- `-connect-timeout <duration>`: Timeout for individual connection attempts (default: 5s)
+- `-total-connect-timeout <duration>`: Total timeout for connection establishment (default: 10s)
+
+Example with custom timeouts:
+
+```bash
+go run ./cmd/main.go -host localhost -port 9999 -file ./transactions/transaction.json -spec-file ./specs/spec_bcp.json -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s
 ```
 
 ## Usage Examples
@@ -221,6 +241,17 @@ The tool collects metrics for transactions:
 - Standard deviation
 - Response code distribution
 
+### Robust Networking Features
+
+JISO includes several features to ensure reliable operation in production environments:
+
+- **Automatic Reconnection**: Automatically attempts to reconnect to the server on connection failures, with configurable retry attempts and exponential backoff
+- **Connection Health Checks**: Background workers check connection status before sending transactions, preventing wasteful operations when offline
+- **Retry Mechanisms**: Failed send operations are automatically retried with exponential backoff, distinguishing between temporary and permanent errors
+- **Circuit Breakers**: Background workers automatically stop after consecutive failures to prevent resource exhaustion
+- **Message Validation**: Transactions are validated before sending to catch configuration errors early
+- **Configurable Timeouts**: Connection and operation timeouts can be adjusted for different network conditions
+
 ## Troubleshooting
 
 If you encounter connection issues:
@@ -229,6 +260,15 @@ If you encounter connection issues:
 2. Verify the correct header format is selected
 3. Check firewall settings
 4. Validate the specification file matches the server implementation
+5. Adjust connection timeouts if network latency is high (`-connect-timeout`, `-total-connect-timeout`)
+6. Increase reconnection attempts for unreliable networks (`-reconnect-attempts`)
+
+For background worker issues:
+
+1. Check worker statistics with `stats` command
+2. Workers automatically stop after 10 consecutive failures (circuit breaker)
+3. Workers skip transactions when connection is offline (health checks)
+4. Use `stop-all` or `stop` commands to manually manage workers
 
 ## License
 
