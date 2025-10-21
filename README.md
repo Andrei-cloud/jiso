@@ -143,7 +143,7 @@ Select the worker ID to stop
 ```
 Spec file loaded successfully, current spec: ISO8583_CoreASCII
 Transactions loaded successfully. Count: 6
-Welcome to JISO CLI v0.1.1
+Welcome to JISO CLI v0.2.0
 Type 'help' for available commands
 jiso> connect
 ? Select length type: ascii4
