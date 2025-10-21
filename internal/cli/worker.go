@@ -79,90 +79,18 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 		// Run at this TPS for the step duration
 		stepEnd := time.Now().Add(stepDuration)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
 		stepStart := time.Now()
 		stepTransactions := 0
+		successfulAtStepStart := w.successful
+		nextSend := time.Now() // Send first transaction immediately
 
 		for time.Now().Before(stepEnd) {
-			select {
-			case <-ticker.C:
-				for i := 0; i < w.numWorkers; i++ {
-					err := sendCmd.ExecuteBackground(w.name)
-					w.mu.Lock()
-					if err == nil {
-						w.successful++
-						w.consecutiveFailures = 0
-					} else {
-						w.failed++
-						w.consecutiveFailures++
-					}
-
-					// Circuit breaker: record trip if activated
-					if w.consecutiveFailures >= 10 {
-						if w.networkStats != nil {
-							w.networkStats.RecordCircuitBreakerTrip()
-						}
-						fmt.Printf(
-							"Stress test worker %s stopped due to %d consecutive failures\n",
-							w.id,
-							w.consecutiveFailures,
-						)
-						w.mu.Unlock()
-						return
-					}
-					w.mu.Unlock()
-					stepTransactions++
-				}
-			case <-w.ctx.Done():
-				return
+			// Wait until it's time to send the next batch
+			if time.Now().Before(nextSend) {
+				time.Sleep(time.Until(nextSend))
 			}
-		}
 
-		// Calculate actual TPS for this step
-		stepDuration := time.Since(stepStart)
-		if stepDuration > 0 {
-			actualTps := float64(stepTransactions) / stepDuration.Seconds()
-			w.mu.Lock()
-			w.actualTps = actualTps
-			w.mu.Unlock()
-
-			fmt.Printf(
-				"\rWorker %s: Step %d/%d - Target: %.1f TPS, Actual: %.1f TPS, Progress: %.1f%%",
-				w.id,
-				step+1,
-				rampUpSteps+1,
-				currentTargetTps,
-				actualTps,
-				w.rampUpProgress,
-			)
-		}
-	}
-
-	// Ramp-up complete, continue at target TPS for the specified duration
-	fmt.Printf(
-		"\nWorker %s: Ramp-up complete. Maintaining %d TPS for %s\n",
-		w.id,
-		w.targetTps,
-		w.duration,
-	)
-
-	finalInterval := time.Duration(
-		float64(time.Second) / float64(w.targetTps) / float64(w.numWorkers),
-	)
-	if finalInterval < time.Millisecond {
-		finalInterval = time.Millisecond
-	}
-
-	ticker := time.NewTicker(finalInterval)
-	defer ticker.Stop()
-
-	testEnd := time.Now().Add(w.duration)
-
-	for time.Now().Before(testEnd) {
-		select {
-		case <-ticker.C:
+			// Send one batch of transactions (one per worker)
 			for i := 0; i < w.numWorkers; i++ {
 				err := sendCmd.ExecuteBackground(w.name)
 				w.mu.Lock()
@@ -188,10 +116,88 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 					return
 				}
 				w.mu.Unlock()
+				stepTransactions++
 			}
-		case <-w.ctx.Done():
-			return
+
+			// Schedule next send
+			nextSend = nextSend.Add(interval)
 		}
+
+		// Calculate actual TPS for this step
+		stepDurationActual := time.Since(stepStart)
+		if stepDurationActual > 0 {
+			// TPS should be based on successful transactions in THIS step only
+			w.mu.Lock()
+			successfulInThisStep := w.successful - successfulAtStepStart
+			actualTps := float64(successfulInThisStep) / stepDurationActual.Seconds()
+			w.actualTps = actualTps
+			w.mu.Unlock()
+
+			fmt.Printf(
+				"\rWorker %s: Step %d/%d - Target: %.1f TPS, Progress: %.1f%%",
+				w.id,
+				step+1,
+				rampUpSteps+1,
+				currentTargetTps,
+				w.rampUpProgress,
+			)
+		}
+	}
+
+	// Ramp-up complete, continue at target TPS for the specified duration
+	fmt.Printf(
+		"\nWorker %s: Ramp-up complete. Maintaining %d TPS for %s\n",
+		w.id,
+		w.targetTps,
+		w.duration,
+	)
+
+	finalInterval := time.Duration(
+		float64(time.Second) / float64(w.targetTps) / float64(w.numWorkers),
+	)
+	if finalInterval < time.Millisecond {
+		finalInterval = time.Millisecond
+	}
+
+	testEnd := time.Now().Add(w.duration)
+	nextSend := time.Now() // Send first transaction immediately
+
+	for time.Now().Before(testEnd) {
+		// Wait until it's time to send the next batch
+		if time.Now().Before(nextSend) {
+			time.Sleep(time.Until(nextSend))
+		}
+
+		// Send one batch of transactions (one per worker)
+		for i := 0; i < w.numWorkers; i++ {
+			err := sendCmd.ExecuteBackground(w.name)
+			w.mu.Lock()
+			if err == nil {
+				w.successful++
+				w.consecutiveFailures = 0
+			} else {
+				w.failed++
+				w.consecutiveFailures++
+			}
+
+			// Circuit breaker: record trip if activated
+			if w.consecutiveFailures >= 10 {
+				if w.networkStats != nil {
+					w.networkStats.RecordCircuitBreakerTrip()
+				}
+				fmt.Printf(
+					"Stress test worker %s stopped due to %d consecutive failures\n",
+					w.id,
+					w.consecutiveFailures,
+				)
+				w.mu.Unlock()
+				return
+			}
+			w.mu.Unlock()
+		}
+
+		// Schedule next send
+		nextSend = nextSend.Add(finalInterval)
 	}
 
 	fmt.Printf("Worker %s: Test duration elapsed. Stopping.\n", w.id)

@@ -93,9 +93,6 @@ func (c *SendCommand) Execute() error {
 		c.renderer = view.NewISOMessageRenderer(nil) // Use default stdout
 	}
 
-	// Print the request message
-	c.renderer.RenderMessage(rebuiltMsg)
-
 	startTime := time.Now()
 	response, err := c.retrySend(msg, 3) // Retry up to 3 times
 
