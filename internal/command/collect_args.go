@@ -12,8 +12,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 )
 
-type CollectArgsCommand struct {
-}
+type CollectArgsCommand struct{}
 
 func (c *CollectArgsCommand) Name() string {
 	return "collect-args"
