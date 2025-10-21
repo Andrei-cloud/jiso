@@ -29,6 +29,7 @@ var (
 	persistLock     sync.Mutex
 	persistenceDir  string
 	persistChan     chan uint32
+	quitChan        chan struct{}
 )
 
 // SetPersistenceDirectory sets the directory where persistent data will be stored
@@ -138,6 +139,7 @@ func GetCounter() *counter {
 
 		// Start persistence goroutine
 		persistChan = make(chan uint32, 1)
+		quitChan = make(chan struct{})
 		go persistWorker()
 	})
 	return counterInstance
@@ -150,15 +152,17 @@ func (c *counter) GetStan() string {
 		if val != 0 {
 			break
 		}
-		// If val is 0, we decrement the counter to -1, so that the next increment will set it to 0 again.
-		atomic.AddUint32(&c.value, ^uint32(0))
+		// If val is 0, we rolled over, set counter to 0 for next increment
+		atomic.StoreUint32(&c.value, 0)
 	}
 
 	// Send to persistence worker (non-blocking)
-	select {
-	case persistChan <- c.value:
-	default:
-		// Channel full, skip this update
+	if persistChan != nil {
+		select {
+		case persistChan <- c.value:
+		default:
+			// Channel full, skip this update
+		}
 	}
 
 	return fmt.Sprintf("%06d", val)
@@ -180,6 +184,17 @@ func persistWorker() {
 					fmt.Printf("Warning: Failed to persist STAN value: %v\n", err)
 				}
 			}
+		case <-quitChan:
+			return
 		}
+	}
+}
+
+// StopPersistWorker stops the persistence worker goroutine
+func StopPersistWorker() {
+	select {
+	case quitChan <- struct{}{}:
+	default:
+		// Already stopped or not started
 	}
 }
