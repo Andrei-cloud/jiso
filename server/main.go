@@ -48,6 +48,37 @@ const (
 	defaultHost = "localhost"
 )
 
+func hexDump(data []byte) string {
+	var buf bytes.Buffer
+	for i := 0; i < len(data); i += 16 {
+		// offset
+		fmt.Fprintf(&buf, "%08x  ", i)
+		// hex bytes
+		for j := 0; j < 16; j++ {
+			if i+j < len(data) {
+				fmt.Fprintf(&buf, "%02x ", data[i+j])
+			} else {
+				buf.WriteString("   ")
+			}
+			if j == 7 {
+				buf.WriteString(" ")
+			}
+		}
+		buf.WriteString(" |")
+		// ASCII
+		for j := 0; j < 16 && i+j < len(data); j++ {
+			b := data[i+j]
+			if b >= 32 && b <= 126 {
+				buf.WriteByte(b)
+			} else {
+				buf.WriteByte('.')
+			}
+		}
+		buf.WriteString("|\n")
+	}
+	return buf.String()
+}
+
 type TestServer struct {
 	host     string
 	port     int
@@ -56,6 +87,7 @@ type TestServer struct {
 	listener net.Listener
 	running  bool
 	verbose  bool
+	hex      bool
 }
 
 func NewTestServer(
@@ -64,6 +96,7 @@ func NewTestServer(
 	specFilePath string,
 	header network.Header,
 	verbose bool,
+	hex bool,
 ) (*TestServer, error) {
 	spec, err := CreateSpecFromFile(specFilePath)
 	if err != nil {
@@ -77,6 +110,7 @@ func NewTestServer(
 		header:  header,
 		running: false,
 		verbose: verbose,
+		hex:     hex,
 	}, nil
 }
 
@@ -143,6 +177,10 @@ func (s *TestServer) handleConnection(conn net.Conn) {
 			return
 		}
 
+		if s.hex {
+			log.Printf("Request HEX:\n%s", hexDump(messageBuf))
+		}
+
 		// Unpack the message
 		message := iso8583.NewMessage(s.spec)
 		var response *iso8583.Message
@@ -176,6 +214,10 @@ func (s *TestServer) handleConnection(conn net.Conn) {
 		if err != nil {
 			log.Printf("Error packing response: %v", err)
 			continue
+		}
+
+		if s.hex {
+			log.Printf("Response HEX:\n%s", hexDump(responsePacked))
 		}
 
 		// Write response length
@@ -299,12 +341,14 @@ func main() {
 	var specFile string
 	var headerType string
 	var verbose bool
+	var hex bool
 
 	flag.StringVar(&host, "host", defaultHost, "Server host")
 	flag.IntVar(&port, "port", defaultPort, "Server port")
 	flag.StringVar(&specFile, "spec", "../specs/spec.json", "ISO 8583 spec file path")
 	flag.StringVar(&headerType, "header", "binary2", "Header type (ascii4, binary2, bcd2, NAPS)")
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output of parsed messages")
+	flag.BoolVar(&hex, "hex", false, "Enable hex dump tracing for request and response")
 
 	flag.Parse()
 
@@ -347,7 +391,7 @@ func main() {
 	)
 	fmt.Println("Press Ctrl+C to stop")
 
-	server, err := NewTestServer(host, port, specFile, header, verbose)
+	server, err := NewTestServer(host, port, specFile, header, verbose, hex)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
