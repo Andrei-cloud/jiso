@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -54,6 +55,7 @@ type TestServer struct {
 	header   network.Header
 	listener net.Listener
 	running  bool
+	verbose  bool
 }
 
 func NewTestServer(
@@ -61,6 +63,7 @@ func NewTestServer(
 	port int,
 	specFilePath string,
 	header network.Header,
+	verbose bool,
 ) (*TestServer, error) {
 	spec, err := CreateSpecFromFile(specFilePath)
 	if err != nil {
@@ -73,6 +76,7 @@ func NewTestServer(
 		spec:    spec,
 		header:  header,
 		running: false,
+		verbose: verbose,
 	}, nil
 }
 
@@ -153,8 +157,20 @@ func (s *TestServer) handleConnection(conn net.Conn) {
 			// Handle the message
 			s.handleMessage(message)
 
+			if s.verbose {
+				var buf bytes.Buffer
+				iso8583.Describe(message, &buf, iso8583.DoNotFilterFields()...)
+				log.Printf("Parsed request:\n%s", buf.String())
+			}
+
 			// Create and send response
 			response = s.createResponse(message)
+		}
+
+		if s.verbose && response != nil {
+			var buf bytes.Buffer
+			iso8583.Describe(response, &buf, iso8583.DoNotFilterFields()...)
+			log.Printf("Parsed response:\n%s", buf.String())
 		}
 		responsePacked, err := response.Pack()
 		if err != nil {
@@ -282,11 +298,13 @@ func main() {
 	var port int
 	var specFile string
 	var headerType string
+	var verbose bool
 
 	flag.StringVar(&host, "host", defaultHost, "Server host")
 	flag.IntVar(&port, "port", defaultPort, "Server port")
 	flag.StringVar(&specFile, "spec", "../specs/spec.json", "ISO 8583 spec file path")
 	flag.StringVar(&headerType, "header", "binary2", "Header type (ascii4, binary2, bcd2, NAPS)")
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output of parsed messages")
 
 	flag.Parse()
 
@@ -329,7 +347,7 @@ func main() {
 	)
 	fmt.Println("Press Ctrl+C to stop")
 
-	server, err := NewTestServer(host, port, specFile, header)
+	server, err := NewTestServer(host, port, specFile, header, verbose)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
