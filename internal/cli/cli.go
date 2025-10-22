@@ -17,7 +17,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.3.0"
+var Version string = "v0.4.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
