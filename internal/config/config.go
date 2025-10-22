@@ -16,6 +16,7 @@ type Config struct {
 	reconnectAttempts   int
 	connectTimeout      time.Duration
 	totalConnectTimeout time.Duration
+	hex                 bool
 	mu                  sync.RWMutex
 }
 
@@ -55,6 +56,7 @@ func (c *Config) Parse() error {
 		10*time.Second,
 		"total timeout for connection establishment",
 	)
+	hex := flag.Bool("hex", false, "enable hex dump output for messages")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: jiso [OPTIONS]\n")
@@ -71,6 +73,7 @@ func (c *Config) Parse() error {
 	c.connectTimeout = *connectTimeout
 	c.totalConnectTimeout = *totalConnectTimeout
 	c.file = *file
+	c.hex = *hex
 
 	return nil
 }
@@ -160,4 +163,10 @@ func (c *Config) GetTotalConnectTimeout() time.Duration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.totalConnectTimeout
+}
+
+func (c *Config) GetHex() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.hex
 }

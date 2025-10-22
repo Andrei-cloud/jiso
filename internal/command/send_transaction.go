@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"jiso/internal/config"
 	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
@@ -82,6 +83,10 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
+	if config.GetConfig().GetHex() {
+		fmt.Printf("Request HEX:\n%s", hexDump(rawMsg))
+	}
+
 	rebuiltMsg := iso8583.NewMessage(msg.GetSpec())
 	err = rebuiltMsg.Unpack(rawMsg)
 	if err != nil {
@@ -104,6 +109,13 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 	elapsed := time.Since(startTime)
+
+	if config.GetConfig().GetHex() {
+		responsePacked, packErr := response.Pack()
+		if packErr == nil {
+			fmt.Printf("Response HEX:\n%s", hexDump(responsePacked))
+		}
+	}
 
 	// Print response and timing using the renderer
 	c.renderer.RenderRequestResponse(rebuiltMsg, response, elapsed)
@@ -418,4 +430,35 @@ func isRetriableError(err error) bool {
 
 	// Default: assume retriable for unknown errors (safer to retry)
 	return true
+}
+
+func hexDump(data []byte) string {
+	var buf strings.Builder
+	for i := 0; i < len(data); i += 16 {
+		// offset
+		fmt.Fprintf(&buf, "%08x  ", i)
+		// hex bytes
+		for j := 0; j < 16; j++ {
+			if i+j < len(data) {
+				fmt.Fprintf(&buf, "%02x ", data[i+j])
+			} else {
+				buf.WriteString("   ")
+			}
+			if j == 7 {
+				buf.WriteString(" ")
+			}
+		}
+		buf.WriteString(" |")
+		// ASCII
+		for j := 0; j < 16 && i+j < len(data); j++ {
+			b := data[i+j]
+			if b >= 32 && b <= 126 {
+				buf.WriteByte(b)
+			} else {
+				buf.WriteByte('.')
+			}
+		}
+		buf.WriteString("|\n")
+	}
+	return buf.String()
 }
