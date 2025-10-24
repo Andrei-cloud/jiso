@@ -31,6 +31,7 @@ type Manager struct {
 	reconnecting        bool
 	reconnectMu         sync.Mutex
 	networkStats        *metrics.NetworkingStats
+	statusMu            sync.RWMutex // Protects connection status updates
 }
 
 // NewManager creates a new connection manager
@@ -55,21 +56,14 @@ func NewManager(
 
 // Connect establishes a connection with the ISO8583 server
 func (m *Manager) Connect(naps bool, header network.Header) error {
-	// If we already have a connection object, check its status.
-	// If it's online, return "already established" error.
-	// Otherwise, close any stale connection first
+	// Always clean up any existing connection before attempting a new one
+	// This prevents issues with stale connections that may appear online but are actually closed
 	if m.Connection != nil {
-		if m.Connection.Status() == moovconnection.StatusOnline {
-			return fmt.Errorf("connection is already established")
-		} else {
-			// We have a connection object but it's not online
-			// Close it cleanly before attempting a new connection
-			if m.debugMode {
-				fmt.Printf("Cleaning up stale connection to %s\n", m.address)
-			}
-			m.Close()
-			m.Connection = nil
+		if m.debugMode {
+			fmt.Printf("Cleaning up existing connection to %s\n", m.address)
 		}
+		m.Close()
+		m.Connection = nil
 	}
 
 	var err error
@@ -206,7 +200,15 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 // Send sends an ISO8583 message with optional debug logging
 func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	// Connection validation and error handling
-	if m.Connection == nil || m.Connection.Status() == moovconnection.StatusOffline {
+	m.statusMu.RLock()
+	conn := m.Connection
+	status := moovconnection.StatusOffline
+	if conn != nil {
+		status = conn.Status()
+	}
+	m.statusMu.RUnlock()
+
+	if conn == nil || status == moovconnection.StatusOffline {
 		return nil, moovconnection.ErrConnectionClosed
 	}
 
@@ -241,7 +243,15 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 
 // BackgroundSend sends a message without debug logging (for background operations)
 func (m *Manager) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error) {
-	if m.Connection == nil || m.Connection.Status() == moovconnection.StatusOffline {
+	m.statusMu.RLock()
+	conn := m.Connection
+	status := moovconnection.StatusOffline
+	if conn != nil {
+		status = conn.Status()
+	}
+	m.statusMu.RUnlock()
+
+	if conn == nil || status == moovconnection.StatusOffline {
 		return nil, moovconnection.ErrConnectionClosed
 	}
 
@@ -250,11 +260,15 @@ func (m *Manager) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error)
 
 // IsConnected returns the connection status
 func (m *Manager) IsConnected() bool {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
 	return m.Connection != nil && m.Connection.Status() == moovconnection.StatusOnline
 }
 
 // GetStatus returns the connection status as a string
 func (m *Manager) GetStatus() string {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
 	if m.Connection == nil {
 		return "Not initialized"
 	}
@@ -268,7 +282,13 @@ func (m *Manager) GetAddress() string {
 
 // Close closes the connection
 func (m *Manager) Close() error {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+
 	if m.Connection != nil {
+		// Explicitly set status to offline before closing
+		// This ensures status is updated even if ConnectionClosedHandler isn't called
+		m.Connection.SetStatus(moovconnection.StatusOffline)
 		return m.Connection.Close()
 	}
 	return nil

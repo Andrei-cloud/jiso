@@ -93,6 +93,7 @@ func (s *Service) Disconnect() error {
 		return fmt.Errorf("failed to close connection: %w", err)
 	}
 
+	// Properly nullify the connection reference to prevent stale references
 	s.Connection = nil
 	return nil
 }
