@@ -165,6 +165,51 @@ func (cli *CLI) InitService() error {
 	return nil
 }
 
+// Reload reloads the service and transaction specifications
+func (cli *CLI) Reload() error {
+	fmt.Println("Reloading service...")
+
+	// Step 1: Stop all background workers
+	fmt.Println("Stopping all workers...")
+	if err := cli.StopAllWorkers(); err != nil {
+		fmt.Printf("Warning: Failed to stop all workers: %v\n", err)
+		// Continue with reload even if worker stopping fails
+	}
+
+	// Step 2: Close existing service if it exists
+	if cli.svc != nil {
+		fmt.Println("Closing existing service...")
+		if err := cli.svc.Close(); err != nil {
+			fmt.Printf("Warning: Failed to close service: %v\n", err)
+			// Continue with reload
+		}
+		cli.svc = nil
+	}
+
+	// Step 3: Reinitialize service with new configuration
+	fmt.Println("Reinitializing service...")
+	if err := cli.InitService(); err != nil {
+		return fmt.Errorf("failed to reinitialize service: %w", err)
+	}
+
+	// Step 4: Recreate command factory with new service
+	fmt.Println("Updating command factory...")
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+
+	// Step 5: Re-add commands (in case the factory changed)
+	cli.commands = make(map[string]cmd.Command) // Clear existing commands
+	cli.AddCommand(cli.factory.CreateListCommand())
+	cli.AddCommand(cli.factory.CreateInfoCommand())
+	cli.AddCommand(cli.factory.CreateSendCommand())
+	cli.AddCommand(cli.factory.CreateConnectCommand())
+	cli.AddCommand(cli.factory.CreateDisconnectCommand())
+	cli.AddCommand(cli.factory.CreateBackgroundCommand())
+	cli.AddCommand(cli.factory.CreateStressTestCommand())
+
+	fmt.Println("Service reloaded successfully")
+	return nil
+}
+
 // Set service instance
 func (cli *CLI) setService(svc *service.Service) {
 	cli.svc = svc

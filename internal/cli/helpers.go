@@ -102,10 +102,8 @@ func (cli *CLI) processCommand(line string) bool {
 		}
 
 	case "reload":
-		if err := cli.InitService(); err != nil {
+		if err := cli.Reload(); err != nil {
 			fmt.Printf("Error reloading: %v\n", err)
-		} else {
-			fmt.Println("Service reloaded successfully")
 		}
 
 	case "stop":
