@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Config struct {
@@ -17,6 +19,8 @@ type Config struct {
 	connectTimeout      time.Duration
 	totalConnectTimeout time.Duration
 	hex                 bool
+	dbPath              string
+	sessionId           string
 	mu                  sync.RWMutex
 }
 
@@ -57,6 +61,7 @@ func (c *Config) Parse() error {
 		"total timeout for connection establishment",
 	)
 	hex := flag.Bool("hex", false, "enable hex dump output for messages")
+	dbPath := flag.String("db-path", "", "path to SQLite database file for storing sessions")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: jiso [OPTIONS]\n")
@@ -74,6 +79,8 @@ func (c *Config) Parse() error {
 	c.totalConnectTimeout = *totalConnectTimeout
 	c.file = *file
 	c.hex = *hex
+	c.dbPath = *dbPath
+	c.sessionId = generateSessionId()
 
 	return nil
 }
@@ -169,4 +176,20 @@ func (c *Config) GetHex() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.hex
+}
+
+func (c *Config) GetDbPath() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.dbPath
+}
+
+func (c *Config) GetSessionId() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.sessionId
+}
+
+func generateSessionId() string {
+	return uuid.New().String()
 }

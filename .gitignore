@@ -2,3 +2,5 @@
 jiso
 transactions/transaction_uat.json
 server/testserver
+internal/db/db_test.go
+sessions.sqlite

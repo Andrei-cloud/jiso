@@ -10,6 +10,7 @@ import (
 
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
+	"jiso/internal/db"
 	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
@@ -78,6 +79,7 @@ func (cli *CLI) Run() error {
 	cli.AddCommand(cli.factory.CreateDisconnectCommand())
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 	cli.AddCommand(cli.factory.CreateStressTestCommand())
+	cli.AddCommand(cli.factory.CreateDbStatsCommand())
 
 	return cli.runWithHistory()
 }
@@ -108,6 +110,9 @@ func (cli *CLI) Close() {
 	if cli.svc != nil {
 		cli.svc.Close()
 	}
+
+	// Close database connection
+	db.Close()
 }
 
 func (cli *CLI) printHelp() {
@@ -162,6 +167,14 @@ func (cli *CLI) InitService() error {
 
 	cli.tc = tcInstance
 
+	// Initialize database
+	dbPath := cfg.GetConfig().GetDbPath()
+	if dbPath != "" {
+		if err := db.InitDB(dbPath); err != nil {
+			return fmt.Errorf("failed to initialize database: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -186,17 +199,24 @@ func (cli *CLI) Reload() error {
 		cli.svc = nil
 	}
 
-	// Step 3: Reinitialize service with new configuration
+	// Step 3: Close database connection
+	fmt.Println("Closing database connection...")
+	if err := db.Close(); err != nil {
+		fmt.Printf("Warning: Failed to close database: %v\n", err)
+		// Continue with reload
+	}
+
+	// Step 4: Reinitialize service with new configuration
 	fmt.Println("Reinitializing service...")
 	if err := cli.InitService(); err != nil {
 		return fmt.Errorf("failed to reinitialize service: %w", err)
 	}
 
-	// Step 4: Recreate command factory with new service
+	// Step 5: Recreate command factory with new service
 	fmt.Println("Updating command factory...")
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
 
-	// Step 5: Re-add commands (in case the factory changed)
+	// Step 6: Re-add commands (in case the factory changed)
 	cli.commands = make(map[string]cmd.Command) // Clear existing commands
 	cli.AddCommand(cli.factory.CreateListCommand())
 	cli.AddCommand(cli.factory.CreateInfoCommand())
@@ -205,6 +225,7 @@ func (cli *CLI) Reload() error {
 	cli.AddCommand(cli.factory.CreateDisconnectCommand())
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 	cli.AddCommand(cli.factory.CreateStressTestCommand())
+	cli.AddCommand(cli.factory.CreateDbStatsCommand())
 
 	fmt.Println("Service reloaded successfully")
 	return nil

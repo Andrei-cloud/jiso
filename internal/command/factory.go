@@ -83,3 +83,8 @@ func (f *Factory) CreateInfoCommand() Command {
 		Tc: f.transactions,
 	}
 }
+
+// CreateDbStatsCommand creates a database stats command
+func (f *Factory) CreateDbStatsCommand() Command {
+	return &DbStatsCommand{}
+}
