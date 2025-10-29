@@ -3,9 +3,10 @@ jiso
 transactions/transaction_uat.json
 server/testserver
 internal/db/db_test.go
-sessions.sqlite
+*.sqlite
 coverage.out
-main
+./main
 .gitignore
 .github/copilot-instructions.md
-main
+./main
+*.db

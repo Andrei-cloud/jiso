@@ -33,6 +33,10 @@ type Manager struct {
 	networkStats        *metrics.NetworkingStats
 	statusMu            sync.RWMutex // Protects connection status updates
 
+	// Connection parameters for reconnection
+	naps   bool
+	header network.Header
+
 	// Async processing fields
 	pendingRequests      map[string]*pendingRequest
 	pendingMu            sync.RWMutex
@@ -71,6 +75,10 @@ func NewManager(
 
 // Connect establishes a connection with the ISO8583 server
 func (m *Manager) Connect(naps bool, header network.Header) error {
+	// Store connection parameters for potential reconnection
+	m.naps = naps
+	m.header = header
+
 	// Always clean up any existing connection before attempting a new one
 	// This prevents issues with stale connections that may appear online but are actually closed
 	if m.Connection != nil {
@@ -113,7 +121,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 				fmt.Println("Connection closed")
 				// Attempt to reconnect
 				if m.reconnectAttempts > 0 {
-					go m.attemptReconnect(naps, header)
+					go m.attemptReconnect()
 				}
 			}
 		}),
@@ -446,7 +454,7 @@ func (m *Manager) GetResponseTimeout() time.Duration {
 }
 
 // attemptReconnect tries to reconnect in the background with exponential backoff
-func (m *Manager) attemptReconnect(naps bool, header network.Header) {
+func (m *Manager) attemptReconnect() {
 	m.reconnectMu.Lock()
 	if m.reconnecting {
 		m.reconnectMu.Unlock()
@@ -489,7 +497,7 @@ func (m *Manager) attemptReconnect(naps bool, header network.Header) {
 		}
 
 		startTime := time.Now()
-		err := m.Connect(naps, header)
+		err := m.Connect(m.naps, m.header)
 		if err == nil {
 			if m.networkStats != nil {
 				duration := time.Since(startTime)
