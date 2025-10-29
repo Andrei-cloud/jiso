@@ -220,6 +220,27 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			duration := time.Since(startTime)
 			m.networkStats.RecordReconnectSuccess(duration)
 		}
+
+		// Store connection parameters for reconnection
+		m.naps = naps
+		m.header = header
+
+		// Set connection status to online
+		m.Connection.SetStatus(moovconnection.StatusOnline)
+
+		// Wait a short time to ensure the connection stays open
+		// This prevents considering reconnection successful if the server immediately closes
+		time.Sleep(200 * time.Millisecond)
+		if m.Connection.Status() != moovconnection.StatusOnline {
+			if m.networkStats != nil {
+				m.networkStats.RecordReconnectFailure()
+			}
+			if attempt == m.reconnectAttempts {
+				return fmt.Errorf("connection closed immediately after establishment")
+			}
+			continue
+		}
+
 		break
 	}
 
