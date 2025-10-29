@@ -45,7 +45,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 	// Start with 1 TPS and ramp up to target TPS
 	startTps := 1.0
-	rampUpSteps := 100 // Number of ramp-up steps
+	rampUpSteps := 10 // Number of ramp-up steps
 	stepDuration := w.rampUpDuration / time.Duration(rampUpSteps)
 
 	tpsIncrement := float64(w.targetTps-1) / float64(rampUpSteps)
