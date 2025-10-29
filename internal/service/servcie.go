@@ -26,7 +26,7 @@ func NewService(
 	host, port, specFileName string,
 	debugMode bool,
 	reconnectAttempts int,
-	connectTimeout, totalConnectTimeout time.Duration,
+	connectTimeout, totalConnectTimeout, responseTimeout time.Duration,
 ) (*Service, error) {
 	// Load message spec
 	spec, err := utils.CreateSpecFromFile(specFileName)
@@ -46,6 +46,9 @@ func NewService(
 		totalConnectTimeout,
 		nil, // Will be set after service creation
 	)
+
+	// Set the response timeout
+	connManager.SetResponseTimeout(responseTimeout)
 
 	service := &Service{
 		MessageSpec:  spec,

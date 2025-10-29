@@ -18,6 +18,7 @@ type Config struct {
 	reconnectAttempts   int
 	connectTimeout      time.Duration
 	totalConnectTimeout time.Duration
+	responseTimeout     time.Duration
 	hex                 bool
 	dbPath              string
 	sessionId           string
@@ -60,6 +61,11 @@ func (c *Config) Parse() error {
 		10*time.Second,
 		"total timeout for connection establishment",
 	)
+	responseTimeout := flag.Duration(
+		"response-timeout",
+		30*time.Second,
+		"timeout for waiting responses to async messages",
+	)
 	hex := flag.Bool("hex", false, "enable hex dump output for messages")
 	dbPath := flag.String("db-path", "", "path to SQLite database file for storing sessions")
 
@@ -77,6 +83,7 @@ func (c *Config) Parse() error {
 	c.reconnectAttempts = *reconnectAttempts
 	c.connectTimeout = *connectTimeout
 	c.totalConnectTimeout = *totalConnectTimeout
+	c.responseTimeout = *responseTimeout
 	c.file = *file
 	c.hex = *hex
 	c.dbPath = *dbPath
@@ -130,6 +137,12 @@ func (c *Config) SetTotalConnectTimeout(timeout time.Duration) {
 	c.totalConnectTimeout = timeout
 }
 
+func (c *Config) SetResponseTimeout(timeout time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.responseTimeout = timeout
+}
+
 func (c *Config) GetHost() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -170,6 +183,12 @@ func (c *Config) GetTotalConnectTimeout() time.Duration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.totalConnectTimeout
+}
+
+func (c *Config) GetResponseTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.responseTimeout
 }
 
 func (c *Config) GetHex() bool {

@@ -15,6 +15,7 @@ Data flows: CLI → Command → Service/Connection → ISO Server, with metrics 
 - **Build**: `make build` creates `jiso` executable
 - **Run**: `make run` starts CLI with defaults (localhost:9999, ./transactions/transaction.json, ./specs/spec_bcp.json)
 - **Test**: `go test ./...` runs all tests including connection and transaction mocks
+- **Test Server**: `make testserver` builds test server, `make run-testserver` runs it (default localhost:9999) for local testing
 - **Debug**: Use `internal/connection/manager.go` debug mode for hex dumps of messages
 - **Persistence**: Counters and transaction logs saved to temp dir (`/tmp/jiso/` on Unix)
 
@@ -24,18 +25,26 @@ Data flows: CLI → Command → Service/Connection → ISO Server, with metrics 
   - Field 11: STAN (incrementing counter)
   - Field 37: RRN (formatted date + counter)
 - **Random Fields**: `"random"` picks from `dataset` array in transaction JSON
+- **Random Datasets**: Define `dataset` array in transaction JSON for random field selection (e.g., test card numbers)
 - **Header Formats**: Select ascii4/binary2/bcd2/NAPS when connecting
 - **Command Factory**: All commands created via `command.NewFactory()` with injected dependencies
 - **Transaction Caching**: Repository caches transactions by name for fast lookups
-- **Metrics**: Tracks response time, success rate, response code distribution per transaction
+- **Metrics**: Tracks response time, success rate, response code distribution per transaction; collects execution count, mean time, std dev
 
 ## Examples
 - **Send Transaction**: `jiso> send` → select "Sign On" → auto-populates MTI 0800, STAN, timestamps
 - **Background Workers**: `jiso> bgsend` → specify threads and interval (e.g., "500ms") for continuous sending
 - **Custom Transaction**: In `transactions/transaction.json`, define fields with fixed values, `"auto"`, or `"random"` from dataset
+- **Local Testing**: Run test server with `make run-testserver`, then connect JISO to localhost:9999
 
 ## Integration Points
 - **External Dependencies**: moov-io/iso8583, moov-io/iso8583-connection libraries
 - **ISO Server**: Connects to any ISO 8583 compliant server
 - **Configs**: JSON specs in `specs/`, transactions in `transactions/`
+- **Test Server**: Built-in ISO 8583 test server in `server/` for local development and testing
 - **Persistence**: State saved as JSON in temp directory for counters and logs
+
+## Testing and Debugging
+- Use test server for isolated testing without external ISO servers
+- Robust networking: auto-reconnect with retries, circuit breakers stop workers after failures, health checks skip offline sends
+- Troubleshooting: Verify server running, correct header format, adjust timeouts (`-connect-timeout`, `-total-connect-timeout`), increase `-reconnect-attempts` for unreliable networks

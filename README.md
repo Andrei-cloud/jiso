@@ -64,11 +64,12 @@ JISO supports several command-line options to customize connection behavior and 
 - `-reconnect-attempts <n>`: Number of reconnection attempts on connection failure (default: 3)
 - `-connect-timeout <duration>`: Timeout for individual connection attempts (default: 5s)
 - `-total-connect-timeout <duration>`: Total timeout for connection establishment (default: 10s)
+- `-response-timeout <duration>`: Timeout for waiting responses to async messages (default: 30s)
 
 Example with custom timeouts:
 
 ```bash
-go run ./cmd/main.go -host localhost -port 9999 -file ./transactions/transaction.json -spec-file ./specs/spec_bcp.json -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s
+go run ./cmd/main.go -host localhost -port 9999 -file ./transactions/transaction.json -spec-file ./specs/spec_bcp.json -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s -response-timeout 45s
 ```
 
 ## Testing
@@ -287,6 +288,7 @@ If you encounter connection issues:
 4. Validate the specification file matches the server implementation
 5. Adjust connection timeouts if network latency is high (`-connect-timeout`, `-total-connect-timeout`)
 6. Increase reconnection attempts for unreliable networks (`-reconnect-attempts`)
+7. Adjust response timeout for slow-responding servers (`-response-timeout`)
 
 For background worker issues:
 
