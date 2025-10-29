@@ -63,7 +63,7 @@ func (c *Config) Parse() error {
 	)
 	responseTimeout := flag.Duration(
 		"response-timeout",
-		30*time.Second,
+		5*time.Second,
 		"timeout for waiting responses to async messages",
 	)
 	hex := flag.Bool("hex", false, "enable hex dump output for messages")

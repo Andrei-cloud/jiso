@@ -64,7 +64,7 @@ JISO supports several command-line options to customize connection behavior and 
 - `-reconnect-attempts <n>`: Number of reconnection attempts on connection failure (default: 3)
 - `-connect-timeout <duration>`: Timeout for individual connection attempts (default: 5s)
 - `-total-connect-timeout <duration>`: Total timeout for connection establishment (default: 10s)
-- `-response-timeout <duration>`: Timeout for waiting responses to async messages (default: 30s)
+- `-response-timeout <duration>`: Timeout for waiting responses to async messages (default: 5s)
 
 Example with custom timeouts:
 

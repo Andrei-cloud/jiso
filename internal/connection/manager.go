@@ -65,7 +65,7 @@ func NewManager(
 		totalConnectTimeout: totalConnectTimeout,
 		networkStats:        networkStats,
 		pendingRequests:     make(map[string]*pendingRequest),
-		responseTimeout:     30 * time.Second, // Default 30s timeout
+		responseTimeout:     5 * time.Second, // Default 5s timeout
 	}
 }
 

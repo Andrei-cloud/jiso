@@ -127,7 +127,7 @@ func TestExecuteBackground(t *testing.T) {
 		0,
 		5*time.Second,
 		10*time.Second,
-		30*time.Second,
+		5*time.Second,
 	)
 	if err != nil {
 		t.Fatalf("NewService failed: %v", err)

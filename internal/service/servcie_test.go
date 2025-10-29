@@ -84,7 +84,7 @@ func TestNewService(t *testing.T) {
 		3,
 		5*time.Second,
 		10*time.Second,
-		30*time.Second,
+		5*time.Second,
 	)
 	if err != nil {
 		t.Fatalf("NewService failed: %v", err)
@@ -127,7 +127,7 @@ func TestServiceGetters(t *testing.T) {
 		3,
 		5*time.Second,
 		10*time.Second,
-		30*time.Second,
+		5*time.Second,
 	)
 	if err != nil {
 		t.Fatalf("NewService failed: %v", err)
@@ -158,7 +158,7 @@ func TestServiceIsConnected(t *testing.T) {
 		3,
 		5*time.Second,
 		10*time.Second,
-		30*time.Second,
+		5*time.Second,
 	)
 	if err != nil {
 		t.Fatalf("NewService failed: %v", err)
@@ -182,7 +182,7 @@ func TestServiceClose(t *testing.T) {
 		3,
 		5*time.Second,
 		10*time.Second,
-		30*time.Second,
+		5*time.Second,
 	)
 	if err != nil {
 		t.Fatalf("NewService failed: %v", err)
@@ -207,7 +207,7 @@ func TestServiceDisconnect(t *testing.T) {
 		3,
 		5*time.Second,
 		10*time.Second,
-		30*time.Second,
+		5*time.Second,
 	)
 	if err != nil {
 		t.Fatalf("NewService failed: %v", err)
