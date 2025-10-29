@@ -32,6 +32,19 @@ type Manager struct {
 	reconnectMu         sync.Mutex
 	networkStats        *metrics.NetworkingStats
 	statusMu            sync.RWMutex // Protects connection status updates
+
+	// Async processing fields
+	pendingRequests      map[string]*pendingRequest
+	pendingMu            sync.RWMutex
+	responseTimeout      time.Duration
+	responseReaderCtx    context.Context
+	responseReaderCancel context.CancelFunc
+}
+
+type pendingRequest struct {
+	responseChan    chan *iso8583.Message
+	timeout         time.Time
+	transactionName string
 }
 
 // NewManager creates a new connection manager
@@ -51,6 +64,8 @@ func NewManager(
 		connectTimeout:      connectTimeout,
 		totalConnectTimeout: totalConnectTimeout,
 		networkStats:        networkStats,
+		pendingRequests:     make(map[string]*pendingRequest),
+		responseTimeout:     30 * time.Second, // Default 30s timeout
 	}
 }
 
@@ -102,6 +117,12 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 				}
 			}
 		}),
+		moovconnection.InboundMessageHandler(
+			func(c *moovconnection.Connection, message *iso8583.Message) {
+				// Handle incoming messages asynchronously
+				m.handleInboundMessage(message)
+			},
+		),
 		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
 			c.SetStatus(moovconnection.StatusOnline)
 			if m.debugMode {
@@ -285,6 +306,14 @@ func (m *Manager) Close() error {
 	m.statusMu.Lock()
 	defer m.statusMu.Unlock()
 
+	// Clear pending requests
+	m.pendingMu.Lock()
+	for stan, req := range m.pendingRequests {
+		close(req.responseChan)
+		delete(m.pendingRequests, stan)
+	}
+	m.pendingMu.Unlock()
+
 	if m.Connection != nil {
 		// Explicitly set status to offline before closing
 		// This ensures status is updated even if ConnectionClosedHandler isn't called
@@ -297,6 +326,123 @@ func (m *Manager) Close() error {
 // SetNetworkingStats sets the networking stats instance
 func (m *Manager) SetNetworkingStats(stats *metrics.NetworkingStats) {
 	m.networkStats = stats
+}
+
+// handleInboundMessage handles messages received from the server
+func (m *Manager) handleInboundMessage(message *iso8583.Message) {
+	// Get STAN from response
+	stanField := message.GetField(11)
+	if stanField == nil {
+		if m.debugMode {
+			fmt.Printf("Inbound message missing STAN field\n")
+		}
+		return
+	}
+	stan, err := stanField.String()
+	if err != nil {
+		if m.debugMode {
+			fmt.Printf("Error getting STAN from inbound message: %v\n", err)
+		}
+		return
+	}
+
+	// Find pending request
+	m.pendingMu.Lock()
+	pending, exists := m.pendingRequests[stan]
+	if exists {
+		delete(m.pendingRequests, stan)
+	}
+	m.pendingMu.Unlock()
+
+	if exists {
+		// Send response to waiting goroutine
+		select {
+		case pending.responseChan <- message:
+		case <-time.After(100 * time.Millisecond):
+			if m.debugMode {
+				fmt.Printf("Timeout sending inbound message to channel for STAN %s\n", stan)
+			}
+		}
+	} else {
+		// Unmatched response
+		if m.debugMode {
+			fmt.Printf("Unmatched inbound message received for STAN %s\n", stan)
+		}
+		// Could log to metrics or file
+	}
+}
+
+// SendAsync sends a message asynchronously and returns a channel for the response
+func (m *Manager) SendAsync(
+	msg *iso8583.Message,
+	transactionName string,
+) (<-chan *iso8583.Message, error) {
+	m.statusMu.RLock()
+	conn := m.Connection
+	status := moovconnection.StatusOffline
+	if conn != nil {
+		status = conn.Status()
+	}
+	m.statusMu.RUnlock()
+
+	if conn == nil || status == moovconnection.StatusOffline {
+		return nil, moovconnection.ErrConnectionClosed
+	}
+
+	// Get STAN from request
+	stanField := msg.GetField(11)
+	if stanField == nil {
+		return nil, fmt.Errorf("request missing STAN field")
+	}
+	stan, err := stanField.String()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get STAN from request: %w", err)
+	}
+
+	// Send the message without waiting for response
+	err = conn.Reply(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	// Create pending request
+	responseChan := make(chan *iso8583.Message, 1)
+	pending := &pendingRequest{
+		responseChan:    responseChan,
+		timeout:         time.Now().Add(m.responseTimeout),
+		transactionName: transactionName,
+	}
+
+	// Add to pending
+	m.pendingMu.Lock()
+	m.pendingRequests[stan] = pending
+	m.pendingMu.Unlock()
+
+	// Start timeout handler
+	go func() {
+		time.Sleep(m.responseTimeout)
+		m.pendingMu.Lock()
+		if _, exists := m.pendingRequests[stan]; exists {
+			delete(m.pendingRequests, stan)
+			close(responseChan)
+			if m.debugMode {
+				fmt.Printf("Request timeout for STAN %s, transaction %s\n", stan, transactionName)
+			}
+		}
+		m.pendingMu.Unlock()
+	}()
+
+	return responseChan, nil
+}
+
+// SetResponseTimeout sets the timeout for waiting responses
+func (m *Manager) SetResponseTimeout(timeout time.Duration) {
+	m.responseTimeout = timeout
+}
+
+// GetResponseTimeout returns the response timeout
+func (m *Manager) GetResponseTimeout() time.Duration {
+	return m.responseTimeout
 }
 
 // attemptReconnect tries to reconnect in the background with exponential backoff

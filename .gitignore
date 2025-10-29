@@ -4,3 +4,7 @@ transactions/transaction_uat.json
 server/testserver
 internal/db/db_test.go
 sessions.sqlite
+coverage.out
+main
+.gitignore
+.github/copilot-instructions.md

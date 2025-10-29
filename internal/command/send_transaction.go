@@ -84,7 +84,8 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
-	if config.GetConfig().GetHex() {
+	// Only print hex dump if debug mode is not enabled (connection manager handles it)
+	if config.GetConfig().GetHex() && !c.Svc.GetDebugMode() {
 		fmt.Printf("Request HEX:\n%s", hexDump(rawMsg))
 	}
 
@@ -138,7 +139,37 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
-	if config.GetConfig().GetHex() {
+	// Verify STAN correlation for asynchronous processing
+	requestStanField := msg.GetField(11)
+	if requestStanField == nil {
+		return fmt.Errorf("request STAN field missing")
+	}
+	requestStan, err := requestStanField.String()
+	if err != nil {
+		return fmt.Errorf("failed to get request STAN: %w", err)
+	}
+
+	responseStanField := response.GetField(11)
+	if responseStanField == nil {
+		return fmt.Errorf("response STAN field missing")
+	}
+	responseStan, err := responseStanField.String()
+	if err != nil {
+		return fmt.Errorf("failed to get response STAN: %w", err)
+	}
+
+	if requestStan != responseStan {
+		// Log STAN mismatch as a protocol error
+		fmt.Printf(
+			"STAN mismatch detected: request=%s, response=%s for transaction %s\n",
+			requestStan,
+			responseStan,
+			trxnName,
+		)
+		return fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
+	}
+
+	if config.GetConfig().GetHex() && !c.Svc.GetDebugMode() {
 		responsePacked, packErr := response.Pack()
 		if packErr == nil {
 			fmt.Printf("Response HEX:\n%s", hexDump(responsePacked))
@@ -340,7 +371,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	}
 
 	executionStart := time.Now()
-	resp, err := c.Svc.BackgroundSend(msg)
+	responseChan, err := c.Svc.SendAsync(msg, trxnName)
 	if err != nil {
 		// Log failed transaction
 		c.Tc.LogTransaction(trxnName, false)
@@ -366,7 +397,83 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		}
 		return err
 	}
+
+	// Wait for response or timeout
+	resp := <-responseChan
 	execTime := time.Since(executionStart)
+
+	if resp == nil {
+		// Timeout occurred
+		c.Tc.LogTransaction(trxnName, false)
+
+		// Store timeout transaction in database
+		if config.GetConfig().GetDbPath() != "" {
+			requestJSON, _ := db.MessageToJSON(msg)
+			if dbErr := db.InsertTransaction(
+				config.GetConfig().GetSessionId(),
+				trxnName,
+				requestJSON,
+				nil, // No response
+				int(execTime.Milliseconds()),
+				false,
+			); dbErr != nil {
+				fmt.Printf("Warning: Failed to store timeout transaction in database: %v\n", dbErr)
+			}
+		}
+
+		return fmt.Errorf("response timeout for transaction %s", trxnName)
+	}
+
+	// Verify STAN correlation for asynchronous processing
+	requestStanField := msg.GetField(11)
+	if requestStanField == nil {
+		return fmt.Errorf("request STAN field missing")
+	}
+	requestStan, err := requestStanField.String()
+	if err != nil {
+		return fmt.Errorf("failed to get request STAN: %w", err)
+	}
+
+	responseStanField := resp.GetField(11)
+	if responseStanField == nil {
+		return fmt.Errorf("response STAN field missing")
+	}
+	responseStan, err := responseStanField.String()
+	if err != nil {
+		return fmt.Errorf("failed to get response STAN: %w", err)
+	}
+
+	if requestStan != responseStan {
+		// Log STAN mismatch as a protocol error
+		fmt.Printf(
+			"STAN mismatch detected: request=%s, response=%s for transaction %s\n",
+			requestStan,
+			responseStan,
+			trxnName,
+		)
+		c.Tc.LogTransaction(trxnName, false)
+
+		// Store mismatch in database as failure
+		if config.GetConfig().GetDbPath() != "" {
+			requestJSON, _ := db.MessageToJSON(msg)
+			responseJSON, _ := db.MessageToJSON(resp)
+			if dbErr := db.InsertTransaction(
+				config.GetConfig().GetSessionId(),
+				trxnName,
+				requestJSON,
+				&responseJSON,
+				int(execTime.Milliseconds()),
+				false, // Mark as failure due to mismatch
+			); dbErr != nil {
+				fmt.Printf(
+					"Warning: Failed to store STAN mismatch transaction in database: %v\n",
+					dbErr,
+				)
+			}
+		}
+
+		return fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
+	}
 
 	rc := resp.GetField(39)
 	rcStr, err := rc.String()

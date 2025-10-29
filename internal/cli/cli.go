@@ -145,7 +145,7 @@ func (cli *CLI) InitService() error {
 		cfg.GetConfig().GetHost(),
 		cfg.GetConfig().GetPort(),
 		cfg.GetConfig().GetSpec(),
-		cli.config.autoConnect,
+		true, // Enable debug mode for testing reflection
 		cfg.GetConfig().GetReconnectAttempts(),
 		cfg.GetConfig().GetConnectTimeout(),
 		cfg.GetConfig().GetTotalConnectTimeout(),

@@ -15,6 +15,7 @@ import (
 
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/network"
+	"github.com/moov-io/iso8583/specs"
 )
 
 type Binary2BytesAdapter struct {
@@ -98,7 +99,18 @@ func NewTestServer(
 	verbose bool,
 	hex bool,
 ) (*TestServer, error) {
-	spec, err := CreateSpecFromFile(specFilePath)
+	fd, err := os.Open(specFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("opening spec file %s: %w", specFilePath, err)
+	}
+	defer fd.Close()
+
+	raw, err := io.ReadAll(fd)
+	if err != nil {
+		return nil, fmt.Errorf("reading spec file %s: %w", specFilePath, err)
+	}
+
+	spec, err := specs.Builder.ImportJSON(raw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load spec file: %w", err)
 	}

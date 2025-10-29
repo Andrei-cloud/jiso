@@ -118,6 +118,14 @@ func (s *Service) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error)
 	return s.connManager.BackgroundSend(msg)
 }
 
+// SendAsync sends a message asynchronously and returns a channel for the response
+func (s *Service) SendAsync(
+	msg *iso8583.Message,
+	transactionName string,
+) (<-chan *iso8583.Message, error) {
+	return s.connManager.SendAsync(msg, transactionName)
+}
+
 // Close closes the connection when service is shut down
 func (s *Service) Close() error {
 	if s.connManager == nil {
@@ -129,4 +137,9 @@ func (s *Service) Close() error {
 // GetNetworkingStats returns the networking statistics
 func (s *Service) GetNetworkingStats() *metrics.NetworkingStats {
 	return s.networkStats
+}
+
+// GetDebugMode returns whether debug mode is enabled
+func (s *Service) GetDebugMode() bool {
+	return s.debugMode
 }
