@@ -14,6 +14,10 @@ var header network.Header
 const (
 	NAPSPREFIXATM = "ISO016000070"
 	NAPSPREFIXPOS = "ISO026000070"
+
+	// MaxMessageSize defines the maximum allowed message size in bytes
+	// ISO8583 messages are typically small (a few KB)
+	MaxMessageSize = 1024
 )
 
 func SelectLength(lenType string) (network.Header, error) {
@@ -36,7 +40,30 @@ func ReadMessageLengthWrapper(header network.Header) connection.MessageLengthRea
 			return n, err
 		}
 
-		return header.Length(), nil
+		messageLength := header.Length()
+
+		// Validate message size to prevent buffer overflow attacks
+		if messageLength < 0 {
+			return n, fmt.Errorf("invalid message length: negative value %d", messageLength)
+		}
+
+		if messageLength > MaxMessageSize {
+			return n, fmt.Errorf(
+				"message length %d exceeds maximum allowed size %d",
+				messageLength,
+				MaxMessageSize,
+			)
+		}
+
+		// ISO8583 messages should have a minimum reasonable size
+		if messageLength < 20 { // MTI (4) + bitmap (8-16) + at least some data
+			return n, fmt.Errorf(
+				"message length %d is too small for a valid ISO8583 message",
+				messageLength,
+			)
+		}
+
+		return messageLength, nil
 	}
 }
 
