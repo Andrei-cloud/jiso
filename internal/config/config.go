@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -207,6 +208,89 @@ func (c *Config) GetSessionId() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.sessionId
+}
+
+func (c *Config) Validate() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// Validate host
+	if c.host == "" {
+		return fmt.Errorf("host is required")
+	}
+
+	// Validate port
+	if c.port == "" {
+		return fmt.Errorf("port is required")
+	}
+
+	// Validate spec file
+	if c.specFileName == "" {
+		return fmt.Errorf("spec file is required")
+	}
+	if _, err := os.Stat(c.specFileName); os.IsNotExist(err) {
+		return fmt.Errorf("spec file does not exist: %s", c.specFileName)
+	}
+
+	// Validate transaction file
+	if c.file == "" {
+		return fmt.Errorf("transaction file is required")
+	}
+	if _, err := os.Stat(c.file); os.IsNotExist(err) {
+		return fmt.Errorf("transaction file does not exist: %s", c.file)
+	}
+
+	// Validate reconnect attempts
+	if c.reconnectAttempts < 0 {
+		return fmt.Errorf("reconnect attempts must be non-negative, got %d", c.reconnectAttempts)
+	}
+	if c.reconnectAttempts > 100 {
+		return fmt.Errorf("reconnect attempts too high, got %d (max 100)", c.reconnectAttempts)
+	}
+
+	// Validate timeouts
+	if c.connectTimeout <= 0 {
+		return fmt.Errorf("connect timeout must be positive, got %v", c.connectTimeout)
+	}
+	if c.connectTimeout > 5*time.Minute {
+		return fmt.Errorf("connect timeout too high, got %v (max 5m)", c.connectTimeout)
+	}
+
+	if c.totalConnectTimeout <= 0 {
+		return fmt.Errorf("total connect timeout must be positive, got %v", c.totalConnectTimeout)
+	}
+	if c.totalConnectTimeout > 10*time.Minute {
+		return fmt.Errorf("total connect timeout too high, got %v (max 10m)", c.totalConnectTimeout)
+	}
+
+	if c.responseTimeout <= 0 {
+		return fmt.Errorf("response timeout must be positive, got %v", c.responseTimeout)
+	}
+	if c.responseTimeout > 10*time.Minute {
+		return fmt.Errorf("response timeout too high, got %v (max 10m)", c.responseTimeout)
+	}
+
+	// Validate total timeout is greater than connect timeout
+	if c.totalConnectTimeout < c.connectTimeout {
+		return fmt.Errorf(
+			"total connect timeout (%v) must be greater than or equal to connect timeout (%v)",
+			c.totalConnectTimeout,
+			c.connectTimeout,
+		)
+	}
+
+	// Validate database path if provided
+	if c.dbPath != "" {
+		if _, err := os.Stat(c.dbPath); os.IsNotExist(err) {
+			// Check if parent directory exists
+			parentDir := filepath.Dir(c.dbPath)
+			if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+				return fmt.Errorf("database parent directory does not exist: %s", parentDir)
+			}
+		}
+	}
+
+	return nil
 }
 
 func generateSessionId() string {

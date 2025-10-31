@@ -31,6 +31,7 @@ type stressTestWorker struct {
 	failed              int
 	consecutiveFailures int
 	mu                  sync.Mutex
+	wg                  sync.WaitGroup // WaitGroup to ensure clean shutdown
 }
 
 // runStressTest implements the stress testing logic with TPS ramp-up
@@ -238,6 +239,7 @@ type workerInfo struct {
 	failed              int
 	consecutiveFailures int
 	mu                  sync.Mutex
+	wg                  sync.WaitGroup // WaitGroup to ensure clean shutdown
 }
 
 // StartWorker starts a new worker with the given parameters
@@ -266,7 +268,10 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 	cli.mu.Unlock()
 
 	// Start the worker in a goroutine
+	worker.wg.Add(1)
 	go func() {
+		defer worker.wg.Done()
+
 		sendCmd, ok := cli.commands["send"].(*command.SendCommand)
 		if !ok {
 			fmt.Printf("Error: send command not found or has wrong type\n")
@@ -352,7 +357,9 @@ func (cli *CLI) StartStressTestWorker(
 	cli.mu.Unlock()
 
 	// Start the stress test worker in a goroutine
+	worker.wg.Add(1)
 	go func() {
+		defer worker.wg.Done()
 		worker.runStressTest(cli)
 	}()
 
@@ -368,6 +375,19 @@ func (cli *CLI) StopWorker(id string) error {
 	worker, exists := cli.workers[id]
 	if exists {
 		worker.cancel()
+		// Wait for the goroutine to finish with a timeout
+		done := make(chan struct{})
+		go func() {
+			worker.wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+			// Goroutine finished cleanly
+		case <-time.After(5 * time.Second):
+			// Timeout - goroutine didn't finish, but continue with cleanup
+			fmt.Printf("Warning: Worker %s did not stop cleanly within timeout\n", id)
+		}
 		delete(cli.workers, id)
 		return nil
 	}
@@ -376,6 +396,19 @@ func (cli *CLI) StopWorker(id string) error {
 	stressWorker, exists := cli.stressWorkers[id]
 	if exists {
 		stressWorker.cancel()
+		// Wait for the goroutine to finish with a timeout
+		done := make(chan struct{})
+		go func() {
+			stressWorker.wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+			// Goroutine finished cleanly
+		case <-time.After(5 * time.Second):
+			// Timeout - goroutine didn't finish, but continue with cleanup
+			fmt.Printf("Warning: Stress test worker %s did not stop cleanly within timeout\n", id)
+		}
 		delete(cli.stressWorkers, id)
 		return nil
 	}
@@ -388,15 +421,52 @@ func (cli *CLI) StopAllWorkers() error {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 
-	for id, worker := range cli.workers {
-		worker.cancel()
-		delete(cli.workers, id)
+	// Collect all workers to stop
+	workersToStop := make([]*workerInfo, 0, len(cli.workers))
+	stressWorkersToStop := make([]*stressTestWorker, 0, len(cli.stressWorkers))
+
+	for _, worker := range cli.workers {
+		workersToStop = append(workersToStop, worker)
+	}
+	for _, stressWorker := range cli.stressWorkers {
+		stressWorkersToStop = append(stressWorkersToStop, stressWorker)
 	}
 
-	for id, stressWorker := range cli.stressWorkers {
-		stressWorker.cancel()
-		delete(cli.stressWorkers, id)
+	// Clear maps immediately to prevent new operations
+	cli.workers = make(map[string]*workerInfo)
+	cli.stressWorkers = make(map[string]*stressTestWorker)
+
+	// Cancel all workers
+	for _, worker := range workersToStop {
+		worker.cancel()
 	}
+	for _, stressWorker := range stressWorkersToStop {
+		stressWorker.cancel()
+	}
+
+	cli.mu.Unlock() // Unlock while waiting for goroutines
+
+	// Wait for all goroutines to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		for _, worker := range workersToStop {
+			worker.wg.Wait()
+		}
+		for _, stressWorker := range stressWorkersToStop {
+			stressWorker.wg.Wait()
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All goroutines finished cleanly
+	case <-time.After(10 * time.Second):
+		// Timeout - some goroutines didn't finish, but continue
+		fmt.Printf("Warning: Some workers did not stop cleanly within timeout\n")
+	}
+
+	cli.mu.Lock() // Re-lock before returning
 	return nil
 }
 

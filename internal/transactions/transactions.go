@@ -50,6 +50,7 @@ type TransactionCollection struct {
 	// State management
 	state      TransactionState
 	stateLock  sync.RWMutex
+	saveLock   sync.Mutex // Protects against concurrent saves
 	persistDir string
 }
 
@@ -90,6 +91,11 @@ func NewTransactionCollection(
 		tc.cache[tc.transactions[i].Name] = &tc.transactions[i]
 	}
 
+	// Validate the transaction collection
+	if err := tc.Validate(); err != nil {
+		return nil, fmt.Errorf("transaction validation failed: %w", err)
+	}
+
 	// Set the persistence directory to the same as used by the STAN counter
 	tc.SetPersistenceDirectory(utils.GetPersistenceDirectory())
 
@@ -120,6 +126,9 @@ func (tc *TransactionCollection) SetPersistenceDirectory(dir string) error {
 
 // saveState persists transaction state to disk
 func (tc *TransactionCollection) saveState() error {
+	tc.saveLock.Lock()
+	defer tc.saveLock.Unlock()
+
 	tc.stateLock.RLock()
 	defer tc.stateLock.RUnlock()
 
@@ -444,4 +453,143 @@ func (tc *TransactionCollection) ListFormatted() []string {
 		formatted[i] = fmt.Sprintf("%-*s - %s", maxNameLen, t.Name, t.Description)
 	}
 	return formatted
+}
+
+// Validate performs comprehensive validation of the transaction collection
+func (tc *TransactionCollection) Validate() error {
+	if tc == nil {
+		return fmt.Errorf("transaction collection is nil")
+	}
+
+	if len(tc.transactions) == 0 {
+		return fmt.Errorf("no transactions found in collection")
+	}
+
+	// Track seen names for uniqueness validation
+	seenNames := make(map[string]bool)
+
+	for i, transaction := range tc.transactions {
+		// Validate transaction name
+		if transaction.Name == "" {
+			return fmt.Errorf("transaction at index %d has empty name", i)
+		}
+		if len(transaction.Name) > 50 {
+			return fmt.Errorf(
+				"transaction name '%s' is too long (max 50 characters)",
+				transaction.Name,
+			)
+		}
+		if seenNames[transaction.Name] {
+			return fmt.Errorf("duplicate transaction name: %s", transaction.Name)
+		}
+		seenNames[transaction.Name] = true
+
+		// Validate transaction description
+		if len(transaction.Description) > 200 {
+			return fmt.Errorf(
+				"transaction '%s' description is too long (max 200 characters)",
+				transaction.Name,
+			)
+		}
+
+		// Validate fields
+		if err := tc.validateTransactionFields(transaction); err != nil {
+			return fmt.Errorf("transaction '%s': %w", transaction.Name, err)
+		}
+
+		// Validate dataset
+		if err := tc.validateTransactionDataset(transaction); err != nil {
+			return fmt.Errorf("transaction '%s': %w", transaction.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// validateTransactionFields validates the fields of a single transaction
+func (tc *TransactionCollection) validateTransactionFields(t Transaction) error {
+	fieldMap := make(map[int]interface{})
+	if err := json.Unmarshal(t.Fields, &fieldMap); err != nil {
+		return fmt.Errorf("invalid JSON in fields: %w", err)
+	}
+
+	for fieldID, value := range fieldMap {
+		// Validate field ID range (ISO8583 fields are 0-128, where 0=MTI, 1=bitmap, 2-128=data)
+		if fieldID < 0 || fieldID > 128 {
+			return fmt.Errorf("field ID %d is out of valid range (0-128)", fieldID)
+		}
+
+		// Validate field value based on type
+		switch v := value.(type) {
+		case string:
+			if v == "auto" || v == "random" {
+				// These are valid special values
+				continue
+			}
+			// For string values, check length against spec if available
+			if tc.spec != nil && tc.spec.Fields != nil {
+				if fieldSpec := tc.spec.Fields[fieldID]; fieldSpec != nil {
+					maxLen := fieldSpec.Spec().Length
+					if len(v) > maxLen {
+						return fmt.Errorf("field %d value '%s' exceeds maximum length %d", fieldID, v, maxLen)
+					}
+				}
+			}
+		case float64:
+			// Numeric fields are valid
+			continue
+		default:
+			return fmt.Errorf("field %d has unsupported value type: %T", fieldID, v)
+		}
+	}
+
+	return nil
+}
+
+// validateTransactionDataset validates the dataset of a single transaction
+func (tc *TransactionCollection) validateTransactionDataset(t Transaction) error {
+	if len(t.Dataset) == 0 {
+		// Empty dataset is valid (no random values needed)
+		return nil
+	}
+
+	for i, entry := range t.Dataset {
+		if entry == nil {
+			return fmt.Errorf("dataset entry at index %d is nil", i)
+		}
+
+		for fieldID, value := range entry {
+			// Validate field ID range
+			if fieldID < 0 || fieldID > 128 {
+				return fmt.Errorf(
+					"dataset entry %d has invalid field ID %d (must be 0-128)",
+					i,
+					fieldID,
+				)
+			}
+
+			// Validate value is not empty
+			if value == "" {
+				return fmt.Errorf("dataset entry %d field %d has empty value", i, fieldID)
+			}
+
+			// Check length against spec if available
+			if tc.spec != nil && tc.spec.Fields != nil {
+				if fieldSpec := tc.spec.Fields[fieldID]; fieldSpec != nil {
+					maxLen := fieldSpec.Spec().Length
+					if len(value) > maxLen {
+						return fmt.Errorf(
+							"dataset entry %d field %d value '%s' exceeds maximum length %d",
+							i,
+							fieldID,
+							value,
+							maxLen,
+						)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }

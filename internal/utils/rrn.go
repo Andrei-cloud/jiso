@@ -101,11 +101,18 @@ func persistRRNData(data RRNPersistentData) error {
 		return fmt.Errorf("failed to marshal RRN data for persistence: %w", err)
 	}
 
-	// Write to file
+	// Write atomically using temp file + rename
 	filePath := filepath.Join(persistenceDir, rrnFilePath)
-	err = os.WriteFile(filePath, jsonData, 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to persist RRN data: %w", err)
+	tempFile := filePath + ".tmp"
+
+	if err := os.WriteFile(tempFile, jsonData, 0o644); err != nil {
+		return fmt.Errorf("failed to write RRN data to temp file: %w", err)
+	}
+
+	if err := os.Rename(tempFile, filePath); err != nil {
+		// Clean up temp file on failure
+		os.Remove(tempFile)
+		return fmt.Errorf("failed to rename RRN temp file: %w", err)
 	}
 
 	return nil
@@ -114,14 +121,41 @@ func persistRRNData(data RRNPersistentData) error {
 func (r *RRN) GetRRN() string {
 	t := time.Now()
 	y, d := t.Year(), t.YearDay()
+	const maxRRNSeq = 9999999 // 7 digits
+
 	var rrn uint32
 	for {
-		rrn = atomic.AddUint32(&r.value, 1) % 10000000 // ensure 7 digits
-		if rrn != 0 {
-			break
+		// Atomically increment the counter
+		newVal := atomic.AddUint32(&r.value, 1)
+
+		// Handle wraparound: if we exceed maxRRNSeq, wrap to 1
+		if newVal > maxRRNSeq {
+			// Try to reset to 1, but only if we're the one who caused the overflow
+			for {
+				current := atomic.LoadUint32(&r.value)
+				if current <= maxRRNSeq {
+					// Someone else already reset it, use the current value
+					newVal = current
+					break
+				}
+				// Try to reset to 1
+				if atomic.CompareAndSwapUint32(&r.value, current, 1) {
+					newVal = 1
+					break
+				}
+				// CAS failed, someone else changed it, retry
+			}
 		}
-		// If rrn is 0, we decrement the counter to -1, so that the next increment will set it to 0 again.
-		atomic.AddUint32(&r.value, ^uint32(0))
+
+		// Ensure we never return 0 (invalid RRN sequence)
+		if newVal == 0 {
+			// Force it to 1 if somehow we got 0
+			atomic.CompareAndSwapUint32(&r.value, 0, 1)
+			newVal = 1
+		}
+
+		rrn = newVal
+		break // We got a valid value
 	}
 
 	// Persist the updated value in a goroutine to avoid blocking

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"time"
 
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
@@ -99,12 +100,50 @@ func (cli *CLI) ClearTerminal() {
 
 func (cli *CLI) Close() {
 	cli.mu.Lock()
-	defer cli.mu.Unlock()
+
+	// Collect all workers to stop
+	workersToStop := make([]*workerInfo, 0, len(cli.workers))
+	stressWorkersToStop := make([]*stressTestWorker, 0, len(cli.stressWorkers))
+
 	for _, worker := range cli.workers {
-		worker.cancel()
+		workersToStop = append(workersToStop, worker)
 	}
 	for _, stressWorker := range cli.stressWorkers {
+		stressWorkersToStop = append(stressWorkersToStop, stressWorker)
+	}
+
+	// Clear maps immediately
+	cli.workers = make(map[string]*workerInfo)
+	cli.stressWorkers = make(map[string]*stressTestWorker)
+
+	cli.mu.Unlock() // Unlock while waiting
+
+	// Cancel all workers
+	for _, worker := range workersToStop {
+		worker.cancel()
+	}
+	for _, stressWorker := range stressWorkersToStop {
 		stressWorker.cancel()
+	}
+
+	// Wait for all worker goroutines to finish
+	done := make(chan struct{})
+	go func() {
+		for _, worker := range workersToStop {
+			worker.wg.Wait()
+		}
+		for _, stressWorker := range stressWorkersToStop {
+			stressWorker.wg.Wait()
+		}
+		close(done)
+	}()
+
+	// Wait with timeout
+	select {
+	case <-done:
+		// All workers stopped cleanly
+	case <-time.After(10 * time.Second):
+		fmt.Printf("Warning: Some workers did not stop cleanly during shutdown\n")
 	}
 
 	if cli.svc != nil {
@@ -141,6 +180,11 @@ func (cli *CLI) printVersion() {
 }
 
 func (cli *CLI) InitService() error {
+	// Validate configuration before creating service
+	if err := cfg.GetConfig().Validate(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
 	svc, err := service.NewService(
 		cfg.GetConfig().GetHost(),
 		cfg.GetConfig().GetPort(),

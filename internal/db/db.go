@@ -65,7 +65,7 @@ func createTables() error {
 	return sqlitex.ExecuteTransient(dbConn, indexSQL2, nil)
 }
 
-// InsertTransaction inserts a new transaction record
+// InsertTransaction inserts a new transaction record with proper transaction handling
 func InsertTransaction(
 	sessionID, txName, requestJSON string,
 	responseJSON *string,
@@ -79,18 +79,36 @@ func InsertTransaction(
 	// Derive response code from response JSON
 	responseCode := deriveResponseCode(responseJSON)
 
+	// Use a transaction for atomicity
+	err := sqlitex.ExecuteTransient(dbConn, "BEGIN IMMEDIATE", nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
 	insertSQL := `
-	INSERT INTO transactions (
-		session_id, transaction_name, request_json, response_json, 
-		processing_time_ms, success, response_code
-	) VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO transactions (
+			session_id, transaction_name, request_json, response_json, 
+			processing_time_ms, success, response_code
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
-	return sqlitex.ExecuteTransient(dbConn, insertSQL, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(dbConn, insertSQL, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			sessionID, txName, requestJSON, derefOrNil(responseJSON), processingTimeMs, success, responseCode,
 		},
 	})
+	if err != nil {
+		// Rollback on error
+		sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
+		return fmt.Errorf("failed to insert transaction: %w", err)
+	}
+
+	err = sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // derefOrNil dereferences a string pointer or returns nil if it's nil
@@ -157,7 +175,7 @@ func MessageToJSON(msg *iso8583.Message) (string, error) {
 	return string(jsonBytes), nil
 }
 
-// GetTransactionStats returns statistics for the current session
+// GetTransactionStats returns statistics for the current session with transaction consistency
 func GetTransactionStats(sessionID string) (map[string]interface{}, error) {
 	if dbConn == nil {
 		return nil, fmt.Errorf("database not initialized")
@@ -165,9 +183,16 @@ func GetTransactionStats(sessionID string) (map[string]interface{}, error) {
 
 	stats := make(map[string]interface{})
 
+	// Use a read transaction for consistency
+	err := sqlitex.ExecuteTransient(dbConn, "BEGIN", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin read transaction: %w", err)
+	}
+	defer sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil) // Rollback if not committed
+
 	// Get total count
 	var totalCount int
-	err := sqlitex.ExecuteTransient(
+	err = sqlitex.ExecuteTransient(
 		dbConn,
 		"SELECT COUNT(*) FROM transactions WHERE session_id = ?",
 		&sqlitex.ExecOptions{
@@ -233,6 +258,12 @@ func GetTransactionStats(sessionID string) (map[string]interface{}, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	// Commit the read transaction
+	err = sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit read transaction: %w", err)
 	}
 
 	stats["total_transactions"] = totalCount

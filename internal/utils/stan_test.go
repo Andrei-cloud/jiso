@@ -173,16 +173,123 @@ func TestCounterGetStanRollover(t *testing.T) {
 	}
 }
 
-func TestCounterGetStanZeroHandling(t *testing.T) {
+func TestCounterGetStanCyclicBehavior(t *testing.T) {
+	counter := &counter{value: 999998}
+
+	// Generate STANs around the rollover point
+	stan1 := counter.GetStan() // Should be 999999
+	stan2 := counter.GetStan() // Should rollover to 000001
+	stan3 := counter.GetStan() // Should be 000002
+
+	if stan1 != "999999" {
+		t.Errorf("Expected STAN 999999, got %s", stan1)
+	}
+	if stan2 != "000001" {
+		t.Errorf("Expected rollover STAN 000001, got %s", stan2)
+	}
+	if stan3 != "000002" {
+		t.Errorf("Expected STAN 000002, got %s", stan3)
+	}
+}
+
+func TestCounterGetStanNoDuplicates(t *testing.T) {
 	counter := &counter{value: 0}
 
-	// Test that 0 becomes 1 (not 000000)
-	stan := counter.GetStan()
-	if stan == "000000" {
-		t.Error("STAN should not be 000000")
+	// Generate many STANs and ensure no duplicates
+	generated := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		stan := counter.GetStan()
+		if generated[stan] {
+			t.Errorf("Duplicate STAN generated: %s", stan)
+		}
+		generated[stan] = true
+
+		// Verify format
+		if len(stan) != 6 {
+			t.Errorf("Invalid STAN length: %s", stan)
+		}
+		if stan == "000000" {
+			t.Errorf("Invalid STAN value: %s", stan)
+		}
 	}
-	if stan != "000001" {
-		t.Errorf("Expected first STAN 000001, got %s", stan)
+}
+
+func TestCounterGetStanConcurrentSafety(t *testing.T) {
+	counter := &counter{value: 0}
+
+	// Test concurrent access
+	const numGoroutines = 10
+	const numsPerGoroutine = 100
+
+	results := make(chan string, numGoroutines*numsPerGoroutine)
+
+	// Start multiple goroutines generating STANs
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			for j := 0; j < numsPerGoroutine; j++ {
+				results <- counter.GetStan()
+			}
+		}()
+	}
+
+	// Collect results
+	generated := make(map[string]int)
+	for i := 0; i < numGoroutines*numsPerGoroutine; i++ {
+		stan := <-results
+		generated[stan]++
+
+		// Verify format
+		if len(stan) != 6 {
+			t.Errorf("Invalid STAN length: %s", stan)
+		}
+		if stan == "000000" {
+			t.Errorf("Invalid STAN value: %s", stan)
+		}
+	}
+
+	// Verify no duplicates
+	for stan, count := range generated {
+		if count > 1 {
+			t.Errorf("STAN %s generated %d times (should be 1)", stan, count)
+		}
+	}
+
+	// Should have generated exactly 1000 unique STANs
+	if len(generated) != numGoroutines*numsPerGoroutine {
+		t.Errorf("Expected %d unique STANs, got %d", numGoroutines*numsPerGoroutine, len(generated))
+	}
+}
+
+func TestCounterGetStanRolloverConcurrent(t *testing.T) {
+	// Test rollover under concurrent load
+	counter := &counter{value: 999990}
+
+	const numGoroutines = 20
+	results := make(chan string, numGoroutines)
+
+	// Start goroutines that will trigger rollover
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			results <- counter.GetStan()
+		}()
+	}
+
+	// Collect results
+	generated := make(map[string]bool)
+	for i := 0; i < numGoroutines; i++ {
+		stan := <-results
+		if generated[stan] {
+			t.Errorf("Duplicate STAN during rollover: %s", stan)
+		}
+		generated[stan] = true
+
+		// All should be valid (either 99999x or 00000x)
+		if len(stan) != 6 {
+			t.Errorf("Invalid STAN length during rollover: %s", stan)
+		}
+		if stan == "000000" {
+			t.Errorf("Invalid STAN value during rollover: %s", stan)
+		}
 	}
 }
 

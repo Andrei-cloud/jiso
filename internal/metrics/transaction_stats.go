@@ -14,12 +14,14 @@ type TransactionStats struct {
 	variance      time.Duration
 	respCodes     map[string]uint64
 	respCodesLock sync.Mutex
+	maxRespCodes  int // Maximum number of response codes to track
 }
 
 // NewTransactionStats creates a new TransactionStats instance
 func NewTransactionStats() *TransactionStats {
 	return &TransactionStats{
-		respCodes: make(map[string]uint64),
+		respCodes:    make(map[string]uint64),
+		maxRespCodes: 100, // Limit to prevent unbounded growth
 	}
 }
 
@@ -36,6 +38,22 @@ func (ts *TransactionStats) RecordExecution(duration time.Duration, respCode str
 	if respCode != "" {
 		ts.respCodesLock.Lock()
 		ts.respCodes[respCode]++
+
+		// If we've exceeded the maximum number of response codes, remove the least frequent one
+		if len(ts.respCodes) > ts.maxRespCodes {
+			var minCode string
+			var minCount uint64 = ^uint64(0) // Max uint64 value
+			for code, count := range ts.respCodes {
+				if count < minCount {
+					minCount = count
+					minCode = code
+				}
+			}
+			if minCode != "" {
+				delete(ts.respCodes, minCode)
+			}
+		}
+
 		ts.respCodesLock.Unlock()
 
 		// Calculate variance

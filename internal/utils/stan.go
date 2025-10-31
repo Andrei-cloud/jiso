@@ -146,26 +146,50 @@ func GetCounter() *counter {
 }
 
 func (c *counter) GetStan() string {
-	var val uint32
+	const maxStan = 999999
+
 	for {
-		val = atomic.AddUint32(&c.value, 1) % 1000000
-		if val != 0 {
-			break
-		}
-		// If val is 0, we rolled over, set counter to 0 for next increment
-		atomic.StoreUint32(&c.value, 0)
-	}
+		// Atomically increment the counter
+		newVal := atomic.AddUint32(&c.value, 1)
 
-	// Send to persistence worker (non-blocking)
-	if persistChan != nil {
-		select {
-		case persistChan <- c.value:
-		default:
-			// Channel full, skip this update
+		// Handle wraparound: if we exceed maxStan, wrap to 1
+		if newVal > maxStan {
+			// Try to reset to 1, but only if we're the one who caused the overflow
+			// This prevents race conditions during wraparound
+			for {
+				current := atomic.LoadUint32(&c.value)
+				if current <= maxStan {
+					// Someone else already reset it, use the current value
+					newVal = current
+					break
+				}
+				// Try to reset to 1
+				if atomic.CompareAndSwapUint32(&c.value, current, 1) {
+					newVal = 1
+					break
+				}
+				// CAS failed, someone else changed it, retry
+			}
 		}
-	}
 
-	return fmt.Sprintf("%06d", val)
+		// Ensure we never return 0 (invalid STAN)
+		if newVal == 0 {
+			// Force it to 1 if somehow we got 0
+			atomic.CompareAndSwapUint32(&c.value, 0, 1)
+			newVal = 1
+		}
+
+		// Send to persistence worker (non-blocking)
+		if persistChan != nil {
+			select {
+			case persistChan <- c.value:
+			default:
+				// Channel full, skip this update
+			}
+		}
+
+		return fmt.Sprintf("%06d", newVal)
+	}
 }
 
 func persistWorker() {

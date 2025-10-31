@@ -755,3 +755,283 @@ func (s *mismatchTestServer) Close() {
 	close(s.done)
 	s.listener.Close()
 }
+
+func TestSendAsyncDuplicateSTAN(t *testing.T) {
+	spec := mockMessageSpec()
+	server, err := startTestServer(spec, true)
+	assert.NoError(t, err)
+	defer server.Close()
+
+	manager := NewManager(
+		"localhost",
+		fmt.Sprintf("%d", server.port()),
+		spec,
+		false,
+		3,
+		5*time.Second,
+		10*time.Second,
+		nil,
+	)
+	manager.SetResponseTimeout(1 * time.Second)
+
+	// Connect
+	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	assert.NoError(t, err)
+	defer manager.Close()
+
+	// Create first message with STAN
+	message1 := iso8583.NewMessage(spec)
+	err = message1.Field(0, "0800")
+	assert.NoError(t, err)
+	err = message1.Field(11, "123456")
+	assert.NoError(t, err)
+
+	// Send first async request
+	responseChan1, err := manager.SendAsync(message1, "test_transaction_1")
+	assert.NoError(t, err)
+	assert.NotNil(t, responseChan1)
+
+	// Try to send second message with same STAN - should fail
+	message2 := iso8583.NewMessage(spec)
+	err = message2.Field(0, "0800")
+	assert.NoError(t, err)
+	err = message2.Field(11, "123456") // Same STAN
+	assert.NoError(t, err)
+
+	responseChan2, err := manager.SendAsync(message2, "test_transaction_2")
+	assert.Error(t, err)
+	assert.Nil(t, responseChan2)
+	assert.Contains(t, err.Error(), "STAN 123456 already in use")
+
+	// First request should still work
+	select {
+	case resp := <-responseChan1:
+		assert.NotNil(t, resp)
+		respStan, err := resp.GetString(11)
+		assert.NoError(t, err)
+		assert.Equal(t, "123456", respStan)
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Expected response for first request")
+	}
+}
+
+func TestSendAsyncCleanupOnSendFailure(t *testing.T) {
+	spec := mockMessageSpec()
+	// Create a server that will be closed to cause send failure
+	server, err := startTestServer(spec, true)
+	assert.NoError(t, err)
+	server.Close() // Close server immediately to cause connection failure
+
+	manager := NewManager(
+		"localhost",
+		fmt.Sprintf("%d", server.port()),
+		spec,
+		false,
+		3,
+		5*time.Second,
+		10*time.Second,
+		nil,
+	)
+
+	// Connect should fail since server is closed
+	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "connection refused")
+
+	// Create test message
+	message := iso8583.NewMessage(spec)
+	err = message.Field(0, "0800")
+	assert.NoError(t, err)
+	err = message.Field(11, "123456")
+	assert.NoError(t, err)
+
+	// Send async - should fail due to no connection
+	responseChan, err := manager.SendAsync(message, "test_transaction")
+	assert.Error(t, err)
+	assert.Nil(t, responseChan)
+	assert.Contains(t, err.Error(), "connection closed")
+
+	// Verify STAN was cleaned up from pending requests
+	// We can't directly check the map, but we can try sending again with same STAN
+	message2 := iso8583.NewMessage(spec)
+	err = message2.Field(0, "0800")
+	assert.NoError(t, err)
+	err = message2.Field(11, "123456") // Same STAN
+	assert.NoError(t, err)
+
+	// This should also fail due to no connection
+	responseChan2, err := manager.SendAsync(message2, "test_transaction_2")
+	assert.Error(t, err)
+	assert.Nil(t, responseChan2)
+	assert.Contains(t, err.Error(), "connection closed")
+}
+
+func TestCloseCleansUpPendingRequests(t *testing.T) {
+	spec := mockMessageSpec()
+	// Create a server that doesn't respond (for timeout testing)
+	server, err := startTestServer(spec, false) // Don't respond
+	assert.NoError(t, err)
+	defer server.Close()
+
+	manager := NewManager(
+		"localhost",
+		fmt.Sprintf("%d", server.port()),
+		spec,
+		false,
+		3,
+		5*time.Second,
+		10*time.Second,
+		nil,
+	)
+	manager.SetResponseTimeout(500 * time.Millisecond) // Short timeout
+
+	// Connect
+	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	assert.NoError(t, err)
+
+	// Send multiple async requests
+	const numRequests = 3
+	responseChans := make([]<-chan *iso8583.Message, numRequests)
+
+	for i := 0; i < numRequests; i++ {
+		message := iso8583.NewMessage(spec)
+		err = message.Field(0, "0800")
+		assert.NoError(t, err)
+		stan := fmt.Sprintf("%06d", 123456+i)
+		err = message.Field(11, stan)
+		assert.NoError(t, err)
+
+		responseChan, err := manager.SendAsync(message, fmt.Sprintf("test_transaction_%d", i))
+		assert.NoError(t, err)
+		responseChans[i] = responseChan
+	}
+
+	// Close manager - should clean up all pending requests
+	err = manager.Close()
+	assert.NoError(t, err)
+
+	// All channels should be closed
+	for i, responseChan := range responseChans {
+		select {
+		case resp, ok := <-responseChan:
+			if ok {
+				t.Errorf("Channel %d should be closed, but got response: %v", i, resp)
+			}
+			// ok == false means channel is closed, which is expected
+		case <-time.After(100 * time.Millisecond):
+			t.Errorf("Channel %d should be closed immediately after Close()", i)
+		}
+	}
+}
+
+func TestHandleInboundMessageValidation(t *testing.T) {
+	spec := mockMessageSpec()
+	manager := NewManager("localhost", "8080", spec, true, 3, 5*time.Second, 10*time.Second, nil)
+
+	// Test message without STAN field
+	message1 := iso8583.NewMessage(spec)
+	err := message1.Field(0, "0810")
+	assert.NoError(t, err)
+	// Don't set field 11 (STAN)
+
+	// This should not panic and should log a debug message
+	manager.handleInboundMessage(message1)
+
+	// Test message with invalid STAN format
+	message2 := iso8583.NewMessage(spec)
+	err = message2.Field(0, "0810")
+	assert.NoError(t, err)
+	err = message2.Field(11, "12345") // 5 digits instead of 6
+	assert.NoError(t, err)
+
+	// This should not panic and should log a debug message
+	manager.handleInboundMessage(message2)
+
+	// Test message with valid STAN but no pending request
+	message3 := iso8583.NewMessage(spec)
+	err = message3.Field(0, "0810")
+	assert.NoError(t, err)
+	err = message3.Field(11, "123456")
+	assert.NoError(t, err)
+
+	// This should not panic and should log a debug message about unmatched response
+	manager.handleInboundMessage(message3)
+}
+
+func TestSendAsyncConcurrentAccess(t *testing.T) {
+	spec := mockMessageSpec()
+	server, err := startTestServer(spec, true)
+	assert.NoError(t, err)
+	defer server.Close()
+
+	manager := NewManager(
+		"localhost",
+		fmt.Sprintf("%d", server.port()),
+		spec,
+		false,
+		3,
+		5*time.Second,
+		10*time.Second,
+		nil,
+	)
+	manager.SetResponseTimeout(1 * time.Second)
+
+	// Connect
+	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	assert.NoError(t, err)
+	defer manager.Close()
+
+	// Test concurrent SendAsync calls
+	const numGoroutines = 10
+	const requestsPerGoroutine = 5
+
+	results := make(chan error, numGoroutines*requestsPerGoroutine)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(goroutineID int) {
+			for j := 0; j < requestsPerGoroutine; j++ {
+				message := iso8583.NewMessage(spec)
+				err := message.Field(0, "0800")
+				if err != nil {
+					results <- err
+					continue
+				}
+
+				// Use unique STAN for each request
+				stan := fmt.Sprintf("%06d", (goroutineID*requestsPerGoroutine)+j+100000)
+				err = message.Field(11, stan)
+				if err != nil {
+					results <- err
+					continue
+				}
+
+				responseChan, err := manager.SendAsync(
+					message,
+					fmt.Sprintf("test_%d_%d", goroutineID, j),
+				)
+				if err != nil {
+					results <- err
+					continue
+				}
+
+				// Wait for response
+				select {
+				case resp := <-responseChan:
+					if resp == nil {
+						results <- fmt.Errorf("got nil response")
+					} else {
+						results <- nil
+					}
+				case <-time.After(500 * time.Millisecond):
+					results <- fmt.Errorf("timeout waiting for response")
+				}
+			}
+		}(i)
+	}
+
+	// Collect results
+	for i := 0; i < numGoroutines*requestsPerGoroutine; i++ {
+		err := <-results
+		assert.NoError(t, err)
+	}
+}

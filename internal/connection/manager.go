@@ -40,6 +40,7 @@ type Manager struct {
 	// Async processing fields
 	pendingRequests      map[string]*pendingRequest
 	pendingMu            sync.RWMutex
+	maxPendingRequests   int // Maximum number of pending requests
 	responseTimeout      time.Duration
 	responseReaderCtx    context.Context
 	responseReaderCancel context.CancelFunc
@@ -70,6 +71,7 @@ func NewManager(
 		networkStats:        networkStats,
 		pendingRequests:     make(map[string]*pendingRequest),
 		responseTimeout:     5 * time.Second, // Default 5s timeout
+		maxPendingRequests:  100,             // Default max 100 pending requests
 	}
 }
 
@@ -132,14 +134,12 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			},
 		),
 		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
-			c.SetStatus(moovconnection.StatusOnline)
 			if m.debugMode {
 				fmt.Printf("Connection established to %s\n", m.address)
 			}
 			return nil
 		}),
 		moovconnection.ConnectionClosedHandler(func(c *moovconnection.Connection) {
-			c.SetStatus(moovconnection.StatusOffline)
 			if m.debugMode {
 				fmt.Printf("Connection closed to %s\n", m.address)
 			}
@@ -176,6 +176,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		}
 
 		startTime := time.Now()
+		m.statusMu.Lock()
 		m.Connection, err = moovconnection.New(
 			m.address,
 			m.spec,
@@ -184,6 +185,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			options...,
 		)
 		if err != nil {
+			m.statusMu.Unlock()
 			if m.networkStats != nil {
 				m.networkStats.RecordReconnectFailure()
 			}
@@ -202,6 +204,8 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		err = m.Connection.ConnectCtx(ctx)
 		cancel()
 		if err != nil {
+			m.Connection = nil // Clear failed connection
+			m.statusMu.Unlock()
 			if m.networkStats != nil {
 				m.networkStats.RecordReconnectFailure()
 			}
@@ -232,6 +236,8 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		// This prevents considering reconnection successful if the server immediately closes
 		time.Sleep(200 * time.Millisecond)
 		if m.Connection.Status() != moovconnection.StatusOnline {
+			m.Connection = nil // Clear failed connection
+			m.statusMu.Unlock()
 			if m.networkStats != nil {
 				m.networkStats.RecordReconnectFailure()
 			}
@@ -241,6 +247,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 			continue
 		}
 
+		m.statusMu.Unlock()
 		break
 	}
 
@@ -332,24 +339,29 @@ func (m *Manager) GetAddress() string {
 
 // Close closes the connection
 func (m *Manager) Close() error {
+	// First, acquire locks in consistent order to prevent deadlocks
 	m.statusMu.Lock()
-	defer m.statusMu.Unlock()
+	m.pendingMu.Lock()
 
 	// Clear pending requests
-	m.pendingMu.Lock()
 	for stan, req := range m.pendingRequests {
 		close(req.responseChan)
 		delete(m.pendingRequests, stan)
 	}
-	m.pendingMu.Unlock()
 
+	var closeErr error
 	if m.Connection != nil {
 		// Explicitly set status to offline before closing
 		// This ensures status is updated even if ConnectionClosedHandler isn't called
 		m.Connection.SetStatus(moovconnection.StatusOffline)
-		return m.Connection.Close()
+		closeErr = m.Connection.Close()
+		m.Connection = nil
 	}
-	return nil
+
+	m.pendingMu.Unlock()
+	m.statusMu.Unlock()
+
+	return closeErr
 }
 
 // SetNetworkingStats sets the networking stats instance
@@ -375,7 +387,15 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 		return
 	}
 
-	// Find pending request
+	// Validate STAN format
+	if len(stan) != 6 {
+		if m.debugMode {
+			fmt.Printf("Invalid STAN format in inbound message: %s\n", stan)
+		}
+		return
+	}
+
+	// Find and remove pending request atomically
 	m.pendingMu.Lock()
 	pending, exists := m.pendingRequests[stan]
 	if exists {
@@ -383,21 +403,24 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 	}
 	m.pendingMu.Unlock()
 
-	if exists {
-		// Send response to waiting goroutine
+	if exists && pending != nil {
+		// Send response to waiting goroutine with timeout protection
 		select {
 		case pending.responseChan <- message:
+			// Successfully sent response
 		case <-time.After(100 * time.Millisecond):
 			if m.debugMode {
 				fmt.Printf("Timeout sending inbound message to channel for STAN %s\n", stan)
 			}
+			// Close the channel to signal completion
+			close(pending.responseChan)
 		}
 	} else {
-		// Unmatched response
+		// Unmatched response - could be a duplicate or late response
 		if m.debugMode {
 			fmt.Printf("Unmatched inbound message received for STAN %s\n", stan)
 		}
-		// Could log to metrics or file
+		// Could log to metrics or file for debugging
 	}
 }
 
@@ -428,12 +451,6 @@ func (m *Manager) SendAsync(
 		return nil, fmt.Errorf("failed to get STAN from request: %w", err)
 	}
 
-	// Send the message without waiting for response
-	err = conn.Reply(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send message: %w", err)
-	}
-
 	// Create pending request
 	responseChan := make(chan *iso8583.Message, 1)
 	pending := &pendingRequest{
@@ -442,18 +459,43 @@ func (m *Manager) SendAsync(
 		transactionName: transactionName,
 	}
 
-	// Add to pending
+	// Check for duplicate STAN and add to pending requests atomically
 	m.pendingMu.Lock()
+	if _, exists := m.pendingRequests[stan]; exists {
+		m.pendingMu.Unlock()
+		return nil, fmt.Errorf("STAN %s already in use by pending request", stan)
+	}
+
+	// Check if max pending requests limit is reached
+	if len(m.pendingRequests) >= m.maxPendingRequests {
+		m.pendingMu.Unlock()
+		return nil, fmt.Errorf("maximum pending requests limit reached (%d)", m.maxPendingRequests)
+	}
+
 	m.pendingRequests[stan] = pending
 	m.pendingMu.Unlock()
+
+	// Send the message without waiting for response
+	// If sending fails, clean up the pending request
+	err = conn.Reply(msg)
+	if err != nil {
+		m.pendingMu.Lock()
+		delete(m.pendingRequests, stan)
+		m.pendingMu.Unlock()
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
 
 	// Start timeout handler
 	go func() {
 		time.Sleep(m.responseTimeout)
 		m.pendingMu.Lock()
-		if _, exists := m.pendingRequests[stan]; exists {
+		if pendingReq, exists := m.pendingRequests[stan]; exists && pendingReq == pending {
 			delete(m.pendingRequests, stan)
-			close(responseChan)
+			select {
+			case pendingReq.responseChan <- nil: // Send nil to indicate timeout
+			default:
+			}
+			close(pendingReq.responseChan)
 			if m.debugMode {
 				fmt.Printf("Request timeout for STAN %s, transaction %s\n", stan, transactionName)
 			}
@@ -472,6 +514,19 @@ func (m *Manager) SetResponseTimeout(timeout time.Duration) {
 // GetResponseTimeout returns the response timeout
 func (m *Manager) GetResponseTimeout() time.Duration {
 	return m.responseTimeout
+}
+
+// SetMaxPendingRequests sets the maximum number of pending requests
+func (m *Manager) SetMaxPendingRequests(max int) {
+	if max < 1 {
+		max = 1 // Minimum of 1
+	}
+	m.maxPendingRequests = max
+}
+
+// GetMaxPendingRequests returns the maximum number of pending requests
+func (m *Manager) GetMaxPendingRequests() int {
+	return m.maxPendingRequests
 }
 
 // attemptReconnect tries to reconnect in the background with exponential backoff
