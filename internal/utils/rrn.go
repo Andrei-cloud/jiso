@@ -124,39 +124,36 @@ func (r *RRN) GetRRN() string {
 	const maxRRNSeq = 9999999 // 7 digits
 
 	var rrn uint32
-	for {
-		// Atomically increment the counter
-		newVal := atomic.AddUint32(&r.value, 1)
+	// Atomically increment the counter
+	newVal := atomic.AddUint32(&r.value, 1)
 
-		// Handle wraparound: if we exceed maxRRNSeq, wrap to 1
-		if newVal > maxRRNSeq {
-			// Try to reset to 1, but only if we're the one who caused the overflow
-			for {
-				current := atomic.LoadUint32(&r.value)
-				if current <= maxRRNSeq {
-					// Someone else already reset it, use the current value
-					newVal = current
-					break
-				}
-				// Try to reset to 1
-				if atomic.CompareAndSwapUint32(&r.value, current, 1) {
-					newVal = 1
-					break
-				}
-				// CAS failed, someone else changed it, retry
+	// Handle wraparound: if we exceed maxRRNSeq, wrap to 1
+	if newVal > maxRRNSeq {
+		// Try to reset to 1, but only if we're the one who caused the overflow
+		for {
+			current := atomic.LoadUint32(&r.value)
+			if current <= maxRRNSeq {
+				// Someone else already reset it, use the current value
+				newVal = current
+				break
 			}
+			// Try to reset to 1
+			if atomic.CompareAndSwapUint32(&r.value, current, 1) {
+				newVal = 1
+				break
+			}
+			// CAS failed, someone else changed it, retry
 		}
-
-		// Ensure we never return 0 (invalid RRN sequence)
-		if newVal == 0 {
-			// Force it to 1 if somehow we got 0
-			atomic.CompareAndSwapUint32(&r.value, 0, 1)
-			newVal = 1
-		}
-
-		rrn = newVal
-		break // We got a valid value
 	}
+
+	// Ensure we never return 0 (invalid RRN sequence)
+	if newVal == 0 {
+		// Force it to 1 if somehow we got 0
+		atomic.CompareAndSwapUint32(&r.value, 0, 1)
+		newVal = 1
+	}
+
+	rrn = newVal
 
 	// Persist the updated value in a goroutine to avoid blocking
 	go func(currentValue uint32) {

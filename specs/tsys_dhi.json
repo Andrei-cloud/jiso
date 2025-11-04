@@ -12,7 +12,7 @@
 			"type": "Bitmap",
 			"length": 8,
 			"description": "Bitmap",
-			"enc": "HexToASCII",
+			"enc": "Binary",
 			"prefix": "Hex.Fixed"
 		},
 		"2": {
