@@ -27,6 +27,8 @@ var (
 	rrnInstance    *RRN
 	rrnOnce        sync.Once
 	rrnPersistLock sync.Mutex
+	rrnPersistChan chan uint32
+	rrnQuitChan    chan struct{}
 )
 
 func GetRRNInstance() *RRN {
@@ -43,8 +45,38 @@ func GetRRNInstance() *RRN {
 		// Initialize RRN with the loaded value
 		rrnInstance = &RRN{value: data.RRNValue}
 		fmt.Printf("RRN counter initialized with persisted value: %d\n", data.RRNValue)
+
+		// Start persistence goroutine
+		rrnPersistChan = make(chan uint32, 1)
+		rrnQuitChan = make(chan struct{})
+		go rrnPersistWorker()
 	})
 	return rrnInstance
+}
+
+func rrnPersistWorker() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastValue uint32
+	for {
+		select {
+		case val := <-rrnPersistChan:
+			lastValue = val
+		case <-ticker.C:
+			if lastValue > 0 {
+				err := persistRRNData(RRNPersistentData{RRNValue: lastValue})
+				if err != nil {
+					fmt.Printf("Warning: Failed to persist RRN value: %v\n", err)
+				}
+			}
+		case <-rrnQuitChan:
+			if lastValue > 0 {
+				persistRRNData(RRNPersistentData{RRNValue: lastValue})
+			}
+			return
+		}
+	}
 }
 
 // Load RRN data from persistence file
@@ -124,46 +156,26 @@ func (r *RRN) GetRRN() string {
 	const maxRRNSeq = 9999999 // 7 digits
 
 	var rrn uint32
-	// Atomically increment the counter
-	newVal := atomic.AddUint32(&r.value, 1)
+	for {
+		current := atomic.LoadUint32(&r.value)
+		next := current + 1
+		if next > maxRRNSeq {
+			next = 1
+		}
 
-	// Handle wraparound: if we exceed maxRRNSeq, wrap to 1
-	if newVal > maxRRNSeq {
-		// Try to reset to 1, but only if we're the one who caused the overflow
-		for {
-			current := atomic.LoadUint32(&r.value)
-			if current <= maxRRNSeq {
-				// Someone else already reset it, use the current value
-				newVal = current
-				break
+		if atomic.CompareAndSwapUint32(&r.value, current, next) {
+			rrn = next
+			// Send to persistence worker (non-blocking)
+			if rrnPersistChan != nil {
+				select {
+				case rrnPersistChan <- next:
+				default:
+					// Channel full, skip this update
+				}
 			}
-			// Try to reset to 1
-			if atomic.CompareAndSwapUint32(&r.value, current, 1) {
-				newVal = 1
-				break
-			}
-			// CAS failed, someone else changed it, retry
+			break
 		}
 	}
-
-	// Ensure we never return 0 (invalid RRN sequence)
-	if newVal == 0 {
-		// Force it to 1 if somehow we got 0
-		atomic.CompareAndSwapUint32(&r.value, 0, 1)
-		newVal = 1
-	}
-
-	rrn = newVal
-
-	// Persist the updated value in a goroutine to avoid blocking
-	go func(currentValue uint32) {
-		err := persistRRNData(RRNPersistentData{
-			RRNValue: currentValue,
-		})
-		if err != nil {
-			fmt.Printf("Warning: Failed to persist RRN value: %v\n", err)
-		}
-	}(r.value)
 
 	// generate RRN: ydddnnnnnnnn
 	return fmt.Sprintf(
