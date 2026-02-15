@@ -151,6 +151,8 @@ func (cli *CLI) Close() {
 	}
 
 	// Close database connection
+	// Stop async logger and close database connection
+	db.StopAsyncLogger()
 	db.Close()
 }
 
@@ -218,6 +220,8 @@ func (cli *CLI) InitService() error {
 		if err := db.InitDB(dbPath); err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
+		// Initialize async logger
+		db.InitAsyncLogger(1000, 50, 100*time.Millisecond)
 	}
 
 	return nil

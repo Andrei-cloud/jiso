@@ -14,33 +14,9 @@ import (
 	"github.com/moov-io/iso8583/network"
 	"github.com/moov-io/iso8583/prefix"
 	"github.com/stretchr/testify/assert"
+
+	"jiso/internal/utils"
 )
-
-type Binary2BytesAdapter struct {
-	binary2Bytes *network.Binary2Bytes
-}
-
-func (a *Binary2BytesAdapter) SetLength(length int) {
-	a.binary2Bytes.SetLength(length)
-}
-
-func (a *Binary2BytesAdapter) Length() int {
-	return a.binary2Bytes.Length()
-}
-
-func (a *Binary2BytesAdapter) WriteTo(w io.Writer) (int, error) {
-	n, err := a.binary2Bytes.WriteTo(w)
-	return n, err
-}
-
-func (a *Binary2BytesAdapter) ReadFrom(r io.Reader) (int, error) {
-	n, err := a.binary2Bytes.ReadFrom(r)
-	if err != nil {
-		return 0, fmt.Errorf("reading from reader: %w", err)
-	}
-
-	return n, nil
-}
 
 // mockMessageSpec creates a basic ISO8583 message spec for testing
 func mockMessageSpec() *iso8583.MessageSpec {
@@ -141,7 +117,7 @@ func startTestServer(spec *iso8583.MessageSpec, respond bool) (*testServer, erro
 	server := &testServer{
 		listener: listener,
 		spec:     spec,
-		header:   &Binary2BytesAdapter{network.NewBinary2BytesHeader()},
+		header:   utils.NewBinary2BytesAdapter(),
 		respond:  respond,
 		done:     make(chan struct{}),
 	}
@@ -265,7 +241,7 @@ func TestSendAsyncTimeout(t *testing.T) {
 	manager.SetResponseTimeout(100 * time.Millisecond) // Short timeout for testing
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 
@@ -323,7 +299,7 @@ func TestSendAsyncLateResponse(t *testing.T) {
 	manager.SetResponseTimeout(100 * time.Millisecond) // Short timeout
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 
@@ -384,7 +360,7 @@ func TestSendAsyncSuccessfulResponse(t *testing.T) {
 	manager.SetResponseTimeout(1 * time.Second) // Longer timeout
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 
@@ -433,7 +409,7 @@ func TestSendAsyncMultipleRequests(t *testing.T) {
 	manager.SetResponseTimeout(200 * time.Millisecond)
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 
@@ -490,7 +466,7 @@ func TestSendAsyncSTANMismatch(t *testing.T) {
 	manager.SetResponseTimeout(200 * time.Millisecond)
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 
@@ -533,7 +509,7 @@ func startDelayedTestServer(
 	server := &delayedTestServer{
 		listener: listener,
 		spec:     spec,
-		header:   &Binary2BytesAdapter{network.NewBinary2BytesHeader()},
+		header:   utils.NewBinary2BytesAdapter(),
 		delay:    delay,
 		done:     make(chan struct{}),
 	}
@@ -653,7 +629,7 @@ func startMismatchTestServer(spec *iso8583.MessageSpec) (*mismatchTestServer, er
 	server := &mismatchTestServer{
 		listener: listener,
 		spec:     spec,
-		header:   &Binary2BytesAdapter{network.NewBinary2BytesHeader()},
+		header:   utils.NewBinary2BytesAdapter(),
 		done:     make(chan struct{}),
 	}
 
@@ -775,7 +751,7 @@ func TestSendAsyncDuplicateSTAN(t *testing.T) {
 	manager.SetResponseTimeout(1 * time.Second)
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 
@@ -834,7 +810,7 @@ func TestSendAsyncCleanupOnSendFailure(t *testing.T) {
 	)
 
 	// Connect should fail since server is closed
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "connection refused")
 
@@ -886,7 +862,7 @@ func TestCloseCleansUpPendingRequests(t *testing.T) {
 	manager.SetResponseTimeout(500 * time.Millisecond) // Short timeout
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 
 	// Send multiple async requests
@@ -977,7 +953,7 @@ func TestSendAsyncConcurrentAccess(t *testing.T) {
 	manager.SetResponseTimeout(1 * time.Second)
 
 	// Connect
-	err = manager.Connect(false, &Binary2BytesAdapter{network.NewBinary2BytesHeader()})
+	err = manager.Connect(false, utils.NewBinary2BytesAdapter())
 	assert.NoError(t, err)
 	defer manager.Close()
 

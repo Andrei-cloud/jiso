@@ -92,8 +92,13 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	}
 
 	var err error
-	readFunc := utils.ReadMessageLengthWrapper(header)
-	writeFunc := utils.WriteMessageLengthWrapper(header)
+	// Clone headers for reading and writing to avoid race conditions
+	// Reader and Writer run in separate goroutines
+	readHeader := cloneHeader(header)
+	writeHeader := cloneHeader(header)
+
+	readFunc := utils.ReadMessageLengthWrapper(readHeader)
+	writeFunc := utils.WriteMessageLengthWrapper(writeHeader)
 	if naps {
 		readFunc = utils.NapsReadLengthWrapper(readFunc)
 		writeFunc = utils.NapsWriteLengthWrapper(writeFunc)

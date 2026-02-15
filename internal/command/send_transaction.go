@@ -123,16 +123,14 @@ func (c *SendCommand) Execute() error {
 			processingTimeMs = 0 // Timeout or error
 		}
 
-		if dbErr := db.InsertTransaction(
+		db.LogTransaction(
 			config.GetConfig().GetSessionId(),
 			trxnName,
 			requestJSON,
 			responseJSON,
 			processingTimeMs,
 			success,
-		); dbErr != nil {
-			fmt.Printf("Warning: Failed to store transaction in database: %v\n", dbErr)
-		}
+		)
 	}
 
 	if err != nil {
@@ -379,16 +377,14 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		// Store failed transaction in database
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
-			if dbErr := db.InsertTransaction(
+			db.LogTransaction(
 				config.GetConfig().GetSessionId(),
 				trxnName,
 				requestJSON,
 				nil, // No response
 				0,   // No processing time
 				false,
-			); dbErr != nil {
-				fmt.Printf("Warning: Failed to store failed transaction in database: %v\n", dbErr)
-			}
+			)
 		}
 
 		// Record error
@@ -409,16 +405,14 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		// Store timeout transaction in database
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
-			if dbErr := db.InsertTransaction(
+			db.LogTransaction(
 				config.GetConfig().GetSessionId(),
 				trxnName,
 				requestJSON,
 				nil, // No response
 				int(execTime.Milliseconds()),
 				false,
-			); dbErr != nil {
-				fmt.Printf("Warning: Failed to store timeout transaction in database: %v\n", dbErr)
-			}
+			)
 		}
 
 		return fmt.Errorf("response timeout for transaction %s", trxnName)
@@ -457,26 +451,25 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
 			responseJSON, _ := db.MessageToJSON(resp)
-			if dbErr := db.InsertTransaction(
+			mappedResponseJSON := &responseJSON
+			db.LogTransaction(
 				config.GetConfig().GetSessionId(),
 				trxnName,
 				requestJSON,
-				&responseJSON,
+				mappedResponseJSON,
 				int(execTime.Milliseconds()),
 				false, // Mark as failure due to mismatch
-			); dbErr != nil {
-				fmt.Printf(
-					"Warning: Failed to store STAN mismatch transaction in database: %v\n",
-					dbErr,
-				)
-			}
+			)
 		}
 
 		return fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
 	}
 
 	rc := resp.GetField(39)
-	rcStr, err := rc.String()
+	if rc == nil {
+		return fmt.Errorf("response code field 39 missing")
+	}
+	_, err = rc.String()
 	if err != nil {
 		// Log transaction with partial success
 		c.Tc.LogTransaction(trxnName, false)
@@ -484,19 +477,14 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		// Store transaction with error in database
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
-			if dbErr := db.InsertTransaction(
+			db.LogTransaction(
 				config.GetConfig().GetSessionId(),
 				trxnName,
 				requestJSON,
 				nil, // No valid response
 				0,   // No processing time
 				false,
-			); dbErr != nil {
-				fmt.Printf(
-					"Warning: Failed to store transaction with error in database: %v\n",
-					dbErr,
-				)
-			}
+			)
 		}
 
 		return err
@@ -509,20 +497,20 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	if config.GetConfig().GetDbPath() != "" {
 		requestJSON, _ := db.MessageToJSON(msg)
 		responseJSON, _ := db.MessageToJSON(resp)
-		if dbErr := db.InsertTransaction(
+		mappedResponseJSON := &responseJSON
+		db.LogTransaction(
 			config.GetConfig().GetSessionId(),
 			trxnName,
 			requestJSON,
-			&responseJSON,
+			mappedResponseJSON,
 			int(execTime.Milliseconds()),
 			true,
-		); dbErr != nil {
-			fmt.Printf("Warning: Failed to store successful transaction in database: %v\n", dbErr)
-		}
+		)
 	}
 
-	// Record metrics
-	c.stats.RecordExecution(execTime, rcStr)
+	// Record metrics - Removed to prevent race condition on shared state
+	// Worker controller tracks success/failure counts independently
+	// c.stats.RecordExecution(execTime, rcStr)
 
 	return nil
 }

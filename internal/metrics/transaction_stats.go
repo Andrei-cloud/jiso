@@ -13,8 +13,8 @@ type TransactionStats struct {
 	executionTime time.Duration
 	variance      time.Duration
 	respCodes     map[string]uint64
-	respCodesLock sync.Mutex
-	maxRespCodes  int // Maximum number of response codes to track
+	mu            sync.Mutex // Main mutex for all fields
+	maxRespCodes  int        // Maximum number of response codes to track
 }
 
 // NewTransactionStats creates a new TransactionStats instance
@@ -27,16 +27,20 @@ func NewTransactionStats() *TransactionStats {
 
 // StartClock begins timing the transaction execution
 func (ts *TransactionStats) StartClock() {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	ts.start = time.Now()
 }
 
 // RecordExecution records a transaction execution with its duration
 func (ts *TransactionStats) RecordExecution(duration time.Duration, respCode string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
 	ts.executionTime += duration
 	ts.counts++
 
 	if respCode != "" {
-		ts.respCodesLock.Lock()
 		ts.respCodes[respCode]++
 
 		// If we've exceeded the maximum number of response codes, remove the least frequent one
@@ -54,27 +58,37 @@ func (ts *TransactionStats) RecordExecution(duration time.Duration, respCode str
 			}
 		}
 
-		ts.respCodesLock.Unlock()
-
 		// Calculate variance
-		mean := ts.MeanExecutionTime()
-		diff := duration - mean
+		// Note: Mean is calculated on the fly, but for variance we need a running algorithm or store sum/counts
+		// Using Welford's online algorithm or similar would be better, but sticking to simple approx for now
+		// Re-implementing simplified variance tracking to avoid complex recursion/deps
+		// Variance = E[X^2] - (E[X])^2 ? Or just sum of squares diff?
+		// Existing code: diff := duration - mean; variance += diff * diff
+		// We need mean based on current count.
+		currentMean := ts.executionTime / time.Duration(ts.counts)
+		diff := duration - currentMean
 		ts.variance += diff * diff
 	}
 }
 
 // ExecutionCount returns the number of executions
 func (ts *TransactionStats) ExecutionCount() int {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	return ts.counts
 }
 
 // Duration returns the total elapsed time since starting
 func (ts *TransactionStats) Duration() time.Duration {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	return time.Since(ts.start)
 }
 
 // MeanExecutionTime calculates the mean execution time
 func (ts *TransactionStats) MeanExecutionTime() time.Duration {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	if ts.counts == 0 {
 		return 0
 	}
@@ -83,6 +97,8 @@ func (ts *TransactionStats) MeanExecutionTime() time.Duration {
 
 // StandardDeviation calculates the standard deviation of execution times
 func (ts *TransactionStats) StandardDeviation() time.Duration {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	if ts.counts <= 1 {
 		return 0
 	}
@@ -93,8 +109,8 @@ func (ts *TransactionStats) StandardDeviation() time.Duration {
 
 // ResponseCodes returns a copy of the response code map
 func (ts *TransactionStats) ResponseCodes() map[string]uint64 {
-	ts.respCodesLock.Lock()
-	defer ts.respCodesLock.Unlock()
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 
 	// Return a copy to avoid race conditions
 	result := make(map[string]uint64)
