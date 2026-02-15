@@ -15,6 +15,7 @@ import (
 	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 )
@@ -222,6 +223,43 @@ func (cli *CLI) InitService() error {
 		}
 		// Initialize async logger
 		db.InitAsyncLogger(1000, 50, 100*time.Millisecond)
+	}
+
+	return nil
+}
+
+// Prepare initializes the service and registers commands without starting the interactive shell
+func (cli *CLI) Prepare() error {
+	if err := cli.InitService(); err != nil {
+		return err
+	}
+
+	// Create command factory
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+
+	// Add commands using the factory
+	cli.AddCommand(cli.factory.CreateListCommand())
+	cli.AddCommand(cli.factory.CreateInfoCommand())
+	cli.AddCommand(cli.factory.CreateSendCommand())
+	cli.AddCommand(cli.factory.CreateConnectCommand())
+	cli.AddCommand(cli.factory.CreateDisconnectCommand())
+	cli.AddCommand(cli.factory.CreateBackgroundCommand())
+	cli.AddCommand(cli.factory.CreateStressTestCommand())
+	cli.AddCommand(cli.factory.CreateDbStatsCommand())
+
+	return nil
+}
+
+// Connect establishes a connection with the specified length type (non-interactive)
+func (cli *CLI) Connect(lengthType string) error {
+	header, err := utils.SelectLength(lengthType)
+	if err != nil {
+		return err
+	}
+
+	naps := (lengthType == "NAPS")
+	if err := cli.svc.Connect(naps, header); err != nil {
+		return err
 	}
 
 	return nil
