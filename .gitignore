@@ -2,6 +2,7 @@
 jiso
 transactions/transaction_uat.json
 server/testserver
+server/jiso-server
 internal/db/db_test.go
 *.sqlite
 coverage.out
