@@ -27,6 +27,7 @@ type stressTestWorker struct {
 	currentTps          float64
 	actualTps           float64
 	rampUpProgress      float64
+	currentInterval     time.Duration
 	successful          int
 	failed              int
 	consecutiveFailures int
@@ -54,46 +55,47 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 	fmt.Printf("Stress test worker %s starting ramp-up to %d TPS over %s\n",
 		w.id, w.targetTps, w.rampUpDuration)
 
-	for step := 0; step <= rampUpSteps; step++ {
-		select {
-		case <-w.ctx.Done():
-			return
-		default:
-		}
+	// Calculate initial interval for step 0
+	initialInterval := time.Duration(float64(time.Second) / startTps / float64(w.numWorkers))
+	if initialInterval < time.Millisecond {
+		initialInterval = time.Millisecond
+	}
+	w.mu.Lock()
+	w.currentInterval = initialInterval
+	w.mu.Unlock()
 
-		// Calculate current target TPS for this step
-		currentTargetTps := startTps + (float64(step) * tpsIncrement)
-		if currentTargetTps > float64(w.targetTps) {
-			currentTargetTps = float64(w.targetTps)
-		}
+	// Start parallel workers
+	var workersWg sync.WaitGroup
+	for i := 0; i < w.numWorkers; i++ {
+		workersWg.Add(1)
+		go func(workerIndex int) {
+			defer workersWg.Done()
 
-		w.mu.Lock()
-		w.currentTps = currentTargetTps
-		w.rampUpProgress = float64(step) / float64(rampUpSteps) * 100.0
-		w.mu.Unlock()
+			// Get initial interval under lock
+			w.mu.Lock()
+			interval := w.currentInterval
+			w.mu.Unlock()
 
-		// Calculate interval for this TPS
-		interval := time.Duration(float64(time.Second) / currentTargetTps / float64(w.numWorkers))
-		if interval < time.Millisecond {
-			interval = time.Millisecond // Minimum interval
-		}
-
-		// Run at this TPS for the step duration
-		stepEnd := time.Now().Add(stepDuration)
-		stepStart := time.Now()
-		stepTransactions := 0
-		successfulAtStepStart := w.successful
-		nextSend := time.Now() // Send first transaction immediately
-
-		for time.Now().Before(stepEnd) {
-			// Wait until it's time to send the next batch
-			if time.Now().Before(nextSend) {
-				time.Sleep(time.Until(nextSend))
+			// Stagger startup to distribute requests evenly
+			staggerDelay := time.Duration(workerIndex) * interval
+			select {
+			case <-w.ctx.Done():
+				return
+			case <-time.After(staggerDelay):
 			}
 
-			// Send one batch of transactions (one per worker)
-			for i := 0; i < w.numWorkers; i++ {
+			nextSend := time.Now()
+
+			for {
+				select {
+				case <-w.ctx.Done():
+					return
+				default:
+				}
+
+				// Execute transaction (synchronous request/response)
 				err := sendCmd.ExecuteBackground(w.name)
+
 				w.mu.Lock()
 				if err == nil {
 					w.successful++
@@ -109,25 +111,81 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 						w.networkStats.RecordCircuitBreakerTrip()
 					}
 					fmt.Printf(
-						"Stress test worker %s stopped due to %d consecutive failures\n",
+						"\nStress test worker %s stopped due to %d consecutive failures\n",
 						w.id,
 						w.consecutiveFailures,
 					)
+					w.cancel() // Stop all other workers by cancelling the context
 					w.mu.Unlock()
 					return
 				}
-				w.mu.Unlock()
-				stepTransactions++
-			}
 
-			// Schedule next send
-			nextSend = nextSend.Add(interval)
+				interval = w.currentInterval
+				w.mu.Unlock()
+
+				// Sleep until the next scheduled send time
+				nextSend = nextSend.Add(interval * time.Duration(w.numWorkers))
+				if time.Now().After(nextSend) {
+					// Lagged behind (e.g. execution took longer than the target interval).
+					// Reset nextSend to now to avoid accumulating massive lag.
+					nextSend = time.Now()
+				} else {
+					select {
+					case <-w.ctx.Done():
+						return
+					case <-time.After(time.Until(nextSend)):
+					}
+				}
+			}
+		}(i)
+	}
+
+	// Main controller loop: Progress through ramp-up steps
+	for step := 0; step <= rampUpSteps; step++ {
+		select {
+		case <-w.ctx.Done():
+			// Context canceled, cleanup and return
+			w.cancel()
+			workersWg.Wait()
+			return
+		default:
+		}
+
+		// Calculate current target TPS for this step
+		currentTargetTps := startTps + (float64(step) * tpsIncrement)
+		if currentTargetTps > float64(w.targetTps) {
+			currentTargetTps = float64(w.targetTps)
+		}
+
+		// Calculate interval for this TPS
+		interval := time.Duration(float64(time.Second) / currentTargetTps / float64(w.numWorkers))
+		if interval < time.Millisecond {
+			interval = time.Millisecond // Minimum interval
+		}
+
+		w.mu.Lock()
+		w.currentTps = currentTargetTps
+		w.currentInterval = interval
+		w.rampUpProgress = float64(step) / float64(rampUpSteps) * 100.0
+		w.mu.Unlock()
+
+		stepStart := time.Now()
+		w.mu.Lock()
+		successfulAtStepStart := w.successful
+		w.mu.Unlock()
+
+		// Wait for the duration of this step
+		select {
+		case <-w.ctx.Done():
+			w.cancel()
+			workersWg.Wait()
+			return
+		case <-time.After(stepDuration):
 		}
 
 		// Calculate actual TPS for this step
 		stepDurationActual := time.Since(stepStart)
 		if stepDurationActual > 0 {
-			// TPS should be based on successful transactions in THIS step only
 			w.mu.Lock()
 			successfulInThisStep := w.successful - successfulAtStepStart
 			actualTps := float64(successfulInThisStep) / stepDurationActual.Seconds()
@@ -160,48 +218,26 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		finalInterval = time.Millisecond
 	}
 
-	testEnd := time.Now().Add(w.duration)
-	nextSend := time.Now() // Send first transaction immediately
+	w.mu.Lock()
+	w.currentInterval = finalInterval
+	w.mu.Unlock()
+
+	w.mu.Lock()
 	successfulAtFinalStart := w.successful
+	w.mu.Unlock()
 	finalStartTime := time.Now()
 
-	for time.Now().Before(testEnd) {
-		// Wait until it's time to send the next batch
-		if time.Now().Before(nextSend) {
-			time.Sleep(time.Until(nextSend))
-		}
-
-		// Send one batch of transactions (one per worker)
-		for i := 0; i < w.numWorkers; i++ {
-			err := sendCmd.ExecuteBackground(w.name)
-			w.mu.Lock()
-			if err == nil {
-				w.successful++
-				w.consecutiveFailures = 0
-			} else {
-				w.failed++
-				w.consecutiveFailures++
-			}
-
-			// Circuit breaker: record trip if activated
-			if w.consecutiveFailures >= 10 {
-				if w.networkStats != nil {
-					w.networkStats.RecordCircuitBreakerTrip()
-				}
-				fmt.Printf(
-					"Stress test worker %s stopped due to %d consecutive failures\n",
-					w.id,
-					w.consecutiveFailures,
-				)
-				w.mu.Unlock()
-				return
-			}
-			w.mu.Unlock()
-		}
-
-		// Schedule next send
-		nextSend = nextSend.Add(finalInterval)
+	// Wait for the final test phase duration
+	select {
+	case <-w.ctx.Done():
+	case <-time.After(w.duration):
 	}
+
+	// Cancel context to stop all worker goroutines
+	w.cancel()
+
+	// Wait for all worker goroutines to exit cleanly
+	workersWg.Wait()
 
 	// Calculate final TPS based on the test duration phase
 	finalDurationActual := time.Since(finalStartTime)

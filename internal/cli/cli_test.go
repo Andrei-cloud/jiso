@@ -2,10 +2,12 @@ package cli
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"jiso/internal/command"
+	"jiso/internal/service"
 )
 
 func TestNewCLI(t *testing.T) {
@@ -121,6 +123,58 @@ func TestStressTestWorkerResourceCleanup(t *testing.T) {
 		t.Errorf("Expected 0 active workers after stop, got %d", stats["active"])
 	}
 }
+
+func TestStressTestWorkerParallel(t *testing.T) {
+	cli := NewCLI()
+
+	// Create a dummy spec file
+	spec := `{"name": "Test Spec", "fields": {"0": {"type": "String", "length": 4, "description": "MTI", "enc": "ASCII", "prefix": "ASCII.Fixed"}}}`
+	tmpFile, err := os.CreateTemp("", "spec-*.json")
+	if err != nil {
+		t.Fatalf("Failed to create temp spec file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+	_, _ = tmpFile.WriteString(spec)
+
+	svc, err := service.NewService("localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to create service: %v", err)
+	}
+
+	sendCmd := &command.SendCommand{
+		Svc: svc,
+	}
+	cli.commands["send"] = sendCmd
+
+	// Start a stress test worker with short duration
+	workerID, err := cli.StartStressTestWorker(
+		"test-transaction",
+		20,                   // target TPS
+		50*time.Millisecond,  // ramp up duration
+		50*time.Millisecond,  // test duration
+		3,                    // num workers
+	)
+	if err != nil {
+		t.Fatalf("Failed to start stress test worker: %v", err)
+	}
+
+	// Let it run for a bit
+	time.Sleep(150 * time.Millisecond)
+
+	// Stop the worker
+	err = cli.StopWorker(workerID)
+	if err != nil {
+		t.Fatalf("Failed to stop stress test worker: %v", err)
+	}
+
+	// Verify worker is stopped
+	stats := cli.GetWorkerStats()
+	if stats["active"].(int) != 0 {
+		t.Errorf("Expected 0 active workers after stop, got %d", stats["active"])
+	}
+}
+
 
 func TestStopAllWorkersCleanup(t *testing.T) {
 	cli := NewCLI()
