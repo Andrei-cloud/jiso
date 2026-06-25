@@ -53,6 +53,68 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 	sendCmd.StartClock()
 
+	w.mu.Lock()
+	w.startTime = time.Now()
+	w.mu.Unlock()
+
+	// Start status printing goroutine
+	statusCtx, statusCancel := context.WithCancel(w.ctx)
+	defer statusCancel()
+
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-statusCtx.Done():
+				return
+			case <-ticker.C:
+				w.mu.Lock()
+				successful := w.successful
+				failed := w.failed
+				total := successful + failed
+				currentTps := w.currentTps
+				startTime := w.startTime
+				completed := w.completed
+				rampUpDuration := w.rampUpDuration
+				duration := w.duration
+				w.mu.Unlock()
+
+				if completed {
+					return
+				}
+
+				elapsed := time.Since(startTime)
+				var tps float64
+				if elapsed.Seconds() > 0 {
+					tps = float64(total) / elapsed.Seconds()
+				}
+
+				var timeStr string
+				var phase string
+				if elapsed < rampUpDuration {
+					phase = "Ramp-up"
+					timeStr = fmt.Sprintf("%s/%s", formatDuration(elapsed), formatDuration(rampUpDuration))
+				} else {
+					phase = "Maintain"
+					maintainElapsed := elapsed - rampUpDuration
+					timeStr = fmt.Sprintf("%s/%s", formatDuration(maintainElapsed), formatDuration(duration))
+				}
+
+				fmt.Printf("\r[STEST] Phase: %-8s | Time: %s | Sent: %d (OK:%d, Err:%d) | TPS: %.1f (Target: %.1f)\033[K",
+					phase,
+					timeStr,
+					total,
+					successful,
+					failed,
+					tps,
+					currentTps,
+				)
+			}
+		}
+	}()
+
 	// Start with 1 TPS and ramp up to target TPS
 	startTps := 1.0
 	rampUpSteps := 10 // Number of ramp-up steps
@@ -215,15 +277,6 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			actualTps := float64(successfulInThisStep) / stepDurationActual.Seconds()
 			w.actualTps = actualTps
 			w.mu.Unlock()
-
-			fmt.Printf(
-				"\rWorker %s: Step %d/%d - Target: %.1f TPS, Progress: %.1f%%",
-				w.id,
-				step+1,
-				rampUpSteps+1,
-				currentTargetTps,
-				w.rampUpProgress,
-			)
 		}
 	}
 
@@ -769,4 +822,17 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 
 	stats["workers"] = workerDetails
 	return stats
+}
+
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	if h > 0 {
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%02d:%02d", m, s)
 }
