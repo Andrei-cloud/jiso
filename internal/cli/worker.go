@@ -41,6 +41,8 @@ type stressTestWorker struct {
 	endTime             time.Time
 	mu                  sync.Mutex
 	wg                  sync.WaitGroup // WaitGroup to ensure clean shutdown
+	requestsWg          sync.WaitGroup // WaitGroup to track async requests
+	originalMaxPending  int            // Store the original max pending requests to restore it later
 }
 
 // runStressTest implements the stress testing logic with TPS ramp-up
@@ -125,8 +127,9 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 	fmt.Printf("Stress test worker %s starting ramp-up to %d TPS over %s\n",
 		w.id, w.targetTps, w.rampUpDuration)
 
-	// Calculate initial interval for step 0
-	initialInterval := time.Duration(float64(time.Second) / startTps / float64(w.numWorkers))
+	// Calculate initial worker-specific interval for step 0
+	// workerInterval = globalInterval * numWorkers
+	initialInterval := time.Duration(float64(time.Second) / startTps) * time.Duration(w.numWorkers)
 	if initialInterval < time.Millisecond {
 		initialInterval = time.Millisecond
 	}
@@ -147,7 +150,11 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			w.mu.Unlock()
 
 			// Stagger startup to distribute requests evenly
-			staggerDelay := time.Duration(workerIndex) * interval
+			globalInterval := interval / time.Duration(w.numWorkers)
+			if globalInterval < 1 {
+				globalInterval = 1
+			}
+			staggerDelay := time.Duration(workerIndex) * globalInterval
 			select {
 			case <-w.ctx.Done():
 				return
@@ -163,55 +170,59 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				default:
 				}
 
-				// Execute transaction (synchronous request/response)
-				rcStr, execTime, err := sendCmd.ExecuteBackground(w.name)
+				// Execute transaction asynchronously to avoid blocking the sender loop
+				w.requestsWg.Add(1)
+				go func() {
+					defer w.requestsWg.Done()
+
+					rcStr, execTime, err := sendCmd.ExecuteBackground(w.name)
+
+					w.mu.Lock()
+					if err == nil {
+						w.successful++
+						w.consecutiveFailures = 0
+					} else {
+						w.failed++
+						w.consecutiveFailures++
+					}
+
+					// Record the metrics in w
+					if w.respCodes == nil {
+						w.respCodes = make(map[string]int)
+					}
+					if rcStr == "" {
+						if err != nil {
+							rcStr = "ERROR"
+						} else {
+							rcStr = "00"
+						}
+					}
+					w.respCodes[rcStr]++
+					w.latencies = append(w.latencies, execTime)
+
+					// Circuit breaker: record trip if activated
+					if w.consecutiveFailures >= 10 {
+						if w.networkStats != nil {
+							w.networkStats.RecordCircuitBreakerTrip()
+						}
+						fmt.Printf(
+							"\nStress test worker %s stopped due to %d consecutive failures\n",
+							w.id,
+							w.consecutiveFailures,
+						)
+						w.cancel() // Stop all other workers by cancelling the context
+					}
+					w.mu.Unlock()
+				}()
 
 				w.mu.Lock()
-				if err == nil {
-					w.successful++
-					w.consecutiveFailures = 0
-				} else {
-					w.failed++
-					w.consecutiveFailures++
-				}
-
-				// Record the metrics in w
-				if w.respCodes == nil {
-					w.respCodes = make(map[string]int)
-				}
-				if rcStr == "" {
-					if err != nil {
-						rcStr = "ERROR"
-					} else {
-						rcStr = "00"
-					}
-				}
-				w.respCodes[rcStr]++
-				w.latencies = append(w.latencies, execTime)
-
-				// Circuit breaker: record trip if activated
-				if w.consecutiveFailures >= 10 {
-					if w.networkStats != nil {
-						w.networkStats.RecordCircuitBreakerTrip()
-					}
-					fmt.Printf(
-						"\nStress test worker %s stopped due to %d consecutive failures\n",
-						w.id,
-						w.consecutiveFailures,
-					)
-					w.cancel() // Stop all other workers by cancelling the context
-					w.mu.Unlock()
-					return
-				}
-
 				interval = w.currentInterval
 				w.mu.Unlock()
 
-				// Sleep until the next scheduled send time
-				nextSend = nextSend.Add(interval * time.Duration(w.numWorkers))
+				// Sleep until the next scheduled send time for this worker
+				nextSend = nextSend.Add(interval)
 				if time.Now().After(nextSend) {
-					// Lagged behind (e.g. execution took longer than the target interval).
-					// Reset nextSend to now to avoid accumulating massive lag.
+					// Lagged behind. Reset nextSend to now.
 					nextSend = time.Now()
 				} else {
 					select {
@@ -231,7 +242,8 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			// Context canceled, cleanup and return
 			w.cancel()
 			workersWg.Wait()
-			w.finishAndPrintSummary()
+			w.requestsWg.Wait()
+			w.finishAndPrintSummary(cli)
 			return
 		default:
 		}
@@ -242,15 +254,16 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			currentTargetTps = float64(w.targetTps)
 		}
 
-		// Calculate interval for this TPS
-		interval := time.Duration(float64(time.Second) / currentTargetTps / float64(w.numWorkers))
-		if interval < time.Millisecond {
-			interval = time.Millisecond // Minimum interval
+		// Calculate worker interval for this TPS
+		globalInterval := time.Duration(float64(time.Second) / currentTargetTps)
+		workerInterval := globalInterval * time.Duration(w.numWorkers)
+		if workerInterval < time.Millisecond {
+			workerInterval = time.Millisecond
 		}
 
 		w.mu.Lock()
 		w.currentTps = currentTargetTps
-		w.currentInterval = interval
+		w.currentInterval = workerInterval
 		w.rampUpProgress = float64(step) / float64(rampUpSteps) * 100.0
 		w.mu.Unlock()
 
@@ -264,7 +277,8 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		case <-w.ctx.Done():
 			w.cancel()
 			workersWg.Wait()
-			w.finishAndPrintSummary()
+			w.requestsWg.Wait()
+			w.finishAndPrintSummary(cli)
 			return
 		case <-time.After(stepDuration):
 		}
@@ -288,9 +302,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		w.duration,
 	)
 
-	finalInterval := time.Duration(
-		float64(time.Second) / float64(w.targetTps) / float64(w.numWorkers),
-	)
+	finalInterval := time.Duration(float64(time.Second)/float64(w.targetTps)) * time.Duration(w.numWorkers)
 	if finalInterval < time.Millisecond {
 		finalInterval = time.Millisecond
 	}
@@ -311,13 +323,16 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 	// Wait for all worker goroutines to exit cleanly
 	workersWg.Wait()
 
+	// Wait for all outstanding request goroutines to finish
+	w.requestsWg.Wait()
+
 	// Finish and print summary
-	w.finishAndPrintSummary()
+	w.finishAndPrintSummary(cli)
 
 	fmt.Printf("Worker %s: Test duration elapsed. Stopping.\n", w.id)
 }
 
-func (w *stressTestWorker) finishAndPrintSummary() {
+func (w *stressTestWorker) finishAndPrintSummary(cli *CLI) {
 	w.mu.Lock()
 	if w.completed {
 		w.mu.Unlock()
@@ -334,6 +349,11 @@ func (w *stressTestWorker) finishAndPrintSummary() {
 	}
 	w.rampUpProgress = 100.0
 	w.mu.Unlock()
+
+	// Restore original max pending requests
+	if cli != nil && cli.svc != nil {
+		cli.svc.SetMaxPendingRequests(w.originalMaxPending)
+	}
 
 	w.printSummary(w.actualTps)
 }
@@ -608,22 +628,39 @@ func (cli *CLI) StartStressTestWorker(
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
+	originalMaxPending := 100
+	if cli.svc != nil {
+		originalMaxPending = cli.svc.GetMaxPendingRequests()
+		timeoutSec := int(cli.svc.GetResponseTimeout().Seconds())
+		if timeoutSec < 1 {
+			timeoutSec = 1
+		}
+		requiredMaxPending := targetTps * timeoutSec
+		if requiredMaxPending < 1000 {
+			requiredMaxPending = 1000
+		}
+		if requiredMaxPending > originalMaxPending {
+			cli.svc.SetMaxPendingRequests(requiredMaxPending)
+		}
+	}
+
 	// Create a new stress test worker state
 	worker := &stressTestWorker{
-		id:             workerID,
-		name:           name,
-		targetTps:      targetTps,
-		rampUpDuration: rampUpDuration,
-		duration:       duration,
-		numWorkers:     numWorkers,
-		startTime:      time.Now(),
-		ctx:            ctx,
-		cancel:         cancel,
-		networkStats:   cli.networkStats,
-		currentTps:     0,
-		actualTps:      0,
-		rampUpProgress: 0.0,
-		respCodes:      make(map[string]int),
+		id:                 workerID,
+		name:               name,
+		targetTps:          targetTps,
+		rampUpDuration:     rampUpDuration,
+		duration:           duration,
+		numWorkers:         numWorkers,
+		startTime:          time.Now(),
+		ctx:                ctx,
+		cancel:             cancel,
+		networkStats:       cli.networkStats,
+		currentTps:         0,
+		actualTps:          0,
+		rampUpProgress:     0.0,
+		respCodes:          make(map[string]int),
+		originalMaxPending: originalMaxPending,
 	}
 
 	// Store the worker

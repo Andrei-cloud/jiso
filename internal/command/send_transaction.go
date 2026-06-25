@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"jiso/internal/config"
@@ -23,6 +24,7 @@ type SendCommand struct {
 	Tc           transactions.Repository
 	Svc          *service.Service
 	stats        *metrics.TransactionStats
+	statsMu      sync.Mutex
 	networkStats *metrics.NetworkingStats
 	renderer     *view.ISOMessageRenderer
 }
@@ -329,9 +331,11 @@ func (c *SendCommand) retrySend(msg *iso8583.Message, maxRetries int) (*iso8583.
 }
 
 func (c *SendCommand) StartClock() {
+	c.statsMu.Lock()
 	if c.stats == nil {
 		c.stats = metrics.NewTransactionStats()
 	}
+	c.statsMu.Unlock()
 	c.stats.StartClock()
 }
 
@@ -344,9 +348,11 @@ func (c *SendCommand) ExecuteBackground(trxnName string) (string, time.Duration,
 	}
 
 	// Initialize stats if not already done
+	c.statsMu.Lock()
 	if c.stats == nil {
 		c.stats = metrics.NewTransactionStats()
 	}
+	c.statsMu.Unlock()
 
 	// Handle transaction with hash suffix
 	if strings.Contains(trxnName, "#") {
@@ -516,6 +522,8 @@ func (c *SendCommand) ExecuteBackground(trxnName string) (string, time.Duration,
 }
 
 func (c *SendCommand) Stats() int {
+	c.statsMu.Lock()
+	defer c.statsMu.Unlock()
 	if c.stats == nil {
 		return 0
 	}
@@ -523,6 +531,8 @@ func (c *SendCommand) Stats() int {
 }
 
 func (c *SendCommand) Duration() time.Duration {
+	c.statsMu.Lock()
+	defer c.statsMu.Unlock()
 	if c.stats == nil {
 		return 0
 	}
@@ -530,6 +540,8 @@ func (c *SendCommand) Duration() time.Duration {
 }
 
 func (c *SendCommand) MeanExecutionTime() time.Duration {
+	c.statsMu.Lock()
+	defer c.statsMu.Unlock()
 	if c.stats == nil {
 		return 0
 	}
@@ -537,6 +549,8 @@ func (c *SendCommand) MeanExecutionTime() time.Duration {
 }
 
 func (c *SendCommand) StandardDeviation() time.Duration {
+	c.statsMu.Lock()
+	defer c.statsMu.Unlock()
 	if c.stats == nil {
 		return 0
 	}
@@ -544,6 +558,8 @@ func (c *SendCommand) StandardDeviation() time.Duration {
 }
 
 func (c *SendCommand) ResponseCodes() map[string]uint64 {
+	c.statsMu.Lock()
+	defer c.statsMu.Unlock()
 	if c.stats == nil {
 		return make(map[string]uint64)
 	}

@@ -146,3 +146,27 @@ func (s *Service) GetNetworkingStats() *metrics.NetworkingStats {
 func (s *Service) GetDebugMode() bool {
 	return s.debugMode
 }
+
+// SetMaxPendingRequests sets the maximum number of pending requests on the connection manager
+func (s *Service) SetMaxPendingRequests(max int) {
+	if s.connManager != nil {
+		s.connManager.SetMaxPendingRequests(max)
+	}
+}
+
+// GetMaxPendingRequests returns the maximum number of pending requests
+func (s *Service) GetMaxPendingRequests() int {
+	if s.connManager != nil {
+		return s.connManager.GetMaxPendingRequests()
+	}
+	return 100
+}
+
+// GetResponseTimeout returns the response timeout
+func (s *Service) GetResponseTimeout() time.Duration {
+	if s.connManager != nil {
+		return s.connManager.GetResponseTimeout()
+	}
+	return 5 * time.Second
+}
+

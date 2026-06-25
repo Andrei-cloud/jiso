@@ -418,3 +418,60 @@ func TestPercentile(t *testing.T) {
 		})
 	}
 }
+
+func TestStressTestWorkerIntervalAndMaxPending(t *testing.T) {
+	cli := NewCLI()
+
+	// Create a dummy spec file
+	spec := `{"name": "Test Spec", "fields": {"0": {"type": "String", "length": 4, "description": "MTI", "enc": "ASCII", "prefix": "ASCII.Fixed"}}}`
+	tmpFile, err := os.CreateTemp("", "spec-*.json")
+	if err != nil {
+		t.Fatalf("Failed to create temp spec file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+	_, _ = tmpFile.WriteString(spec)
+
+	svc, err := service.NewService("localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to create service: %v", err)
+	}
+	cli.svc = svc
+
+	sendCmd := &command.SendCommand{
+		Svc: svc,
+	}
+	cli.commands["send"] = sendCmd
+
+	// Set original pending requests to 100
+	svc.SetMaxPendingRequests(100)
+
+	// Start stress test worker with target TPS of 200
+	workerID, err := cli.StartStressTestWorker(
+		"test-transaction",
+		200,                  // target TPS
+		10*time.Millisecond,  // ramp up duration
+		10*time.Millisecond,  // test duration
+		2,                    // num workers
+	)
+	if err != nil {
+		t.Fatalf("Failed to start stress test worker: %v", err)
+	}
+
+	// Verify that max pending requests was increased to at least 1000
+	if svc.GetMaxPendingRequests() < 1000 {
+		t.Errorf("Expected max pending requests to be scaled to at least 1000, got %d", svc.GetMaxPendingRequests())
+	}
+
+	// Stop the worker
+	err = cli.StopWorker(workerID)
+	if err != nil {
+		t.Fatalf("Failed to stop stress test worker: %v", err)
+	}
+
+	// Verify that max pending requests was restored to 100
+	if svc.GetMaxPendingRequests() != 100 {
+		t.Errorf("Expected max pending requests to be restored to 100, got %d", svc.GetMaxPendingRequests())
+	}
+}
+
