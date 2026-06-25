@@ -335,12 +335,12 @@ func (c *SendCommand) StartClock() {
 	c.stats.StartClock()
 }
 
-func (c *SendCommand) ExecuteBackground(trxnName string) error {
+func (c *SendCommand) ExecuteBackground(trxnName string) (string, time.Duration, error) {
 	// Check connection health before attempting to send
 	if !c.Svc.IsConnected() {
 		// Log the issue but don't fail the transaction - allow worker to continue
 		fmt.Printf("Warning: Connection is offline, skipping transaction %s\n", trxnName)
-		return nil // Return nil to not count as failure
+		return "OFFLINE", 0, nil // Return nil to not count as failure
 	}
 
 	// Initialize stats if not already done
@@ -358,14 +358,14 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	if err != nil {
 		// Log failed transaction
 		c.Tc.LogTransaction(trxnName, false)
-		return err
+		return "COMPOSE_ERR", 0, err
 	}
 
 	// Validate message before sending
 	if err := validateMessage(msg); err != nil {
 		// Log failed transaction
 		c.Tc.LogTransaction(trxnName, false)
-		return fmt.Errorf("message validation failed: %w", err)
+		return "VALIDATION_ERR", 0, fmt.Errorf("message validation failed: %w", err)
 	}
 
 	executionStart := time.Now()
@@ -391,7 +391,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 		if c.networkStats != nil {
 			c.networkStats.RecordError(isRetriableError(err))
 		}
-		return err
+		return "SEND_ERR", time.Since(executionStart), err
 	}
 
 	// Wait for response or timeout
@@ -415,26 +415,26 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 			)
 		}
 
-		return fmt.Errorf("response timeout for transaction %s", trxnName)
+		return "TIMEOUT", execTime, fmt.Errorf("response timeout for transaction %s", trxnName)
 	}
 
 	// Verify STAN correlation for asynchronous processing
 	requestStanField := msg.GetField(11)
 	if requestStanField == nil {
-		return fmt.Errorf("request STAN field missing")
+		return "STAN_ERR", execTime, fmt.Errorf("request STAN field missing")
 	}
 	requestStan, err := requestStanField.String()
 	if err != nil {
-		return fmt.Errorf("failed to get request STAN: %w", err)
+		return "STAN_ERR", execTime, fmt.Errorf("failed to get request STAN: %w", err)
 	}
 
 	responseStanField := resp.GetField(11)
 	if responseStanField == nil {
-		return fmt.Errorf("response STAN field missing")
+		return "STAN_ERR", execTime, fmt.Errorf("response STAN field missing")
 	}
 	responseStan, err := responseStanField.String()
 	if err != nil {
-		return fmt.Errorf("failed to get response STAN: %w", err)
+		return "STAN_ERR", execTime, fmt.Errorf("failed to get response STAN: %w", err)
 	}
 
 	if requestStan != responseStan {
@@ -462,14 +462,14 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 			)
 		}
 
-		return fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
+		return "STAN_MISMATCH", execTime, fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
 	}
 
 	rc := resp.GetField(39)
 	if rc == nil {
-		return fmt.Errorf("response code field 39 missing")
+		return "MISSING_RC", execTime, fmt.Errorf("response code field 39 missing")
 	}
-	_, err = rc.String()
+	rcStr, err := rc.String()
 	if err != nil {
 		// Log transaction with partial success
 		c.Tc.LogTransaction(trxnName, false)
@@ -487,7 +487,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 			)
 		}
 
-		return err
+		return "RC_PARSE_ERR", execTime, err
 	}
 
 	// Log successful transaction
@@ -512,7 +512,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string) error {
 	// Worker controller tracks success/failure counts independently
 	// c.stats.RecordExecution(execTime, rcStr)
 
-	return nil
+	return rcStr, execTime, nil
 }
 
 func (c *SendCommand) Stats() int {

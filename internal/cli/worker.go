@@ -3,10 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"math"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"jiso/internal/command"
+	"jiso/internal/config"
 	"jiso/internal/metrics"
 
 	"github.com/google/uuid"
@@ -31,6 +35,10 @@ type stressTestWorker struct {
 	successful          int
 	failed              int
 	consecutiveFailures int
+	latencies           []time.Duration
+	respCodes           map[string]int
+	completed           bool
+	endTime             time.Time
 	mu                  sync.Mutex
 	wg                  sync.WaitGroup // WaitGroup to ensure clean shutdown
 }
@@ -94,7 +102,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				}
 
 				// Execute transaction (synchronous request/response)
-				err := sendCmd.ExecuteBackground(w.name)
+				rcStr, execTime, err := sendCmd.ExecuteBackground(w.name)
 
 				w.mu.Lock()
 				if err == nil {
@@ -104,6 +112,20 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 					w.failed++
 					w.consecutiveFailures++
 				}
+
+				// Record the metrics in w
+				if w.respCodes == nil {
+					w.respCodes = make(map[string]int)
+				}
+				if rcStr == "" {
+					if err != nil {
+						rcStr = "ERROR"
+					} else {
+						rcStr = "00"
+					}
+				}
+				w.respCodes[rcStr]++
+				w.latencies = append(w.latencies, execTime)
 
 				// Circuit breaker: record trip if activated
 				if w.consecutiveFailures >= 10 {
@@ -147,6 +169,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			// Context canceled, cleanup and return
 			w.cancel()
 			workersWg.Wait()
+			w.finishAndPrintSummary()
 			return
 		default:
 		}
@@ -179,6 +202,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		case <-w.ctx.Done():
 			w.cancel()
 			workersWg.Wait()
+			w.finishAndPrintSummary()
 			return
 		case <-time.After(stepDuration):
 		}
@@ -222,11 +246,6 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 	w.currentInterval = finalInterval
 	w.mu.Unlock()
 
-	w.mu.Lock()
-	successfulAtFinalStart := w.successful
-	w.mu.Unlock()
-	finalStartTime := time.Now()
-
 	// Wait for the final test phase duration
 	select {
 	case <-w.ctx.Done():
@@ -239,25 +258,191 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 	// Wait for all worker goroutines to exit cleanly
 	workersWg.Wait()
 
-	// Calculate final TPS based on the test duration phase
-	finalDurationActual := time.Since(finalStartTime)
-	if finalDurationActual > 0 {
-		w.mu.Lock()
-		successfulInFinal := w.successful - successfulAtFinalStart
-		finalTps := float64(successfulInFinal) / finalDurationActual.Seconds()
-		w.mu.Unlock()
-
-		fmt.Printf(
-			"Worker %s: Test completed. Target TPS: %d, Actual TPS: %.1f, Total transactions: %d successful, %d failed\n",
-			w.id,
-			w.targetTps,
-			finalTps,
-			w.successful,
-			w.failed,
-		)
-	}
+	// Finish and print summary
+	w.finishAndPrintSummary()
 
 	fmt.Printf("Worker %s: Test duration elapsed. Stopping.\n", w.id)
+}
+
+func (w *stressTestWorker) finishAndPrintSummary() {
+	w.mu.Lock()
+	if w.completed {
+		w.mu.Unlock()
+		return
+	}
+	w.completed = true
+	w.endTime = time.Now()
+	w.currentTps = 0.0
+
+	// Calculate actual overall TPS based on entire run duration
+	durationActual := w.endTime.Sub(w.startTime)
+	if durationActual > 0 {
+		w.actualTps = float64(w.successful) / durationActual.Seconds()
+	}
+	w.rampUpProgress = 100.0
+	w.mu.Unlock()
+
+	w.printSummary(w.actualTps)
+}
+
+func (w *stressTestWorker) printSummary(finalTps float64) {
+	w.mu.Lock()
+	total := w.successful + w.failed
+	latenciesCopy := make([]time.Duration, len(w.latencies))
+	copy(latenciesCopy, w.latencies)
+	respCodesCopy := make(map[string]int, len(w.respCodes))
+	for k, v := range w.respCodes {
+		respCodesCopy[k] = v
+	}
+	w.mu.Unlock()
+
+	if total == 0 {
+		fmt.Printf("\nWorker %s: Stress test completed but no transactions were executed.\n", w.id)
+		return
+	}
+
+	// Sort latencies to calculate percentiles
+	sort.Slice(latenciesCopy, func(i, j int) bool {
+		return latenciesCopy[i] < latenciesCopy[j]
+	})
+
+	var minLatency, maxLatency, meanLatency, p50, p90, p95, p99 time.Duration
+	var totalDuration time.Duration
+
+	if len(latenciesCopy) > 0 {
+		minLatency = latenciesCopy[0]
+		maxLatency = latenciesCopy[len(latenciesCopy)-1]
+		for _, d := range latenciesCopy {
+			totalDuration += d
+		}
+		meanLatency = totalDuration / time.Duration(len(latenciesCopy))
+
+		p50 = percentile(latenciesCopy, 0.50)
+		p90 = percentile(latenciesCopy, 0.90)
+		p95 = percentile(latenciesCopy, 0.95)
+		p99 = percentile(latenciesCopy, 0.99)
+	}
+
+	// Get response timeout budget
+	timeout := config.GetConfig().GetResponseTimeout()
+
+	// Latency budgets
+	var satisfactory, tolerable, exceeded int
+	for _, d := range latenciesCopy {
+		if d <= timeout/2 {
+			satisfactory++
+		} else if d <= timeout {
+			tolerable++
+		} else {
+			exceeded++
+		}
+	}
+
+	// Build histogram
+	type bucket struct {
+		label string
+		min   time.Duration
+		max   time.Duration
+		count int
+	}
+	buckets := []bucket{
+		{label: "  0ms -  10ms", min: 0, max: 10 * time.Millisecond},
+		{label: " 10ms -  50ms", min: 10 * time.Millisecond, max: 50 * time.Millisecond},
+		{label: " 50ms - 100ms", min: 50 * time.Millisecond, max: 100 * time.Millisecond},
+		{label: "100ms - 250ms", min: 100 * time.Millisecond, max: 250 * time.Millisecond},
+		{label: "250ms - 500ms", min: 250 * time.Millisecond, max: 500 * time.Millisecond},
+		{label: "500ms - 1.0s ", min: 500 * time.Millisecond, max: 1000 * time.Millisecond},
+		{label: " 1.0s - 2.5s ", min: 1000 * time.Millisecond, max: 2500 * time.Millisecond},
+		{label: " 2.5s - 5.0s ", min: 2500 * time.Millisecond, max: 5000 * time.Millisecond},
+		{label: "    > 5.0s   ", min: 5000 * time.Millisecond, max: 999999 * time.Hour},
+	}
+
+	for _, d := range latenciesCopy {
+		for i := range buckets {
+			if d > buckets[i].min && d <= buckets[i].max {
+				buckets[i].count++
+				break
+			}
+		}
+	}
+
+	// Print the output
+	fmt.Println("\n================================================================================")
+	fmt.Printf("                          STRESS TEST SUMMARY - Worker %s\n", w.id)
+	fmt.Println("================================================================================")
+	fmt.Printf("Target TPS:             %-10d Concurrency (Workers): %-10d\n", w.targetTps, w.numWorkers)
+	fmt.Printf("Actual TPS:             %-10.1f Total Test Duration:   %-10s\n", finalTps, w.duration)
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Printf("Transaction Counts:\n")
+	fmt.Printf("  Total Executions:     %-10d\n", total)
+	fmt.Printf("  Successful:           %-10d (%6.2f%%)\n", w.successful, float64(w.successful)/float64(total)*100.0)
+	fmt.Printf("  Failed:               %-10d (%6.2f%%)\n", w.failed, float64(w.failed)/float64(total)*100.0)
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Printf("Response Code Breakdown:\n")
+	// For predictable ordering, print success code "00" first if present, then others
+	if count, ok := respCodesCopy["00"]; ok {
+		fmt.Printf("  Code %-16s %-10d (%6.2f%%)\n", `"00":`, count, float64(count)/float64(total)*100.0)
+	}
+	for code, count := range respCodesCopy {
+		if code == "00" {
+			continue
+		}
+		fmt.Printf("  Code %-16s %-10d (%6.2f%%)\n", `"`+code+`":`, count, float64(count)/float64(total)*100.0)
+	}
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Printf("Latency Profile:\n")
+	fmt.Printf("  Min Latency:          %-15s Median (p50):          %-15s\n", minLatency.Round(time.Microsecond), p50.Round(time.Microsecond))
+	fmt.Printf("  Max Latency:          %-15s p90 Percentile:        %-15s\n", maxLatency.Round(time.Microsecond), p90.Round(time.Microsecond))
+	fmt.Printf("  Mean Latency:         %-15s p95 Percentile:        %-15s\n", meanLatency.Round(time.Microsecond), p95.Round(time.Microsecond))
+	fmt.Printf("                                       p99 Percentile:        %-15s\n", p99.Round(time.Microsecond))
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Printf("Latency Budget (Timeout: %s):\n", timeout)
+	fmt.Printf("  Satisfactory (<= 50%% of timeout):  %-10d (%6.2f%%)\n", satisfactory, float64(satisfactory)/float64(total)*100.0)
+	fmt.Printf("  Tolerable    (51%%-100%% of timeout): %-10d (%6.2f%%)\n", tolerable, float64(tolerable)/float64(total)*100.0)
+	fmt.Printf("  Exceeded     (> 100%% of timeout):   %-10d (%6.2f%%)\n", exceeded, float64(exceeded)/float64(total)*100.0)
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Printf("Latency Histogram:\n")
+
+	// Find max count to scale the bar
+	maxCount := 0
+	for _, b := range buckets {
+		if b.count > maxCount {
+			maxCount = b.count
+		}
+	}
+
+	for _, b := range buckets {
+		if b.count == 0 {
+			continue // skip empty buckets to reduce noise
+		}
+		barLength := 0
+		if maxCount > 0 {
+			barLength = (b.count * 30) / maxCount
+		}
+		bar := strings.Repeat("█", barLength)
+		fmt.Printf("  [%s]: %-30s %-10d (%6.2f%%)\n", b.label, bar, b.count, float64(b.count)/float64(total)*100.0)
+	}
+	fmt.Println("================================================================================")
+}
+
+func percentile(sorted []time.Duration, pct float64) time.Duration {
+	if len(sorted) == 0 {
+		return 0
+	}
+	if pct <= 0.0 {
+		return sorted[0]
+	}
+	if pct >= 1.0 {
+		return sorted[len(sorted)-1]
+	}
+	idx := float64(len(sorted)-1) * pct
+	low := int(math.Floor(idx))
+	high := int(math.Ceil(idx))
+	if low == high {
+		return sorted[low]
+	}
+	diff := idx - float64(low)
+	return time.Duration(float64(sorted[low]) + diff*float64(sorted[high]-sorted[low]))
 }
 
 // workerInfo holds the state of a background worker
@@ -322,7 +507,7 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 			select {
 			case <-ticker.C:
 				for i := 0; i < count; i++ {
-					err := sendCmd.ExecuteBackground(name)
+					_, _, err := sendCmd.ExecuteBackground(name)
 					worker.mu.Lock()
 					if err == nil {
 						worker.successful++
@@ -385,6 +570,7 @@ func (cli *CLI) StartStressTestWorker(
 		currentTps:     0,
 		actualTps:      0,
 		rampUpProgress: 0.0,
+		respCodes:      make(map[string]int),
 	}
 
 	// Store the worker
@@ -545,10 +731,24 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 	// Add stress test workers
 	for id, stressWorker := range cli.stressWorkers {
 		stressWorker.mu.Lock()
+
+		runtimeStr := ""
+		if stressWorker.completed {
+			runtimeStr = stressWorker.endTime.Sub(stressWorker.startTime).Round(time.Second).String()
+		} else {
+			runtimeStr = time.Since(stressWorker.startTime).Round(time.Second).String()
+		}
+
+		statusStr := "running"
+		if stressWorker.completed {
+			statusStr = "completed"
+		}
+
 		stressWorkerStats := map[string]interface{}{
 			"id":                   id,
 			"name":                 stressWorker.name,
 			"type":                 "stress_test",
+			"status":               statusStr,
 			"target_tps":           stressWorker.targetTps,
 			"current_tps":          stressWorker.currentTps,
 			"actual_tps":           stressWorker.actualTps,
@@ -556,7 +756,7 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 			"ramp_up_duration":     stressWorker.rampUpDuration.String(),
 			"duration":             stressWorker.duration.String(),
 			"workers":              stressWorker.numWorkers,
-			"runtime":              time.Since(stressWorker.startTime).Round(time.Second).String(),
+			"runtime":              runtimeStr,
 			"successful":           stressWorker.successful,
 			"failed":               stressWorker.failed,
 			"total":                stressWorker.successful + stressWorker.failed,

@@ -166,17 +166,30 @@ func (cli *CLI) printWorkerStats() {
 	} else {
 		// Create a table for better presentation
 		table := tablewriter.NewWriter(os.Stdout)
-		// table.SetHeader([]string{"ID", "Name", "Count", "Interval", "Runtime", "Success", "Failed", "Total"})
+		table.Header("ID", "Type", "Transaction", "Status", "Workers", "Interval / Target TPS", "Runtime", "Success / Failed")
 		for _, worker := range workers {
+			typeStr := fmt.Sprintf("%v", worker["type"])
+			statusStr := "running"
+			if s, ok := worker["status"]; ok {
+				statusStr = fmt.Sprintf("%v", s)
+			}
+			
+			var targetOrInterval string
+			if typeStr == "stress_test" {
+				targetOrInterval = fmt.Sprintf("%v TPS (Current: %.1f)", worker["target_tps"], worker["current_tps"])
+			} else {
+				targetOrInterval = fmt.Sprintf("%v", worker["interval"])
+			}
+
 			table.Append([]string{
 				fmt.Sprintf("%v", worker["id"]),
+				typeStr,
 				fmt.Sprintf("%v", worker["name"]),
+				statusStr,
 				fmt.Sprintf("%v", worker["workers"]),
-				fmt.Sprintf("%v", worker["interval"]),
+				targetOrInterval,
 				fmt.Sprintf("%v", worker["runtime"]),
-				fmt.Sprintf("%v", worker["successful"]),
-				fmt.Sprintf("%v", worker["failed"]),
-				fmt.Sprintf("%v", worker["total"]),
+				fmt.Sprintf("%v / %v", worker["successful"], worker["failed"]),
 			})
 		}
 		table.Render()

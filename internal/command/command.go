@@ -21,7 +21,7 @@ type BgCommand interface {
 	Command
 
 	// ExecuteBackground runs the command in the background
-	ExecuteBackground(name string) error
+	ExecuteBackground(name string) (string, time.Duration, error)
 
 	// StartClock begins timing for statistics collection
 	StartClock()

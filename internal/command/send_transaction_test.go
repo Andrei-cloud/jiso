@@ -143,7 +143,7 @@ func TestExecuteBackground(t *testing.T) {
 	}
 
 	// Since no real server, test the offline case
-	err = cmd.ExecuteBackground("test")
+	_, _, err = cmd.ExecuteBackground("test")
 	if err != nil {
 		t.Errorf("ExecuteBackground should not error when offline, got %v", err)
 	}

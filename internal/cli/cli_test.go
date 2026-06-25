@@ -352,8 +352,69 @@ type mockSendCommand struct {
 	*command.SendCommand
 }
 
-func (m *mockSendCommand) ExecuteBackground(name string) error {
+func (m *mockSendCommand) ExecuteBackground(name string) (string, time.Duration, error) {
 	// Don't call the real method, just simulate some work
 	time.Sleep(1 * time.Millisecond)
-	return nil
+	return "00", 1 * time.Millisecond, nil
+}
+
+func TestPercentile(t *testing.T) {
+	tests := []struct {
+		name     string
+		sorted   []time.Duration
+		pct      float64
+		expected time.Duration
+	}{
+		{
+			name:     "empty slice",
+			sorted:   []time.Duration{},
+			pct:      0.5,
+			expected: 0,
+		},
+		{
+			name:     "pct <= 0.0",
+			sorted:   []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
+			pct:      -0.1,
+			expected: 10 * time.Millisecond,
+		},
+		{
+			name:     "pct >= 1.0",
+			sorted:   []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
+			pct:      1.1,
+			expected: 20 * time.Millisecond,
+		},
+		{
+			name:     "single element",
+			sorted:   []time.Duration{15 * time.Millisecond},
+			pct:      0.5,
+			expected: 15 * time.Millisecond,
+		},
+		{
+			name:     "median exact match (odd count)",
+			sorted:   []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
+			pct:      0.5,
+			expected: 20 * time.Millisecond,
+		},
+		{
+			name:     "median interpolation (even count)",
+			sorted:   []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
+			pct:      0.5,
+			expected: 15 * time.Millisecond,
+		},
+		{
+			name:     "90th percentile interpolation",
+			sorted:   []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
+			pct:      0.9,
+			expected: 28 * time.Millisecond,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := percentile(tc.sorted, tc.pct)
+			if actual != tc.expected {
+				t.Errorf("Expected %v, got %v", tc.expected, actual)
+			}
+		})
+	}
 }
