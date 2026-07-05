@@ -6,9 +6,11 @@ JISO (JSON ISO8583) is a command-line tool for simulating ISO8583 message transa
 
 - Connects to ISO8583 servers with various header formats (ASCII, Binary, BCD, NAPS)
 - Sends predefined ISO8583 transactions from JSON configuration files
-- Supports single transactions and background transaction streams
+- Supports single transactions, background transaction streams, and stress testing
+- Stress testing with gradual TPS ramp-up, multi-option transaction selection, and random execution distribution
 - Automatic field handling (STAN, date/time, etc.)
 - Transaction metrics collection (response time, success rate, etc.)
+- Comprehensive stress testing summary with start/end time, target/actual TPS, response breakdown, latency profile, and per-transaction metrics
 - Interactive command-line interface with command history
 - Persistent counter management for STAN and RRN values
 - Robust networking with automatic reconnection, retry mechanisms, and circuit breakers
@@ -162,6 +164,23 @@ jiso> stop
 ```
 Select the worker ID to stop
 
+### Stress Testing
+
+Perform stress testing with gradual TPS ramp-up to a target TPS:
+
+```
+jiso> stress
+```
+
+Follow the prompts to:
+1. Select one or more transactions for stress testing (using spacebar to multi-select)
+2. Enter target TPS (transactions per second)
+3. Enter ramp-up duration (e.g. "30s", "1m")
+4. Enter test duration after ramp-up (e.g. "1m", "5m")
+5. Enter number of concurrent workers
+
+During execution, the stress test worker will randomly pick from the selected transaction types to execute.
+
 ## Sample Output
 
 ### Connection and Sign On Transaction
@@ -210,6 +229,85 @@ F39  Response Code........................: 96
 F70  Network Management Information Code..: 1
 
 Elapsed time: 2ms
+```
+
+### Stress Test Summary
+
+```
+================================================================================
+                          STRESS TEST SUMMARY - Worker a1b2c3d4
+================================================================================
+Start Time:             2026-07-05 17:44:30 MST
+End Time:               2026-07-05 17:45:30 MST
+Selected Transactions:  Sign On, Balance Inquiry, Purchase
+--------------------------------------------------------------------------------
+ALL TESTING SUMMARY
+--------------------------------------------------------------------------------
+Target TPS:             10         Concurrency (Workers): 1         
+Actual TPS:             9.8        Total Test Duration:   1m0s      
+--------------------------------------------------------------------------------
+Transaction Counts:
+  Total Executions:     588       
+  Successful:           588        (100.00%)
+  Failed:               0          (  0.00%)
+--------------------------------------------------------------------------------
+Response Code Breakdown:
+  Code "00":             588        (100.00%)
+--------------------------------------------------------------------------------
+Latency Profile:
+  Min Latency:          1.2ms           Median (p50):          2.5ms          
+  Max Latency:          12.4ms          p90 Percentile:        4.8ms          
+  Mean Latency:         2.8ms           p95 Percentile:        5.5ms          
+                                        p99 Percentile:        8.2ms          
+--------------------------------------------------------------------------------
+Latency Budget (Timeout: 5s):
+  Satisfactory (<= 50% of timeout):  588        (100.00%)
+  Tolerable    (51%-100% of timeout): 0          (  0.00%)
+  Exceeded     (> 100% of timeout):   0          (  0.00%)
+--------------------------------------------------------------------------------
+Latency Histogram:
+  [  0ms -  10ms]: ██████████████████████████████  580        (98.64%)
+  [ 10ms -  50ms]: █                               8          ( 1.36%)
+================================================================================
+                    PER TRANSACTION TYPE DETAILS
+================================================================================
+Transaction: Sign On
+  Total Executions:     196       
+  Successful:           196        (100.00%)
+  Failed:               0          (  0.00%)
+  Response Code Breakdown:
+    Code "00":             196        (100.00%)
+  Latency Profile:
+    Min Latency:        1.2ms           Median (p50):          2.1ms          
+    Max Latency:        8.5ms           p90 Percentile:        3.9ms          
+    Mean Latency:       2.3ms           p95 Percentile:        4.5ms          
+                                        p99 Percentile:        6.8ms          
+--------------------------------------------------------------------------------
+Transaction: Balance Inquiry
+  Total Executions:     198       
+  Successful:           198        (100.00%)
+  Failed:               0          (  0.00%)
+  Response Code Breakdown:
+    Code "00":             198        (100.00%)
+  Latency Profile:
+    Min Latency:        1.5ms           Median (p50):          2.6ms          
+    Max Latency:        10.2ms          p90 Percentile:        5.1ms          
+    Mean Latency:       2.9ms           p95 Percentile:        5.8ms          
+                                        p99 Percentile:        7.9ms          
+--------------------------------------------------------------------------------
+Transaction: Purchase
+  Total Executions:     194       
+  Successful:           194        (100.00%)
+  Failed:               0          (  0.00%)
+  Response Code Breakdown:
+    Code "00":             194        (100.00%)
+  Latency Profile:
+    Min Latency:        1.8ms           Median (p50):          2.8ms          
+    Max Latency:        12.4ms          p90 Percentile:        5.4ms          
+    Mean Latency:       3.2ms           p95 Percentile:        6.2ms          
+                                        p99 Percentile:        8.2ms          
+--------------------------------------------------------------------------------
+================================================================================
 ```
 
 ## Transaction Configuration
