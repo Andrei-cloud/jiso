@@ -1,0 +1,499 @@
+{
+	"name": "ISO8583_ExampleComposedEMV",
+	"fields": {
+		"0": {
+			"type": "String",
+			"length": 4,
+			"description": "Message Type Indicator",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"1": {
+			"type": "Bitmap",
+			"length": 8,
+			"description": "Primary Bitmap (Binary)",
+			"enc": "Binary",
+			"prefix": "Hex.Fixed"
+		},
+		"2": {
+			"type": "String",
+			"length": 19,
+			"description": "Primary Account Number (PAN)",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+
+		"3": {
+			"type": "Composite",
+			"length": 6,
+			"description": "Processing Code – Positional (no tags in wire data)",
+			"prefix": "ASCII.Fixed",
+			"tag": {
+				"sort": "StringsByInt"
+			},
+			"subfields": {
+				"1": {
+					"type": "String",
+					"length": 2,
+					"description": "Transaction Type (e.g. 00=Purchase, 31=Balance Inquiry)",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"2": {
+					"type": "String",
+					"length": 2,
+					"description": "From Account Type (00=Default, 10=Savings, 20=Cheque)",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"3": {
+					"type": "String",
+					"length": 2,
+					"description": "To Account Type (00=Default, 10=Savings, 20=Cheque)",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		},
+
+		"4": {
+			"type": "String",
+			"length": 12,
+			"description": "Transaction Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed",
+			"padding": {
+				"type": "Left",
+				"pad": "0"
+			}
+		},
+		"7": {
+			"type": "String",
+			"length": 10,
+			"description": "Transmission Date & Time (MMDDhhmmss)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"11": {
+			"type": "String",
+			"length": 6,
+			"description": "Systems Trace Audit Number (STAN)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"12": {
+			"type": "String",
+			"length": 6,
+			"description": "Local Transaction Time (hhmmss)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"13": {
+			"type": "String",
+			"length": 4,
+			"description": "Local Transaction Date (MMDD)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"14": {
+			"type": "String",
+			"length": 4,
+			"description": "Card Expiration Date (YYMM)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"22": {
+			"type": "String",
+			"length": 3,
+			"description": "POS Entry Mode (3-digit: entry mode + PIN capability)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"23": {
+			"type": "String",
+			"length": 3,
+			"description": "Card Sequence Number (CSN)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"25": {
+			"type": "String",
+			"length": 2,
+			"description": "POS Condition Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"35": {
+			"type": "String",
+			"length": 37,
+			"description": "Track 2 Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LL"
+		},
+		"37": {
+			"type": "String",
+			"length": 12,
+			"description": "Retrieval Reference Number (RRN)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"38": {
+			"type": "String",
+			"length": 6,
+			"description": "Authorization Identification Response Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"39": {
+			"type": "String",
+			"length": 2,
+			"description": "Response Code",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"41": {
+			"type": "String",
+			"length": 8,
+			"description": "Card Acceptor Terminal ID",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"42": {
+			"type": "String",
+			"length": 15,
+			"description": "Card Acceptor ID Code (Merchant ID)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"43": {
+			"type": "String",
+			"length": 40,
+			"description": "Card Acceptor Name/Location",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"49": {
+			"type": "String",
+			"length": 3,
+			"description": "Transaction Currency Code (ISO 4217 numeric)",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+
+		"48": {
+			"type": "Composite",
+			"length": 999,
+			"description": "Additional Data – TLV with explicit 2-digit ASCII tags",
+			"prefix": "ASCII.LLL",
+			"tag": {
+				"length": 2,
+				"enc": "ASCII",
+				"sort": "StringsByInt",
+				"padding": {
+					"type": "Left",
+					"pad": "0"
+				},
+				"skipUnknownTLVTags": true,
+				"prefUnknownTLV": "ASCII.LL"
+			},
+			"subfields": {
+				"01": {
+					"type": "String",
+					"length": 20,
+					"description": "Private Data Element 01 – Terminal Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.LL"
+				},
+				"02": {
+					"type": "String",
+					"length": 40,
+					"description": "Private Data Element 02 – Merchant Category Code Description",
+					"enc": "ASCII",
+					"prefix": "ASCII.LL"
+				},
+				"03": {
+					"type": "String",
+					"length": 10,
+					"description": "Private Data Element 03 – Transaction Reference",
+					"enc": "ASCII",
+					"prefix": "ASCII.LL"
+				}
+			}
+		},
+
+		"55": {
+			"type": "Composite",
+			"length": 999,
+			"description": "ICC Data – EMV BER-TLV subfields (EMV tags use dynamic BER-TLV tag encoding)",
+			"prefix": "ASCII.LLL",
+			"tag": {
+				"enc": "BerTLVTag",
+				"sort": "StringsByHex",
+				"skipUnknownTLVTags": true,
+				"storeUnknownTLVTags": true
+			},
+			"subfields": {
+				"9F02": {
+					"type": "String",
+					"length": 6,
+					"description": "EMV 9F02 – Amount, Authorized",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F03": {
+					"type": "String",
+					"length": 6,
+					"description": "EMV 9F03 – Amount, Other (Cashback)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F09": {
+					"type": "String",
+					"length": 2,
+					"description": "EMV 9F09 – Application Version Number (Terminal)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F10": {
+					"type": "String",
+					"length": 32,
+					"description": "EMV 9F10 – Issuer Application Data",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F1A": {
+					"type": "String",
+					"length": 2,
+					"description": "EMV 9F1A – Terminal Country Code",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F1E": {
+					"type": "String",
+					"length": 8,
+					"description": "EMV 9F1E – Interface Device (IFD) Serial Number",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F26": {
+					"type": "String",
+					"length": 8,
+					"description": "EMV 9F26 – Application Cryptogram",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F27": {
+					"type": "String",
+					"length": 1,
+					"description": "EMV 9F27 – Cryptogram Information Data",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F33": {
+					"type": "String",
+					"length": 3,
+					"description": "EMV 9F33 – Terminal Capabilities",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F34": {
+					"type": "String",
+					"length": 3,
+					"description": "EMV 9F34 – Cardholder Verification Method (CVM) Results",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F35": {
+					"type": "String",
+					"length": 1,
+					"description": "EMV 9F35 – Terminal Type",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F36": {
+					"type": "String",
+					"length": 2,
+					"description": "EMV 9F36 – Application Transaction Counter (ATC)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F37": {
+					"type": "String",
+					"length": 4,
+					"description": "EMV 9F37 – Unpredictable Number",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9F41": {
+					"type": "String",
+					"length": 4,
+					"description": "EMV 9F41 – Transaction Sequence Counter",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"5F2A": {
+					"type": "String",
+					"length": 2,
+					"description": "EMV 5F2A – Transaction Currency Code",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"5F34": {
+					"type": "String",
+					"length": 1,
+					"description": "EMV 5F34 – Application PAN Sequence Number",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"82": {
+					"type": "String",
+					"length": 2,
+					"description": "EMV 82 – Application Interchange Profile (AIP)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"84": {
+					"type": "String",
+					"length": 16,
+					"description": "EMV 84 – Dedicated File (DF) Name / AID",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"95": {
+					"type": "String",
+					"length": 5,
+					"description": "EMV 95 – Terminal Verification Results (TVR)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9A": {
+					"type": "String",
+					"length": 3,
+					"description": "EMV 9A – Transaction Date (YYMMDD packed BCD)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9B": {
+					"type": "String",
+					"length": 2,
+					"description": "EMV 9B – Transaction Status Information (TSI)",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				},
+				"9C": {
+					"type": "String",
+					"length": 1,
+					"description": "EMV 9C – Transaction Type",
+					"enc": "Binary",
+					"prefix": "BerTLV"
+				}
+			}
+		},
+
+		"90": {
+			"type": "Composite",
+			"length": 39,
+			"description": "Original Data Elements – Positional Composite (reversal/void data)",
+			"prefix": "ASCII.Fixed",
+			"tag": {
+				"sort": "StringsByInt"
+			},
+			"subfields": {
+				"1": {
+					"type": "String",
+					"length": 4,
+					"description": "Original MTI",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"2": {
+					"type": "String",
+					"length": 6,
+					"description": "Original STAN",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"3": {
+					"type": "String",
+					"length": 10,
+					"description": "Original Transmission Date & Time",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"4": {
+					"type": "String",
+					"length": 11,
+					"description": "Original Acquiring Institution ID",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"5": {
+					"type": "String",
+					"length": 8,
+					"description": "Original Forwarding Institution ID (may be spaces if absent)",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		},
+
+		"126": {
+			"type": "Composite",
+			"length": 255,
+			"description": "Private Use – Bitmap-governed composite (bitmap selects present subfields)",
+			"prefix": "Binary.L",
+			"bitmap": {
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Internal subfield bitmap",
+				"enc": "Binary",
+				"prefix": "Binary.Fixed",
+				"disableAutoExpand": true
+			},
+			"subfields": {
+				"1": {
+					"type": "String",
+					"length": 2,
+					"description": "Subfield 1 – Cardholder Certificate Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"2": {
+					"type": "String",
+					"length": 2,
+					"description": "Subfield 2 – Merchant Certificate Serial Number",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"3": {
+					"type": "String",
+					"length": 2,
+					"description": "Subfield 3 – Transaction ID (e-commerce)",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"4": {
+					"type": "String",
+					"length": 20,
+					"description": "Subfield 4 – CAVV (Cardholder Authentication Verification Value)",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"5": {
+					"type": "String",
+					"length": 6,
+					"description": "Subfield 5 – CVV2 / CVC2",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				},
+				"6": {
+					"type": "String",
+					"length": 8,
+					"description": "Subfield 6 – 3-D Secure Authentication Data",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
+				}
+			}
+		}
+	}
+}
