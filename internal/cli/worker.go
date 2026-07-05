@@ -171,6 +171,10 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			case <-time.After(staggerDelay):
 			}
 
+			// Local random source to avoid global lock contention in math/rand
+			localSource := rand.NewSource(time.Now().UnixNano() + int64(workerIndex))
+			r := rand.New(localSource)
+
 			nextSend := time.Now()
 
 			for {
@@ -180,19 +184,17 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				default:
 				}
 
+				var name string
+				if len(w.names) > 0 {
+					name = w.names[r.Intn(len(w.names))]
+				}
+
 				// Execute transaction asynchronously to avoid blocking the sender loop
 				w.requestsWg.Add(1)
-				go func() {
+				go func(txName string) {
 					defer w.requestsWg.Done()
 
-					w.mu.Lock()
-					var name string
-					if len(w.names) > 0 {
-						name = w.names[rand.Intn(len(w.names))]
-					}
-					w.mu.Unlock()
-
-					rcStr, execTime, err := sendCmd.ExecuteBackground(name)
+					rcStr, execTime, err := sendCmd.ExecuteBackground(txName)
 
 					w.mu.Lock()
 					if err == nil {
@@ -218,24 +220,16 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 					w.latencies = append(w.latencies, execTime)
 
 					// Record per-transaction metrics
-					if name != "" {
-						if w.txStats == nil {
-							w.txStats = make(map[string]*txStats)
-						}
-						ts, exists := w.txStats[name]
-						if !exists {
-							ts = &txStats{
-								respCodes: make(map[string]int),
+					if txName != "" {
+						if ts, exists := w.txStats[txName]; exists {
+							if err == nil {
+								ts.successful++
+							} else {
+								ts.failed++
 							}
-							w.txStats[name] = ts
+							ts.respCodes[rcStr]++
+							ts.latencies = append(ts.latencies, execTime)
 						}
-						if err == nil {
-							ts.successful++
-						} else {
-							ts.failed++
-						}
-						ts.respCodes[rcStr]++
-						ts.latencies = append(ts.latencies, execTime)
 					}
 
 					// Circuit breaker: record trip if activated
@@ -251,7 +245,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 						w.cancel() // Stop all other workers by cancelling the context
 					}
 					w.mu.Unlock()
-				}()
+				}(name)
 
 				w.mu.Lock()
 				interval = w.currentInterval
@@ -778,6 +772,31 @@ func (cli *CLI) StartStressTestWorker(
 		}
 	}
 
+	// Compute expected number of requests to pre-allocate maps and slices
+	totalDurationSec := int((rampUpDuration + duration).Seconds())
+	if totalDurationSec < 1 {
+		totalDurationSec = 1
+	}
+	expectedRequests := targetTps * totalDurationSec
+	if expectedRequests < 1000 {
+		expectedRequests = 1000
+	}
+
+	txStatsMap := make(map[string]*txStats)
+	expectedRequestsPerTx := expectedRequests
+	if len(names) > 0 {
+		expectedRequestsPerTx = expectedRequests / len(names)
+	}
+	if expectedRequestsPerTx < 200 {
+		expectedRequestsPerTx = 200
+	}
+	for _, name := range names {
+		txStatsMap[name] = &txStats{
+			respCodes: make(map[string]int),
+			latencies: make([]time.Duration, 0, expectedRequestsPerTx),
+		}
+	}
+
 	// Create a new stress test worker state
 	worker := &stressTestWorker{
 		id:                 workerID,
@@ -793,8 +812,9 @@ func (cli *CLI) StartStressTestWorker(
 		currentTps:         0,
 		actualTps:          0,
 		rampUpProgress:     0.0,
+		latencies:          make([]time.Duration, 0, expectedRequests),
 		respCodes:          make(map[string]int),
-		txStats:            make(map[string]*txStats),
+		txStats:            txStatsMap,
 		originalMaxPending: originalMaxPending,
 	}
 

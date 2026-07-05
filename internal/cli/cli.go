@@ -156,6 +156,11 @@ func (cli *CLI) Close() {
 		cli.svc.Close()
 	}
 
+	// Save final transaction collection state
+	if saver, ok := cli.tc.(interface{ SaveState() error }); ok {
+		_ = saver.SaveState()
+	}
+
 	// Close database connection
 	// Stop async logger and close database connection
 	db.StopAsyncLogger()
