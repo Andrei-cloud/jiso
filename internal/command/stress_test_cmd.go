@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"jiso/internal/service"
@@ -33,11 +34,12 @@ func (c *StressTestCommand) Execute() error {
 
 	qs := []*survey.Question{
 		{
-			Name: "trxnname",
-			Prompt: &survey.Select{
-				Message: "Select transaction for stress testing:",
+			Name: "trxnnames",
+			Prompt: &survey.MultiSelect{
+				Message: "Select transactions for stress testing:",
 				Options: c.Tc.ListNames(),
 			},
+			Validate: survey.Required,
 		},
 		{
 			Name: "targettps",
@@ -98,7 +100,7 @@ func (c *StressTestCommand) Execute() error {
 	}
 
 	answers := struct {
-		TrxnName       string
+		TrxnNames      []string
 		TargetTps      string
 		RampUpDuration string
 		Duration       string
@@ -132,7 +134,7 @@ func (c *StressTestCommand) Execute() error {
 
 	// Start stress test worker
 	workerId, err := c.Wrk.StartStressTestWorker(
-		answers.TrxnName,
+		answers.TrxnNames,
 		targetTps,
 		rampUpDuration,
 		duration,
@@ -142,7 +144,7 @@ func (c *StressTestCommand) Execute() error {
 		return fmt.Errorf("failed to start stress test worker: %w", err)
 	}
 
-	fmt.Printf("Started stress test worker %s for transaction %s\n", workerId, answers.TrxnName)
+	fmt.Printf("Started stress test worker %s for transactions %s\n", workerId, strings.Join(answers.TrxnNames, ", "))
 	fmt.Printf(
 		"Target TPS: %d, Ramp-up duration: %s, Test duration: %s, Workers: %d\n",
 		targetTps,
