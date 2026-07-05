@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"jiso/internal/utils"
@@ -89,10 +90,11 @@ type TransactionCollection struct {
 	scenarios    map[string]*Scenario
 
 	// State management
-	state      TransactionState
-	stateLock  sync.RWMutex
-	saveLock   sync.Mutex // Protects against concurrent saves
-	persistDir string
+	state         TransactionState
+	stateLock     sync.RWMutex
+	saveLock      sync.Mutex // Protects against concurrent saves
+	persistDir    string
+	lastSavedUnix int64
 }
 
 func NewTransactionCollection(
@@ -208,8 +210,8 @@ func (tc *TransactionCollection) SetPersistenceDirectory(dir string) error {
 	return nil
 }
 
-// saveState persists transaction state to disk
-func (tc *TransactionCollection) saveState() error {
+// SaveState persists transaction state to disk
+func (tc *TransactionCollection) SaveState() error {
 	tc.saveLock.Lock()
 	defer tc.saveLock.Unlock()
 
@@ -302,9 +304,15 @@ func (tc *TransactionCollection) LogTransaction(name string, success bool) {
 
 	tc.stateLock.Unlock()
 
-	// Save state periodically (save every 10 transactions)
-	if len(tc.state.TransactionLogs)%10 == 0 {
-		go tc.saveState() // Don't block the caller
+	// Save state periodically (rate-limited to at most once every 5 seconds)
+	now := time.Now().Unix()
+	lastSaved := atomic.LoadInt64(&tc.lastSavedUnix)
+	if now-lastSaved >= 5 {
+		if atomic.CompareAndSwapInt64(&tc.lastSavedUnix, lastSaved, now) {
+			go func() {
+				_ = tc.SaveState()
+			}()
+		}
 	}
 }
 

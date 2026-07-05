@@ -21,7 +21,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.8.0"
+var Version string = "v0.8.5"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -154,6 +154,11 @@ func (cli *CLI) Close() {
 
 	if cli.svc != nil {
 		cli.svc.Close()
+	}
+
+	// Save final transaction collection state
+	if saver, ok := cli.tc.(interface{ SaveState() error }); ok {
+		_ = saver.SaveState()
 	}
 
 	// Close database connection
