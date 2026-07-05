@@ -76,9 +76,9 @@ func (cli *CLI) runWithHistory() error {
 // processCommand handles a single command line input
 func (cli *CLI) processCommand(line string) bool {
 	parts := strings.Split(line, " ")
-	cmd := strings.ToLower(parts[0])
+	cmdName := strings.ToLower(parts[0])
 
-	switch cmd {
+	switch cmdName {
 	case "help", "h", "?":
 		cli.printHelp()
 
@@ -119,12 +119,33 @@ func (cli *CLI) processCommand(line string) bool {
 
 	default:
 		// Try to find a registered command
-		if command, exists := cli.commands[cmd]; exists {
+		if command, exists := cli.commands[cmdName]; exists {
+			// Inject arguments if passed in the shell line
+			if rsc, ok := command.(*cmd.RunScenarioCommand); ok {
+				if len(parts) > 1 {
+					rsc.ScenarioName = parts[1]
+				} else {
+					rsc.ScenarioName = ""
+				}
+			} else if isc, ok := command.(*cmd.InitSpecCommand); ok {
+				if len(parts) > 1 {
+					isc.OutputPath = parts[1]
+				} else {
+					isc.OutputPath = ""
+				}
+			} else if itc, ok := command.(*cmd.InitTxCommand); ok {
+				if len(parts) > 1 {
+					itc.OutputPath = parts[1]
+				} else {
+					itc.OutputPath = ""
+				}
+			}
+
 			if err := command.Execute(); err != nil {
 				fmt.Printf("Error: %v\n", err)
 			}
 		} else {
-			fmt.Printf("Unknown command: %s\n", cmd)
+			fmt.Printf("Unknown command: %s\n", cmdName)
 		}
 	}
 

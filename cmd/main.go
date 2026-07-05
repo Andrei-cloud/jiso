@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -41,6 +42,29 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 	if err != nil {
 		fmt.Printf("Error parsing config: %s\n", err)
 		return 1
+	}
+
+	args := flag.Args()
+	if len(args) > 0 {
+		subcommand := args[0]
+		validSubcommands := map[string]bool{
+			"init-spec":    true,
+			"init-tx":      true,
+			"scenarios":    true,
+			"scenario":     true,
+			"run-scenario": true,
+		}
+		if validSubcommands[subcommand] {
+			err := cliTool.RunDirectCommand(subcommand, args[1:])
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				return 1
+			}
+			return 0
+		} else {
+			fmt.Printf("Unknown subcommand: %s. Available subcommands: init-spec, init-tx, scenarios, run-scenario\n", subcommand)
+			return 1
+		}
 	}
 
 	cliTool.ClearTerminal()
