@@ -88,3 +88,28 @@ func (f *Factory) CreateInfoCommand() Command {
 func (f *Factory) CreateDbStatsCommand() Command {
 	return &DbStatsCommand{}
 }
+
+// CreateScenarioCommand creates a scenarios list command
+func (f *Factory) CreateScenarioCommand() Command {
+	return &ScenarioCommand{
+		Tc: f.transactions,
+	}
+}
+
+// CreateRunScenarioCommand creates a scenario runner command
+func (f *Factory) CreateRunScenarioCommand() Command {
+	return &RunScenarioCommand{
+		Tc:  f.transactions,
+		Svc: f.service,
+	}
+}
+
+// CreateInitSpecCommand creates an init-spec command
+func (f *Factory) CreateInitSpecCommand() Command {
+	return &InitSpecCommand{}
+}
+
+// CreateInitTxCommand creates an init-tx command
+func (f *Factory) CreateInitTxCommand() Command {
+	return &InitTxCommand{}
+}

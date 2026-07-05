@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -20,7 +21,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.6.0"
+var Version string = "v0.8.5"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -82,6 +83,10 @@ func (cli *CLI) Run() error {
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 	cli.AddCommand(cli.factory.CreateStressTestCommand())
 	cli.AddCommand(cli.factory.CreateDbStatsCommand())
+	cli.AddCommand(cli.factory.CreateScenarioCommand())
+	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
+	cli.AddCommand(cli.factory.CreateInitSpecCommand())
+	cli.AddCommand(cli.factory.CreateInitTxCommand())
 
 	return cli.runWithHistory()
 }
@@ -149,6 +154,11 @@ func (cli *CLI) Close() {
 
 	if cli.svc != nil {
 		cli.svc.Close()
+	}
+
+	// Save final transaction collection state
+	if saver, ok := cli.tc.(interface{ SaveState() error }); ok {
+		_ = saver.SaveState()
 	}
 
 	// Close database connection
@@ -246,6 +256,10 @@ func (cli *CLI) Prepare() error {
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 	cli.AddCommand(cli.factory.CreateStressTestCommand())
 	cli.AddCommand(cli.factory.CreateDbStatsCommand())
+	cli.AddCommand(cli.factory.CreateScenarioCommand())
+	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
+	cli.AddCommand(cli.factory.CreateInitSpecCommand())
+	cli.AddCommand(cli.factory.CreateInitTxCommand())
 
 	return nil
 }
@@ -313,6 +327,10 @@ func (cli *CLI) Reload() error {
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 	cli.AddCommand(cli.factory.CreateStressTestCommand())
 	cli.AddCommand(cli.factory.CreateDbStatsCommand())
+	cli.AddCommand(cli.factory.CreateScenarioCommand())
+	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
+	cli.AddCommand(cli.factory.CreateInitSpecCommand())
+	cli.AddCommand(cli.factory.CreateInitTxCommand())
 
 	fmt.Println("Service reloaded successfully")
 	return nil
@@ -333,4 +351,90 @@ func (cli *CLI) Configure(debugMode bool, logLevel string, autoConnect bool) {
 	cli.config.debugMode = debugMode
 	cli.config.logLevel = logLevel
 	cli.config.autoConnect = autoConnect
+}
+
+func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
+	if subcommand == "init-spec" {
+		var path string
+		if len(args) > 0 {
+			path = args[0]
+		}
+		cmdObj := &cmd.InitSpecCommand{OutputPath: path}
+		return cmdObj.Execute()
+	}
+	if subcommand == "init-tx" {
+		var path string
+		if len(args) > 0 {
+			path = args[0]
+		}
+		cmdObj := &cmd.InitTxCommand{OutputPath: path}
+		return cmdObj.Execute()
+	}
+
+	if subcommand == "scenarios" || subcommand == "scenario" {
+		specPath := cfg.GetConfig().GetSpec()
+		txPath := cfg.GetConfig().GetFile()
+		if specPath == "" {
+			return fmt.Errorf("spec file is required (use -spec-file)")
+		}
+		if txPath == "" {
+			return fmt.Errorf("transaction file is required (use -file)")
+		}
+		spec, err := utils.CreateSpecFromFile(specPath)
+		if err != nil {
+			return fmt.Errorf("failed to load spec: %w", err)
+		}
+		tc, err := transactions.NewTransactionCollection(txPath, spec)
+		if err != nil {
+			return err
+		}
+		cmdObj := &cmd.ScenarioCommand{Tc: tc}
+		return cmdObj.Execute()
+	}
+
+	// For other commands (run-scenario), we must initialize the service
+	if err := cli.InitService(); err != nil {
+		return err
+	}
+
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+
+	if subcommand == "run-scenario" {
+		fs := flag.NewFlagSet("run-scenario", flag.ContinueOnError)
+		reportPath := fs.String("report", "", "Path to export the test report JSON")
+		lengthType := fs.String("length", "ascii4", "Connection length type (ascii4, binary2, bcd2, NAPS)")
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+
+		scenarioName := ""
+		if len(fs.Args()) > 0 {
+			scenarioName = fs.Arg(0)
+		}
+
+		if scenarioName == "" {
+			return fmt.Errorf("scenario name is required")
+		}
+
+		// Connect first
+		header, err := utils.SelectLength(*lengthType)
+		if err != nil {
+			return fmt.Errorf("invalid length type '%s': %w", *lengthType, err)
+		}
+		naps := (*lengthType == "NAPS")
+		fmt.Printf("Connecting to server at %s...\n", cli.svc.Address)
+		if err := cli.svc.Connect(naps, header); err != nil {
+			return fmt.Errorf("failed to connect to server: %w", err)
+		}
+		defer cli.svc.Disconnect()
+
+		cmdObj := cli.factory.CreateRunScenarioCommand()
+		if runScenarioCmd, ok := cmdObj.(*cmd.RunScenarioCommand); ok {
+			runScenarioCmd.ScenarioName = scenarioName
+			runScenarioCmd.ReportPath = *reportPath
+		}
+		return cmdObj.Execute()
+	}
+
+	return fmt.Errorf("unknown subcommand: %s", subcommand)
 }

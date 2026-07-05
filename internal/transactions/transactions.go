@@ -8,8 +8,10 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"jiso/internal/utils"
@@ -26,6 +28,44 @@ type Transaction struct {
 	Description string           `json:"description"`
 	Fields      json.RawMessage  `json:"fields"`
 	Dataset     []map[int]string `json:"dataset"`
+}
+
+type Dataset struct {
+	Name string              `json:"name"`
+	Data []map[string]string `json:"data"`
+}
+
+type Scenario struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	DatasetName string         `json:"dataset_name"`
+	Steps       []ScenarioStep `json:"steps"`
+}
+
+type ScenarioStep struct {
+	Name             string                 `json:"name"`
+	UseTransactionId string                 `json:"use_transaction_id"`
+	Fields           map[string]interface{} `json:"fields"`
+	Extract          map[string]string      `json:"extract"`
+	Validate         []Assertion            `json:"validate"`
+}
+
+type Assertion struct {
+	Field  string `json:"field"`
+	Expect string `json:"expect,omitempty"`
+	Regex  string `json:"regex,omitempty"`
+	Exists *bool  `json:"exists,omitempty"`
+}
+
+type ConfigItem struct {
+	Type        string                 `json:"type"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Fields      json.RawMessage        `json:"fields,omitempty"`
+	Dataset     []map[int]string       `json:"dataset,omitempty"`
+	Data        []map[string]string    `json:"data,omitempty"`
+	DatasetName string                 `json:"dataset_name,omitempty"`
+	Steps       []ScenarioStep         `json:"steps,omitempty"`
 }
 
 // TransactionState stores information about transaction state
@@ -46,12 +86,15 @@ type TransactionCollection struct {
 	spec         *iso8583.MessageSpec
 	transactions []Transaction
 	cache        map[string]*Transaction // Add transaction cache
+	datasets     map[string]*Dataset
+	scenarios    map[string]*Scenario
 
 	// State management
-	state      TransactionState
-	stateLock  sync.RWMutex
-	saveLock   sync.Mutex // Protects against concurrent saves
-	persistDir string
+	state         TransactionState
+	stateLock     sync.RWMutex
+	saveLock      sync.Mutex // Protects against concurrent saves
+	persistDir    string
+	lastSavedUnix int64
 }
 
 func NewTransactionCollection(
@@ -67,23 +110,66 @@ func NewTransactionCollection(
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	var transactions []Transaction
-	if err := json.Unmarshal(data, &transactions); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
-	}
-
-	if len(transactions) == 0 {
-		return nil, errors.New("no transactions found in the file")
+	var items []ConfigItem
+	if err := json.Unmarshal(data, &items); err != nil {
+		// Attempt parsing as legacy list of transactions directly
+		var legacyTx []Transaction
+		if errLegacy := json.Unmarshal(data, &legacyTx); errLegacy == nil {
+			items = make([]ConfigItem, len(legacyTx))
+			for i, lt := range legacyTx {
+				items[i] = ConfigItem{
+					Type:        "transaction",
+					Name:        lt.Name,
+					Description: lt.Description,
+					Fields:      lt.Fields,
+					Dataset:     lt.Dataset,
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("failed to unmarshal data: %w", err)
+		}
 	}
 
 	tc := &TransactionCollection{
-		transactions: transactions,
+		transactions: make([]Transaction, 0),
 		spec:         specs,
 		cache:        make(map[string]*Transaction),
+		datasets:     make(map[string]*Dataset),
+		scenarios:    make(map[string]*Scenario),
 		state: TransactionState{
 			LastUsedDataset: make(map[string]int),
 			TransactionLogs: make([]TransactionLog, 0, 100),
 		},
+	}
+
+	for _, item := range items {
+		if item.Type == "" || item.Type == "transaction" {
+			t := Transaction{
+				Name:        item.Name,
+				Description: item.Description,
+				Fields:      item.Fields,
+				Dataset:     item.Dataset,
+			}
+			tc.transactions = append(tc.transactions, t)
+		} else if item.Type == "dataset" {
+			d := Dataset{
+				Name: item.Name,
+				Data: item.Data,
+			}
+			tc.datasets[item.Name] = &d
+		} else if item.Type == "scenario" {
+			s := Scenario{
+				Name:        item.Name,
+				Description: item.Description,
+				DatasetName: item.DatasetName,
+				Steps:       item.Steps,
+			}
+			tc.scenarios[item.Name] = &s
+		}
+	}
+
+	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 {
+		return nil, errors.New("no transactions or scenarios found in the file")
 	}
 
 	// Pre-populate cache
@@ -124,8 +210,8 @@ func (tc *TransactionCollection) SetPersistenceDirectory(dir string) error {
 	return nil
 }
 
-// saveState persists transaction state to disk
-func (tc *TransactionCollection) saveState() error {
+// SaveState persists transaction state to disk
+func (tc *TransactionCollection) SaveState() error {
 	tc.saveLock.Lock()
 	defer tc.saveLock.Unlock()
 
@@ -218,9 +304,15 @@ func (tc *TransactionCollection) LogTransaction(name string, success bool) {
 
 	tc.stateLock.Unlock()
 
-	// Save state periodically (save every 10 transactions)
-	if len(tc.state.TransactionLogs)%10 == 0 {
-		go tc.saveState() // Don't block the caller
+	// Save state periodically (rate-limited to at most once every 5 seconds)
+	now := time.Now().Unix()
+	lastSaved := atomic.LoadInt64(&tc.lastSavedUnix)
+	if now-lastSaved >= 5 {
+		if atomic.CompareAndSwapInt64(&tc.lastSavedUnix, lastSaved, now) {
+			go func() {
+				_ = tc.SaveState()
+			}()
+		}
 	}
 }
 
@@ -461,8 +553,8 @@ func (tc *TransactionCollection) Validate() error {
 		return fmt.Errorf("transaction collection is nil")
 	}
 
-	if len(tc.transactions) == 0 {
-		return fmt.Errorf("no transactions found in collection")
+	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 {
+		return fmt.Errorf("no transactions or scenarios found in collection")
 	}
 
 	// Track seen names for uniqueness validation
@@ -503,7 +595,55 @@ func (tc *TransactionCollection) Validate() error {
 		}
 	}
 
+	// Validate scenarios
+	for name, scenario := range tc.scenarios {
+		if scenario.Name == "" {
+			return fmt.Errorf("scenario has empty name")
+		}
+		if seenNames[scenario.Name] {
+			return fmt.Errorf("duplicate scenario name: %s", scenario.Name)
+		}
+		seenNames[scenario.Name] = true
+
+		if len(scenario.Steps) == 0 {
+			return fmt.Errorf("scenario '%s' has no steps", name)
+		}
+		for i, step := range scenario.Steps {
+			if step.Name == "" {
+				return fmt.Errorf("scenario '%s' step %d has empty name", name, i)
+			}
+			if step.UseTransactionId == "" && len(step.Fields) == 0 {
+				return fmt.Errorf("scenario '%s' step '%s' must specify use_transaction_id or fields", name, step.Name)
+			}
+		}
+	}
+
 	return nil
+}
+
+func (tc *TransactionCollection) ListScenarios() []string {
+	names := make([]string, 0, len(tc.scenarios))
+	for name := range tc.scenarios {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func (tc *TransactionCollection) GetScenario(name string) (*Scenario, error) {
+	s, ok := tc.scenarios[name]
+	if !ok {
+		return nil, fmt.Errorf("scenario not found: %s", name)
+	}
+	return s, nil
+}
+
+func (tc *TransactionCollection) GetDataset(name string) (*Dataset, error) {
+	d, ok := tc.datasets[name]
+	if !ok {
+		return nil, fmt.Errorf("dataset not found: %s", name)
+	}
+	return d, nil
 }
 
 // validateTransactionFields validates the fields of a single transaction
@@ -524,6 +664,11 @@ func (tc *TransactionCollection) validateTransactionFields(t Transaction) error 
 		case string:
 			if v == "auto" || v == "random" {
 				// These are valid special values
+				continue
+			}
+			// Skip validation for values containing placeholders as their real length
+			// will be resolved at runtime during variable injection.
+			if strings.Contains(v, "{{") && strings.Contains(v, "}}") {
 				continue
 			}
 			// For string values, check length against spec if available
