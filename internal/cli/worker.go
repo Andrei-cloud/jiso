@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -16,10 +17,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// txStats holds the stats for an individual transaction type
+type txStats struct {
+	successful int
+	failed     int
+	respCodes  map[string]int
+	latencies  []time.Duration
+}
+
 // stressTestWorker holds the state of a stress test worker
 type stressTestWorker struct {
 	id                  string
-	name                string
+	names               []string
 	targetTps           int
 	rampUpDuration      time.Duration
 	duration            time.Duration
@@ -37,6 +46,7 @@ type stressTestWorker struct {
 	consecutiveFailures int
 	latencies           []time.Duration
 	respCodes           map[string]int
+	txStats             map[string]*txStats
 	completed           bool
 	endTime             time.Time
 	mu                  sync.Mutex
@@ -175,7 +185,14 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				go func() {
 					defer w.requestsWg.Done()
 
-					rcStr, execTime, err := sendCmd.ExecuteBackground(w.name)
+					w.mu.Lock()
+					var name string
+					if len(w.names) > 0 {
+						name = w.names[rand.Intn(len(w.names))]
+					}
+					w.mu.Unlock()
+
+					rcStr, execTime, err := sendCmd.ExecuteBackground(name)
 
 					w.mu.Lock()
 					if err == nil {
@@ -199,6 +216,27 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 					}
 					w.respCodes[rcStr]++
 					w.latencies = append(w.latencies, execTime)
+
+					// Record per-transaction metrics
+					if name != "" {
+						if w.txStats == nil {
+							w.txStats = make(map[string]*txStats)
+						}
+						ts, exists := w.txStats[name]
+						if !exists {
+							ts = &txStats{
+								respCodes: make(map[string]int),
+							}
+							w.txStats[name] = ts
+						}
+						if err == nil {
+							ts.successful++
+						} else {
+							ts.failed++
+						}
+						ts.respCodes[rcStr]++
+						ts.latencies = append(ts.latencies, execTime)
+					}
 
 					// Circuit breaker: record trip if activated
 					if w.consecutiveFailures >= 10 {
@@ -367,6 +405,25 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	for k, v := range w.respCodes {
 		respCodesCopy[k] = v
 	}
+	// Copy txStats
+	txStatsCopy := make(map[string]*txStats)
+	for k, v := range w.txStats {
+		ts := &txStats{
+			successful: v.successful,
+			failed:     v.failed,
+			respCodes:  make(map[string]int),
+			latencies:  make([]time.Duration, len(v.latencies)),
+		}
+		for rk, rv := range v.respCodes {
+			ts.respCodes[rk] = rv
+		}
+		copy(ts.latencies, v.latencies)
+		txStatsCopy[k] = ts
+	}
+	startTimeCopy := w.startTime
+	endTimeCopy := w.endTime
+	namesCopy := make([]string, len(w.names))
+	copy(namesCopy, w.names)
 	w.mu.Unlock()
 
 	if total == 0 {
@@ -443,6 +500,12 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	fmt.Println("\n================================================================================")
 	fmt.Printf("                          STRESS TEST SUMMARY - Worker %s\n", w.id)
 	fmt.Println("================================================================================")
+	fmt.Printf("Start Time:             %s\n", startTimeCopy.Format("2006-01-02 15:04:05 MST"))
+	fmt.Printf("End Time:               %s\n", endTimeCopy.Format("2006-01-02 15:04:05 MST"))
+	fmt.Printf("Selected Transactions:  %s\n", strings.Join(namesCopy, ", "))
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println("ALL TESTING SUMMARY")
+	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("Target TPS:             %-10d Concurrency (Workers): %-10d\n", w.targetTps, w.numWorkers)
 	fmt.Printf("Actual TPS:             %-10.1f Total Test Duration:   %-10s\n", finalTps, w.duration)
 	fmt.Println("--------------------------------------------------------------------------------")
@@ -494,6 +557,77 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 		}
 		bar := strings.Repeat("█", barLength)
 		fmt.Printf("  [%s]: %-30s %-10d (%6.2f%%)\n", b.label, bar, b.count, float64(b.count)/float64(total)*100.0)
+	}
+
+	fmt.Println("================================================================================")
+	fmt.Println("                    PER TRANSACTION TYPE DETAILS")
+	fmt.Println("================================================================================")
+	for _, name := range namesCopy {
+		ts := txStatsCopy[name]
+		var tsTotal, tsSuccessful, tsFailed int
+		var tsRespCodes map[string]int
+		var tsLatencies []time.Duration
+		if ts != nil {
+			tsSuccessful = ts.successful
+			tsFailed = ts.failed
+			tsTotal = tsSuccessful + tsFailed
+			tsRespCodes = ts.respCodes
+			tsLatencies = ts.latencies
+		} else {
+			tsRespCodes = make(map[string]int)
+		}
+
+		fmt.Printf("Transaction: %s\n", name)
+		fmt.Printf("  Total Executions:     %-10d\n", tsTotal)
+		if tsTotal > 0 {
+			fmt.Printf("  Successful:           %-10d (%6.2f%%)\n", tsSuccessful, float64(tsSuccessful)/float64(tsTotal)*100.0)
+			fmt.Printf("  Failed:               %-10d (%6.2f%%)\n", tsFailed, float64(tsFailed)/float64(tsTotal)*100.0)
+			
+			// Response code breakdown
+			fmt.Printf("  Response Code Breakdown:\n")
+			if count, ok := tsRespCodes["00"]; ok {
+				fmt.Printf("    Code %-14s %-10d (%6.2f%%)\n", `"00":`, count, float64(count)/float64(tsTotal)*100.0)
+			}
+			var sortedCodes []string
+			for code := range tsRespCodes {
+				if code != "00" {
+					sortedCodes = append(sortedCodes, code)
+				}
+			}
+			sort.Strings(sortedCodes)
+			for _, code := range sortedCodes {
+				count := tsRespCodes[code]
+				fmt.Printf("    Code %-14s %-10d (%6.2f%%)\n", `"`+code+`":`, count, float64(count)/float64(tsTotal)*100.0)
+			}
+
+			// Latency Profile
+			sort.Slice(tsLatencies, func(i, j int) bool {
+				return tsLatencies[i] < tsLatencies[j]
+			})
+			var tsMin, tsMax, tsMean, tsP50, tsP90, tsP95, tsP99 time.Duration
+			var tsTotalDuration time.Duration
+			if len(tsLatencies) > 0 {
+				tsMin = tsLatencies[0]
+				tsMax = tsLatencies[len(tsLatencies)-1]
+				for _, d := range tsLatencies {
+					tsTotalDuration += d
+				}
+				tsMean = tsTotalDuration / time.Duration(len(tsLatencies))
+				tsP50 = percentile(tsLatencies, 0.50)
+				tsP90 = percentile(tsLatencies, 0.90)
+				tsP95 = percentile(tsLatencies, 0.95)
+				tsP99 = percentile(tsLatencies, 0.99)
+			}
+			fmt.Printf("  Latency Profile:\n")
+			fmt.Printf("    Min Latency:        %-15s Median (p50):          %-15s\n", tsMin.Round(time.Microsecond), tsP50.Round(time.Microsecond))
+			fmt.Printf("    Max Latency:        %-15s p90 Percentile:        %-15s\n", tsMax.Round(time.Microsecond), tsP90.Round(time.Microsecond))
+			fmt.Printf("    Mean Latency:       %-15s p95 Percentile:        %-15s\n", tsMean.Round(time.Microsecond), tsP95.Round(time.Microsecond))
+			fmt.Printf("                                         p99 Percentile:        %-15s\n", tsP99.Round(time.Microsecond))
+		} else {
+			fmt.Printf("  Successful:           0          (  0.00%%)\n")
+			fmt.Printf("  Failed:               0          (  0.00%%)\n")
+		}
+		fmt.Println("--------------------------------------------------------------------------------")
 	}
 	fmt.Println("================================================================================")
 }
@@ -616,7 +750,7 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 
 // StartStressTestWorker starts a stress test worker with TPS ramp-up
 func (cli *CLI) StartStressTestWorker(
-	name string,
+	names []string,
 	targetTps int,
 	rampUpDuration time.Duration,
 	duration time.Duration,
@@ -647,7 +781,7 @@ func (cli *CLI) StartStressTestWorker(
 	// Create a new stress test worker state
 	worker := &stressTestWorker{
 		id:                 workerID,
-		name:               name,
+		names:              names,
 		targetTps:          targetTps,
 		rampUpDuration:     rampUpDuration,
 		duration:           duration,
@@ -660,6 +794,7 @@ func (cli *CLI) StartStressTestWorker(
 		actualTps:          0,
 		rampUpProgress:     0.0,
 		respCodes:          make(map[string]int),
+		txStats:            make(map[string]*txStats),
 		originalMaxPending: originalMaxPending,
 	}
 
@@ -836,7 +971,7 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 
 		stressWorkerStats := map[string]interface{}{
 			"id":                   id,
-			"name":                 stressWorker.name,
+			"name":                 strings.Join(stressWorker.names, ", "),
 			"type":                 "stress_test",
 			"status":               statusStr,
 			"target_tps":           stressWorker.targetTps,

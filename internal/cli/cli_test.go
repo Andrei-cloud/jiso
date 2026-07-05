@@ -95,7 +95,7 @@ func TestStressTestWorkerResourceCleanup(t *testing.T) {
 
 	// Start a stress test worker with short duration
 	workerID, err := cli.StartStressTestWorker(
-		"test-transaction",
+		[]string{"test-transaction"},
 		10,                   // target TPS
 		100*time.Millisecond, // ramp up duration
 		200*time.Millisecond, // test duration
@@ -149,7 +149,7 @@ func TestStressTestWorkerParallel(t *testing.T) {
 
 	// Start a stress test worker with short duration
 	workerID, err := cli.StartStressTestWorker(
-		"test-transaction",
+		[]string{"test-transaction"},
 		20,                   // target TPS
 		50*time.Millisecond,  // ramp up duration
 		50*time.Millisecond,  // test duration
@@ -195,7 +195,7 @@ func TestStopAllWorkersCleanup(t *testing.T) {
 	}
 
 	stressWorkerID, err := cli.StartStressTestWorker(
-		"test-transaction-3",
+		[]string{"test-transaction-3"},
 		10,
 		100*time.Millisecond,
 		200*time.Millisecond,
@@ -448,7 +448,7 @@ func TestStressTestWorkerIntervalAndMaxPending(t *testing.T) {
 
 	// Start stress test worker with target TPS of 200
 	workerID, err := cli.StartStressTestWorker(
-		"test-transaction",
+		[]string{"test-transaction"},
 		200,                  // target TPS
 		10*time.Millisecond,  // ramp up duration
 		10*time.Millisecond,  // test duration

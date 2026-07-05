@@ -11,7 +11,7 @@ type WorkerController interface {
 
 	// StartStressTestWorker starts a stress test worker with TPS ramp-up
 	StartStressTestWorker(
-		name string,
+		names []string,
 		targetTps int,
 		rampUpDuration time.Duration,
 		duration time.Duration,
