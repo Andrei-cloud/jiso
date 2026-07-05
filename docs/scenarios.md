@@ -39,6 +39,7 @@ All configuration components (transactions, reusable datasets, and scenarios) ar
     "type": "transaction",
     "name": "Purchase Template",
     "description": "Financial request base template",
+    "dataset_name": "card_pool",
     "fields": {
       "0": "0200",
       "2": "{{card.2}}",
@@ -119,6 +120,15 @@ Scenario execution runs inside a stateful context:
 
 - **Active Card**: Selected from the dataset configured under `"dataset_name"`. Variables in templates or steps matching `{{card.X}}` (where `X` is the field ID, like `{{card.2}}`) are replaced with the matching field value from the dataset entry.
 - **Localized Session Map**: Extracted variables stored from previous step responses. Variables matching `{{context.VariableName}}` are replaced with values dynamically extracted using `"extract"` rules.
+
+### 3.1 Standalone Command Interpolation
+
+When executing standard non-scenario commands (e.g. `send`, `bgsend`, `stress`):
+1. JISO retrieves the transaction template.
+2. If the template contains `"dataset_name"`, it fetches the first row of that dataset.
+3. If no `"dataset_name"` is specified, JISO falls back to the first available dataset in the file.
+4. Placeholders matching `{{card.X}}` are automatically interpolated before validation and transmission.
+5. Placeholders matching `{{context.VariableName}}` are resolved to empty strings since no active scenario session is active.
 
 ---
 

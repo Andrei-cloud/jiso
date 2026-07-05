@@ -194,7 +194,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				go func(txName string) {
 					defer w.requestsWg.Done()
 
-					rcStr, execTime, err := sendCmd.ExecuteBackground(txName)
+					rcStr, execTime, err := sendCmd.ExecuteBackground(txName, true)
 
 					w.mu.Lock()
 					if err == nil {
@@ -708,7 +708,7 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 			select {
 			case <-ticker.C:
 				for i := 0; i < count; i++ {
-					_, _, err := sendCmd.ExecuteBackground(name)
+					_, _, err := sendCmd.ExecuteBackground(name, false)
 					worker.mu.Lock()
 					if err == nil {
 						worker.successful++

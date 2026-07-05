@@ -339,7 +339,7 @@ func (c *SendCommand) StartClock() {
 	c.stats.StartClock()
 }
 
-func (c *SendCommand) ExecuteBackground(trxnName string) (string, time.Duration, error) {
+func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (string, time.Duration, error) {
 	// Check connection health before attempting to send
 	if !c.Svc.IsConnected() {
 		// Log the issue but don't fail the transaction - allow worker to continue
@@ -367,11 +367,13 @@ func (c *SendCommand) ExecuteBackground(trxnName string) (string, time.Duration,
 		return "COMPOSE_ERR", 0, err
 	}
 
-	// Validate message before sending
-	if err := validateMessage(msg); err != nil {
-		// Log failed transaction
-		c.Tc.LogTransaction(trxnName, false)
-		return "VALIDATION_ERR", 0, fmt.Errorf("message validation failed: %w", err)
+	// Validate message before sending (unless skipped)
+	if !skipValidation {
+		if err := validateMessage(msg); err != nil {
+			// Log failed transaction
+			c.Tc.LogTransaction(trxnName, false)
+			return "VALIDATION_ERR", 0, fmt.Errorf("message validation failed: %w", err)
+		}
 	}
 
 	executionStart := time.Now()

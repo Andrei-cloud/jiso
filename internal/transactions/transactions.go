@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -28,6 +29,7 @@ type Transaction struct {
 	Description string           `json:"description"`
 	Fields      json.RawMessage  `json:"fields"`
 	Dataset     []map[int]string `json:"dataset"`
+	DatasetName string           `json:"dataset_name"`
 }
 
 type Dataset struct {
@@ -149,6 +151,7 @@ func NewTransactionCollection(
 				Description: item.Description,
 				Fields:      item.Fields,
 				Dataset:     item.Dataset,
+				DatasetName: item.DatasetName,
 			}
 			tc.transactions = append(tc.transactions, t)
 		} else if item.Type == "dataset" {
@@ -359,6 +362,43 @@ func (tc *TransactionCollection) Info(name string) (string, string, string, erro
 }
 
 func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) {
+	msg, err := tc.ComposeRaw(name)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := tc.findTransaction(name)
+	if err != nil {
+		return msg, nil
+	}
+
+	var activeCard map[string]string
+	datasetName := t.DatasetName
+	if datasetName != "" {
+		if ds, ok := tc.datasets[datasetName]; ok && len(ds.Data) > 0 {
+			activeCard = ds.Data[0]
+		}
+	}
+
+	// Fallback to first available dataset if none matched
+	if activeCard == nil && len(tc.datasets) > 0 {
+		if pool, ok := tc.datasets["card_pool"]; ok && len(pool.Data) > 0 {
+			activeCard = pool.Data[0]
+		} else {
+			for _, pool := range tc.datasets {
+				if len(pool.Data) > 0 {
+					activeCard = pool.Data[0]
+					break
+				}
+			}
+		}
+	}
+
+	tc.interpolateMessageFieldsWithCard(msg, activeCard)
+	return msg, nil
+}
+
+func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, error) {
 	t, err := tc.findTransaction(name)
 	if err != nil {
 		return nil, err
@@ -371,6 +411,44 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 	}
 
 	return msg, nil
+}
+
+func (tc *TransactionCollection) interpolateMessageFieldsWithCard(msg *iso8583.Message, activeCard map[string]string) {
+	cardRegex := regexp.MustCompile(`\{\{\s*card\.(\w+)\s*\}\}`)
+	contextRegex := regexp.MustCompile(`\{\{\s*context\.(\w+)\s*\}\}`)
+
+	for i, f := range msg.GetFields() {
+		if f == nil {
+			continue
+		}
+		val, err := f.String()
+		if err != nil || val == "" {
+			continue
+		}
+
+		if strings.Contains(val, "{{") && strings.Contains(val, "}}") {
+			val = cardRegex.ReplaceAllStringFunc(val, func(m string) string {
+				match := cardRegex.FindStringSubmatch(m)
+				if len(match) > 1 {
+					key := match[1]
+					if v, ok := activeCard[key]; ok {
+						return v
+					}
+				}
+				return m
+			})
+
+			val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
+				match := contextRegex.FindStringSubmatch(m)
+				if len(match) > 1 {
+					return ""
+				}
+				return m
+			})
+
+			msg.Field(i, val)
+		}
+	}
 }
 
 func (tc *TransactionCollection) findTransaction(name string) (*Transaction, error) {

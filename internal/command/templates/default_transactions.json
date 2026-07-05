@@ -25,6 +25,7 @@
     "type": "transaction",
     "name": "Purchase Template",
     "description": "Financial request base template",
+    "dataset_name": "card_pool",
     "fields": {
       "0": "0200",
       "2": "{{card.2}}",
@@ -47,6 +48,7 @@
     "type": "transaction",
     "name": "Reversal Template",
     "description": "Reversal request base template",
+    "dataset_name": "card_pool",
     "fields": {
       "0": "0400",
       "2": "{{card.2}}",

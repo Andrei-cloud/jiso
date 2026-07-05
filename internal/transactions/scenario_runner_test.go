@@ -263,3 +263,65 @@ func (sr *ScenarioRunner) runAssertionsOnMessage(respMsg *iso8583.Message, asser
 
 	return result
 }
+
+func TestComposeInterpolation(t *testing.T) {
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "Purchase Template",
+			"description": "Purchase transaction with placeholders",
+			"dataset_name": "card_pool",
+			"fields": {
+				"0": "0200",
+				"2": "{{card.2}}"
+			}
+		},
+		{
+			"type": "dataset",
+			"name": "card_pool",
+			"data": [
+				{
+					"2": "9999888877776666"
+				}
+			]
+		}
+	]`
+
+	tmpFile, err := os.CreateTemp("", "test_compose.json")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(configData)
+	if err != nil {
+		t.Fatalf("failed to write data: %v", err)
+	}
+	tmpFile.Close()
+
+	spec := iso8583.Spec87
+	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
+	if err != nil {
+		t.Fatalf("failed to load transaction collection: %v", err)
+	}
+
+	// Composing via Compose should interpolate the placeholders using default card dataset
+	msg, err := tc.Compose("Purchase Template")
+	if err != nil {
+		t.Fatalf("failed to compose: %v", err)
+	}
+
+	val, err := msg.GetField(2).String()
+	assert.NoError(t, err)
+	assert.Equal(t, "9999888877776666", val)
+
+	// Composing via ComposeRaw should keep the placeholders intact
+	msgRaw, err := tc.ComposeRaw("Purchase Template")
+	if err != nil {
+		t.Fatalf("failed to compose raw: %v", err)
+	}
+
+	valRaw, err := msgRaw.GetField(2).String()
+	assert.NoError(t, err)
+	assert.Equal(t, "{{card.2}}", valRaw)
+}

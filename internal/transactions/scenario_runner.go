@@ -116,7 +116,7 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep) StepResult {
 	var msg *iso8583.Message
 	if step.UseTransactionId != "" {
 		var err error
-		msg, err = sr.tc.Compose(step.UseTransactionId)
+		msg, err = sr.tc.ComposeRaw(step.UseTransactionId)
 		if err != nil {
 			result.Success = false
 			result.Error = fmt.Errorf("failed to compose template '%s': %w", step.UseTransactionId, err).Error()
