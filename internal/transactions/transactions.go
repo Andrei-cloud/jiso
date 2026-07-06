@@ -372,29 +372,19 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 		return msg, nil
 	}
 
-	var activeCard map[string]string
 	datasetName := t.DatasetName
-	if datasetName != "" {
-		if ds, ok := tc.datasets[datasetName]; ok && len(ds.Data) > 0 {
-			activeCard = ds.Data[0]
-		}
-	}
-
-	// Fallback to first available dataset if none matched
-	if activeCard == nil && len(tc.datasets) > 0 {
-		if pool, ok := tc.datasets["card_pool"]; ok && len(pool.Data) > 0 {
-			activeCard = pool.Data[0]
+	if datasetName == "" && len(tc.datasets) > 0 {
+		if _, ok := tc.datasets["card_pool"]; ok {
+			datasetName = "card_pool"
 		} else {
-			for _, pool := range tc.datasets {
-				if len(pool.Data) > 0 {
-					activeCard = pool.Data[0]
-					break
-				}
+			for name := range tc.datasets {
+				datasetName = name
+				break
 			}
 		}
 	}
 
-	tc.interpolateMessageFieldsWithCard(msg, activeCard)
+	tc.interpolateMessageFieldsWithData(msg, datasetName)
 	return msg, nil
 }
 
@@ -413,9 +403,12 @@ func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, erro
 	return msg, nil
 }
 
-func (tc *TransactionCollection) interpolateMessageFieldsWithCard(msg *iso8583.Message, activeCard map[string]string) {
-	cardRegex := regexp.MustCompile(`\{\{\s*card\.(\w+)\s*\}\}`)
+func (tc *TransactionCollection) interpolateMessageFieldsWithData(msg *iso8583.Message, datasetName string) {
+	dataRegex := regexp.MustCompile(`\{\{\s*data\.(\w+)\s*\}\}`)
 	contextRegex := regexp.MustCompile(`\{\{\s*context\.(\w+)\s*\}\}`)
+
+	var selectedRow map[string]string
+	var ok bool
 
 	for i, f := range msg.GetFields() {
 		if f == nil {
@@ -427,12 +420,23 @@ func (tc *TransactionCollection) interpolateMessageFieldsWithCard(msg *iso8583.M
 		}
 
 		if strings.Contains(val, "{{") && strings.Contains(val, "}}") {
-			val = cardRegex.ReplaceAllStringFunc(val, func(m string) string {
-				match := cardRegex.FindStringSubmatch(m)
+			val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
+				match := dataRegex.FindStringSubmatch(m)
 				if len(match) > 1 {
 					key := match[1]
-					if v, ok := activeCard[key]; ok {
-						return v
+
+					if !ok && datasetName != "" {
+						if ds, exist := tc.datasets[datasetName]; exist && len(ds.Data) > 0 {
+							randomIndex := rand.Intn(len(ds.Data))
+							selectedRow = ds.Data[randomIndex]
+							ok = true
+						}
+					}
+
+					if ok {
+						if v, exist := selectedRow[key]; exist {
+							return v
+						}
 					}
 				}
 				return m

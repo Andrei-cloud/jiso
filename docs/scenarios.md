@@ -42,14 +42,14 @@ All configuration components (transactions, reusable datasets, and scenarios) ar
     "dataset_name": "card_pool",
     "fields": {
       "0": "0200",
-      "2": "{{card.2}}",
+      "2": "{{data.2}}",
       "3": "000000",
       "4": "1000",
       "7": "auto",
       "11": "auto",
-      "14": "{{card.14}}",
-      "23": "{{card.23}}",
-      "35": "{{card.35}}",
+      "14": "{{data.14}}",
+      "23": "{{data.23}}",
+      "35": "{{data.35}}",
       "37": "auto",
       "41": "77973588",
       "43": "TEST MERCHANT            DOHA        QAT",
@@ -118,17 +118,15 @@ All configuration components (transactions, reusable datasets, and scenarios) ar
 
 Scenario execution runs inside a stateful context:
 
-- **Active Card**: Selected from the dataset configured under `"dataset_name"`. Variables in templates or steps matching `{{card.X}}` (where `X` is the field ID, like `{{card.2}}`) are replaced with the matching field value from the dataset entry.
+- **Dataset Value**: Selected from the loaded datasets. Variables in templates or steps matching `{{data.X}}` (where `X` is the field ID, like `{{data.2}}`) are replaced with the matching field value from a randomly selected dataset entry of the transaction/scenario's configured dataset.
 - **Localized Session Map**: Extracted variables stored from previous step responses. Variables matching `{{context.VariableName}}` are replaced with values dynamically extracted using `"extract"` rules.
 
 ### 3.1 Standalone Command Interpolation
 
 When executing standard non-scenario commands (e.g. `send`, `bgsend`, `stress`):
 1. JISO retrieves the transaction template.
-2. If the template contains `"dataset_name"`, it fetches the first row of that dataset.
-3. If no `"dataset_name"` is specified, JISO falls back to the first available dataset in the file.
-4. Placeholders matching `{{card.X}}` are automatically interpolated before validation and transmission.
-5. Placeholders matching `{{context.VariableName}}` are resolved to empty strings since no active scenario session is active.
+2. Placeholders matching `{{data.X}}` are automatically interpolated using a randomly selected item from the respective dataset before validation and transmission.
+3. Placeholders matching `{{context.VariableName}}` are resolved to empty strings since no active scenario session is active.
 
 ---
 

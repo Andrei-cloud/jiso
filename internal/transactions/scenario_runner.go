@@ -2,6 +2,7 @@ package transactions
 
 import (
 	"fmt"
+	"math/rand"
 	"regexp"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 var (
-	cardRegex    = regexp.MustCompile(`\{\{\s*card\.(\w+)\s*\}\}`)
+	dataRegex    = regexp.MustCompile(`\{\{\s*data\.(\w+)\s*\}\}`)
 	contextRegex = regexp.MustCompile(`\{\{\s*context\.(\w+)\s*\}\}`)
 )
 
@@ -44,18 +45,18 @@ type ValidationError struct {
 }
 
 type ScenarioRunner struct {
-	svc          *service.Service
-	tc           *TransactionCollection
-	sessionState map[string]string
-	activeCard   map[string]string
+	svc              *service.Service
+	tc               *TransactionCollection
+	sessionState     map[string]string
+	selectedDatasets map[string]map[string]string
 }
 
 func NewScenarioRunner(svc *service.Service, tc *TransactionCollection) *ScenarioRunner {
 	return &ScenarioRunner{
-		svc:          svc,
-		tc:           tc,
-		sessionState: make(map[string]string),
-		activeCard:   make(map[string]string),
+		svc:              svc,
+		tc:               tc,
+		sessionState:     make(map[string]string),
+		selectedDatasets: make(map[string]map[string]string),
 	}
 }
 
@@ -73,21 +74,9 @@ func (sr *ScenarioRunner) RunScenario(name string) (*TestReport, error) {
 		Steps:        make([]StepResult, 0),
 	}
 
-	// Load active card dataset row if configured
-	if scenario.DatasetName != "" {
-		dataset, err := sr.tc.GetDataset(scenario.DatasetName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load dataset '%s': %w", scenario.DatasetName, err)
-		}
-		if len(dataset.Data) > 0 {
-			// Defaults to first card/record in the pool for this runner instance
-			sr.activeCard = dataset.Data[0]
-		}
-	}
-
 	// Run steps sequentially
 	for _, step := range scenario.Steps {
-		stepResult := sr.runStep(step)
+		stepResult := sr.runStep(step, scenario.DatasetName)
 		report.Steps = append(report.Steps, stepResult)
 		if !stepResult.Success {
 			report.Success = false
@@ -100,7 +89,39 @@ func (sr *ScenarioRunner) RunScenario(name string) (*TestReport, error) {
 	return report, nil
 }
 
-func (sr *ScenarioRunner) runStep(step ScenarioStep) StepResult {
+func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string) StepResult {
+	// Re-initialize selectedDatasets map on every step run to ensure random selection per step
+	sr.selectedDatasets = make(map[string]map[string]string)
+
+	// Resolve dataset name for this step
+	var datasetName string
+	if step.UseTransactionId != "" {
+		if t, err := sr.tc.findTransaction(step.UseTransactionId); err == nil {
+			datasetName = t.DatasetName
+		}
+	}
+	if datasetName == "" {
+		datasetName = scenarioDatasetName
+	}
+	if datasetName == "" && len(sr.tc.datasets) > 0 {
+		if _, ok := sr.tc.datasets["card_pool"]; ok {
+			datasetName = "card_pool"
+		} else {
+			for name := range sr.tc.datasets {
+				datasetName = name
+				break
+			}
+		}
+	}
+
+	if datasetName != "" {
+		dataset, err := sr.tc.GetDataset(datasetName)
+		if err == nil && len(dataset.Data) > 0 {
+			randomIndex := rand.Intn(len(dataset.Data))
+			sr.selectedDatasets[datasetName] = dataset.Data[randomIndex]
+		}
+	}
+
 	result := StepResult{
 		StepName: step.Name,
 		Success:  true,
@@ -157,7 +178,7 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep) StepResult {
 			} else if val == "random" {
 				sr.tc.handleAutoFields(fieldID, reqMsg)
 			} else {
-				interpolated := sr.injectVariables(val)
+				interpolated := sr.injectVariables(val, datasetName)
 				reqMsg.Field(fieldID, interpolated)
 			}
 		case float64:
@@ -256,7 +277,7 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep) StepResult {
 
 		// Exact match assertion
 		if assertion.Expect != "" {
-			expectedInterp := sr.injectVariables(assertion.Expect)
+			expectedInterp := sr.injectVariables(assertion.Expect, datasetName)
 			if actualValue != expectedInterp {
 				result.Success = false
 				valErr := ValidationError{
@@ -272,7 +293,7 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep) StepResult {
 
 		// Regex match assertion
 		if assertion.Regex != "" {
-			regexInterp := sr.injectVariables(assertion.Regex)
+			regexInterp := sr.injectVariables(assertion.Regex, datasetName)
 			re, err := regexp.Compile(regexInterp)
 			if err != nil {
 				result.Success = false
@@ -317,13 +338,29 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep) StepResult {
 	return result
 }
 
-func (sr *ScenarioRunner) injectVariables(val string) string {
-	val = cardRegex.ReplaceAllStringFunc(val, func(m string) string {
-		match := cardRegex.FindStringSubmatch(m)
+func (sr *ScenarioRunner) injectVariables(val string, datasetName string) string {
+	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
+		match := dataRegex.FindStringSubmatch(m)
 		if len(match) > 1 {
 			key := match[1]
-			if v, ok := sr.activeCard[key]; ok {
-				return v
+
+			// Check if we already have selected an item for this dataset
+			selectedRow, ok := sr.selectedDatasets[datasetName]
+			if !ok && datasetName != "" {
+				// Retrieve dataset and choose a random row
+				dataset, err := sr.tc.GetDataset(datasetName)
+				if err == nil && len(dataset.Data) > 0 {
+					randomIndex := rand.Intn(len(dataset.Data))
+					selectedRow = dataset.Data[randomIndex]
+					sr.selectedDatasets[datasetName] = selectedRow
+					ok = true
+				}
+			}
+
+			if ok {
+				if v, exist := selectedRow[key]; exist {
+					return v
+				}
 			}
 		}
 		return m

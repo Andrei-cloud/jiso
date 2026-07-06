@@ -12,9 +12,11 @@ import (
 
 func TestInjectVariables(t *testing.T) {
 	runner := &ScenarioRunner{
-		activeCard: map[string]string{
-			"2":  "1234567890123456",
-			"14": "2512",
+		selectedDatasets: map[string]map[string]string{
+			"card_pool": {
+				"2":  "1234567890123456",
+				"14": "2512",
+			},
 		},
 		sessionState: map[string]string{
 			"AuthId": "998877",
@@ -26,11 +28,11 @@ func TestInjectVariables(t *testing.T) {
 		expected string
 	}{
 		{
-			input:    "PAN: {{card.2}}",
+			input:    "PAN: {{data.2}}",
 			expected: "PAN: 1234567890123456",
 		},
 		{
-			input:    "EXP: {{card.14}}",
+			input:    "EXP: {{data.14}}",
 			expected: "EXP: 2512",
 		},
 		{
@@ -38,7 +40,7 @@ func TestInjectVariables(t *testing.T) {
 			expected: "AUTH: 998877",
 		},
 		{
-			input:    "Combined: {{card.2}} - {{context.AuthId}}",
+			input:    "Combined: {{data.2}} - {{context.AuthId}}",
 			expected: "Combined: 1234567890123456 - 998877",
 		},
 		{
@@ -46,13 +48,13 @@ func TestInjectVariables(t *testing.T) {
 			expected: "No variables here",
 		},
 		{
-			input:    "Spaces: {{ card.2 }} and {{ context.AuthId }}",
+			input:    "Spaces: {{ data.2 }} and {{ context.AuthId }}",
 			expected: "Spaces: 1234567890123456 and 998877",
 		},
 	}
 
 	for _, tc := range tests {
-		result := runner.injectVariables(tc.input)
+		result := runner.injectVariables(tc.input, "card_pool")
 		assert.Equal(t, tc.expected, result)
 	}
 }
@@ -273,7 +275,7 @@ func TestComposeInterpolation(t *testing.T) {
 			"dataset_name": "card_pool",
 			"fields": {
 				"0": "0200",
-				"2": "{{card.2}}"
+				"2": "{{data.2}}"
 			}
 		},
 		{
@@ -323,5 +325,64 @@ func TestComposeInterpolation(t *testing.T) {
 
 	valRaw, err := msgRaw.GetField(2).String()
 	assert.NoError(t, err)
-	assert.Equal(t, "{{card.2}}", valRaw)
+	assert.Equal(t, "{{data.2}}", valRaw)
 }
+
+func TestComposeInterpolationRandom(t *testing.T) {
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "Purchase Template",
+			"description": "Purchase transaction with placeholders",
+			"dataset_name": "card_pool",
+			"fields": {
+				"0": "0200",
+				"2": "{{data.2}}"
+			}
+		},
+		{
+			"type": "dataset",
+			"name": "card_pool",
+			"data": [
+				{"2": "1111"},
+				{"2": "2222"},
+				{"2": "3333"},
+				{"2": "4444"},
+				{"2": "5555"}
+			]
+		}
+	]`
+
+	tmpFile, err := os.CreateTemp("", "test_compose_random.json")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(configData)
+	if err != nil {
+		t.Fatalf("failed to write data: %v", err)
+	}
+	tmpFile.Close()
+
+	spec := iso8583.Spec87
+	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
+	if err != nil {
+		t.Fatalf("failed to load transaction collection: %v", err)
+	}
+
+	seen := make(map[string]bool)
+	for i := 0; i < 50; i++ {
+		msg, err := tc.Compose("Purchase Template")
+		if err != nil {
+			t.Fatalf("failed to compose: %v", err)
+		}
+		val, err := msg.GetField(2).String()
+		assert.NoError(t, err)
+		seen[val] = true
+	}
+
+	// Verify that we saw multiple different randomly-selected values
+	assert.Greater(t, len(seen), 1, "Should select different items randomly across 50 invocations")
+}
+
