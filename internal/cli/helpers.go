@@ -139,6 +139,12 @@ func (cli *CLI) processCommand(line string) bool {
 				} else {
 					itc.OutputPath = ""
 				}
+			} else if dbsc, ok := command.(*cmd.DbStatsCommand); ok {
+				if len(parts) > 1 {
+					dbsc.SessionID = parts[1]
+				} else {
+					dbsc.SessionID = ""
+				}
 			}
 
 			if err := command.Execute(); err != nil {

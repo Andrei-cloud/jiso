@@ -339,7 +339,7 @@ func (c *SendCommand) StartClock() {
 	c.stats.StartClock()
 }
 
-func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (string, time.Duration, error) {
+func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, sessionID string) (string, time.Duration, error) {
 	// Check connection health before attempting to send
 	if !c.Svc.IsConnected() {
 		// Log the issue but don't fail the transaction - allow worker to continue
@@ -376,6 +376,11 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (s
 		}
 	}
 
+	logSessionID := sessionID
+	if logSessionID == "" {
+		logSessionID = config.GetConfig().GetSessionId()
+	}
+
 	executionStart := time.Now()
 	responseChan, err := c.Svc.SendAsync(msg, trxnName)
 	if err != nil {
@@ -386,7 +391,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (s
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
 			db.LogTransaction(
-				config.GetConfig().GetSessionId(),
+				logSessionID,
 				trxnName,
 				requestJSON,
 				nil, // No response
@@ -414,7 +419,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (s
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
 			db.LogTransaction(
-				config.GetConfig().GetSessionId(),
+				logSessionID,
 				trxnName,
 				requestJSON,
 				nil, // No response
@@ -461,7 +466,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (s
 			responseJSON, _ := db.MessageToJSON(resp)
 			mappedResponseJSON := &responseJSON
 			db.LogTransaction(
-				config.GetConfig().GetSessionId(),
+				logSessionID,
 				trxnName,
 				requestJSON,
 				mappedResponseJSON,
@@ -486,7 +491,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (s
 		if config.GetConfig().GetDbPath() != "" {
 			requestJSON, _ := db.MessageToJSON(msg)
 			db.LogTransaction(
-				config.GetConfig().GetSessionId(),
+				logSessionID,
 				trxnName,
 				requestJSON,
 				nil, // No valid response
@@ -507,7 +512,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool) (s
 		responseJSON, _ := db.MessageToJSON(resp)
 		mappedResponseJSON := &responseJSON
 		db.LogTransaction(
-			config.GetConfig().GetSessionId(),
+			logSessionID,
 			trxnName,
 			requestJSON,
 			mappedResponseJSON,

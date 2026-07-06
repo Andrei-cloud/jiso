@@ -175,6 +175,59 @@ func TestStressTestWorkerParallel(t *testing.T) {
 	}
 }
 
+func TestStressTestWorkerSessionID(t *testing.T) {
+	cli := NewCLI()
+
+	// Create a real send command with nil dependencies for testing
+	sendCmd := &command.SendCommand{}
+	cli.commands["send"] = sendCmd
+
+	// Start two stress test workers
+	workerID1, err := cli.StartStressTestWorker(
+		[]string{"test-transaction-1"},
+		10,
+		10*time.Millisecond,
+		10*time.Millisecond,
+		1,
+	)
+	if err != nil {
+		t.Fatalf("Failed to start worker 1: %v", err)
+	}
+	defer cli.StopWorker(workerID1)
+
+	workerID2, err := cli.StartStressTestWorker(
+		[]string{"test-transaction-2"},
+		10,
+		10*time.Millisecond,
+		10*time.Millisecond,
+		1,
+	)
+	if err != nil {
+		t.Fatalf("Failed to start worker 2: %v", err)
+	}
+	defer cli.StopWorker(workerID2)
+
+	cli.mu.Lock()
+	worker1 := cli.stressWorkers[workerID1]
+	worker2 := cli.stressWorkers[workerID2]
+	cli.mu.Unlock()
+
+	if worker1 == nil || worker2 == nil {
+		t.Fatalf("Workers not found in map")
+	}
+
+	if worker1.sessionID == "" {
+		t.Errorf("Worker 1 sessionID is empty")
+	}
+	if worker2.sessionID == "" {
+		t.Errorf("Worker 2 sessionID is empty")
+	}
+
+	if worker1.sessionID == worker2.sessionID {
+		t.Errorf("Workers share the same sessionID: %s", worker1.sessionID)
+	}
+}
+
 
 func TestStopAllWorkersCleanup(t *testing.T) {
 	cli := NewCLI()

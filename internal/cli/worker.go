@@ -28,6 +28,7 @@ type txStats struct {
 // stressTestWorker holds the state of a stress test worker
 type stressTestWorker struct {
 	id                  string
+	sessionID           string
 	names               []string
 	targetTps           int
 	rampUpDuration      time.Duration
@@ -194,7 +195,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				go func(txName string) {
 					defer w.requestsWg.Done()
 
-					rcStr, execTime, err := sendCmd.ExecuteBackground(txName, true)
+					rcStr, execTime, err := sendCmd.ExecuteBackground(txName, true, w.sessionID)
 
 					w.mu.Lock()
 					if err == nil {
@@ -494,6 +495,7 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	fmt.Println("\n================================================================================")
 	fmt.Printf("                          STRESS TEST SUMMARY - Worker %s\n", w.id)
 	fmt.Println("================================================================================")
+	fmt.Printf("Session ID:             %s\n", w.sessionID)
 	fmt.Printf("Start Time:             %s\n", startTimeCopy.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("End Time:               %s\n", endTimeCopy.Format("2006-01-02 15:04:05 MST"))
 	fmt.Printf("Selected Transactions:  %s\n", strings.Join(namesCopy, ", "))
@@ -708,7 +710,7 @@ func (cli *CLI) StartWorker(name string, count int, interval time.Duration) (str
 			select {
 			case <-ticker.C:
 				for i := 0; i < count; i++ {
-					_, _, err := sendCmd.ExecuteBackground(name, false)
+					_, _, err := sendCmd.ExecuteBackground(name, false, "")
 					worker.mu.Lock()
 					if err == nil {
 						worker.successful++
@@ -752,6 +754,7 @@ func (cli *CLI) StartStressTestWorker(
 ) (string, error) {
 	// Generate a unique ID for the worker
 	workerID := uuid.New().String()[:8]
+	sessionID := uuid.New().String()
 
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -800,6 +803,7 @@ func (cli *CLI) StartStressTestWorker(
 	// Create a new stress test worker state
 	worker := &stressTestWorker{
 		id:                 workerID,
+		sessionID:          sessionID,
 		names:              names,
 		targetTps:          targetTps,
 		rampUpDuration:     rampUpDuration,

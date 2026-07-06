@@ -8,7 +8,9 @@ import (
 	"jiso/internal/db"
 )
 
-type DbStatsCommand struct{}
+type DbStatsCommand struct {
+	SessionID string
+}
 
 func (c *DbStatsCommand) Name() string {
 	return "dbstats"
@@ -24,7 +26,10 @@ func (c *DbStatsCommand) Execute() error {
 		return fmt.Errorf("database not configured (use --db-path flag)")
 	}
 
-	sessionID := config.GetConfig().GetSessionId()
+	sessionID := c.SessionID
+	if sessionID == "" {
+		sessionID = config.GetConfig().GetSessionId()
+	}
 	if sessionID == "" {
 		return fmt.Errorf("session ID not available")
 	}
