@@ -1,0 +1,735 @@
+{
+    "name": "ISO8583_FLEX",
+    "fields": {
+        "0": {
+            "type": "String",
+            "length": 4,
+            "description": "Message Type Indicator",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "1": {
+            "type": "Bitmap",
+            "length": 8,
+            "description": "Bitmap",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        },
+        "2": {
+            "type": "String",
+            "length": 19,
+            "description": "Primary Account Number",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "3": {
+            "type": "String",
+            "length": 6,
+            "description": "Processing Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "4": {
+            "type": "String",
+            "length": 12,
+            "description": "Transaction Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "5": {
+            "type": "String",
+            "length": 12,
+            "description": "Settlement Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "6": {
+            "type": "String",
+            "length": 12,
+            "description": "Billing Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "7": {
+            "type": "String",
+            "length": 10,
+            "description": "Transmission Date \u0026 Time",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "8": {
+            "type": "String",
+            "length": 8,
+            "description": "Billing Fee Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "9": {
+            "type": "String",
+            "length": 8,
+            "description": "Settlement Conversion Rate",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "10": {
+            "type": "String",
+            "length": 8,
+            "description": "Cardholder Billing Conversion Rate",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "11": {
+            "type": "String",
+            "length": 6,
+            "description": "Systems Trace Audit Number (STAN)",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "12": {
+            "type": "String",
+            "length": 6,
+            "description": "Local Transaction Time",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "13": {
+            "type": "String",
+            "length": 4,
+            "description": "Local Transaction Date",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "14": {
+            "type": "String",
+            "length": 4,
+            "description": "Expiration Date",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "15": {
+            "type": "String",
+            "length": 4,
+            "description": "Settlement Date",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "16": {
+            "type": "String",
+            "length": 4,
+            "description": "Conversion Date",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "17": {
+            "type": "String",
+            "length": 4,
+            "description": "Capture Date",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "18": {
+            "type": "String",
+            "length": 4,
+            "description": "Merchant Type",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "19": {
+            "type": "String",
+            "length": 3,
+            "description": "Acquiring Institution Country Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "20": {
+            "type": "String",
+            "length": 3,
+            "description": "PAN Extended Country Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "21": {
+            "type": "String",
+            "length": 3,
+            "description": "Forwarding Institution Country Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "22": {
+            "type": "String",
+            "length": 4,
+            "description": "Point of Sale (POS) Entry Mode",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "23": {
+            "type": "String",
+            "length": 3,
+            "description": "Card Sequence Number (CSN)",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "24": {
+            "type": "String",
+            "length": 3,
+            "description": "Network International Identifier",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "25": {
+            "type": "String",
+            "length": 2,
+            "description": "Point of Service Condition Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "26": {
+            "type": "Numeric",
+            "length": 2,
+            "description": "PIN Length",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "27": {
+            "type": "Numeric",
+            "length": 1,
+            "description": "Authorizing ID Response Length",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "28": {
+            "type": "String",
+            "length": 9,
+            "description": "Transaction Fee Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "29": {
+            "type": "String",
+            "length": 9,
+            "description": "Settlement Fee Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "30": {
+            "type": "String",
+            "length": 9,
+            "description": "Original Transaction Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "32": {
+            "type": "String",
+            "length": 11,
+            "description": "Acquiring Institution Identification Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "33": {
+            "type": "String",
+            "length": 12,
+            "description": "Forwarding Institution Identification Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "34": {
+            "type": "Binary",
+            "length": 28,
+            "description": "Primary Account Number Extended",
+            "enc": "Binary",
+            "prefix": "Binary.L"
+        },
+        "36": {
+            "type": "String",
+            "length": 26,
+            "description": "Merchant POS Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "37": {
+            "type": "String",
+            "length": 12,
+            "description": "Retrieval Reference Number",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "38": {
+            "type": "String",
+            "length": 6,
+            "description": "Authorization Identification Response",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "39": {
+            "type": "String",
+            "length": 2,
+            "description": "Response Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "40": {
+            "type": "String",
+            "length": 3,
+            "description": "Service Restriction Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "41": {
+            "type": "String",
+            "length": 8,
+            "description": "Card Acceptor Terminal Identification",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "42": {
+            "type": "String",
+            "length": 15,
+            "description": "Card Acceptor Identification Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "43": {
+            "type": "String",
+            "length": 40,
+            "description": "Card Acceptor Name/Location",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "44": {
+            "type": "String",
+            "length": 25,
+            "description": "Additional Response Data",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "45": {
+            "type": "String",
+            "length": 76,
+            "description": "Track 1 Data",
+            "enc": "ASCII",
+            "prefix": "ASCII.LLL"
+        },
+        "48": {
+            "type": "String",
+            "length": 255,
+            "description": "Additional data (Private)",
+            "enc": "ASCII",
+            "prefix": "ASCII.LLL"
+        },
+        "49": {
+            "type": "String",
+            "length": 3,
+            "description": "Transaction Currency Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "50": {
+            "type": "String",
+            "length": 3,
+            "description": "Settlement Currency Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "51": {
+            "type": "String",
+            "length": 3,
+            "description": "Cardholder Billing Currency Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "52": {
+            "type": "String",
+            "length": 8,
+            "description": "PIN Data",
+            "enc": "HexToASCII",
+            "prefix": "Hex.Fixed"
+        },
+        "53": {
+            "type": "String",
+            "length": 16,
+            "description": "Security Related Control Information",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "54": {
+            "type": "String",
+            "length": 120,
+            "description": "Additional Amounts",
+            "enc": "ASCII",
+            "prefix": "ASCII.LLL"
+        },
+        "56": {
+            "type": "String",
+            "length": 35,
+            "description": "Transaction ID",
+            "enc": "ASCII",
+            "prefix": "Binary.L"
+        },
+        "59": {
+            "type": "String",
+            "length": 14,
+            "description": "Postal Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "60": {
+            "type": "String",
+            "length": 14,
+            "description": "POS Capture Data",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "61": {
+            "type": "Binary",
+            "length": 18,
+            "description": "Other Amounts",
+            "enc": "Binary",
+            "prefix": "Binary.L"
+        },
+        "63": {
+            "type": "String",
+            "length": 50,
+            "description": "BNET Data",
+            "enc": "ASCII",
+            "prefix": "Binary.L"
+        },
+        "64": {
+            "type": "String",
+            "length": 8,
+            "description": "MAC",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "66": {
+            "type": "String",
+            "length": 1,
+            "description": "Settlement Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "67": {
+            "type": "Numeric",
+            "length": 2,
+            "description": "Extended Payment Code",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "68": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Receiving Institution Country Code",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "69": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Settlement Institution Country Code",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "70": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Network Management Information Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "71": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Message Number",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "73": {
+            "type": "String",
+            "length": 6,
+            "description": "Action Date",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "74": {
+            "type": "String",
+            "length": 10,
+            "description": "Number Credits",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "75": {
+            "type": "String",
+            "length": 10,
+            "description": "Reversal Number Credits",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "76": {
+            "type": "String",
+            "length": 10,
+            "description": "Number Debits",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "77": {
+            "type": "String",
+            "length": 10,
+            "description": "Reversal Number Debits",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "78": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Number Transfers",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "79": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Reversal Number Transfers",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "80": {
+            "type": "String",
+            "length": 10,
+            "description": "Number Inquiries",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "81": {
+            "type": "String",
+            "length": 10,
+            "description": "Number Authorizations",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "82": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Credit Processing Fee Amount",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "83": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Credit Transaction Fee Amount",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "84": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Debit Processing Fee Amount",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "85": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Debit Transaction Fee Amount",
+            "enc": "BCD",
+            "prefix": "BCD.Fixed"
+        },
+        "86": {
+            "type": "String",
+            "length": 16,
+            "description": "Credit Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "87": {
+            "type": "String",
+            "length": 16,
+            "description": "Credit Reversal Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "88": {
+            "type": "String",
+            "length": 16,
+            "description": "Debit Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "89": {
+            "type": "String",
+            "length": 16,
+            "description": "Debit Reversal Amount",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "90": {
+            "type": "String",
+            "length": 42,
+            "description": "Original Data",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "91": {
+            "type": "String",
+            "length": 1,
+            "description": "File Update Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "92": {
+            "type": "String",
+            "length": 2,
+            "description": "File Security",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "93": {
+            "type": "String",
+            "length": 4,
+            "description": "Response Indicator",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "94": {
+            "type": "String",
+            "length": 2,
+            "description": "Service indicator",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "95": {
+            "type": "String",
+            "length": 42,
+            "description": "Replacement Amounts",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "96": {
+            "type": "String",
+            "length": 8,
+            "description": "Message Security Code",
+            "enc": "HexToASCII",
+            "prefix": "Hex.Fixed"
+        },
+        "97": {
+            "type": "String",
+            "length": 17,
+            "description": "Amount Net Settlement",
+            "enc": "ASCII",
+            "prefix": "ASCII.Fixed"
+        },
+        "98": {
+            "type": "String",
+            "length": 25,
+            "description": "Payee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "99": {
+            "type": "String",
+            "length": 11,
+            "description": "Settlement Institution ID Code",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "100": {
+            "type": "String",
+            "length": 11,
+            "description": "Receiving Institution",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "101": {
+            "type": "String",
+            "length": 17,
+            "description": "File Name",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "102": {
+            "type": "String",
+            "length": 28,
+            "description": "From Account Number",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "103": {
+            "type": "String",
+            "length": 28,
+            "description": "To Account Number",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "104": {
+            "type": "String",
+            "length": 100,
+            "description": "Transaction Specific Data",
+            "enc": "EBCDIC",
+            "prefix": "Binary.L"
+        },
+        "117": {
+            "type": "String",
+            "length": 120,
+            "description": "National Use",
+            "enc": "ASCII",
+            "prefix": "ASCII.LL"
+        },
+        "120": {
+            "type": "String",
+            "length": 999,
+            "description": "Transaction Specific Data",
+            "enc": "ASCII",
+            "prefix": "ASCII.LLL"
+        },
+        "121": {
+            "type": "String",
+            "length": 11,
+            "description": "Issuer Institution ID Code",
+            "enc": "EBCDIC",
+            "prefix": "Binary.L"
+        },
+        "122": {
+            "type": "String",
+            "length": 13,
+            "description": "Remaining Open-To-Use",
+            "enc": "EBCDIC",
+            "prefix": "Binary.L"
+        },
+        "123": {
+            "type": "String",
+            "length": 29,
+            "description": "Address Verification",
+            "enc": "EBCDIC",
+            "prefix": "Binary.L"
+        },
+        "124": {
+            "type": "String",
+            "length": 7,
+            "description": "Field 124",
+            "enc": "EBCDIC",
+            "prefix": "Binary.L"
+        },
+        "127": {
+            "type": "String",
+            "length": 255,
+            "description": "File Record",
+            "enc": "ASCII",
+            "prefix": "ASCII.LLL"
+        }
+    }
+}
