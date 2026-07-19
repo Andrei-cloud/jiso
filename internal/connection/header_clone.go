@@ -14,13 +14,16 @@ func cloneHeader(h network.Header) network.Header {
 	}
 
 	// Try to handle known types
-	switch h.(type) {
+	switch h := h.(type) {
 	case *utils.Binary2BytesAdapter:
 		return utils.NewBinary2BytesAdapter()
 	case *network.ASCII4BytesHeader:
 		return network.NewASCII4BytesHeader()
 	case *network.BCD2BytesHeader:
 		return network.NewBCD2BytesHeader()
+	case *utils.VisaHeader:
+		cloned, _ := utils.NewVisaHeader(h.RawStationID())
+		return cloned
 	}
 
 	// For unknown types, we return the original.

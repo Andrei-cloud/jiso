@@ -402,7 +402,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 	if subcommand == "run-scenario" {
 		fs := flag.NewFlagSet("run-scenario", flag.ContinueOnError)
 		reportPath := fs.String("report", "", "Path to export the test report JSON")
-		lengthType := fs.String("length", "ascii4", "Connection length type (ascii4, binary2, bcd2, NAPS)")
+		lengthType := fs.String("length", "ascii4", "Connection length type (ascii4, binary2, bcd2, NAPS, visa)")
 		if err := fs.Parse(args); err != nil {
 			return err
 		}

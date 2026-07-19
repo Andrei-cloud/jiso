@@ -23,6 +23,7 @@ type Config struct {
 	hex                 bool
 	dbPath              string
 	sessionId           string
+	visaStationId       string
 	mu                  sync.RWMutex
 }
 
@@ -69,6 +70,7 @@ func (c *Config) Parse() error {
 	)
 	hex := flag.Bool("hex", false, "enable hex dump output for messages")
 	dbPath := flag.String("db-path", "", "path to SQLite database file for storing sessions")
+	visaStationId := flag.String("visa-station-id", "", "VISA Local Station ID (6-digit hex or decimal)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: jiso [OPTIONS]\n")
@@ -88,6 +90,7 @@ func (c *Config) Parse() error {
 	c.file = *file
 	c.hex = *hex
 	c.dbPath = *dbPath
+	c.visaStationId = *visaStationId
 	c.sessionId = generateSessionId()
 
 	return nil
@@ -208,6 +211,18 @@ func (c *Config) GetSessionId() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.sessionId
+}
+
+func (c *Config) GetVisaStationId() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.visaStationId
+}
+
+func (c *Config) SetVisaStationId(stationId string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.visaStationId = stationId
 }
 
 func (c *Config) Validate() error {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	"jiso/internal/config"
+
 	connection "github.com/moov-io/iso8583-connection"
 	"github.com/moov-io/iso8583/network"
 )
@@ -28,6 +30,12 @@ func SelectLength(lenType string) (network.Header, error) {
 		return NewBinary2BytesAdapter(), nil
 	case "bcd2":
 		return network.NewBCD2BytesHeader(), nil
+	case "visa":
+		stationID := config.GetConfig().GetVisaStationId()
+		if stationID == "" {
+			return nil, fmt.Errorf("local station ID is required when visa length type is selected")
+		}
+		return NewVisaHeader(stationID)
 	default:
 		return nil, fmt.Errorf("unknown length type: %s", lenType)
 	}

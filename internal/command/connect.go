@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"jiso/internal/config"
 	"jiso/internal/utils"
 
 	"jiso/internal/service"
@@ -32,7 +33,7 @@ func (c *ConnectCommand) Execute() error {
 			Name: "length",
 			Prompt: &survey.Select{
 				Message: "Select length type:",
-				Options: []string{"ascii4", "binary2", "bcd2", "NAPS"},
+				Options: []string{"ascii4", "binary2", "bcd2", "NAPS", "visa"},
 			},
 			Validate: func(ans interface{}) error {
 				validTypes := map[string]bool{
@@ -40,6 +41,7 @@ func (c *ConnectCommand) Execute() error {
 					"binary2": true,
 					"bcd2":    true,
 					"NAPS":    true,
+					"visa":    true,
 				}
 
 				// Properly handle the response type
@@ -73,6 +75,28 @@ func (c *ConnectCommand) Execute() error {
 	err := survey.Ask(qs, &answers)
 	if err != nil {
 		return err
+	}
+
+	if answers.Length == "visa" {
+		var stationID string
+		stationPrompt := &survey.Input{
+			Message: "Enter Local Station ID (6-digit hex or decimal):",
+		}
+		err = survey.AskOne(stationPrompt, &stationID, survey.WithValidator(func(val interface{}) error {
+			str, ok := val.(string)
+			if !ok {
+				return errors.New("invalid input type")
+			}
+			_, err := utils.ParseStationID(str)
+			if err != nil {
+				return err
+			}
+			return nil
+		}))
+		if err != nil {
+			return err
+		}
+		config.GetConfig().SetVisaStationId(stationID)
 	}
 
 	header, err := utils.SelectLength(answers.Length)
