@@ -178,6 +178,14 @@ func (f *Factory) CreateSpecCommand() Command {
 	}
 }
 
+// CreateTxCommand creates a tx command
+func (f *Factory) CreateTxCommand() Command {
+	return &TxCommand{
+		Svc:  f.service,
+		Ctrl: f.cliCtrl,
+	}
+}
+
 // CreateServerCommand creates a server command
 func (f *Factory) CreateServerCommand() Command {
 	var spec *iso8583.MessageSpec

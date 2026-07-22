@@ -18,6 +18,7 @@ type CLIController interface {
 	WorkerController
 	ClearTerminal()
 	Reload() error
+	ReloadTransactions(txPath string) error
 	PrintHelp()
 	PrintVersion()
 }

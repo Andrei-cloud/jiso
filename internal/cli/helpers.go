@@ -130,6 +130,12 @@ func (cli *CLI) processCommand(line string) bool {
 		} else {
 			specCmd.SpecPath = ""
 		}
+	} else if txCmd, ok := command.(*cmd.TxCommand); ok {
+		if len(args) > 1 {
+			txCmd.TxPath = args[1]
+		} else {
+			txCmd.TxPath = ""
+		}
 	}
 
 	execErr := command.Execute()

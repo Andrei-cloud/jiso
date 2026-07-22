@@ -23,7 +23,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.8.6"
+var Version string = "v0.8.7"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -117,6 +117,11 @@ func (cli *CLI) registerAllCommands() {
 	specCmd := cli.factory.CreateSpecCommand()
 	cli.commands["spec"] = specCmd
 	cli.commands["use-spec"] = specCmd
+
+	txCmd := cli.factory.CreateTxCommand()
+	cli.commands["tx"] = txCmd
+	cli.commands["use-tx"] = txCmd
+	cli.commands["transaction"] = txCmd
 
 	serverCmd := cli.factory.CreateServerCommand()
 	cli.commands["serve"] = serverCmd
@@ -407,6 +412,32 @@ func (cli *CLI) Reload() error {
 	cli.registerAllCommands()
 
 	fmt.Println("Service reloaded successfully")
+	return nil
+}
+
+// ReloadTransactions reloads the transaction repository with the given transaction file path
+func (cli *CLI) ReloadTransactions(txPath string) error {
+	var spec *iso8583.MessageSpec
+	if cli.svc != nil {
+		spec = cli.svc.GetSpec()
+	}
+	if spec == nil {
+		specPath := cfg.GetConfig().GetSpec()
+		if specPath != "" {
+			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+				spec = s
+			}
+		}
+	}
+
+	tcInstance, err := transactions.NewTransactionCollection(txPath, spec)
+	if err != nil {
+		return fmt.Errorf("failed to load transactions: %w", err)
+	}
+
+	cli.tc = tcInstance
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+	cli.registerAllCommands()
 	return nil
 }
 
