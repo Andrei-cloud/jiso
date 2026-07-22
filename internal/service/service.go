@@ -111,6 +111,14 @@ func (s *Service) GetSpec() *iso8583.MessageSpec {
 	return s.MessageSpec
 }
 
+// SetSpec updates the current ISO8583 message specification
+func (s *Service) SetSpec(spec *iso8583.MessageSpec) {
+	s.MessageSpec = spec
+	if s.connManager != nil {
+		s.connManager.SetSpec(spec)
+	}
+}
+
 // Send sends an ISO8583 message and returns the response
 func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	return s.connManager.Send(msg)

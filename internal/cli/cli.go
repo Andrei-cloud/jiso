@@ -23,7 +23,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.8.5"
+var Version string = "v0.8.6"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -113,6 +113,10 @@ func (cli *CLI) registerAllCommands() {
 	targetCmd := cli.factory.CreateTargetCommand()
 	cli.commands["target"] = targetCmd
 	cli.commands["set"] = targetCmd
+
+	specCmd := cli.factory.CreateSpecCommand()
+	cli.commands["spec"] = specCmd
+	cli.commands["use-spec"] = specCmd
 
 	serverCmd := cli.factory.CreateServerCommand()
 	cli.commands["serve"] = serverCmd

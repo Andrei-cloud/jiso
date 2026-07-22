@@ -171,6 +171,13 @@ func (f *Factory) CreateTargetCommand() Command {
 	return NewTargetCommand(f.clientCfg, f.service)
 }
 
+// CreateSpecCommand creates a spec command
+func (f *Factory) CreateSpecCommand() Command {
+	return &SpecCommand{
+		Svc: f.service,
+	}
+}
+
 // CreateServerCommand creates a server command
 func (f *Factory) CreateServerCommand() Command {
 	var spec *iso8583.MessageSpec

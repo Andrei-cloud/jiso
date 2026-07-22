@@ -259,6 +259,20 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	return nil
 }
 
+// GetSpec returns the current ISO8583 message specification
+func (m *Manager) GetSpec() *iso8583.MessageSpec {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
+	return m.spec
+}
+
+// SetSpec updates the ISO8583 message specification
+func (m *Manager) SetSpec(spec *iso8583.MessageSpec) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	m.spec = spec
+}
+
 // Send sends an ISO8583 message with optional debug logging
 func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	// Connection validation and error handling

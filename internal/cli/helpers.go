@@ -124,6 +124,12 @@ func (cli *CLI) processCommand(line string) bool {
 			}
 			return false
 		}
+	} else if specCmd, ok := command.(*cmd.SpecCommand); ok {
+		if len(args) > 1 {
+			specCmd.SpecPath = args[1]
+		} else {
+			specCmd.SpecPath = ""
+		}
 	}
 
 	execErr := command.Execute()
