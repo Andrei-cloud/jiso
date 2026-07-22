@@ -125,6 +125,14 @@ func (s *Service) SetSpec(spec *iso8583.MessageSpec) {
 	}
 }
 
+// SetTarget updates the target endpoint for the service and its connection manager
+func (s *Service) SetTarget(host, port string) {
+	s.Address = fmt.Sprintf("%s:%s", host, port)
+	if s.connManager != nil {
+		s.connManager.SetAddress(host, port)
+	}
+}
+
 // Send sends an ISO8583 message and returns the response
 func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	return s.connManager.Send(msg)

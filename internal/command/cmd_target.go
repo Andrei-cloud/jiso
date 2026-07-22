@@ -45,11 +45,12 @@ func (tc *TargetCommand) SetTarget(targetAddr string) error {
 	config.GetConfig().SetHost(host)
 	config.GetConfig().SetPort(port)
 
-	if tc.Svc != nil && tc.Svc.IsConnected() {
-		fmt.Printf("Reconnecting to new target %s:%s...\n", host, port)
-		_ = tc.Svc.Disconnect()
-		// Auto-reconnect with new address
-		tc.Svc.Address = fmt.Sprintf("%s:%s", host, port)
+	if tc.Svc != nil {
+		tc.Svc.SetTarget(host, port)
+		if tc.Svc.IsConnected() {
+			fmt.Printf("Reconnecting to new target %s:%s...\n", host, port)
+			_ = tc.Svc.Disconnect()
+		}
 	}
 
 	fmt.Printf("Target updated successfully to: %s:%s\n", host, port)

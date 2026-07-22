@@ -32,6 +32,14 @@ func (c *ConnectCommand) Execute() error {
 		return err
 	}
 
+	if c.Svc != nil {
+		host := config.GetConfig().GetHost()
+		port := config.GetConfig().GetPort()
+		if host != "" && port != "" {
+			c.Svc.SetTarget(host, port)
+		}
+	}
+
 	qs := []*survey.Question{
 		{
 			Name: "length",

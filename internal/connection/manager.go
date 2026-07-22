@@ -353,7 +353,16 @@ func (m *Manager) GetStatus() string {
 
 // GetAddress returns the connection address
 func (m *Manager) GetAddress() string {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
 	return m.address
+}
+
+// SetAddress updates the connection address
+func (m *Manager) SetAddress(host, port string) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	m.address = fmt.Sprintf("%s:%s", host, port)
 }
 
 // Close closes the connection
