@@ -28,6 +28,10 @@ func (c *ConnectCommand) Synopsis() string {
 }
 
 func (c *ConnectCommand) Execute() error {
+	if err := VerifyTarget(); err != nil {
+		return err
+	}
+
 	qs := []*survey.Question{
 		{
 			Name: "length",

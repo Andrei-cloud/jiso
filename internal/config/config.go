@@ -98,6 +98,16 @@ func (c *Config) SetPort(port string) {
 	c.port = port
 }
 
+// Reset clears configuration fields (useful for testing)
+func (c *Config) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.host = ""
+	c.port = ""
+	c.specFileName = ""
+	c.file = ""
+}
+
 func (c *Config) SetSpec(specFileName string) {
 	if specFileName == "" {
 		return

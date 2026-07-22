@@ -22,6 +22,9 @@ func (c *ListCommand) Synopsis() string {
 }
 
 func (c *ListCommand) Execute() error {
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
 	names := c.Tc.ListNames()
 	if len(names) == 0 {
 		fmt.Println("No transactions available")

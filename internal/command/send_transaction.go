@@ -38,9 +38,14 @@ func (c *SendCommand) Synopsis() string {
 }
 
 func (c *SendCommand) Execute() error {
-	// Perform thorough connection checks
-	if c.Svc == nil {
-		return fmt.Errorf("service not initialized")
+	if err := VerifySpec(c.Svc); err != nil {
+		return err
+	}
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
+	if err := VerifyConnection(c.Svc); err != nil {
+		return err
 	}
 
 	if !c.Svc.IsConnected() {
