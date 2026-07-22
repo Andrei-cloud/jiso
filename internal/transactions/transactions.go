@@ -1,7 +1,6 @@
 package transactions
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	cfg "jiso/internal/config"
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
@@ -60,14 +60,21 @@ type Assertion struct {
 }
 
 type ConfigItem struct {
-	Type        string                 `json:"type"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Fields      json.RawMessage        `json:"fields,omitempty"`
-	Dataset     []map[int]string       `json:"dataset,omitempty"`
-	Data        []map[string]string    `json:"data,omitempty"`
-	DatasetName string                 `json:"dataset_name,omitempty"`
-	Steps       []ScenarioStep         `json:"steps,omitempty"`
+	Type           string              `json:"type"`
+	Name           string              `json:"name"`
+	Description    string              `json:"description"`
+	Fields         json.RawMessage     `json:"fields,omitempty"`
+	Dataset        []map[int]string    `json:"dataset,omitempty"`
+	Data           []map[string]string `json:"data,omitempty"`
+	DatasetName    string              `json:"dataset_name,omitempty"`
+	Steps          []ScenarioStep      `json:"steps,omitempty"`
+	MatchMTI       string              `json:"match_mti,omitempty"`
+	MatchDE3       string              `json:"match_de3,omitempty"`
+	EchoFields     []int               `json:"echo_fields,omitempty"`
+	ResponseMTI    string              `json:"response_mti,omitempty"`
+	ResponseFields map[string]string   `json:"response_fields,omitempty"`
+	DelayMs        int                 `json:"delay_ms,omitempty"`
+	DropConnection bool                `json:"drop_connection,omitempty"`
 }
 
 // TransactionState stores information about transaction state
@@ -91,12 +98,21 @@ type TransactionCollection struct {
 	datasets     map[string]*Dataset
 	scenarios    map[string]*Scenario
 
+	mockRoutes   []cfg.MockRouteConfig
+
 	// State management
 	state         TransactionState
 	stateLock     sync.RWMutex
 	saveLock      sync.Mutex // Protects against concurrent saves
 	persistDir    string
 	lastSavedUnix int64
+}
+
+func (tc *TransactionCollection) GetMockRoutes() []cfg.MockRouteConfig {
+	if tc == nil {
+		return nil
+	}
+	return tc.mockRoutes
 }
 
 func NewTransactionCollection(
@@ -138,6 +154,7 @@ func NewTransactionCollection(
 		cache:        make(map[string]*Transaction),
 		datasets:     make(map[string]*Dataset),
 		scenarios:    make(map[string]*Scenario),
+		mockRoutes:   make([]cfg.MockRouteConfig, 0),
 		state: TransactionState{
 			LastUsedDataset: make(map[string]int),
 			TransactionLogs: make([]TransactionLog, 0, 100),
@@ -168,6 +185,18 @@ func NewTransactionCollection(
 				Steps:       item.Steps,
 			}
 			tc.scenarios[item.Name] = &s
+		} else if item.Type == "mock_route" {
+			r := cfg.MockRouteConfig{
+				Name:           item.Name,
+				MatchMTI:       item.MatchMTI,
+				MatchDE3:       item.MatchDE3,
+				EchoFields:     item.EchoFields,
+				ResponseMTI:    item.ResponseMTI,
+				ResponseFields: item.ResponseFields,
+				DelayMs:        item.DelayMs,
+				DropConnection: item.DropConnection,
+			}
+			tc.mockRoutes = append(tc.mockRoutes, r)
 		}
 	}
 
@@ -491,6 +520,20 @@ func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transac
 	return nil
 }
 
+func isReservedAutoKeyword(v []byte) bool {
+	return isReservedAutoKeywordString(string(v))
+}
+
+func isReservedAutoKeywordString(s string) bool {
+	cleanVal := strings.TrimSpace(strings.ToLower(s))
+	switch cleanVal {
+	case "auto", "$auto", "stan", "$stan", "gen_stan", "rrn", "$rrn", "gen_rrn", "datetime", "$datetime", "date", "time", "random", "$random":
+		return true
+	default:
+		return false
+	}
+}
+
 func (tc *TransactionCollection) setAutoFields(
 	msg *iso8583.Message,
 	fieldMap map[int]interface{},
@@ -503,11 +546,13 @@ func (tc *TransactionCollection) setAutoFields(
 
 		switch v := v.(type) {
 		case string:
-			switch v {
-			case "auto":
-				tc.handleAutoFields(i, msg)
-			case "random":
-				tc.handleRandomFields(msg, t)
+			cleanVal := strings.TrimSpace(strings.ToLower(v))
+			if isReservedAutoKeywordString(cleanVal) {
+				if cleanVal == "random" || cleanVal == "$random" {
+					tc.handleRandomFields(msg, t)
+				} else {
+					tc.handleAutoFieldsWithKeyword(i, msg, cleanVal)
+				}
 			}
 		}
 	}
@@ -516,12 +561,36 @@ func (tc *TransactionCollection) setAutoFields(
 func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, dummyMsg *iso8583.Message) {
 	for i, f := range dummyMsg.GetFields() {
 		if v, err := f.Bytes(); err == nil {
-			// Skip fields with value "auto" or "random" as they are handled separately
-			if !bytes.Equal(v, []byte("auto")) && !bytes.Equal(v, []byte("random")) {
+			// Skip fields with reserved auto keywords as they are handled dynamically
+			if !isReservedAutoKeyword(v) {
 				msg.BinaryField(i, v)
 			}
 		}
 	}
+}
+
+func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583.Message, keyword string) {
+	cleanKey := strings.TrimSpace(strings.ToLower(keyword))
+	switch cleanKey {
+	case "stan", "$stan", "gen_stan":
+		msg.Field(i, utils.GetCounter().GetStan())
+		return
+	case "rrn", "$rrn", "gen_rrn":
+		msg.Field(i, utils.GetRRNInstance().GetRRN())
+		return
+	case "datetime", "$datetime":
+		msg.Field(i, utils.GetTrxnDateTime())
+		return
+	case "date":
+		msg.Field(i, time.Now().Format("0102"))
+		return
+	case "time":
+		msg.Field(i, time.Now().Format("150405"))
+		return
+	}
+
+	// Default auto logic
+	tc.handleAutoFields(i, msg)
 }
 
 func (tc *TransactionCollection) handleAutoFields(i int, msg *iso8583.Message) {

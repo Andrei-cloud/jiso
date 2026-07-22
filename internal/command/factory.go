@@ -1,9 +1,13 @@
 package command
 
 import (
+	"jiso/internal/client"
+	"jiso/internal/config"
 	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+
+	"github.com/moov-io/iso8583"
 )
 
 // Factory creates commands with properly injected dependencies
@@ -12,6 +16,8 @@ type Factory struct {
 	transactions transactions.Repository
 	networkStats *metrics.NetworkingStats
 	controller   WorkerController
+	cliCtrl      CLIController
+	clientCfg    *client.ClientConfig
 }
 
 // NewFactory creates a new command factory
@@ -21,11 +27,17 @@ func NewFactory(
 	networkStats *metrics.NetworkingStats,
 	controller WorkerController,
 ) *Factory {
+	var cliCtrl CLIController
+	if cc, ok := controller.(CLIController); ok {
+		cliCtrl = cc
+	}
 	return &Factory{
 		service:      svc,
 		transactions: tx,
 		networkStats: networkStats,
 		controller:   controller,
+		cliCtrl:      cliCtrl,
+		clientCfg:    client.NewClientConfig(config.GetConfig().GetHost(), config.GetConfig().GetPort(), nil),
 	}
 }
 
@@ -112,4 +124,63 @@ func (f *Factory) CreateInitSpecCommand() Command {
 // CreateInitTxCommand creates an init-tx command
 func (f *Factory) CreateInitTxCommand() Command {
 	return &InitTxCommand{}
+}
+
+// CreateHelpCommand creates a help command
+func (f *Factory) CreateHelpCommand() Command {
+	return &HelpCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateVersionCommand creates a version command
+func (f *Factory) CreateVersionCommand() Command {
+	return &VersionCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateClearCommand creates a clear command
+func (f *Factory) CreateClearCommand() Command {
+	return &ClearCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateExitCommand creates an exit command
+func (f *Factory) CreateExitCommand() Command {
+	return &ExitCommand{}
+}
+
+// CreateStatsCommand creates a stats command
+func (f *Factory) CreateStatsCommand() Command {
+	return &StatsCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateStopAllCommand creates a stop-all command
+func (f *Factory) CreateStopAllCommand() Command {
+	return &StopAllCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateStopCommand creates a stop command
+func (f *Factory) CreateStopCommand() Command {
+	return &StopCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateReloadCommand creates a reload command
+func (f *Factory) CreateReloadCommand() Command {
+	return &ReloadCommand{Ctrl: f.cliCtrl}
+}
+
+// CreateTargetCommand creates a target command
+func (f *Factory) CreateTargetCommand() Command {
+	return NewTargetCommand(f.clientCfg, f.service)
+}
+
+// CreateServerCommand creates a server command
+func (f *Factory) CreateServerCommand() Command {
+	var spec *iso8583.MessageSpec
+	var routes []config.MockRouteConfig
+
+	if f.service != nil {
+		spec = f.service.GetSpec()
+	}
+	if f.transactions != nil {
+		routes = f.transactions.GetMockRoutes()
+	}
+	return NewServerCommand(spec, routes)
 }

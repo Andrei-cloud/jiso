@@ -453,6 +453,34 @@ func (suite *TransactionCollectionSuite) TestValidateInvalidDataset() {
 	suite.Nil(tc)
 }
 
+func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
+	suite.True(isReservedAutoKeywordString("auto"))
+	suite.True(isReservedAutoKeywordString("$auto"))
+	suite.True(isReservedAutoKeywordString("STAN"))
+	suite.True(isReservedAutoKeywordString("$STAN"))
+	suite.True(isReservedAutoKeywordString("GEN_STAN"))
+	suite.True(isReservedAutoKeywordString("RRN"))
+	suite.True(isReservedAutoKeywordString("$RRN"))
+	suite.True(isReservedAutoKeywordString("GEN_RRN"))
+	suite.True(isReservedAutoKeywordString("datetime"))
+	suite.True(isReservedAutoKeywordString("random"))
+
+	msg := iso8583.NewMessage(iso8583.Spec87)
+	suite.tc.handleAutoFieldsWithKeyword(11, msg, "STAN")
+	f11 := msg.GetField(11)
+	suite.NotNil(f11)
+	val11, err := f11.String()
+	suite.NoError(err)
+	suite.NotEmpty(val11)
+
+	suite.tc.handleAutoFieldsWithKeyword(37, msg, "RRN")
+	f37 := msg.GetField(37)
+	suite.NotNil(f37)
+	val37, err := f37.String()
+	suite.NoError(err)
+	suite.NotEmpty(val37)
+}
+
 func TestTransactionCollectionSuite(t *testing.T) {
 	suite.Run(t, new(TransactionCollectionSuite))
 }

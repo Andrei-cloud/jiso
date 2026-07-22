@@ -14,6 +14,7 @@ import (
 
 var (
 	dataRegex    = regexp.MustCompile(`\{\{\s*data\.(\w+)\s*\}\}`)
+	cardRegex    = regexp.MustCompile(`\{\{\s*card\.(\w+)\s*\}\}`)
 	contextRegex = regexp.MustCompile(`\{\{\s*context\.(\w+)\s*\}\}`)
 )
 
@@ -173,10 +174,8 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 
 		switch val := v.(type) {
 		case string:
-			if val == "auto" {
-				sr.tc.handleAutoFields(fieldID, reqMsg)
-			} else if val == "random" {
-				sr.tc.handleAutoFields(fieldID, reqMsg)
+			if isReservedAutoKeywordString(val) {
+				sr.tc.handleAutoFieldsWithKeyword(fieldID, reqMsg, val)
 			} else {
 				interpolated := sr.injectVariables(val, datasetName)
 				reqMsg.Field(fieldID, interpolated)
@@ -339,8 +338,7 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 }
 
 func (sr *ScenarioRunner) injectVariables(val string, datasetName string) string {
-	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
-		match := dataRegex.FindStringSubmatch(m)
+	replaceDatasetVar := func(m string, match []string) string {
 		if len(match) > 1 {
 			key := match[1]
 
@@ -364,6 +362,13 @@ func (sr *ScenarioRunner) injectVariables(val string, datasetName string) string
 			}
 		}
 		return m
+	}
+
+	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
+		return replaceDatasetVar(m, dataRegex.FindStringSubmatch(m))
+	})
+	val = cardRegex.ReplaceAllStringFunc(val, func(m string) string {
+		return replaceDatasetVar(m, cardRegex.FindStringSubmatch(m))
 	})
 	val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
 		match := contextRegex.FindStringSubmatch(m)

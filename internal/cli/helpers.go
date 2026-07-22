@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -22,8 +23,6 @@ type workerStats struct {
 	errors        []string
 }
 
-// Legacy workerState for compatibility with existing code
-// This will be replaced by the implementation in worker.go
 type workerState struct {
 	command      cmd.BgCommand
 	interval     time.Duration
@@ -47,7 +46,7 @@ func (cli *CLI) runWithHistory() error {
 	}
 	defer rl.Close()
 
-	// Print welcome message and available commands
+	// Print welcome message
 	fmt.Printf("Welcome to JISO CLI %s\n", Version)
 	fmt.Println("Type 'help' for available commands")
 
@@ -63,7 +62,7 @@ func (cli *CLI) runWithHistory() error {
 			continue
 		}
 
-		// Process the command
+		// Process the command via registered command objects
 		exit := cli.processCommand(line)
 		if exit {
 			break
@@ -73,125 +72,89 @@ func (cli *CLI) runWithHistory() error {
 	return nil
 }
 
-// processCommand handles a single command line input
+// processCommand handles command line inputs dynamically without hardcoded switch-case blocks
 func (cli *CLI) processCommand(line string) bool {
-	parts := strings.Split(line, " ")
-	cmdName := strings.ToLower(parts[0])
+	args, err := cli.lexer.Tokenize(line)
+	if err != nil {
+		fmt.Printf("Syntax error: %v\n", err)
+		return false
+	}
+	if len(args) == 0 {
+		return false
+	}
 
-	switch cmdName {
-	case "help", "h", "?":
-		cli.printHelp()
+	cmdName := strings.ToLower(args[0])
+	command, exists := cli.commands[cmdName]
+	if !exists {
+		fmt.Printf("Unknown command: %s. Type 'help' for available commands\n", cmdName)
+		return false
+	}
 
-	case "version", "v":
-		cli.printVersion()
-
-	case "clear", "cls":
-		cli.ClearTerminal()
-
-	case "quit", "exit":
-		return true
-
-	case "stats", "status":
-		cli.printWorkerStats()
-
-	case "stop-all":
-		if err := cli.StopAllWorkers(); err != nil {
-			fmt.Printf("Error stopping workers: %v\n", err)
+	// Inject arguments into commands supporting dynamic parameter binding
+	if sa, ok := command.(interface{ SetArgs([]string) }); ok {
+		sa.SetArgs(args[1:])
+	} else if rsc, ok := command.(*cmd.RunScenarioCommand); ok {
+		if len(args) > 1 {
+			rsc.ScenarioName = args[1]
 		} else {
-			fmt.Println("All workers stopped successfully")
+			rsc.ScenarioName = ""
 		}
-
-	case "reload":
-		if err := cli.Reload(); err != nil {
-			fmt.Printf("Error reloading: %v\n", err)
-		}
-
-	case "stop":
-		if len(parts) < 2 {
-			fmt.Println("Usage: stop <worker-id>")
-			return false
-		}
-		if err := cli.StopWorker(parts[1]); err != nil {
-			fmt.Printf("Error stopping worker: %v\n", err)
+	} else if isc, ok := command.(*cmd.InitSpecCommand); ok {
+		if len(args) > 1 {
+			isc.OutputPath = args[1]
 		} else {
-			fmt.Printf("Worker %s stopped successfully\n", parts[1])
+			isc.OutputPath = ""
 		}
-
-	default:
-		// Try to find a registered command
-		if command, exists := cli.commands[cmdName]; exists {
-			// Inject arguments if passed in the shell line
-			if rsc, ok := command.(*cmd.RunScenarioCommand); ok {
-				if len(parts) > 1 {
-					rsc.ScenarioName = parts[1]
-				} else {
-					rsc.ScenarioName = ""
-				}
-			} else if isc, ok := command.(*cmd.InitSpecCommand); ok {
-				if len(parts) > 1 {
-					isc.OutputPath = parts[1]
-				} else {
-					isc.OutputPath = ""
-				}
-			} else if itc, ok := command.(*cmd.InitTxCommand); ok {
-				if len(parts) > 1 {
-					itc.OutputPath = parts[1]
-				} else {
-					itc.OutputPath = ""
-				}
-			} else if dbsc, ok := command.(*cmd.DbStatsCommand); ok {
-				if len(parts) > 1 {
-					dbsc.SessionID = parts[1]
-				} else {
-					dbsc.SessionID = ""
-				}
-			}
-
-			if err := command.Execute(); err != nil {
+	} else if itc, ok := command.(*cmd.InitTxCommand); ok {
+		if len(args) > 1 {
+			itc.OutputPath = args[1]
+		} else {
+			itc.OutputPath = ""
+		}
+	} else if dbsc, ok := command.(*cmd.DbStatsCommand); ok {
+		if len(args) > 1 {
+			dbsc.SessionID = args[1]
+		} else {
+			dbsc.SessionID = ""
+		}
+	} else if tcCmd, ok := command.(*cmd.TargetCommand); ok {
+		if len(args) > 1 {
+			if err := tcCmd.SetTarget(args[1]); err != nil {
 				fmt.Printf("Error: %v\n", err)
 			}
-		} else {
-			fmt.Printf("Unknown command: %s\n", cmdName)
+			return false
 		}
+	}
+
+	execErr := command.Execute()
+	if errors.Is(execErr, cmd.ErrExit) {
+		return true // Exit REPL loop
+	}
+	if execErr != nil {
+		fmt.Printf("Error: %v\n", execErr)
 	}
 
 	return false
 }
 
-// completer provides tab completion for commands
+// completer provides tab completion for commands registered in the command map
 func (cli *CLI) completer() readline.AutoCompleter {
-	// Create a map of command names for auto-completion
-	commands := []readline.PrefixCompleterInterface{
-		readline.PcItem("help"),
-		readline.PcItem("version"),
-		readline.PcItem("clear"),
-		readline.PcItem("quit"),
-		readline.PcItem("exit"),
-		readline.PcItem("stats"),
-		readline.PcItem("status"),
-		readline.PcItem("stop-all"),
-		readline.PcItem("reload"),
-		readline.PcItem("stop"),
-	}
-
-	// Add registered commands
+	commands := make([]readline.PrefixCompleterInterface, 0, len(cli.commands))
 	for name := range cli.commands {
 		commands = append(commands, readline.PcItem(name))
 	}
-
 	return readline.NewPrefixCompleter(commands...)
 }
 
 // printWorkerStats prints current worker statistics
 func (cli *CLI) printWorkerStats() {
 	stats := cli.GetWorkerStats()
-	fmt.Printf("Active workers: %d\n", stats["active"])
+	fmt.Printf("Active workers: %v\n", stats["active"])
 
 	workers, ok := stats["workers"].([]map[string]interface{})
 	if !ok || len(workers) == 0 {
 		fmt.Println("No active workers")
 	} else {
-		// Create a table for better presentation
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header("ID", "Type", "Transaction", "Status", "Workers", "Interval / Target TPS", "Runtime", "Success / Failed")
 		for _, worker := range workers {
@@ -200,7 +163,7 @@ func (cli *CLI) printWorkerStats() {
 			if s, ok := worker["status"]; ok {
 				statusStr = fmt.Sprintf("%v", s)
 			}
-			
+
 			var targetOrInterval string
 			if typeStr == "stress_test" {
 				targetOrInterval = fmt.Sprintf("%v TPS (Current: %.1f)", worker["target_tps"], worker["current_tps"])
@@ -222,7 +185,6 @@ func (cli *CLI) printWorkerStats() {
 		table.Render()
 	}
 
-	// Print networking statistics
 	fmt.Println("\nNetworking Statistics:")
 	if cli.networkStats != nil {
 		netStats := cli.networkStats.GetAllMetrics()

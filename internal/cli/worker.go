@@ -40,6 +40,8 @@ type stressTestWorker struct {
 	networkStats        *metrics.NetworkingStats
 	currentTps          float64
 	actualTps           float64
+	instantTps          float64
+	peakInstantTps      float64
 	rampUpProgress      float64
 	currentInterval     time.Duration
 	successful          int
@@ -78,6 +80,10 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		ticker := time.NewTicker(200 * time.Millisecond)
 		defer ticker.Stop()
 
+		var lastTotal int
+		var lastTime time.Time = time.Now()
+		var smoothInstantTPS float64
+
 		for {
 			select {
 			case <-statusCtx.Done():
@@ -98,11 +104,32 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 					return
 				}
 
-				elapsed := time.Since(startTime)
-				var tps float64
+				now := time.Now()
+				elapsed := now.Sub(startTime)
+				var avgTps float64
 				if elapsed.Seconds() > 0 {
-					tps = float64(total) / elapsed.Seconds()
+					avgTps = float64(total) / elapsed.Seconds()
 				}
+
+				deltaTime := now.Sub(lastTime).Seconds()
+				if deltaTime > 0 {
+					deltaTotal := total - lastTotal
+					inst := float64(deltaTotal) / deltaTime
+					if smoothInstantTPS == 0 {
+						smoothInstantTPS = inst
+					} else {
+						smoothInstantTPS = 0.7*inst + 0.3*smoothInstantTPS
+					}
+				}
+				lastTotal = total
+				lastTime = now
+
+				w.mu.Lock()
+				w.instantTps = smoothInstantTPS
+				if smoothInstantTPS > w.peakInstantTps {
+					w.peakInstantTps = smoothInstantTPS
+				}
+				w.mu.Unlock()
 
 				var timeStr string
 				var phase string
@@ -115,13 +142,14 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 					timeStr = fmt.Sprintf("%s/%s", formatDuration(maintainElapsed), formatDuration(duration))
 				}
 
-				fmt.Printf("\r[STEST] Phase: %-8s | Time: %s | Sent: %d (OK:%d, Err:%d) | TPS: %.1f (Target: %.1f)\033[K",
+				fmt.Printf("\r[STEST] Phase: %-8s | Time: %s | Sent: %d (OK:%d, Err:%d) | Instant TPS: %.1f | Avg TPS: %.1f (Target: %.1f)\033[K",
 					phase,
 					timeStr,
 					total,
 					successful,
 					failed,
-					tps,
+					smoothInstantTPS,
+					avgTps,
 					currentTps,
 				)
 			}
@@ -419,6 +447,7 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	endTimeCopy := w.endTime
 	namesCopy := make([]string, len(w.names))
 	copy(namesCopy, w.names)
+	peakInstantTpsCopy := w.peakInstantTps
 	w.mu.Unlock()
 
 	if total == 0 {
@@ -503,7 +532,8 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	fmt.Println("ALL TESTING SUMMARY")
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("Target TPS:             %-10d Concurrency (Workers): %-10d\n", w.targetTps, w.numWorkers)
-	fmt.Printf("Actual TPS:             %-10.1f Total Test Duration:   %-10s\n", finalTps, w.duration)
+	fmt.Printf("Instant TPS (Peak):     %-10.1f Average TPS:           %-10.1f\n", peakInstantTpsCopy, finalTps)
+	fmt.Printf("Total Test Duration:    %-10s\n", w.duration)
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("Transaction Counts:\n")
 	fmt.Printf("  Total Executions:     %-10d\n", total)

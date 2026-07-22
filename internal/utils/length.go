@@ -33,11 +33,28 @@ func SelectLength(lenType string) (network.Header, error) {
 	case "visa":
 		stationID := config.GetConfig().GetVisaStationId()
 		if stationID == "" {
-			return nil, fmt.Errorf("local station ID is required when visa length type is selected")
+			stationID = "000000" // Default for server role / fallback: station ID all zeros
 		}
 		return NewVisaHeader(stationID)
 	default:
 		return nil, fmt.Errorf("unknown length type: %s", lenType)
+	}
+}
+
+// SelectServerHeader returns the appropriate header for embedded server role
+// For VISA header on server role, station ID is set to all zeros ("000000")
+func SelectServerHeader(lenType string) (network.Header, error) {
+	switch lenType {
+	case "ascii4":
+		return network.NewASCII4BytesHeader(), nil
+	case "binary2", "NAPS", "":
+		return NewBinary2BytesAdapter(), nil
+	case "bcd2":
+		return network.NewBCD2BytesHeader(), nil
+	case "visa":
+		return NewVisaHeader("000000")
+	default:
+		return nil, fmt.Errorf("unknown server length type: %s", lenType)
 	}
 }
 

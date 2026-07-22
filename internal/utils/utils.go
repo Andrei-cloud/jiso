@@ -5,8 +5,11 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"jiso/internal/command/templates"
 
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/specs"
@@ -34,6 +37,43 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 	}
 
 	return specs.Builder.ImportJSON(raw)
+}
+
+func GetDefaultSpec() *iso8583.MessageSpec {
+	if len(templates.DefaultSpecJSON) > 0 {
+		if spec, err := specs.Builder.ImportJSON(templates.DefaultSpecJSON); err == nil && spec != nil {
+			return spec
+		}
+	}
+	return iso8583.Spec87
+}
+
+func FindAvailableSpecFiles() []string {
+	results := []string{"[Default Embedded Spec]"}
+
+	dirs := []string{"specs", "."}
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if strings.HasSuffix(name, ".json") && (strings.Contains(name, "spec") || dir == "specs") {
+				path := filepath.Join(dir, name)
+				if dir == "." {
+					path = name
+				}
+				results = append(results, path)
+			}
+		}
+	}
+
+	results = append(results, "Custom Path...")
+	return results
 }
 
 func RandString(n int) string {

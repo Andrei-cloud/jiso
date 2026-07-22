@@ -53,6 +53,8 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 			"scenarios":    true,
 			"scenario":     true,
 			"run-scenario": true,
+			"serve":        true,
+			"server":       true,
 		}
 		if validSubcommands[subcommand] {
 			err := cliTool.RunDirectCommand(subcommand, args[1:])
@@ -62,7 +64,7 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 			}
 			return 0
 		} else {
-			fmt.Printf("Unknown subcommand: %s. Available subcommands: init-spec, init-tx, scenarios, run-scenario\n", subcommand)
+			fmt.Printf("Unknown subcommand: %s. Available subcommands: init-spec, init-tx, scenarios, run-scenario, serve, server\n", subcommand)
 			return 1
 		}
 	}

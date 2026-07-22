@@ -5,16 +5,18 @@ JISO (JSON ISO8583) is a command-line tool for simulating ISO8583 message transa
 ## Features
 
 - Connects to ISO8583 servers with various header formats (ASCII, Binary, BCD, NAPS)
-- Sends predefined ISO8583 transactions from JSON configuration files
-- Supports single transactions, background transaction streams, and stress testing
-- Stress testing with gradual TPS ramp-up, multi-option transaction selection, and random execution distribution
+- Polymorphic JSON schema (`"transaction"`, `"dataset"`, `"scenario"`, `"mock_route"`)
+- Dynamic Target Switching (`target <ip:port>`, `set ip <addr>`, `set port <port>`)
+- Stateful Multi-Step Scenario Engine with context memory extraction (`{{context.X}}`) and dataset interpolation (`{{data.X}}`)
+- Embedded ISO8583 Mock Server Subsystem with edge-case disruption injection (`delay_ms`, `drop_connection`, fallback catch-all routes)
+- Structured Scenario Execution Reports with terminal progress trees and JSON export (`TestReport`) for CI/CD pipelines
+- Instant Boilerplate Generators (`init-spec`, `init-tx`) compiled into binary via `//go:embed`
+- PCAP & TCP Stream Traffic Analyzer with flow aggregation and variance analysis
+- High-TPS telemetry batcher preventing terminal UI choking during stress testing
 - Automatic field handling (STAN, date/time, etc.)
 - Transaction metrics collection (response time, success rate, etc.)
 - Comprehensive stress testing summary with start/end time, target/actual TPS, response breakdown, latency profile, and per-transaction metrics
-- Interactive command-line interface with command history
-- Persistent counter management for STAN and RRN values
-- Robust networking with automatic reconnection, retry mechanisms, and circuit breakers
-- Configurable timeouts and connection parameters for different environments
+- Interactive command-line interface with shlex lexer and middleware interceptor pipeline
 
 ## Installation
 
