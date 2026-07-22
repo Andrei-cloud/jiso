@@ -6,7 +6,6 @@ import (
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
-	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 )
@@ -38,32 +37,27 @@ func (c *TxCommand) Execute() error {
 		txPath = selected
 	}
 
-	var spec *iso8583.MessageSpec
-	if c.Svc != nil {
-		spec = c.Svc.GetSpec()
-	}
-	if spec == nil {
-		specPath := cfg.GetConfig().GetSpec()
-		if specPath != "" {
-			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
-				spec = s
-			}
-		}
-	}
-
-	tc, err := transactions.NewTransactionCollection(txPath, spec)
-	if err != nil {
-		return fmt.Errorf("failed to load transaction file from '%s': %w", txPath, err)
-	}
-
 	cfg.GetConfig().SetFile(txPath)
 
+	var count int
 	if c.Ctrl != nil {
-		if err := c.Ctrl.ReloadTransactions(txPath); err != nil {
+		n, err := c.Ctrl.ReloadTransactions(txPath)
+		if err != nil {
 			return fmt.Errorf("failed to reload transaction repository in CLI: %w", err)
 		}
+		count = n
+	} else {
+		var spec *iso8583.MessageSpec
+		if c.Svc != nil {
+			spec = c.Svc.GetSpec()
+		}
+		tc, err := transactions.NewTransactionCollection(txPath, spec)
+		if err != nil {
+			return fmt.Errorf("failed to load transaction file from '%s': %w", txPath, err)
+		}
+		count = len(tc.ListNames())
 	}
 
-	fmt.Printf("Transaction file updated successfully to: %s (Count: %d)\n", txPath, len(tc.ListNames()))
+	fmt.Printf("Transaction file updated successfully to: %s (Count: %d)\n", txPath, count)
 	return nil
 }

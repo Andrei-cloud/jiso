@@ -412,7 +412,7 @@ func (cli *CLI) Reload() error {
 }
 
 // ReloadTransactions reloads the transaction repository with the given transaction file path
-func (cli *CLI) ReloadTransactions(txPath string) error {
+func (cli *CLI) ReloadTransactions(txPath string) (int, error) {
 	var spec *iso8583.MessageSpec
 	if cli.svc != nil {
 		spec = cli.svc.GetSpec()
@@ -428,13 +428,13 @@ func (cli *CLI) ReloadTransactions(txPath string) error {
 
 	tcInstance, err := transactions.NewTransactionCollection(txPath, spec)
 	if err != nil {
-		return fmt.Errorf("failed to load transactions: %w", err)
+		return 0, fmt.Errorf("failed to load transactions: %w", err)
 	}
 
 	cli.tc = tcInstance
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
 	cli.registerAllCommands()
-	return nil
+	return len(tcInstance.ListNames()), nil
 }
 
 // Set service instance

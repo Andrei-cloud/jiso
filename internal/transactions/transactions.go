@@ -232,7 +232,6 @@ func NewTransactionCollection(
 		fmt.Printf("Warning: Failed to load transaction state: %v\n", err)
 	}
 
-	fmt.Printf("Transactions loaded successfully. Count: %d\n", len(tc.transactions))
 	return tc, nil
 }
 
