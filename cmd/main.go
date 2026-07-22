@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"jiso/internal/cli"
-	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
 )
 
@@ -71,11 +70,6 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 
 	cliTool.ClearTerminal()
 
-	// Add collect args command if config is incomplete
-	if !validateConfig() {
-		cliTool.AddCommand(&cmd.CollectArgsCommand{})
-	}
-
 	// Run the CLI with context awareness
 	errCh := make(chan error, 1)
 	go func() {
@@ -94,12 +88,4 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 		fmt.Println("Exiting CLI tool")
 		return 0
 	}
-}
-
-func validateConfig() bool {
-	config := cfg.GetConfig()
-	return config.GetHost() != "" &&
-		config.GetPort() != "" &&
-		config.GetSpec() != "" &&
-		config.GetFile() != ""
 }

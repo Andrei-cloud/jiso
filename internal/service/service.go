@@ -29,11 +29,17 @@ func NewService(
 	connectTimeout, totalConnectTimeout, responseTimeout time.Duration,
 ) (*Service, error) {
 	// Load message spec
-	spec, err := utils.CreateSpecFromFile(specFileName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load spec file: %w", err)
+	var spec *iso8583.MessageSpec
+	var err error
+	if specFileName != "" {
+		spec, err = utils.CreateSpecFromFile(specFileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load spec file: %w", err)
+		}
+		fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
+	} else {
+		spec = utils.GetDefaultSpec()
 	}
-	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
 	// Create a new connection manager
 	connManager := connection.NewManager(

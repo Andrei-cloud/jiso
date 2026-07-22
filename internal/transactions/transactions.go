@@ -119,6 +119,15 @@ func NewTransactionCollection(
 	filename string,
 	specs *iso8583.MessageSpec,
 ) (*TransactionCollection, error) {
+	if filename == "" {
+		return &TransactionCollection{
+			spec:      specs,
+			cache:     make(map[string]*Transaction),
+			datasets:  make(map[string]*Dataset),
+			scenarios: make(map[string]*Scenario),
+		}, nil
+	}
+
 	if isInvalidFilename(filename) {
 		return nil, errors.New("invalid filename")
 	}

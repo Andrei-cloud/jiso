@@ -23,7 +23,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.8.7"
+var Version string = "v0.9.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -129,12 +129,6 @@ func (cli *CLI) registerAllCommands() {
 }
 
 func (cli *CLI) Run() error {
-	if collectArgsCommand, ok := cli.commands["collect-args"]; ok {
-		err := collectArgsCommand.Execute()
-		if err != nil {
-			return err
-		}
-	}
 	err := cli.InitService()
 	if err != nil {
 		return err
