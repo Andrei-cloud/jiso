@@ -23,7 +23,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.9.1"
+var Version string = "v1.0.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -228,8 +228,8 @@ type commandGroup struct {
 func (cli *CLI) printHelp() {
 	groups := []commandGroup{
 		{
-			category: "🔌 Connection & Network Target Management",
-			commands: []string{"connect", "disconnect", "target"},
+			category: "🔌 Connection & Configuration Management",
+			commands: []string{"connect", "disconnect", "target", "spec", "tx"},
 		},
 		{
 			category: "💳 Transaction & Load Testing Execution",
@@ -259,6 +259,8 @@ func (cli *CLI) printHelp() {
 
 	aliases := map[string]string{
 		"target":   "aliases: set",
+		"spec":     "aliases: use-spec",
+		"tx":       "aliases: use-tx, transaction",
 		"scenario": "aliases: scenarios",
 		"stats":    "aliases: status",
 		"help":     "aliases: h, ?",
