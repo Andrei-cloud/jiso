@@ -462,6 +462,9 @@ func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
 	suite.True(isReservedAutoKeywordString("RRN"))
 	suite.True(isReservedAutoKeywordString("$RRN"))
 	suite.True(isReservedAutoKeywordString("GEN_RRN"))
+	suite.True(isReservedAutoKeywordString("auth_code"))
+	suite.True(isReservedAutoKeywordString("$auth_code"))
+	suite.True(isReservedAutoKeywordString("gen_auth_code"))
 	suite.True(isReservedAutoKeywordString("datetime"))
 	suite.True(isReservedAutoKeywordString("random"))
 
@@ -479,6 +482,21 @@ func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
 	val37, err := f37.String()
 	suite.NoError(err)
 	suite.NotEmpty(val37)
+
+	suite.tc.handleAutoFieldsWithKeyword(38, msg, "AUTH_CODE")
+	f38 := msg.GetField(38)
+	suite.NotNil(f38)
+	val38, err := f38.String()
+	suite.NoError(err)
+	suite.Equal(6, len(val38))
+
+	msgAuto := iso8583.NewMessage(iso8583.Spec87)
+	suite.tc.handleAutoFields(38, msgAuto)
+	f38Auto := msgAuto.GetField(38)
+	suite.NotNil(f38Auto)
+	val38Auto, err := f38Auto.String()
+	suite.NoError(err)
+	suite.Equal(6, len(val38Auto))
 }
 
 func TestTransactionCollectionSuite(t *testing.T) {

@@ -98,7 +98,7 @@ type TransactionCollection struct {
 	datasets     map[string]*Dataset
 	scenarios    map[string]*Scenario
 
-	mockRoutes   []cfg.MockRouteConfig
+	mockRoutes []cfg.MockRouteConfig
 
 	// State management
 	state         TransactionState
@@ -535,7 +535,7 @@ func isReservedAutoKeyword(v []byte) bool {
 func isReservedAutoKeywordString(s string) bool {
 	cleanVal := strings.TrimSpace(strings.ToLower(s))
 	switch cleanVal {
-	case "auto", "$auto", "stan", "$stan", "gen_stan", "rrn", "$rrn", "gen_rrn", "datetime", "$datetime", "date", "time", "random", "$random":
+	case "auto", "$auto", "stan", "$stan", "rrn", "$rrn", "auth_code", "$auth_code", "datetime", "$datetime", "date", "time":
 		return true
 	default:
 		return false
@@ -580,11 +580,14 @@ func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, dummyMsg 
 func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583.Message, keyword string) {
 	cleanKey := strings.TrimSpace(strings.ToLower(keyword))
 	switch cleanKey {
-	case "stan", "$stan", "gen_stan":
+	case "stan", "$stan":
 		msg.Field(i, utils.GetCounter().GetStan())
 		return
-	case "rrn", "$rrn", "gen_rrn":
+	case "rrn", "$rrn":
 		msg.Field(i, utils.GetRRNInstance().GetRRN())
+		return
+	case "auth_code", "$auth_code":
+		msg.Field(i, utils.RandString(6))
 		return
 	case "datetime", "$datetime":
 		msg.Field(i, utils.GetTrxnDateTime())
@@ -638,6 +641,9 @@ func (tc *TransactionCollection) handleAutoFields(i int, msg *iso8583.Message) {
 	case 37:
 		// Field 37: Retrieval Reference Number
 		msg.Field(i, utils.GetRRNInstance().GetRRN())
+	case 38:
+		// Field 38: Authorization Identification Response / Auth Code
+		msg.Field(i, utils.RandString(6))
 	default:
 		// For any other field marked as "auto", try to make an intelligent decision
 		if strings.Contains(description, "Date") {
