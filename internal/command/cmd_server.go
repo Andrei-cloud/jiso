@@ -9,6 +9,7 @@ import (
 
 	"jiso/internal/config"
 	"jiso/internal/server"
+	"jiso/internal/transactions"
 	"jiso/internal/utils"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -20,6 +21,7 @@ type ServerCommand struct {
 	srv    *server.Server
 	spec   *iso8583.MessageSpec
 	routes []config.MockRouteConfig
+	tc     transactions.Repository
 	args   []string
 }
 
@@ -142,6 +144,16 @@ func (sc *ServerCommand) promptStartServer() error {
 		}
 	}
 
+	// 1b. Select Transaction File (containing Mock Routes)
+	selector := NewFileSelector("transaction")
+	if txPath, err := selector.SelectFile(); err == nil && txPath != "" {
+		if tcLoaded, err := transactions.NewTransactionCollection(txPath, sc.spec); err == nil && tcLoaded != nil {
+			sc.routes = tcLoaded.GetMockRoutes()
+			sc.tc = tcLoaded
+			fmt.Printf("Loaded %d mock routes from: %s\n", len(sc.routes), txPath)
+		}
+	}
+
 	// 2. Enter Port Number
 	var port string
 	portPrompt := &survey.Input{
@@ -183,10 +195,11 @@ func (sc *ServerCommand) RunDirectServer(port string, headerType string) error {
 }
 
 // NewServerCommand creates a new ServerCommand instance
-func NewServerCommand(spec *iso8583.MessageSpec, routes []config.MockRouteConfig) *ServerCommand {
+func NewServerCommand(spec *iso8583.MessageSpec, routes []config.MockRouteConfig, tc transactions.Repository) *ServerCommand {
 	return &ServerCommand{
 		spec:   spec,
 		routes: routes,
+		tc:     tc,
 	}
 }
 

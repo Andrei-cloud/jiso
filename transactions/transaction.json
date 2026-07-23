@@ -24,7 +24,7 @@
   {
     "type": "transaction",
     "name": "Purchase Template",
-    "description": "Financial request base template",
+    "description": "Visa Financial Request (0200) Base Template",
     "dataset_name": "card_pool",
     "fields": {
       "0": "0200",
@@ -34,11 +34,15 @@
       "7": "auto",
       "11": "auto",
       "14": "{{data.14}}",
+      "18": "5999",
+      "19": "840",
       "22": "021",
       "23": "{{data.23}}",
+      "25": "00",
       "35": "{{data.35}}",
       "37": "auto",
       "41": "77973588",
+      "42": "123456789012345",
       "43": "TEST MERCHANT            DOHA        QAT",
       "49": "634",
       "60": "CBQP"
@@ -47,7 +51,7 @@
   {
     "type": "transaction",
     "name": "Reversal Template",
-    "description": "Reversal request base template",
+    "description": "Visa Reversal Request (0400) Base Template",
     "dataset_name": "card_pool",
     "fields": {
       "0": "0400",
@@ -57,12 +61,17 @@
       "7": "auto",
       "11": "auto",
       "14": "{{data.14}}",
+      "18": "5999",
+      "19": "840",
+      "22": "021",
+      "25": "00",
       "37": "auto",
       "38": "{{context.AuthId}}",
       "39": "01",
       "41": "77973588",
+      "42": "123456789012345",
       "43": "TEST MERCHANT            DOHA        QAT",
-      "49": "634"
+      "90": "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
     }
   },
   {
@@ -107,7 +116,12 @@
           "4": "2500"
         },
         "extract": {
-          "AuthId": "38"
+          "AuthId": "38",
+          "OrigMTI": "0",
+          "OrigSTAN": "11",
+          "OrigDateTime": "7",
+          "OrigAcquirer": "32",
+          "OrigForwarder": "33"
         },
         "validate": [
           {
@@ -142,6 +156,35 @@
       "0": "0800",
       "70": 1
     },
+    "required_fields": [
+      "0",
+      "7",
+      "11",
+      "70"
+    ],
+    "echo_fields": [
+      7,
+      11,
+      70
+    ],
+    "response_mti": "0810",
+    "response_fields": {
+      "39": "00"
+    }
+  },
+  {
+    "type": "mock_route",
+    "name": "Echo",
+    "match_fields": {
+      "0": "0800",
+      "70": 301
+    },
+    "required_fields": [
+      "0",
+      "7",
+      "11",
+      "70"
+    ],
     "echo_fields": [
       7,
       11,
@@ -159,6 +202,22 @@
       "0": "0200",
       "3": "000000"
     },
+    "required_fields": [
+      "0",
+      "2",
+      "3",
+      "4",
+      "7",
+      "11",
+      "14",
+      "18",
+      "19",
+      "22",
+      "25",
+      "41",
+      "42",
+      "49"
+    ],
     "echo_fields": [
       2,
       3,
@@ -183,6 +242,24 @@
       "0": "0400",
       "3": "000000"
     },
+    "required_fields": [
+      "0",
+      "2",
+      "3",
+      "4",
+      "7",
+      "11",
+      "14",
+      "18",
+      "19",
+      "22",
+      "25",
+      "38",
+      "41",
+      "42",
+      "49",
+      "90"
+    ],
     "echo_fields": [
       2,
       3,

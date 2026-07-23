@@ -197,5 +197,5 @@ func (f *Factory) CreateServerCommand() Command {
 	if f.transactions != nil {
 		routes = f.transactions.GetMockRoutes()
 	}
-	return NewServerCommand(spec, routes)
+	return NewServerCommand(spec, routes, f.transactions)
 }

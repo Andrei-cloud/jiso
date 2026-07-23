@@ -497,6 +497,14 @@ func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
 	val38Auto, err := f38Auto.String()
 	suite.NoError(err)
 	suite.Equal(6, len(val38Auto))
+
+	msgField90 := iso8583.NewMessage(iso8583.Spec87)
+	suite.tc.handleAutoFields(90, msgField90)
+	f90 := msgField90.GetField(90)
+	suite.NotNil(f90)
+	val90, err := f90.String()
+	suite.NoError(err)
+	suite.Equal(42, len(val90))
 }
 
 func TestTransactionCollectionSuite(t *testing.T) {

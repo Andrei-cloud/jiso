@@ -506,12 +506,14 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 		if spec == nil {
 			spec = utils.GetDefaultSpec()
 		}
+		var tcRepo transactions.Repository
 		if txPath != "" && spec != nil {
 			if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
 				routes = tc.GetMockRoutes()
+				tcRepo = tc
 			}
 		}
-		cmdObj := cmd.NewServerCommand(spec, routes)
+		cmdObj := cmd.NewServerCommand(spec, routes, tcRepo)
 
 		subCmd := "start"
 		port := "9999"
@@ -539,7 +541,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			if len(args) > 3 {
 				if s, err := utils.CreateSpecFromFile(args[3]); err == nil {
 					spec = s
-					cmdObj = cmd.NewServerCommand(spec, routes)
+					cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
 				}
 			}
 		} else {
@@ -551,7 +553,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			if len(args) > 2 {
 				if s, err := utils.CreateSpecFromFile(args[2]); err == nil {
 					spec = s
-					cmdObj = cmd.NewServerCommand(spec, routes)
+					cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
 				}
 			}
 		}
