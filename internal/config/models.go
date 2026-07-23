@@ -19,38 +19,36 @@ const (
 
 // MockRouteConfig defines configuration for embedded mock server response routes
 type MockRouteConfig struct {
-	Name           string            `json:"name"`
-	Description    string            `json:"description,omitempty"`
-	MatchMTI       string            `json:"match_mti,omitempty"`
-	MatchDE3       string            `json:"match_de3,omitempty"`
-	EchoFields     []int             `json:"echo_fields,omitempty"`
-	ResponseMTI    string            `json:"response_mti,omitempty"`
-	ResponseFields map[string]string `json:"response_fields,omitempty"`
-	DelayMs        int               `json:"delay_ms,omitempty"`
-	LatencyMs      int               `json:"latency_ms,omitempty"`
-	JitterMs       int               `json:"jitter_ms,omitempty"`
-	DropConnection bool              `json:"drop_connection,omitempty"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description,omitempty"`
+	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
+	EchoFields     []int                  `json:"echo_fields,omitempty"`
+	ResponseMTI    string                 `json:"response_mti,omitempty"`
+	ResponseFields map[string]string      `json:"response_fields,omitempty"`
+	DelayMs        int                    `json:"delay_ms,omitempty"`
+	LatencyMs      int                    `json:"latency_ms,omitempty"`
+	JitterMs       int                    `json:"jitter_ms,omitempty"`
+	DropConnection bool                   `json:"drop_connection,omitempty"`
 }
 
 // ConfigItem represents a polymorphic configuration entry in the flat configuration array
 type ConfigItem struct {
-	Type           ConfigDiscriminator `json:"type,omitempty"`
-	Name           string              `json:"name"`
-	Description    string              `json:"description,omitempty"`
-	Fields         json.RawMessage     `json:"fields,omitempty"`
-	Dataset        []map[int]string    `json:"dataset,omitempty"`
-	Data           []map[string]string `json:"data,omitempty"`
-	DatasetName    string              `json:"dataset_name,omitempty"`
-	Steps          json.RawMessage     `json:"steps,omitempty"`
-	MatchMTI       string              `json:"match_mti,omitempty"`
-	MatchDE3       string              `json:"match_de3,omitempty"`
-	EchoFields     []int               `json:"echo_fields,omitempty"`
-	ResponseMTI    string              `json:"response_mti,omitempty"`
-	ResponseFields map[string]string   `json:"response_fields,omitempty"`
-	DelayMs        int                 `json:"delay_ms,omitempty"`
-	LatencyMs      int                 `json:"latency_ms,omitempty"`
-	JitterMs       int                 `json:"jitter_ms,omitempty"`
-	DropConnection bool                `json:"drop_connection,omitempty"`
+	Type           ConfigDiscriminator    `json:"type,omitempty"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description,omitempty"`
+	Fields         json.RawMessage        `json:"fields,omitempty"`
+	Dataset        []map[int]string       `json:"dataset,omitempty"`
+	Data           []map[string]string    `json:"data,omitempty"`
+	DatasetName    string                 `json:"dataset_name,omitempty"`
+	Steps          json.RawMessage        `json:"steps,omitempty"`
+	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
+	EchoFields     []int                  `json:"echo_fields,omitempty"`
+	ResponseMTI    string                 `json:"response_mti,omitempty"`
+	ResponseFields map[string]string      `json:"response_fields,omitempty"`
+	DelayMs        int                    `json:"delay_ms,omitempty"`
+	LatencyMs      int                    `json:"latency_ms,omitempty"`
+	JitterMs       int                    `json:"jitter_ms,omitempty"`
+	DropConnection bool                   `json:"drop_connection,omitempty"`
 }
 
 // GetType returns the item discriminator, defaulting to "transaction" if unassigned

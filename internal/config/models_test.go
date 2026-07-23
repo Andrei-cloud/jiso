@@ -32,8 +32,7 @@ func TestParseConfigItems_Polymorphic(t *testing.T) {
 		{
 			"type": "mock_route",
 			"name": "Approval Route",
-			"match_mti": "0100",
-			"match_de3": "000000",
+			"match_fields": {"0": "0100", "3": "000000"},
 			"echo_fields": [11, 37],
 			"response_mti": "0110",
 			"response_fields": {"39": "00"}
@@ -58,6 +57,6 @@ func TestParseConfigItems_Polymorphic(t *testing.T) {
 
 	assert.Equal(t, TypeMockRoute, items[4].GetType())
 	assert.Equal(t, "Approval Route", items[4].Name)
-	assert.Equal(t, "0100", items[4].MatchMTI)
+	assert.Equal(t, map[string]interface{}{"0": "0100", "3": "000000"}, items[4].MatchFields)
 	assert.Equal(t, []int{11, 37}, items[4].EchoFields)
 }

@@ -60,21 +60,20 @@ type Assertion struct {
 }
 
 type ConfigItem struct {
-	Type           string              `json:"type"`
-	Name           string              `json:"name"`
-	Description    string              `json:"description"`
-	Fields         json.RawMessage     `json:"fields,omitempty"`
-	Dataset        []map[int]string    `json:"dataset,omitempty"`
-	Data           []map[string]string `json:"data,omitempty"`
-	DatasetName    string              `json:"dataset_name,omitempty"`
-	Steps          []ScenarioStep      `json:"steps,omitempty"`
-	MatchMTI       string              `json:"match_mti,omitempty"`
-	MatchDE3       string              `json:"match_de3,omitempty"`
-	EchoFields     []int               `json:"echo_fields,omitempty"`
-	ResponseMTI    string              `json:"response_mti,omitempty"`
-	ResponseFields map[string]string   `json:"response_fields,omitempty"`
-	DelayMs        int                 `json:"delay_ms,omitempty"`
-	DropConnection bool                `json:"drop_connection,omitempty"`
+	Type           string                 `json:"type"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description"`
+	Fields         json.RawMessage        `json:"fields,omitempty"`
+	Dataset        []map[int]string       `json:"dataset,omitempty"`
+	Data           []map[string]string    `json:"data,omitempty"`
+	DatasetName    string                 `json:"dataset_name,omitempty"`
+	Steps          []ScenarioStep         `json:"steps,omitempty"`
+	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
+	EchoFields     []int                  `json:"echo_fields,omitempty"`
+	ResponseMTI    string                 `json:"response_mti,omitempty"`
+	ResponseFields map[string]string      `json:"response_fields,omitempty"`
+	DelayMs        int                    `json:"delay_ms,omitempty"`
+	DropConnection bool                   `json:"drop_connection,omitempty"`
 }
 
 // TransactionState stores information about transaction state
@@ -197,8 +196,7 @@ func NewTransactionCollection(
 		} else if item.Type == "mock_route" {
 			r := cfg.MockRouteConfig{
 				Name:           item.Name,
-				MatchMTI:       item.MatchMTI,
-				MatchDE3:       item.MatchDE3,
+				MatchFields:    item.MatchFields,
 				EchoFields:     item.EchoFields,
 				ResponseMTI:    item.ResponseMTI,
 				ResponseFields: item.ResponseFields,
@@ -535,7 +533,7 @@ func isReservedAutoKeyword(v []byte) bool {
 func isReservedAutoKeywordString(s string) bool {
 	cleanVal := strings.TrimSpace(strings.ToLower(s))
 	switch cleanVal {
-	case "auto", "$auto", "stan", "$stan", "rrn", "$rrn", "auth_code", "$auth_code", "datetime", "$datetime", "date", "time":
+	case "auto", "$auto", "stan", "$stan", "gen_stan", "rrn", "$rrn", "gen_rrn", "auth_code", "$auth_code", "gen_auth_code", "datetime", "$datetime", "date", "time", "random", "$random":
 		return true
 	default:
 		return false

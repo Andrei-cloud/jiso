@@ -138,8 +138,15 @@
   {
     "type": "mock_route",
     "name": "Sign On Approval",
-    "match_mti": "0800",
-    "echo_fields": [7, 11, 70],
+    "match_fields": {
+      "0": "0800",
+      "70": 1
+    },
+    "echo_fields": [
+      7,
+      11,
+      70
+    ],
     "response_mti": "0810",
     "response_fields": {
       "39": "00"
@@ -148,21 +155,46 @@
   {
     "type": "mock_route",
     "name": "Purchase Authorization Approval",
-    "match_mti": "0200",
-    "match_de3": "000000",
-    "echo_fields": [2, 3, 4, 7, 11, 14, 37, 41, 49],
+    "match_fields": {
+      "0": "0200",
+      "3": "000000"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      14,
+      37,
+      41,
+      49
+    ],
     "response_mti": "0210",
     "response_fields": {
-      "38": "654321",
+      "38": "auth_code",
       "39": "00"
     }
   },
   {
     "type": "mock_route",
     "name": "Reversal Approval",
-    "match_mti": "0400",
-    "match_de3": "000000",
-    "echo_fields": [2, 3, 4, 7, 11, 14, 37, 38, 41, 49],
+    "match_fields": {
+      "0": "0400",
+      "3": "000000"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      14,
+      37,
+      38,
+      41,
+      49
+    ],
     "response_mti": "0410",
     "response_fields": {
       "39": "00"

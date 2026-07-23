@@ -241,13 +241,18 @@ func (sc *ServerCommand) ListRoutes() {
 	fmt.Println(" CONFIGURED MOCK ROUTES")
 	fmt.Println("================================================================================")
 	for i, r := range sc.routes {
-		mtiMatch := r.MatchMTI
-		if mtiMatch == "" {
-			mtiMatch = "ANY"
-		}
-		de3Match := r.MatchDE3
-		if de3Match == "" {
-			de3Match = "ANY"
+		var matchDesc strings.Builder
+		if len(r.MatchFields) == 0 {
+			matchDesc.WriteString("ANY")
+		} else {
+			first := true
+			for k, v := range r.MatchFields {
+				if !first {
+					matchDesc.WriteString(", ")
+				}
+				matchDesc.WriteString(fmt.Sprintf("%s=%v", k, v))
+				first = false
+			}
 		}
 		delayStr := ""
 		delayMs := r.DelayMs
@@ -257,8 +262,8 @@ func (sc *ServerCommand) ListRoutes() {
 		if delayMs > 0 || r.JitterMs > 0 {
 			delayStr = fmt.Sprintf(" | Latency: %dms (Jitter: ±%dms)", delayMs, r.JitterMs)
 		}
-		fmt.Printf(" Route %d: %-25s | Match: MTI=%s, DE3=%s | Resp MTI: %s%s\n",
-			i+1, r.Name, mtiMatch, de3Match, r.ResponseMTI, delayStr)
+		fmt.Printf(" Route %d: %-25s | Match: %s | Resp MTI: %s%s\n",
+			i+1, r.Name, matchDesc.String(), r.ResponseMTI, delayStr)
 	}
 	fmt.Println("================================================================================")
 }

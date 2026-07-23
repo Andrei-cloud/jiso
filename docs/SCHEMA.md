@@ -115,8 +115,10 @@ Field values in transaction definitions or scenario steps can use reserved keywo
 {
   "type": "mock_route",
   "name": "Sign On Auto Approval",
-  "match_mti": "0800",
-  "match_de3": "000000",
+  "match_fields": {
+    "0": "0800",
+    "70": "1"
+  },
   "echo_fields": [7, 11, 37],
   "response_mti": "0810",
   "response_fields": {
