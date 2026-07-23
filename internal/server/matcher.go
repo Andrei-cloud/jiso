@@ -78,10 +78,22 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 			}
 		}
 
-		// Inject response fields
+		// Inject response fields (supporting auto/dynamic keywords like auth_code, stan, rrn, datetime)
 		for fKey, fVal := range matchedRoute.ResponseFields {
 			if fNum, err := strconv.Atoi(fKey); err == nil {
-				resp.Field(fNum, fVal)
+				cleanVal := strings.TrimSpace(strings.ToLower(fVal))
+				switch cleanVal {
+				case "auth_code", "$auth_code", "gen_auth_code":
+					resp.Field(fNum, utils.RandString(6))
+				case "stan", "$stan", "gen_stan":
+					resp.Field(fNum, utils.GetCounter().GetStan())
+				case "rrn", "$rrn", "gen_rrn":
+					resp.Field(fNum, utils.GetRRNInstance().GetRRN())
+				case "datetime", "$datetime":
+					resp.Field(fNum, utils.GetTrxnDateTime())
+				default:
+					resp.Field(fNum, fVal)
+				}
 			}
 		}
 

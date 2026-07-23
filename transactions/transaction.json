@@ -24,7 +24,7 @@
   {
     "type": "transaction",
     "name": "Purchase Template",
-    "description": "Visa Financial Request (0200) Base Template",
+    "description": "Financial Request (0200) Base Template",
     "dataset_name": "card_pool",
     "fields": {
       "0": "0200",
@@ -51,7 +51,7 @@
   {
     "type": "transaction",
     "name": "Reversal Template",
-    "description": "Visa Reversal Request (0400) Base Template",
+    "description": "Reversal Request (0400) Base Template",
     "dataset_name": "card_pool",
     "fields": {
       "0": "0400",
@@ -71,6 +71,7 @@
       "41": "77973588",
       "42": "123456789012345",
       "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634",
       "90": "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
     }
   },
@@ -210,12 +211,7 @@
       "7",
       "11",
       "14",
-      "18",
-      "19",
-      "22",
-      "25",
       "41",
-      "42",
       "49"
     ],
     "echo_fields": [
@@ -250,13 +246,8 @@
       "7",
       "11",
       "14",
-      "18",
-      "19",
-      "22",
-      "25",
       "38",
       "41",
-      "42",
       "49",
       "90"
     ],
