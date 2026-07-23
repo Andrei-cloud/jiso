@@ -1,4 +1,4 @@
-# JISO Unified Polymorphic Configuration Schema (v0.3.0)
+# JISO Unified Polymorphic Configuration Schema (v1.1.0)
 
 JISO uses a flat array polymorphic JSON schema for defining ISO8583 transactions, data pools, stateful test scenarios, and embedded mock server response routes.
 
@@ -119,6 +119,7 @@ Field values in transaction definitions or scenario steps can use reserved keywo
     "0": "0800",
     "70": "1"
   },
+  "required_fields": ["7", "11", "70"],
   "echo_fields": [7, 11, 37],
   "response_mti": "0810",
   "response_fields": {
@@ -128,3 +129,5 @@ Field values in transaction definitions or scenario steps can use reserved keywo
   "drop_connection": false
 }
 ```
+
+> If any field listed in `required_fields` (or top-level mandatory ISO message requirements) is missing from the incoming request, the mock server responds with **DE 39 = "30"** (Format Error / Missing Required Field) per Visa ISO 8583 specification standards.

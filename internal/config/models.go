@@ -22,6 +22,7 @@ type MockRouteConfig struct {
 	Name           string                 `json:"name"`
 	Description    string                 `json:"description,omitempty"`
 	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
+	RequiredFields []string               `json:"required_fields,omitempty"`
 	EchoFields     []int                  `json:"echo_fields,omitempty"`
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
 	ResponseFields map[string]string      `json:"response_fields,omitempty"`
@@ -42,6 +43,7 @@ type ConfigItem struct {
 	DatasetName    string                 `json:"dataset_name,omitempty"`
 	Steps          json.RawMessage        `json:"steps,omitempty"`
 	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
+	RequiredFields []string               `json:"required_fields,omitempty"`
 	EchoFields     []int                  `json:"echo_fields,omitempty"`
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
 	ResponseFields map[string]string      `json:"response_fields,omitempty"`

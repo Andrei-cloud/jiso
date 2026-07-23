@@ -69,6 +69,7 @@ type ConfigItem struct {
 	DatasetName    string                 `json:"dataset_name,omitempty"`
 	Steps          []ScenarioStep         `json:"steps,omitempty"`
 	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
+	RequiredFields []string               `json:"required_fields,omitempty"`
 	EchoFields     []int                  `json:"echo_fields,omitempty"`
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
 	ResponseFields map[string]string      `json:"response_fields,omitempty"`
@@ -197,6 +198,7 @@ func NewTransactionCollection(
 			r := cfg.MockRouteConfig{
 				Name:           item.Name,
 				MatchFields:    item.MatchFields,
+				RequiredFields: item.RequiredFields,
 				EchoFields:     item.EchoFields,
 				ResponseMTI:    item.ResponseMTI,
 				ResponseFields: item.ResponseFields,

@@ -184,6 +184,52 @@ func TestFlexibleMatcherRules(t *testing.T) {
 	assert.Equal(t, "12", val39)
 }
 
+func TestRequiredFieldsMissingResponse30(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+
+	routes := []config.MockRouteConfig{
+		{
+			Name: "Financial Purchase",
+			MatchFields: map[string]interface{}{
+				"0": "0200",
+			},
+			RequiredFields: []string{"4", "11", "41"},
+			ResponseMTI:    "0210",
+			ResponseFields: map[string]string{"38": "123456", "39": "00"},
+		},
+	}
+
+	matcher := NewMatcher(routes)
+
+	// Subtest 1: All required fields present -> Approved ("00")
+	msgValid := iso8583.NewMessage(spec)
+	msgValid.MTI("0200")
+	msgValid.Field(4, "1000")
+	msgValid.Field(11, "000001")
+	msgValid.Field(41, "77973588")
+
+	matched, resp, err := matcher.MatchAndCompose(msgValid, spec)
+	require.NoError(t, err)
+	require.NotNil(t, matched)
+	val39Valid, _ := resp.GetField(39).String()
+	assert.Equal(t, "00", val39Valid)
+
+	// Subtest 2: Missing mandatory field 41 -> Format Error / Missing Field ("30")
+	msgMissing := iso8583.NewMessage(spec)
+	msgMissing.MTI("0200")
+	msgMissing.Field(4, "1000")
+	msgMissing.Field(11, "000001")
+	// Field 41 omitted
+
+	matchedMissing, respMissing, err := matcher.MatchAndCompose(msgMissing, spec)
+	require.NoError(t, err)
+	require.NotNil(t, matchedMissing)
+	val39Missing, _ := respMissing.GetField(39).String()
+	assert.Equal(t, "30", val39Missing)
+}
+
 func TestNilSpecServerFallback(t *testing.T) {
 	srv := NewServer(nil, nil, "binary2")
 	require.NotNil(t, srv)

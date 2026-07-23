@@ -60,6 +60,15 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 		}
 		resp.MTI(respMTI)
 
+		// Validate mandatory/required fields
+		missingRequired := false
+		for _, reqF := range matchedRoute.RequiredFields {
+			if _, exists := extractFieldValue(req, reqF); !exists {
+				missingRequired = true
+				break
+			}
+		}
+
 		// Echo requested fields from request
 		for _, fNum := range matchedRoute.EchoFields {
 			if reqField := req.GetField(fNum); reqField != nil {
@@ -74,6 +83,11 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 			if fNum, err := strconv.Atoi(fKey); err == nil {
 				resp.Field(fNum, fVal)
 			}
+		}
+
+		if missingRequired {
+			// ISO Response Code "30" = Format Error / Missing Mandatory Field (Visa Standard)
+			resp.Field(39, "30")
 		}
 
 		return matchedRoute, resp, nil
