@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	cfg "jiso/internal/config"
 	"jiso/internal/db"
 	"jiso/internal/metrics"
+	"jiso/internal/repl/core"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
@@ -21,10 +23,11 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v0.8.5"
+var Version string = "v1.1.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
+	lexer    *core.Lexer
 	svc      *service.Service
 	tc       transactions.Repository
 	factory  *cmd.Factory
@@ -46,6 +49,7 @@ type CLI struct {
 func NewCLI() *CLI {
 	return &CLI{
 		commands:      make(map[string]cmd.Command),
+		lexer:         core.NewLexer(),
 		workers:       make(map[string]*workerInfo),
 		stressWorkers: make(map[string]*stressTestWorker),
 		networkStats:  metrics.NewNetworkingStats(),
@@ -59,22 +63,36 @@ func (cli *CLI) AddCommand(command cmd.Command) {
 	cli.commands[command.Name()] = command
 }
 
-func (cli *CLI) Run() error {
-	if collectArgsCommand, ok := cli.commands["collect-args"]; ok {
-		err := collectArgsCommand.Execute()
-		if err != nil {
-			return err
-		}
-	}
-	err := cli.InitService()
-	if err != nil {
-		return err
-	}
+func (cli *CLI) registerAllCommands() {
+	cli.commands = make(map[string]cmd.Command)
 
-	// Create command factory
-	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+	// Helper commands
+	helpCmd := cli.factory.CreateHelpCommand()
+	cli.commands["help"] = helpCmd
+	cli.commands["h"] = helpCmd
+	cli.commands["?"] = helpCmd
 
-	// Add commands using the factory
+	versionCmd := cli.factory.CreateVersionCommand()
+	cli.commands["version"] = versionCmd
+	cli.commands["v"] = versionCmd
+
+	clearCmd := cli.factory.CreateClearCommand()
+	cli.commands["clear"] = clearCmd
+	cli.commands["cls"] = clearCmd
+
+	exitCmd := cli.factory.CreateExitCommand()
+	cli.commands["exit"] = exitCmd
+	cli.commands["quit"] = exitCmd
+
+	statsCmd := cli.factory.CreateStatsCommand()
+	cli.commands["stats"] = statsCmd
+	cli.commands["status"] = statsCmd
+
+	cli.commands["stop-all"] = cli.factory.CreateStopAllCommand()
+	cli.commands["stop"] = cli.factory.CreateStopCommand()
+	cli.commands["reload"] = cli.factory.CreateReloadCommand()
+
+	// Core & Feature commands
 	cli.AddCommand(cli.factory.CreateListCommand())
 	cli.AddCommand(cli.factory.CreateInfoCommand())
 	cli.AddCommand(cli.factory.CreateSendCommand())
@@ -83,10 +101,42 @@ func (cli *CLI) Run() error {
 	cli.AddCommand(cli.factory.CreateBackgroundCommand())
 	cli.AddCommand(cli.factory.CreateStressTestCommand())
 	cli.AddCommand(cli.factory.CreateDbStatsCommand())
-	cli.AddCommand(cli.factory.CreateScenarioCommand())
+
+	scenarioCmd := cli.factory.CreateScenarioCommand()
+	cli.commands["scenario"] = scenarioCmd
+	cli.commands["scenarios"] = scenarioCmd
+
 	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
 	cli.AddCommand(cli.factory.CreateInitSpecCommand())
 	cli.AddCommand(cli.factory.CreateInitTxCommand())
+
+	targetCmd := cli.factory.CreateTargetCommand()
+	cli.commands["target"] = targetCmd
+	cli.commands["set"] = targetCmd
+
+	specCmd := cli.factory.CreateSpecCommand()
+	cli.commands["spec"] = specCmd
+	cli.commands["use-spec"] = specCmd
+
+	txCmd := cli.factory.CreateTxCommand()
+	cli.commands["tx"] = txCmd
+	cli.commands["use-tx"] = txCmd
+	cli.commands["transaction"] = txCmd
+
+	serverCmd := cli.factory.CreateServerCommand()
+	cli.commands["serve"] = serverCmd
+	cli.commands["server"] = serverCmd
+}
+
+func (cli *CLI) Run() error {
+	err := cli.InitService()
+	if err != nil {
+		return err
+	}
+
+	// Create command factory and register commands
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+	cli.registerAllCommands()
 
 	return cli.runWithHistory()
 }
@@ -162,29 +212,84 @@ func (cli *CLI) Close() {
 	}
 
 	// Close database connection
-	// Stop async logger and close database connection
 	db.StopAsyncLogger()
 	db.Close()
 }
 
-func (cli *CLI) printHelp() {
-	fmt.Println("JISO CLI Commands:")
-	fmt.Println("  help, h, ?     - Display this help message")
-	fmt.Println("  version, v     - Display version information")
-	fmt.Println("  clear, cls     - Clear terminal")
-	fmt.Println("  quit, exit     - Exit the program")
-	fmt.Println("  stats, status  - Show worker statistics")
-	fmt.Println("  stop-all       - Stop all background workers")
-	fmt.Println("  reload         - Reload transaction specification and connection")
-	fmt.Println("  stop           - Stop a specific worker")
-	fmt.Println("")
+func (cli *CLI) PrintHelp() {
+	cli.printHelp()
+}
 
-	if len(cli.commands) > 0 {
-		fmt.Println("Available commands:")
-		for name, cmd := range cli.commands {
-			fmt.Printf("  %-14s - %s\n", name, cmd.Synopsis())
+type commandGroup struct {
+	category string
+	commands []string
+}
+
+func (cli *CLI) printHelp() {
+	groups := []commandGroup{
+		{
+			category: "🔌 Connection & Configuration Management",
+			commands: []string{"connect", "disconnect", "target", "spec", "tx"},
+		},
+		{
+			category: "💳 Transaction & Load Testing Execution",
+			commands: []string{"send", "bgsend", "stress", "list", "info"},
+		},
+		{
+			category: "🧪 Scenario & Test Automation",
+			commands: []string{"scenario", "run-scenario"},
+		},
+		{
+			category: "⚙️ Embedded Mock Server Subsystem",
+			commands: []string{"serve"},
+		},
+		{
+			category: "📊 Worker & Operational Management",
+			commands: []string{"stats", "stop", "stop-all", "db-stats", "reload"},
+		},
+		{
+			category: "📁 Scaffolding & Setup Utilities",
+			commands: []string{"init-spec", "init-tx"},
+		},
+		{
+			category: "🛠️ General & Session Utilities",
+			commands: []string{"help", "version", "clear", "exit"},
+		},
+	}
+
+	aliases := map[string]string{
+		"target":   "aliases: set",
+		"spec":     "aliases: use-spec",
+		"tx":       "aliases: use-tx, transaction",
+		"scenario": "aliases: scenarios",
+		"stats":    "aliases: status",
+		"help":     "aliases: h, ?",
+		"version":  "aliases: v",
+		"clear":    "aliases: cls",
+		"exit":     "aliases: quit",
+	}
+
+	fmt.Println("================================================================================")
+	fmt.Println("                         JISO CLI COMMAND REFERENCE")
+	fmt.Println("================================================================================")
+
+	for _, g := range groups {
+		fmt.Printf("\n%s:\n", g.category)
+		for _, name := range g.commands {
+			if command, exists := cli.commands[name]; exists {
+				aliasStr := ""
+				if a, ok := aliases[name]; ok {
+					aliasStr = fmt.Sprintf(" (%s)", a)
+				}
+				fmt.Printf("  %-16s - %s%s\n", name, command.Synopsis(), aliasStr)
+			}
 		}
 	}
+	fmt.Println("\n================================================================================")
+}
+
+func (cli *CLI) PrintVersion() {
+	cli.printVersion()
 }
 
 func (cli *CLI) printVersion() {
@@ -244,22 +349,9 @@ func (cli *CLI) Prepare() error {
 		return err
 	}
 
-	// Create command factory
+	// Create command factory and register commands
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
-
-	// Add commands using the factory
-	cli.AddCommand(cli.factory.CreateListCommand())
-	cli.AddCommand(cli.factory.CreateInfoCommand())
-	cli.AddCommand(cli.factory.CreateSendCommand())
-	cli.AddCommand(cli.factory.CreateConnectCommand())
-	cli.AddCommand(cli.factory.CreateDisconnectCommand())
-	cli.AddCommand(cli.factory.CreateBackgroundCommand())
-	cli.AddCommand(cli.factory.CreateStressTestCommand())
-	cli.AddCommand(cli.factory.CreateDbStatsCommand())
-	cli.AddCommand(cli.factory.CreateScenarioCommand())
-	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
-	cli.AddCommand(cli.factory.CreateInitSpecCommand())
-	cli.AddCommand(cli.factory.CreateInitTxCommand())
+	cli.registerAllCommands()
 
 	return nil
 }
@@ -287,7 +379,6 @@ func (cli *CLI) Reload() error {
 	fmt.Println("Stopping all workers...")
 	if err := cli.StopAllWorkers(); err != nil {
 		fmt.Printf("Warning: Failed to stop all workers: %v\n", err)
-		// Continue with reload even if worker stopping fails
 	}
 
 	// Step 2: Close existing service if it exists
@@ -295,7 +386,6 @@ func (cli *CLI) Reload() error {
 		fmt.Println("Closing existing service...")
 		if err := cli.svc.Close(); err != nil {
 			fmt.Printf("Warning: Failed to close service: %v\n", err)
-			// Continue with reload
 		}
 		cli.svc = nil
 	}
@@ -304,7 +394,6 @@ func (cli *CLI) Reload() error {
 	fmt.Println("Closing database connection...")
 	if err := db.Close(); err != nil {
 		fmt.Printf("Warning: Failed to close database: %v\n", err)
-		// Continue with reload
 	}
 
 	// Step 4: Reinitialize service with new configuration
@@ -313,27 +402,39 @@ func (cli *CLI) Reload() error {
 		return fmt.Errorf("failed to reinitialize service: %w", err)
 	}
 
-	// Step 5: Recreate command factory with new service
+	// Step 5: Recreate command factory with new service and register commands
 	fmt.Println("Updating command factory...")
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
-
-	// Step 6: Re-add commands (in case the factory changed)
-	cli.commands = make(map[string]cmd.Command) // Clear existing commands
-	cli.AddCommand(cli.factory.CreateListCommand())
-	cli.AddCommand(cli.factory.CreateInfoCommand())
-	cli.AddCommand(cli.factory.CreateSendCommand())
-	cli.AddCommand(cli.factory.CreateConnectCommand())
-	cli.AddCommand(cli.factory.CreateDisconnectCommand())
-	cli.AddCommand(cli.factory.CreateBackgroundCommand())
-	cli.AddCommand(cli.factory.CreateStressTestCommand())
-	cli.AddCommand(cli.factory.CreateDbStatsCommand())
-	cli.AddCommand(cli.factory.CreateScenarioCommand())
-	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
-	cli.AddCommand(cli.factory.CreateInitSpecCommand())
-	cli.AddCommand(cli.factory.CreateInitTxCommand())
+	cli.registerAllCommands()
 
 	fmt.Println("Service reloaded successfully")
 	return nil
+}
+
+// ReloadTransactions reloads the transaction repository with the given transaction file path
+func (cli *CLI) ReloadTransactions(txPath string) (int, error) {
+	var spec *iso8583.MessageSpec
+	if cli.svc != nil {
+		spec = cli.svc.GetSpec()
+	}
+	if spec == nil {
+		specPath := cfg.GetConfig().GetSpec()
+		if specPath != "" {
+			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+				spec = s
+			}
+		}
+	}
+
+	tcInstance, err := transactions.NewTransactionCollection(txPath, spec)
+	if err != nil {
+		return 0, fmt.Errorf("failed to load transactions: %w", err)
+	}
+
+	cli.tc = tcInstance
+	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+	cli.registerAllCommands()
+	return len(tcInstance.ListNames()), nil
 }
 
 // Set service instance
@@ -392,12 +493,81 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 		return cmdObj.Execute()
 	}
 
+	if subcommand == "serve" || subcommand == "server" {
+		specPath := cfg.GetConfig().GetSpec()
+		txPath := cfg.GetConfig().GetFile()
+		var spec *iso8583.MessageSpec
+		var routes []cfg.MockRouteConfig
+		if specPath != "" {
+			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+				spec = s
+			}
+		}
+		if spec == nil {
+			spec = utils.GetDefaultSpec()
+		}
+		var tcRepo transactions.Repository
+		if txPath != "" && spec != nil {
+			if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
+				routes = tc.GetMockRoutes()
+				tcRepo = tc
+			}
+		}
+		cmdObj := cmd.NewServerCommand(spec, routes, tcRepo)
+
+		subCmd := "start"
+		port := "9999"
+		headerType := "binary2"
+
+		if len(args) > 0 {
+			subCmd = strings.ToLower(args[0])
+		}
+		if subCmd == "stop" {
+			return fmt.Errorf("'serve stop' is only applicable in interactive REPL mode. In standalone mode, stop the server with Ctrl+C")
+		}
+
+		if subCmd == "routes" || subCmd == "list" {
+			cmdObj.ListRoutes()
+			return nil
+		}
+
+		if subCmd == "start" {
+			if len(args) > 1 {
+				port = args[1]
+			}
+			if len(args) > 2 {
+				headerType = args[2]
+			}
+			if len(args) > 3 {
+				if s, err := utils.CreateSpecFromFile(args[3]); err == nil {
+					spec = s
+					cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
+				}
+			}
+		} else {
+			// If first argument is numeric port or header type
+			port = args[0]
+			if len(args) > 1 {
+				headerType = args[1]
+			}
+			if len(args) > 2 {
+				if s, err := utils.CreateSpecFromFile(args[2]); err == nil {
+					spec = s
+					cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
+				}
+			}
+		}
+
+		return cmdObj.RunDirectServer(port, headerType)
+	}
+
 	// For other commands (run-scenario), we must initialize the service
 	if err := cli.InitService(); err != nil {
 		return err
 	}
 
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
+	cli.registerAllCommands()
 
 	if subcommand == "run-scenario" {
 		fs := flag.NewFlagSet("run-scenario", flag.ContinueOnError)

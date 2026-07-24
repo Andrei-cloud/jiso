@@ -453,6 +453,97 @@ func (suite *TransactionCollectionSuite) TestValidateInvalidDataset() {
 	suite.Nil(tc)
 }
 
+func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
+	suite.True(isReservedAutoKeywordString("auto"))
+	suite.True(isReservedAutoKeywordString("$auto"))
+	suite.True(isReservedAutoKeywordString("STAN"))
+	suite.True(isReservedAutoKeywordString("$STAN"))
+	suite.True(isReservedAutoKeywordString("GEN_STAN"))
+	suite.True(isReservedAutoKeywordString("RRN"))
+	suite.True(isReservedAutoKeywordString("$RRN"))
+	suite.True(isReservedAutoKeywordString("GEN_RRN"))
+	suite.True(isReservedAutoKeywordString("auth_code"))
+	suite.True(isReservedAutoKeywordString("$auth_code"))
+	suite.True(isReservedAutoKeywordString("gen_auth_code"))
+	suite.True(isReservedAutoKeywordString("datetime"))
+	suite.True(isReservedAutoKeywordString("random"))
+
+	msg := iso8583.NewMessage(iso8583.Spec87)
+	suite.tc.handleAutoFieldsWithKeyword(11, msg, "STAN")
+	f11 := msg.GetField(11)
+	suite.NotNil(f11)
+	val11, err := f11.String()
+	suite.NoError(err)
+	suite.NotEmpty(val11)
+
+	suite.tc.handleAutoFieldsWithKeyword(37, msg, "RRN")
+	f37 := msg.GetField(37)
+	suite.NotNil(f37)
+	val37, err := f37.String()
+	suite.NoError(err)
+	suite.NotEmpty(val37)
+
+	suite.tc.handleAutoFieldsWithKeyword(38, msg, "AUTH_CODE")
+	f38 := msg.GetField(38)
+	suite.NotNil(f38)
+	val38, err := f38.String()
+	suite.NoError(err)
+	suite.Equal(6, len(val38))
+
+	msgAuto := iso8583.NewMessage(iso8583.Spec87)
+	suite.tc.handleAutoFields(38, msgAuto)
+	f38Auto := msgAuto.GetField(38)
+	suite.NotNil(f38Auto)
+	val38Auto, err := f38Auto.String()
+	suite.NoError(err)
+	suite.Equal(6, len(val38Auto))
+
+	msgField90 := iso8583.NewMessage(iso8583.Spec87)
+	suite.tc.handleAutoFields(90, msgField90)
+	f90 := msgField90.GetField(90)
+	suite.NotNil(f90)
+	val90, err := f90.String()
+	suite.NoError(err)
+	suite.Equal(42, len(val90))
+}
+
+func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
+	data := []map[string]interface{}{
+		{
+			"type":        "transaction",
+			"name":        "test_tx",
+			"description": "Test transaction",
+			"fields": map[string]interface{}{
+				"0": "0800",
+			},
+		},
+		{
+			"type": "mock_route",
+			"name": "Sign On Route",
+			"match_fields": map[string]interface{}{
+				"0": "0800",
+			},
+			"latency_ms": 100,
+			"jitter_ms":  25,
+		},
+	}
+	dataBytes, err := json.Marshal(data)
+	suite.Require().NoError(err)
+	file, err := os.CreateTemp("", "transactions_mock.json")
+	suite.Require().NoError(err)
+	defer os.Remove(file.Name())
+	_, err = file.Write(dataBytes)
+	suite.Require().NoError(err)
+
+	tc, err := NewTransactionCollection(file.Name(), iso8583.Spec87)
+	suite.Require().NoError(err)
+	routes := tc.GetMockRoutes()
+	suite.Require().Len(routes, 1)
+	suite.Equal("Sign On Route", routes[0].Name)
+	suite.Equal(100, routes[0].LatencyMs)
+	suite.Equal(25, routes[0].JitterMs)
+}
+
 func TestTransactionCollectionSuite(t *testing.T) {
 	suite.Run(t, new(TransactionCollectionSuite))
 }

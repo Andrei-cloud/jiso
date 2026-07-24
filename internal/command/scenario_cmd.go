@@ -25,6 +25,9 @@ func (c *ScenarioCommand) Synopsis() string {
 }
 
 func (c *ScenarioCommand) Execute() error {
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
 	tcImpl, ok := c.Tc.(*transactions.TransactionCollection)
 	if !ok {
 		return fmt.Errorf("invalid transaction repository type")
@@ -62,12 +65,14 @@ func (c *RunScenarioCommand) Synopsis() string {
 }
 
 func (c *RunScenarioCommand) Execute() error {
-	if c.Svc == nil {
-		return fmt.Errorf("service not initialized")
+	if err := VerifySpec(c.Svc); err != nil {
+		return err
 	}
-
-	if !c.Svc.IsConnected() {
-		return fmt.Errorf("connection is offline")
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
+	if err := VerifyConnection(c.Svc); err != nil {
+		return err
 	}
 
 	tcImpl, ok := c.Tc.(*transactions.TransactionCollection)

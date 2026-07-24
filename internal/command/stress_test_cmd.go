@@ -28,8 +28,14 @@ func (c *StressTestCommand) Synopsis() string {
 }
 
 func (c *StressTestCommand) Execute() error {
-	if !c.Svc.IsConnected() {
-		return fmt.Errorf("connection is offline")
+	if err := VerifySpec(c.Svc); err != nil {
+		return err
+	}
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
+	if err := VerifyConnection(c.Svc); err != nil {
+		return err
 	}
 
 	qs := []*survey.Question{

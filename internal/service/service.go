@@ -29,11 +29,17 @@ func NewService(
 	connectTimeout, totalConnectTimeout, responseTimeout time.Duration,
 ) (*Service, error) {
 	// Load message spec
-	spec, err := utils.CreateSpecFromFile(specFileName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load spec file: %w", err)
+	var spec *iso8583.MessageSpec
+	var err error
+	if specFileName != "" {
+		spec, err = utils.CreateSpecFromFile(specFileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load spec file: %w", err)
+		}
+		fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
+	} else {
+		spec = utils.GetDefaultSpec()
 	}
-	fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
 
 	// Create a new connection manager
 	connManager := connection.NewManager(
@@ -109,6 +115,22 @@ func (s *Service) IsConnected() bool {
 // GetSpec returns the current ISO8583 message specification
 func (s *Service) GetSpec() *iso8583.MessageSpec {
 	return s.MessageSpec
+}
+
+// SetSpec updates the current ISO8583 message specification
+func (s *Service) SetSpec(spec *iso8583.MessageSpec) {
+	s.MessageSpec = spec
+	if s.connManager != nil {
+		s.connManager.SetSpec(spec)
+	}
+}
+
+// SetTarget updates the target endpoint for the service and its connection manager
+func (s *Service) SetTarget(host, port string) {
+	s.Address = fmt.Sprintf("%s:%s", host, port)
+	if s.connManager != nil {
+		s.connManager.SetAddress(host, port)
+	}
 }
 
 // Send sends an ISO8583 message and returns the response

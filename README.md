@@ -5,16 +5,18 @@ JISO (JSON ISO8583) is a command-line tool for simulating ISO8583 message transa
 ## Features
 
 - Connects to ISO8583 servers with various header formats (ASCII, Binary, BCD, NAPS)
-- Sends predefined ISO8583 transactions from JSON configuration files
-- Supports single transactions, background transaction streams, and stress testing
-- Stress testing with gradual TPS ramp-up, multi-option transaction selection, and random execution distribution
+- Polymorphic JSON schema (`"transaction"`, `"dataset"`, `"scenario"`, `"mock_route"`)
+- Dynamic Target Switching (`target <ip:port>`, `set ip <addr>`, `set port <port>`)
+- Stateful Multi-Step Scenario Engine with context memory extraction (`{{context.X}}`) and dataset interpolation (`{{data.X}}`)
+- Embedded ISO8583 Mock Server Subsystem with edge-case disruption injection (`delay_ms`, `drop_connection`, fallback catch-all routes)
+- Structured Scenario Execution Reports with terminal progress trees and JSON export (`TestReport`) for CI/CD pipelines
+- Instant Boilerplate Generators (`init-spec`, `init-tx`) compiled into binary via `//go:embed`
+- PCAP & TCP Stream Traffic Analyzer with flow aggregation and variance analysis
+- High-TPS telemetry batcher preventing terminal UI choking during stress testing
 - Automatic field handling (STAN, date/time, etc.)
 - Transaction metrics collection (response time, success rate, etc.)
 - Comprehensive stress testing summary with start/end time, target/actual TPS, response breakdown, latency profile, and per-transaction metrics
-- Interactive command-line interface with command history
-- Persistent counter management for STAN and RRN values
-- Robust networking with automatic reconnection, retry mechanisms, and circuit breakers
-- Configurable timeouts and connection parameters for different environments
+- Interactive command-line interface with shlex lexer and middleware interceptor pipeline
 
 ## Installation
 
@@ -37,41 +39,42 @@ This will create a `jiso` executable in the current directory.
 
 ## Quick Start
 
-1. Start the application with default configuration:
+1. Start the JISO interactive shell:
 
 ```bash
-make run
+jiso
 ```
 
-This runs the application with the following default parameters:
-- Host: localhost
-- Port: 9999
-- Transaction file: ./transactions/transaction.json
-- Specification file: ./specs/spec_bcp.json
+2. Inside the interactive shell, configure your target, specification, and transaction file:
 
-2. Or run it manually specifying parameters:
-
-```bash
-go run ./cmd/main.go -host <hostname> -port <port> -file <transaction-file> -spec-file <spec-file> [OPTIONS]
 ```
+jiso> target 127.0.0.1:9999
+Target updated successfully to: 127.0.0.1:9999
+
+jiso> spec ./specs/spec_bcp.json
+Specification updated successfully to: ./specs/spec_bcp.json
+
+jiso> tx ./transactions/transaction.json
+Transaction file updated successfully to: ./transactions/transaction.json
+```
+
+If run without arguments, `spec` and `tx` present an interactive file browser to pick files directly from the terminal.
 
 ### Configuration Options
 
-JISO supports several command-line options to customize connection behavior and timeouts:
+JISO supports command-line options to customize connection behavior and timeouts:
 
-- `-host <hostname>`: Server hostname (default: none, required)
-- `-port <port>`: Server port (default: none, required)
-- `-file <transaction-file>`: Path to transaction JSON file (default: none, required)
-- `-spec-file <spec-file>`: Path to ISO8583 specification JSON file (default: none, required)
 - `-reconnect-attempts <n>`: Number of reconnection attempts on connection failure (default: 3)
 - `-connect-timeout <duration>`: Timeout for individual connection attempts (default: 5s)
 - `-total-connect-timeout <duration>`: Total timeout for connection establishment (default: 10s)
 - `-response-timeout <duration>`: Timeout for waiting responses to async messages (default: 5s)
+- `-hex`: Enable hex dump output for messages
+- `-db-path <path>`: Path to SQLite database file for storing sessions
 
 Example with custom timeouts:
 
 ```bash
-go run ./cmd/main.go -host localhost -port 9999 -file ./transactions/transaction.json -spec-file ./specs/spec_bcp.json -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s -response-timeout 45s
+jiso -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s -response-timeout 45s
 ```
 
 ## Testing

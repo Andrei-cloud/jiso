@@ -1,17 +1,12 @@
 package command
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"jiso/internal/command/templates"
 )
-
-//go:embed templates/default_spec.json
-var defaultSpec []byte
-
-//go:embed templates/default_transactions.json
-var defaultTransactions []byte
 
 type InitSpecCommand struct {
 	OutputPath string
@@ -37,7 +32,7 @@ func (c *InitSpecCommand) Execute() error {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, defaultSpec, 0644); err != nil {
+	if err := os.WriteFile(path, templates.DefaultSpecJSON, 0644); err != nil {
 		return fmt.Errorf("failed to write spec file to %s: %w", path, err)
 	}
 
@@ -69,7 +64,7 @@ func (c *InitTxCommand) Execute() error {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, defaultTransactions, 0644); err != nil {
+	if err := os.WriteFile(path, templates.DefaultTransactionJSON, 0644); err != nil {
 		return fmt.Errorf("failed to write transaction file to %s: %w", path, err)
 	}
 

@@ -28,6 +28,18 @@ func (c *ConnectCommand) Synopsis() string {
 }
 
 func (c *ConnectCommand) Execute() error {
+	if err := VerifyTarget(); err != nil {
+		return err
+	}
+
+	if c.Svc != nil {
+		host := config.GetConfig().GetHost()
+		port := config.GetConfig().GetPort()
+		if host != "" && port != "" {
+			c.Svc.SetTarget(host, port)
+		}
+	}
+
 	qs := []*survey.Question{
 		{
 			Name: "length",

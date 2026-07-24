@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"jiso/internal/cli"
-	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
 )
 
@@ -53,6 +52,8 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 			"scenarios":    true,
 			"scenario":     true,
 			"run-scenario": true,
+			"serve":        true,
+			"server":       true,
 		}
 		if validSubcommands[subcommand] {
 			err := cliTool.RunDirectCommand(subcommand, args[1:])
@@ -62,17 +63,12 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 			}
 			return 0
 		} else {
-			fmt.Printf("Unknown subcommand: %s. Available subcommands: init-spec, init-tx, scenarios, run-scenario\n", subcommand)
+			fmt.Printf("Unknown subcommand: %s. Available subcommands: init-spec, init-tx, scenarios, run-scenario, serve, server\n", subcommand)
 			return 1
 		}
 	}
 
 	cliTool.ClearTerminal()
-
-	// Add collect args command if config is incomplete
-	if !validateConfig() {
-		cliTool.AddCommand(&cmd.CollectArgsCommand{})
-	}
 
 	// Run the CLI with context awareness
 	errCh := make(chan error, 1)
@@ -92,12 +88,4 @@ func runApp(ctx context.Context, cliTool *cli.CLI) int {
 		fmt.Println("Exiting CLI tool")
 		return 0
 	}
-}
-
-func validateConfig() bool {
-	config := cfg.GetConfig()
-	return config.GetHost() != "" &&
-		config.GetPort() != "" &&
-		config.GetSpec() != "" &&
-		config.GetFile() != ""
 }

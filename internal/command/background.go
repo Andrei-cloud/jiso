@@ -10,7 +10,6 @@ import (
 	"jiso/internal/transactions"
 
 	"github.com/AlecAivazis/survey/v2"
-	connection "github.com/moov-io/iso8583-connection"
 )
 
 type BackgroundCommand struct {
@@ -28,8 +27,14 @@ func (c *BackgroundCommand) Synopsis() string {
 }
 
 func (c *BackgroundCommand) Execute() error {
-	if c.Svc.Connection == nil || c.Svc.Connection.Status() != connection.StatusOnline {
-		return fmt.Errorf("connection is offline")
+	if err := VerifySpec(c.Svc); err != nil {
+		return err
+	}
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
+	if err := VerifyConnection(c.Svc); err != nil {
+		return err
 	}
 
 	qs := []*survey.Question{

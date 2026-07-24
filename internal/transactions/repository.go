@@ -1,6 +1,8 @@
 package transactions
 
 import (
+	cfg "jiso/internal/config"
+
 	"github.com/moov-io/iso8583"
 )
 
@@ -17,6 +19,9 @@ type Repository interface {
 
 	// LogTransaction logs transaction execution results
 	LogTransaction(name string, success bool)
+
+	// GetMockRoutes returns configured mock routes
+	GetMockRoutes() []cfg.MockRouteConfig
 }
 
 // Ensure TransactionCollection implements Repository interface

@@ -120,44 +120,52 @@ func TestConfigValidate(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "missing host",
+			name: "missing host (valid on startup)",
 			setupConfig: func(c *Config) {
 				c.port = "9999"
 				c.specFileName = createTempFile(t, "test.json", "{}")
 				c.file = createTempFile(t, "transactions.json", "[]")
+				c.connectTimeout = time.Second
+				c.totalConnectTimeout = 2 * time.Second
+				c.responseTimeout = time.Second
 			},
-			expectError: true,
-			errorMsg:    "host is required",
+			expectError: false,
 		},
 		{
-			name: "missing port",
+			name: "missing port (valid on startup)",
 			setupConfig: func(c *Config) {
 				c.host = "localhost"
 				c.specFileName = createTempFile(t, "test.json", "{}")
 				c.file = createTempFile(t, "transactions.json", "[]")
+				c.connectTimeout = time.Second
+				c.totalConnectTimeout = 2 * time.Second
+				c.responseTimeout = time.Second
 			},
-			expectError: true,
-			errorMsg:    "port is required",
+			expectError: false,
 		},
 		{
-			name: "missing spec file",
+			name: "missing spec file (valid on startup)",
 			setupConfig: func(c *Config) {
 				c.host = "localhost"
 				c.port = "9999"
 				c.file = createTempFile(t, "transactions.json", "[]")
+				c.connectTimeout = time.Second
+				c.totalConnectTimeout = 2 * time.Second
+				c.responseTimeout = time.Second
 			},
-			expectError: true,
-			errorMsg:    "spec file is required",
+			expectError: false,
 		},
 		{
-			name: "missing transaction file",
+			name: "missing transaction file (valid on startup)",
 			setupConfig: func(c *Config) {
 				c.host = "localhost"
 				c.port = "9999"
 				c.specFileName = createTempFile(t, "test.json", "{}")
+				c.connectTimeout = time.Second
+				c.totalConnectTimeout = 2 * time.Second
+				c.responseTimeout = time.Second
 			},
-			expectError: true,
-			errorMsg:    "transaction file is required",
+			expectError: false,
 		},
 		{
 			name: "non-existent spec file",

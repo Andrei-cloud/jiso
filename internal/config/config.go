@@ -40,14 +40,6 @@ func GetConfig() *Config {
 }
 
 func (c *Config) Parse() error {
-	host := flag.String("host", "", "Hostname to connect to")
-	port := flag.String("port", "", "Port to connect to")
-	specFileName := flag.String(
-		"spec-file",
-		"",
-		"path to customized specification file in JSON format",
-	)
-	file := flag.String("file", "", "path to transaction file in JSON format")
 	reconnectAttempts := flag.Int(
 		"reconnect-attempts",
 		3,
@@ -80,14 +72,10 @@ func (c *Config) Parse() error {
 
 	flag.Parse()
 
-	c.host = *host
-	c.port = *port
-	c.specFileName = *specFileName
 	c.reconnectAttempts = *reconnectAttempts
 	c.connectTimeout = *connectTimeout
 	c.totalConnectTimeout = *totalConnectTimeout
 	c.responseTimeout = *responseTimeout
-	c.file = *file
 	c.hex = *hex
 	c.dbPath = *dbPath
 	c.visaStationId = *visaStationId
@@ -108,6 +96,16 @@ func (c *Config) SetPort(port string) {
 		return
 	}
 	c.port = port
+}
+
+// Reset clears configuration fields (useful for testing)
+func (c *Config) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.host = ""
+	c.port = ""
+	c.specFileName = ""
+	c.file = ""
 }
 
 func (c *Config) SetSpec(specFileName string) {
@@ -229,30 +227,18 @@ func (c *Config) Validate() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	// Validate host
-	if c.host == "" {
-		return fmt.Errorf("host is required")
+	// Validate spec file if provided
+	if c.specFileName != "" {
+		if _, err := os.Stat(c.specFileName); os.IsNotExist(err) {
+			return fmt.Errorf("spec file does not exist: %s", c.specFileName)
+		}
 	}
 
-	// Validate port
-	if c.port == "" {
-		return fmt.Errorf("port is required")
-	}
-
-	// Validate spec file
-	if c.specFileName == "" {
-		return fmt.Errorf("spec file is required")
-	}
-	if _, err := os.Stat(c.specFileName); os.IsNotExist(err) {
-		return fmt.Errorf("spec file does not exist: %s", c.specFileName)
-	}
-
-	// Validate transaction file
-	if c.file == "" {
-		return fmt.Errorf("transaction file is required")
-	}
-	if _, err := os.Stat(c.file); os.IsNotExist(err) {
-		return fmt.Errorf("transaction file does not exist: %s", c.file)
+	// Validate transaction file if provided
+	if c.file != "" {
+		if _, err := os.Stat(c.file); os.IsNotExist(err) {
+			return fmt.Errorf("transaction file does not exist: %s", c.file)
+		}
 	}
 
 	// Validate reconnect attempts

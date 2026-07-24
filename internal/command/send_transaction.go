@@ -38,9 +38,14 @@ func (c *SendCommand) Synopsis() string {
 }
 
 func (c *SendCommand) Execute() error {
-	// Perform thorough connection checks
-	if c.Svc == nil {
-		return fmt.Errorf("service not initialized")
+	if err := VerifySpec(c.Svc); err != nil {
+		return err
+	}
+	if err := VerifyTx(c.Tc); err != nil {
+		return err
+	}
+	if err := VerifyConnection(c.Svc); err != nil {
+		return err
 	}
 
 	if !c.Svc.IsConnected() {
@@ -262,11 +267,10 @@ func validateFinancialMessage(msg *iso8583.Message) error {
 }
 
 func validateNetworkMessage(msg *iso8583.Message) error {
-	// Required fields for network management transactions
+	// Required fields for network management transactions (0800)
 	requiredFields := map[int]string{
 		7:  "Transmission Date/Time",
 		11: "STAN (System Trace Audit Number)",
-		37: "RRN (Retrieval Reference Number)",
 		70: "Network Management Information Code",
 	}
 
@@ -341,7 +345,7 @@ func (c *SendCommand) StartClock() {
 
 func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, sessionID string) (string, time.Duration, error) {
 	// Check connection health before attempting to send
-	if !c.Svc.IsConnected() {
+	if c.Svc == nil || !c.Svc.IsConnected() {
 		// Log the issue but don't fail the transaction - allow worker to continue
 		fmt.Printf("Warning: Connection is offline, skipping transaction %s\n", trxnName)
 		return "OFFLINE", 0, nil // Return nil to not count as failure

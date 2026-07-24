@@ -1,0 +1,171 @@
+[
+  {
+    "type": "transaction",
+    "name": "Sign On",
+    "description": "Network Management: Sign On",
+    "fields": {
+      "0": "0800",
+      "7": "auto",
+      "11": "auto",
+      "70": 1
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Echo",
+    "description": "Network Management: Echo",
+    "fields": {
+      "0": "0800",
+      "7": "auto",
+      "11": "auto",
+      "70": 301
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Purchase Template",
+    "description": "Financial request base template",
+    "dataset_name": "card_pool",
+    "fields": {
+      "0": "0200",
+      "2": "{{data.2}}",
+      "3": "000000",
+      "4": "1000",
+      "7": "auto",
+      "11": "auto",
+      "14": "{{data.14}}",
+      "22": "021",
+      "23": "{{data.23}}",
+      "35": "{{data.35}}",
+      "37": "auto",
+      "41": "77973588",
+      "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634",
+      "60": "CBQP"
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Reversal Template",
+    "description": "Reversal request base template",
+    "dataset_name": "card_pool",
+    "fields": {
+      "0": "0400",
+      "2": "{{data.2}}",
+      "3": "000000",
+      "4": "1000",
+      "7": "auto",
+      "11": "auto",
+      "14": "{{data.14}}",
+      "37": "auto",
+      "38": "{{context.AuthId}}",
+      "39": "01",
+      "41": "77973588",
+      "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634"
+    }
+  },
+  {
+    "type": "dataset",
+    "name": "card_pool",
+    "description": "Sample card data pool for testing scenarios",
+    "data": [
+      {
+        "2": "1234567890123456",
+        "14": "2512",
+        "23": "001",
+        "35": "1234567890123456=2512123"
+      },
+      {
+        "2": "9876543210987654",
+        "14": "2601",
+        "23": "002",
+        "35": "9876543210987654=2601123"
+      }
+    ]
+  },
+  {
+    "type": "scenario",
+    "name": "E2E Purchase and Reversal",
+    "description": "Signs on, sends a purchase transaction, extracts the Auth ID, and then sends a reversal transaction using that Auth ID",
+    "dataset_name": "card_pool",
+    "steps": [
+      {
+        "name": "Network Sign On",
+        "use_transaction_id": "Sign On",
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "Purchase Authorization",
+        "use_transaction_id": "Purchase Template",
+        "fields": {
+          "4": "2500"
+        },
+        "extract": {
+          "AuthId": "38"
+        },
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          },
+          {
+            "field": "38",
+            "exists": true
+          }
+        ]
+      },
+      {
+        "name": "Reversal of Purchase",
+        "use_transaction_id": "Reversal Template",
+        "fields": {
+          "4": "2500"
+        },
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "mock_route",
+    "name": "Sign On Approval",
+    "match_mti": "0800",
+    "echo_fields": [7, 11, 70],
+    "response_mti": "0810",
+    "response_fields": {
+      "39": "00"
+    }
+  },
+  {
+    "type": "mock_route",
+    "name": "Purchase Authorization Approval",
+    "match_mti": "0200",
+    "match_de3": "000000",
+    "echo_fields": [2, 3, 4, 7, 11, 14, 37, 41, 49],
+    "response_mti": "0210",
+    "response_fields": {
+      "38": "654321",
+      "39": "00"
+    }
+  },
+  {
+    "type": "mock_route",
+    "name": "Reversal Approval",
+    "match_mti": "0400",
+    "match_de3": "000000",
+    "echo_fields": [2, 3, 4, 7, 11, 14, 37, 38, 41, 49],
+    "response_mti": "0410",
+    "response_fields": {
+      "39": "00"
+    }
+  }
+]
