@@ -179,6 +179,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
+	var writeMu sync.Mutex
+
 	for {
 		select {
 		case <-s.stopChan:
@@ -212,48 +214,53 @@ func (s *Server) handleConn(conn net.Conn) {
 			continue
 		}
 
-		mti, _ := req.GetMTI()
+		go func(req *iso8583.Message) {
+			mti, _ := req.GetMTI()
 
-		// Match and compose response
-		matchedRoute, resp, err := s.matcher.MatchAndCompose(req, spec)
-		if err != nil || resp == nil {
-			continue
-		}
-
-		routeName := "Catch-all Fallback"
-		if matchedRoute != nil {
-			routeName = matchedRoute.Name
-			if matchedRoute.DropConnection {
+			// Match and compose response (simulated latency/jitter sleep happens asynchronously)
+			matchedRoute, resp, err := s.matcher.MatchAndCompose(req, spec)
+			if err != nil || resp == nil {
 				return
 			}
-		}
 
-		respCode := ""
-		if f39 := resp.GetField(39); f39 != nil {
-			respCode, _ = f39.String()
-		}
+			routeName := "Catch-all Fallback"
+			if matchedRoute != nil {
+				routeName = matchedRoute.Name
+				if matchedRoute.DropConnection {
+					conn.Close()
+					return
+				}
+			}
 
-		// Record served message statistics
-		s.stats.RecordMessage(mti, routeName, respCode)
+			respCode := ""
+			if f39 := resp.GetField(39); f39 != nil {
+				respCode, _ = f39.String()
+			}
 
-		// Pack response
-		respPacked, err := resp.Pack()
-		if err != nil {
-			continue
-		}
+			// Record served message statistics
+			s.stats.RecordMessage(mti, routeName, respCode)
 
-		// Send response with TCP header
-		respHeader, err := utils.SelectServerHeader(hType)
-		if err != nil {
-			continue
-		}
-		respHeader.SetLength(len(respPacked))
+			// Pack response
+			respPacked, err := resp.Pack()
+			if err != nil {
+				return
+			}
 
-		if _, err := respHeader.WriteTo(conn); err != nil {
-			return
-		}
-		if _, err := conn.Write(respPacked); err != nil {
-			return
-		}
+			// Send response with TCP header
+			respHeader, err := utils.SelectServerHeader(hType)
+			if err != nil {
+				return
+			}
+			respHeader.SetLength(len(respPacked))
+
+			writeMu.Lock()
+			defer writeMu.Unlock()
+			if _, err := respHeader.WriteTo(conn); err != nil {
+				return
+			}
+			if _, err := conn.Write(respPacked); err != nil {
+				return
+			}
+		}(req)
 	}
 }

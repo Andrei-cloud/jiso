@@ -125,9 +125,39 @@ Field values in transaction definitions or scenario steps can use reserved keywo
   "response_fields": {
     "39": "00"
   },
-  "delay_ms": 10,
+  "delay_ms": 50,
+  "latency_ms": 100,
+  "jitter_ms": 25,
   "drop_connection": false
 }
 ```
+
+### Latency, Delay, and Network Jitter Simulation
+
+Mock routes support configurable latency and random response timing jitter to simulate realistic network degradation or slow processing backends:
+
+- **`delay_ms` / `latency_ms`** *(integer, milliseconds)*: Base artificial delay introduced before sending the route response. `latency_ms` serves as an alias for `delay_ms`. If both are provided, `delay_ms` takes precedence.
+- **`jitter_ms`** *(integer, milliseconds)*: Random variation range applied to the base latency (`[-jitter_ms, +jitter_ms]`).
+
+#### Delay Calculation Logic:
+$$\text{Total Delay} = \max\Big(0, \text{baseDelay} + \text{UniformRandom}(-\text{jitter\_ms}, +\text{jitter\_ms})\Big)$$
+
+#### Usage Examples:
+
+1. **Fixed Latency (100ms)**:
+   ```json
+   "latency_ms": 100
+   ```
+
+2. **Variable Network Jitter (100ms base $\pm$ 30ms jitter $\rightarrow$ 70ms to 130ms)**:
+   ```json
+   "latency_ms": 100,
+   "jitter_ms": 30
+   ```
+
+3. **Chaos/Timeout Test Route (drop connection without response)**:
+   ```json
+   "drop_connection": true
+   ```
 
 > If any field listed in `required_fields` (or top-level mandatory ISO message requirements) is missing from the incoming request, the mock server responds with **DE 39 = "30"** (Format Error / Missing Required Field) per Visa ISO 8583 specification standards.

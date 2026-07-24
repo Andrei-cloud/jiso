@@ -74,6 +74,8 @@ type ConfigItem struct {
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
 	ResponseFields map[string]string      `json:"response_fields,omitempty"`
 	DelayMs        int                    `json:"delay_ms,omitempty"`
+	LatencyMs      int                    `json:"latency_ms,omitempty"`
+	JitterMs       int                    `json:"jitter_ms,omitempty"`
 	DropConnection bool                   `json:"drop_connection,omitempty"`
 }
 
@@ -203,6 +205,8 @@ func NewTransactionCollection(
 				ResponseMTI:    item.ResponseMTI,
 				ResponseFields: item.ResponseFields,
 				DelayMs:        item.DelayMs,
+				LatencyMs:      item.LatencyMs,
+				JitterMs:       item.JitterMs,
 				DropConnection: item.DropConnection,
 			}
 			tc.mockRoutes = append(tc.mockRoutes, r)

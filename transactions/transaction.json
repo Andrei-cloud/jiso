@@ -171,7 +171,9 @@
     "response_mti": "0810",
     "response_fields": {
       "39": "00"
-    }
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
   },
   {
     "type": "mock_route",
@@ -194,7 +196,9 @@
     "response_mti": "0810",
     "response_fields": {
       "39": "00"
-    }
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
   },
   {
     "type": "mock_route",
@@ -229,7 +233,9 @@
     "response_fields": {
       "38": "auth_code",
       "39": "00"
-    }
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
   },
   {
     "type": "mock_route",
@@ -266,6 +272,8 @@
     "response_mti": "0410",
     "response_fields": {
       "39": "00"
-    }
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
   }
 ]

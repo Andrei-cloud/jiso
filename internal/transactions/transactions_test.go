@@ -507,6 +507,43 @@ func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
 	suite.Equal(42, len(val90))
 }
 
+func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
+	data := []map[string]interface{}{
+		{
+			"type":        "transaction",
+			"name":        "test_tx",
+			"description": "Test transaction",
+			"fields": map[string]interface{}{
+				"0": "0800",
+			},
+		},
+		{
+			"type": "mock_route",
+			"name": "Sign On Route",
+			"match_fields": map[string]interface{}{
+				"0": "0800",
+			},
+			"latency_ms": 100,
+			"jitter_ms":  25,
+		},
+	}
+	dataBytes, err := json.Marshal(data)
+	suite.Require().NoError(err)
+	file, err := os.CreateTemp("", "transactions_mock.json")
+	suite.Require().NoError(err)
+	defer os.Remove(file.Name())
+	_, err = file.Write(dataBytes)
+	suite.Require().NoError(err)
+
+	tc, err := NewTransactionCollection(file.Name(), iso8583.Spec87)
+	suite.Require().NoError(err)
+	routes := tc.GetMockRoutes()
+	suite.Require().Len(routes, 1)
+	suite.Equal("Sign On Route", routes[0].Name)
+	suite.Equal(100, routes[0].LatencyMs)
+	suite.Equal(25, routes[0].JitterMs)
+}
+
 func TestTransactionCollectionSuite(t *testing.T) {
 	suite.Run(t, new(TransactionCollectionSuite))
 }
