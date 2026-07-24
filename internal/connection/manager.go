@@ -38,12 +38,10 @@ type Manager struct {
 	header network.Header
 
 	// Async processing fields
-	pendingRequests      map[string]*pendingRequest
-	pendingMu            sync.RWMutex
-	maxPendingRequests   int // Maximum number of pending requests
-	responseTimeout      time.Duration
-	responseReaderCtx    context.Context
-	responseReaderCancel context.CancelFunc
+	pendingRequests    map[string]*pendingRequest
+	pendingMu          sync.RWMutex
+	maxPendingRequests int // Maximum number of pending requests
+	responseTimeout    time.Duration
 }
 
 type pendingRequest struct {

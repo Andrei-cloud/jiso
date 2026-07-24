@@ -150,15 +150,6 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
-	stmt := dbConn.Prep(insertSQL)
-	if stmt == nil {
-		return fmt.Errorf("failed to prepare statement")
-	}
-	// No need to finalize cached statement from Prep, but if we create a new one we should.
-	// sqlitex.ExecuteTransient handles preparation and finalization, but here we want to reuse the statement for the batch.
-	// However, using sqlitex.ExecuteTransient inside the loop is easier and safe enough for SQLite batching
-	// because the outer transaction holds the lock.
-
 	for _, record := range batch {
 		responseCode := deriveResponseCode(record.ResponseJSON)
 

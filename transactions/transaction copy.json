@@ -1,0 +1,279 @@
+[
+  {
+    "type": "transaction",
+    "name": "Sign On",
+    "description": "Network Management: Sign On",
+    "fields": {
+      "0": "0800",
+      "7": "auto",
+      "11": "auto",
+      "70": 1
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Echo",
+    "description": "Network Management: Echo",
+    "fields": {
+      "0": "0800",
+      "7": "auto",
+      "11": "auto",
+      "70": 301
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Purchase Template",
+    "description": "Financial Request (0200) Base Template",
+    "dataset_name": "card_pool",
+    "fields": {
+      "0": "0200",
+      "2": "{{data.2}}",
+      "3": "000000",
+      "4": "1000",
+      "7": "auto",
+      "11": "auto",
+      "14": "{{data.14}}",
+      "18": "5999",
+      "19": "840",
+      "22": "021",
+      "23": "{{data.23}}",
+      "25": "00",
+      "35": "{{data.35}}",
+      "37": "auto",
+      "41": "77973588",
+      "42": "123456789012345",
+      "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634",
+      "60": "CBQP"
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Reversal Template",
+    "description": "Reversal Request (0400) Base Template",
+    "dataset_name": "card_pool",
+    "fields": {
+      "0": "0400",
+      "2": "{{data.2}}",
+      "3": "000000",
+      "4": "1000",
+      "7": "auto",
+      "11": "auto",
+      "14": "{{data.14}}",
+      "18": "5999",
+      "19": "840",
+      "22": "021",
+      "25": "00",
+      "37": "auto",
+      "38": "{{context.AuthId}}",
+      "39": "01",
+      "41": "77973588",
+      "42": "123456789012345",
+      "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634",
+      "90": "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
+    }
+  },
+  {
+    "type": "dataset",
+    "name": "card_pool",
+    "description": "Sample card data pool for testing scenarios",
+    "data": [
+      {
+        "2": "1234567890123456",
+        "14": "2512",
+        "23": "001",
+        "35": "1234567890123456=2512123"
+      },
+      {
+        "2": "9876543210987654",
+        "14": "2601",
+        "23": "002",
+        "35": "9876543210987654=2601123"
+      }
+    ]
+  },
+  {
+    "type": "scenario",
+    "name": "E2E Purchase and Reversal",
+    "description": "Signs on, sends a purchase transaction, extracts the Auth ID, and then sends a reversal transaction using that Auth ID",
+    "dataset_name": "card_pool",
+    "steps": [
+      {
+        "name": "Network Sign On",
+        "use_transaction_id": "Sign On",
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "Purchase Authorization",
+        "use_transaction_id": "Purchase Template",
+        "fields": {
+          "4": "2500"
+        },
+        "extract": {
+          "AuthId": "38",
+          "OrigMTI": "0",
+          "OrigSTAN": "11",
+          "OrigDateTime": "7",
+          "OrigAcquirer": "32",
+          "OrigForwarder": "33"
+        },
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          },
+          {
+            "field": "38",
+            "exists": true
+          }
+        ]
+      },
+      {
+        "name": "Reversal of Purchase",
+        "use_transaction_id": "Reversal Template",
+        "fields": {
+          "4": "2500"
+        },
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "mock_route",
+    "name": "Sign On Approval",
+    "match_fields": {
+      "0": "0800",
+      "70": 1
+    },
+    "required_fields": [
+      "0",
+      "7",
+      "11",
+      "70"
+    ],
+    "echo_fields": [
+      7,
+      11,
+      70
+    ],
+    "response_mti": "0810",
+    "response_fields": {
+      "39": "00"
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
+  },
+  {
+    "type": "mock_route",
+    "name": "Echo",
+    "match_fields": {
+      "0": "0800",
+      "70": 301
+    },
+    "required_fields": [
+      "0",
+      "7",
+      "11",
+      "70"
+    ],
+    "echo_fields": [
+      7,
+      11,
+      70
+    ],
+    "response_mti": "0810",
+    "response_fields": {
+      "39": "00"
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
+  },
+  {
+    "type": "mock_route",
+    "name": "Purchase Authorization Approval",
+    "match_fields": {
+      "0": "0200",
+      "3": "000000"
+    },
+    "required_fields": [
+      "0",
+      "2",
+      "3",
+      "4",
+      "7",
+      "11",
+      "14",
+      "41",
+      "49"
+    ],
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      14,
+      37,
+      41,
+      49
+    ],
+    "response_mti": "0210",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00"
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
+  },
+  {
+    "type": "mock_route",
+    "name": "Reversal Approval",
+    "match_fields": {
+      "0": "0400",
+      "3": "000000"
+    },
+    "required_fields": [
+      "0",
+      "2",
+      "3",
+      "4",
+      "7",
+      "11",
+      "14",
+      "38",
+      "41",
+      "49",
+      "90"
+    ],
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      14,
+      37,
+      38,
+      41,
+      49
+    ],
+    "response_mti": "0410",
+    "response_fields": {
+      "39": "00"
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
+  }
+]

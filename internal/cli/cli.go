@@ -32,13 +32,6 @@ type CLI struct {
 	tc       transactions.Repository
 	factory  *cmd.Factory
 
-	// Add configuration options
-	config struct {
-		debugMode   bool
-		logLevel    string
-		autoConnect bool
-	}
-
 	// Background worker state
 	workers       map[string]*workerInfo
 	stressWorkers map[string]*stressTestWorker
@@ -450,13 +443,6 @@ func (cli *CLI) setService(svc *service.Service) {
 // Get message spec from service
 func (cli *CLI) getSpec() *iso8583.MessageSpec {
 	return cli.svc.GetSpec()
-}
-
-// Add a configuration method
-func (cli *CLI) Configure(debugMode bool, logLevel string, autoConnect bool) {
-	cli.config.debugMode = debugMode
-	cli.config.logLevel = logLevel
-	cli.config.autoConnect = autoConnect
 }
 
 func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {

@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 // ReconnectNotifier represents an interface to notify connection changes
@@ -16,11 +15,10 @@ type ReconnectNotifier interface {
 
 // ClientConfig holds thread-safe client connection target settings
 type ClientConfig struct {
-	mu           sync.RWMutex
-	host         string
-	port         string
-	reconnector  ReconnectNotifier
-	lastSwapped  time.Time
+	mu          sync.RWMutex
+	host        string
+	port        string
+	reconnector ReconnectNotifier
 }
 
 // NewClientConfig creates a thread-safe ClientConfig instance
@@ -29,7 +27,6 @@ func NewClientConfig(host, port string, reconnector ReconnectNotifier) *ClientCo
 		host:        host,
 		port:        port,
 		reconnector: reconnector,
-		lastSwapped: time.Now(),
 	}
 }
 
@@ -57,7 +54,6 @@ func (c *ClientConfig) SetTarget(target string) error {
 	c.mu.Lock()
 	c.host = host
 	c.port = port
-	c.lastSwapped = time.Now()
 	reconnector := c.reconnector
 	c.mu.Unlock()
 
