@@ -23,7 +23,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v1.1.0"
+var Version string = "v1.2.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -126,6 +126,10 @@ func (cli *CLI) registerAllCommands() {
 	serverCmd := cli.factory.CreateServerCommand()
 	cli.commands["serve"] = serverCmd
 	cli.commands["server"] = serverCmd
+
+	analyzeCmd := cli.factory.CreateAnalyzeCommand()
+	cli.commands["analyze"] = analyzeCmd
+	cli.commands["pcap"] = analyzeCmd
 }
 
 func (cli *CLI) Run() error {
@@ -249,7 +253,7 @@ func (cli *CLI) printHelp() {
 		},
 		{
 			category: "📁 Scaffolding & Setup Utilities",
-			commands: []string{"init-spec", "init-tx"},
+			commands: []string{"init-spec", "init-tx", "analyze"},
 		},
 		{
 			category: "🛠️ General & Session Utilities",
@@ -262,6 +266,7 @@ func (cli *CLI) printHelp() {
 		"spec":     "aliases: use-spec",
 		"tx":       "aliases: use-tx, transaction",
 		"scenario": "aliases: scenarios",
+		"analyze":  "aliases: pcap",
 		"stats":    "aliases: status",
 		"help":     "aliases: h, ?",
 		"version":  "aliases: v",
@@ -455,6 +460,10 @@ func (cli *CLI) Configure(debugMode bool, logLevel string, autoConnect bool) {
 }
 
 func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
+	if subcommand == "version" || subcommand == "v" || subcommand == "-v" || subcommand == "--version" {
+		cli.PrintVersion()
+		return nil
+	}
 	if subcommand == "init-spec" {
 		var path string
 		if len(args) > 0 {
@@ -469,6 +478,26 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			path = args[0]
 		}
 		cmdObj := &cmd.InitTxCommand{OutputPath: path}
+		return cmdObj.Execute()
+	}
+
+	if subcommand == "analyze" || subcommand == "pcap" {
+		specPath := cfg.GetConfig().GetSpec()
+		var spec *iso8583.MessageSpec
+		if specPath != "" {
+			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+				spec = s
+			}
+		}
+		var tcRepo transactions.Repository
+		txPath := cfg.GetConfig().GetFile()
+		if txPath != "" && spec != nil {
+			if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
+				tcRepo = tc
+			}
+		}
+		cmdObj := cmd.NewAnalyzeCommand(spec, tcRepo)
+		cmdObj.SetArgs(args)
 		return cmdObj.Execute()
 	}
 

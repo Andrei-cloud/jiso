@@ -1,18 +1,22 @@
 package analyzer
 
 import (
-	"encoding/binary"
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
+
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 )
 
 // CapturedFlow represents an aggregated transaction flow captured from network traffic
 type CapturedFlow struct {
-	MTI        string
-	DE3        string
-	Messages   []*iso8583.Message
-	Count      int
+	MTI      string
+	DE3      string
+	Messages []*iso8583.Message
+	Count    int
 }
 
 // StreamAnalyzer extracts and aggregates ISO8583 messages from raw byte streams
@@ -27,21 +31,42 @@ func NewStreamAnalyzer(spec *iso8583.MessageSpec) *StreamAnalyzer {
 	}
 }
 
-// ExtractMessagesFromStream extracts 2-byte length framed ISO8583 messages from a byte stream
-func (a *StreamAnalyzer) ExtractMessagesFromStream(streamData []byte) ([]*iso8583.Message, error) {
+// ExtractMessagesFromReader extracts framed ISO8583 messages from an io.Reader using the specified header type
+func (a *StreamAnalyzer) ExtractMessagesFromReader(r io.Reader, headerType string) ([]*iso8583.Message, error) {
+	if headerType == "" {
+		headerType = "binary2"
+	}
+	hdr, err := utils.SelectLength(headerType)
+	if err != nil {
+		return nil, fmt.Errorf("invalid header type '%s': %w", headerType, err)
+	}
+
+	readLenFunc := utils.ReadMessageLengthWrapper(hdr)
+	if headerType == "NAPS" {
+		readLenFunc = utils.NapsReadLengthWrapper(readLenFunc)
+	}
+
 	var messages []*iso8583.Message
-	offset := 0
 
-	for offset+2 <= len(streamData) {
-		msgLen := int(binary.BigEndian.Uint16(streamData[offset : offset+2]))
-		offset += 2
-
-		if msgLen <= 0 || offset+msgLen > len(streamData) {
+	for {
+		msgLen, err := readLenFunc(r)
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
+			// End of readable stream or unparseable framing
 			break
 		}
 
-		payload := streamData[offset : offset+msgLen]
-		offset += msgLen
+		if msgLen <= 0 || msgLen > utils.MaxMessageSize {
+			break
+		}
+
+		payload := make([]byte, msgLen)
+		_, err = io.ReadFull(r, payload)
+		if err != nil {
+			break
+		}
 
 		msg := iso8583.NewMessage(a.spec)
 		if err := msg.Unpack(payload); err == nil {
@@ -50,6 +75,15 @@ func (a *StreamAnalyzer) ExtractMessagesFromStream(streamData []byte) ([]*iso858
 	}
 
 	return messages, nil
+}
+
+// ExtractMessagesFromStream extracts ISO8583 messages from a byte slice using the given header type
+func (a *StreamAnalyzer) ExtractMessagesFromStream(streamData []byte, headerType ...string) ([]*iso8583.Message, error) {
+	hType := "binary2"
+	if len(headerType) > 0 && headerType[0] != "" {
+		hType = headerType[0]
+	}
+	return a.ExtractMessagesFromReader(bytes.NewReader(streamData), hType)
 }
 
 // AggregateFlows groups extracted messages by MTI + DE3 (Processing Code)
@@ -80,3 +114,4 @@ func (a *StreamAnalyzer) AggregateFlows(messages []*iso8583.Message) map[string]
 
 	return flows
 }
+

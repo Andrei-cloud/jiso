@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -68,3 +69,43 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 	assert.Equal(t, "4111111111111111", res.Dataset.Data[0]["DE_2"])
 	assert.Equal(t, "4222222222222222", res.Dataset.Data[1]["DE_2"])
 }
+
+func TestStreamAnalyzerMultiHeader(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
+	require.NoError(t, err)
+
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0800")
+	msg.Field(3, "990000")
+	msg.Field(11, "123456")
+	packed, err := msg.Pack()
+	require.NoError(t, err)
+
+	headerTypes := []string{"ascii4", "binary2", "bcd2", "NAPS"}
+
+	for _, hType := range headerTypes {
+		t.Run("Header_"+hType, func(t *testing.T) {
+			hdr, err := utils.SelectLength(hType)
+			require.NoError(t, err)
+
+			var buf bytes.Buffer
+			writeLenFunc := utils.WriteMessageLengthWrapper(hdr)
+			if hType == "NAPS" {
+				writeLenFunc = utils.NapsWriteLengthWrapper(writeLenFunc)
+			}
+
+			_, err = writeLenFunc(&buf, len(packed))
+			require.NoError(t, err)
+			buf.Write(packed)
+
+			analyzer := NewStreamAnalyzer(spec)
+			extracted, err := analyzer.ExtractMessagesFromStream(buf.Bytes(), hType)
+			require.NoError(t, err)
+			require.Len(t, extracted, 1)
+
+			mti, _ := extracted[0].GetMTI()
+			assert.Equal(t, "0800", mti)
+		})
+	}
+}
+

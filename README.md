@@ -341,9 +341,27 @@ Field features:
 
 ## Advanced Features
 
+### Traffic Analyzer (`analyze` / `pcap`)
+
+JISO includes an interactive reverse-engineering tool (`analyze` / `pcap`) that parses raw TCP byte stream dumps or network packet captures, groups traffic by `MTI` + `DE 3` (Processing Code), performs variance analysis, and automatically generates reusable JISO Transaction templates and Dataset matrix records.
+
+Interactive execution:
+```bash
+jiso> analyze
+# Or standalone CLI execution:
+./jiso analyze ./transactions/sample.stream ./specs/spec.json binary2 ./transactions/transaction.json
+```
+
+Interactive prompts guide you through:
+1. ISO 8583 Specification JSON selection
+2. TCP Length Header type selection (`ascii4`, `binary2`, `bcd2`, `NAPS`, `visa`)
+3. Input Stream / Capture file location
+4. Destination `transaction.json` output file to save/append generated templates & datasets
+
 ### Random Data Sets
 
 You can define datasets with random values for fields:
+
 
 ```json
 "dataset": [
