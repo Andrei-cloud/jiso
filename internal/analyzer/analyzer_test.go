@@ -259,3 +259,47 @@ func TestStreamAnalyzerMultiHeader(t *testing.T) {
 	}
 }
 
+func TestAnalyzeFlowToMockRoutes(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
+	require.NoError(t, err)
+
+	respMsg1 := iso8583.NewMessage(spec)
+	respMsg1.MTI("0210")
+	respMsg1.Field(3, "000000")
+	respMsg1.Field(7, "0412232900")
+	respMsg1.Field(11, "000001")
+	respMsg1.Field(22, "021")
+	respMsg1.Field(38, "824664")
+	respMsg1.Field(39, "00")
+
+	flow := &CapturedFlow{
+		MTI:      "0210",
+		DE3:      "000000",
+		DE22:     "021",
+		Messages: []*iso8583.Message{respMsg1},
+		Count:    1,
+	}
+
+	ve := NewVarianceEngine(spec)
+	results, err := ve.AnalyzeFlowToMockRoutes(flow)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	route := results[0].Transaction
+	assert.Equal(t, config.TypeMockRoute, route.Type)
+	assert.Equal(t, "Mock Route 0210_000000_021", route.Name)
+	assert.Equal(t, "0200", route.MatchFields["0"])
+	assert.Equal(t, "000000", route.MatchFields["3"])
+	assert.Equal(t, "021", route.MatchFields["22"])
+	assert.Equal(t, "0210", route.ResponseMTI)
+	assert.Equal(t, []int{7, 11, 37}, route.EchoFields)
+	assert.Equal(t, "00", route.ResponseFields["39"])
+	assert.Equal(t, "auto", route.ResponseFields["38"])
+}
+
+func TestFindAvailablePCAPFiles(t *testing.T) {
+	files := utils.FindAvailablePCAPFiles()
+	require.NotEmpty(t, files)
+	assert.Contains(t, files[len(files)-1], "Custom Path...")
+}
+

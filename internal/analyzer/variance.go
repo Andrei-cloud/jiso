@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"jiso/internal/config"
+	"jiso/internal/utils"
 
 	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
@@ -262,6 +263,190 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 		{
 			Transaction: txItem,
 			Dataset:     dsItem,
+		},
+	}, nil
+}
+
+func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) interface{} {
+	if isNumericField(ve.spec, fieldID) && fieldID != 0 {
+		if num, err := strconv.ParseInt(val, 10, 64); err == nil {
+			return num
+		}
+	}
+	return val
+}
+
+// AnalyzeFlowToMockRoutes generates Mock Server Route items from a captured response flow
+func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*VarianceResult, error) {
+	if flow == nil || len(flow.Messages) == 0 {
+		return nil, fmt.Errorf("flow is empty")
+	}
+
+	reqMTI := utils.RequestMTI(flow.MTI)
+	if reqMTI == "" {
+		reqMTI = flow.MTI
+	}
+
+	matchFields := make(map[string]interface{})
+	matchFields["0"] = reqMTI
+	if flow.DE3 != "" {
+		matchFields["3"] = ve.formatFieldValue(3, flow.DE3)
+	}
+	if flow.DE22 != "" {
+		matchFields["22"] = ve.formatFieldValue(22, flow.DE22)
+	}
+
+	echoFields := []int{7, 11, 37}
+
+	// Handle 08XX Network Management responses
+	if strings.HasPrefix(flow.MTI, "08") {
+		type uniqueMsg struct {
+			respFields map[string]string
+			key        string
+		}
+
+		seenKeys := make(map[string]bool)
+		uniqueList := make([]uniqueMsg, 0)
+
+		for _, msg := range flow.Messages {
+			rf := make(map[string]string)
+			var keyParts []string
+
+			var fIDs []int
+			for i, f := range msg.GetFields() {
+				if f == nil || i == 1 || i == 7 || i == 11 || i == 37 {
+					continue
+				}
+				val, err := f.String()
+				if err != nil || val == "" {
+					continue
+				}
+				fIDs = append(fIDs, i)
+			}
+			sort.Ints(fIDs)
+
+			for _, i := range fIDs {
+				f := msg.GetField(i)
+				if f == nil {
+					continue
+				}
+				val, err := f.String()
+				if err != nil || val == "" {
+					continue
+				}
+				fieldKey := fmt.Sprintf("%d", i)
+
+				if i == 38 {
+					rf[fieldKey] = "auto"
+					keyParts = append(keyParts, "38=auto")
+				} else {
+					rf[fieldKey] = val
+					keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, val))
+				}
+			}
+
+			key := strings.Join(keyParts, "|")
+			if !seenKeys[key] {
+				seenKeys[key] = true
+				uniqueList = append(uniqueList, uniqueMsg{respFields: rf, key: key})
+			}
+		}
+
+		results := make([]*VarianceResult, 0, len(uniqueList))
+		for idx, u := range uniqueList {
+			txName := fmt.Sprintf("Mock Network Route %s #%d", flow.MTI, idx+1)
+			txItem := config.ConfigItem{
+				Type:           config.TypeMockRoute,
+				Name:           txName,
+				Description:    fmt.Sprintf("Auto-generated mock route for network management response MTI %s", flow.MTI),
+				MatchFields:    matchFields,
+				EchoFields:     echoFields,
+				ResponseMTI:    flow.MTI,
+				ResponseFields: u.respFields,
+				LatencyMs:      10,
+				JitterMs:       5,
+			}
+
+			results = append(results, &VarianceResult{
+				Transaction: txItem,
+				Dataset:     config.ConfigItem{},
+			})
+		}
+		return results, nil
+	}
+
+	// General response flow mock route generation
+	responseFields := make(map[string]string)
+	fieldValues := make(map[int][]string)
+
+	for _, msg := range flow.Messages {
+		for i, f := range msg.GetFields() {
+			if f == nil || i == 1 || i == 7 || i == 11 || i == 37 {
+				continue
+			}
+			val, err := f.String()
+			if err != nil || val == "" {
+				continue
+			}
+			fieldValues[i] = append(fieldValues[i], val)
+		}
+	}
+
+	fieldIDs := make([]int, 0, len(fieldValues))
+	for fID := range fieldValues {
+		fieldIDs = append(fieldIDs, fID)
+	}
+	sort.Ints(fieldIDs)
+
+	for _, fieldID := range fieldIDs {
+		values := fieldValues[fieldID]
+		fieldKey := fmt.Sprintf("%d", fieldID)
+
+		if fieldID == 38 {
+			responseFields[fieldKey] = "auto"
+			continue
+		}
+
+		allSame := true
+		firstVal := values[0]
+		for _, v := range values[1:] {
+			if v != firstVal {
+				allSame = false
+				break
+			}
+		}
+
+		if allSame {
+			responseFields[fieldKey] = firstVal
+		} else {
+			responseFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)
+		}
+	}
+
+	var flowKey string
+	if flow.DE22 != "" {
+		flowKey = fmt.Sprintf("%s_%s_%s", flow.MTI, flow.DE3, flow.DE22)
+	} else {
+		flowKey = fmt.Sprintf("%s_%s", flow.MTI, flow.DE3)
+	}
+
+	txName := fmt.Sprintf("Mock Route %s", flowKey)
+	txItem := config.ConfigItem{
+		Type:           config.TypeMockRoute,
+		Name:           txName,
+		Description:    fmt.Sprintf("Auto-generated mock route for response flow %s", flowKey),
+		MatchFields:    matchFields,
+		EchoFields:     echoFields,
+		ResponseMTI:    flow.MTI,
+		ResponseFields: responseFields,
+		LatencyMs:      10,
+		JitterMs:       5,
+	}
+
+	return []*VarianceResult{
+		{
+			Transaction: txItem,
+			Dataset:     config.ConfigItem{},
 		},
 	}, nil
 }

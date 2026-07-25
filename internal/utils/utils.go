@@ -76,6 +76,39 @@ func FindAvailableSpecFiles() []string {
 	return results
 }
 
+func FindAvailablePCAPFiles() []string {
+	var results []string
+	seen := make(map[string]bool)
+
+	dirs := []string{".", "captures", "pcap", "dumps"}
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			ext := strings.ToLower(filepath.Ext(name))
+			if ext == ".pcap" || ext == ".pcapng" || ext == ".cap" || ext == ".bin" || ext == ".dump" {
+				path := filepath.Join(dir, name)
+				if dir == "." {
+					path = name
+				}
+				if !seen[path] {
+					seen[path] = true
+					results = append(results, path)
+				}
+			}
+		}
+	}
+
+	results = append(results, "[Browse Custom Path...]")
+	return results
+}
+
 func RandString(n int) string {
 	if n < 0 {
 		return ""
@@ -104,6 +137,13 @@ func ResponseMTI(mti string) string {
 		return ""
 	}
 	return mti[:2] + "1" + mti[3:]
+}
+
+func RequestMTI(mti string) string {
+	if len(mti) < 4 {
+		return ""
+	}
+	return mti[:2] + "0" + mti[3:]
 }
 
 func GetTrxnDateTime() string {

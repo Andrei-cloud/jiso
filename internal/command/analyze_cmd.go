@@ -83,11 +83,26 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	fmt.Println("               ISO8583 STREAM & PCAP TRAFFIC ANALYZER")
 	fmt.Println("================================================================================")
 
-	// 1. Select ISO8583 Specification File
+	// 1. Select Analysis Goal
+	var analysisGoal string
+	goalPrompt := &survey.Select{
+		Message: "1. Select Analysis Goal:",
+		Options: []string{
+			"1. Generate Transactions & Datasets (Client scenarios / sending)",
+			"2. Generate Mock Server Routes (Mock server response routing)",
+		},
+		Default: "1. Generate Transactions & Datasets (Client scenarios / sending)",
+	}
+	if err := survey.AskOne(goalPrompt, &analysisGoal); err != nil {
+		return err
+	}
+	isMockRouteGoal := strings.HasPrefix(analysisGoal, "2.")
+
+	// 2. Select ISO8583 Specification File
 	specFiles := utils.FindAvailableSpecFiles()
 	var selectedSpec string
 	specPrompt := &survey.Select{
-		Message: "1. Select ISO8583 Specification File:",
+		Message: "2. Select ISO8583 Specification File:",
 		Options: specFiles,
 		Default: specFiles[0],
 	}
@@ -117,10 +132,10 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		spec = utils.GetDefaultSpec()
 	}
 
-	// 2. Select TCP Header Length Type
+	// 3. Select TCP Header Length Type
 	var headerType string
 	headerPrompt := &survey.Select{
-		Message: "2. Select TCP Header Length Type:",
+		Message: "3. Select TCP Header Length Type:",
 		Options: []string{"ascii4", "binary2", "bcd2", "NAPS", "visa"},
 		Default: "binary2",
 	}
@@ -128,36 +143,56 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		return err
 	}
 
-	// 3. Select Input Stream/Capture File
-	var streamFile string
-	streamPrompt := &survey.Input{
-		Message: "3. Enter path to stream/capture dump file:",
-		Help:    "Path to raw captured network stream file",
+	// 4. Select PCAP/Stream Capture File from Browsing List
+	pcapFiles := utils.FindAvailablePCAPFiles()
+	var selectedPCAP string
+	pcapPrompt := &survey.Select{
+		Message: "4. Select Input PCAP/Stream Capture File:",
+		Options: pcapFiles,
+		Default: pcapFiles[0],
 	}
-	if err := survey.AskOne(streamPrompt, &streamFile); err != nil {
+	if err := survey.AskOne(pcapPrompt, &selectedPCAP); err != nil {
 		return err
+	}
+
+	streamFile := selectedPCAP
+	if selectedPCAP == "[Browse Custom Path...]" {
+		inputPrompt := &survey.Input{
+			Message: "   Enter custom path to stream/capture file:",
+		}
+		if err := survey.AskOne(inputPrompt, &streamFile); err != nil {
+			return err
+		}
 	}
 	streamFile = strings.TrimSpace(streamFile)
 	if streamFile == "" {
 		return fmt.Errorf("stream capture file path cannot be empty")
 	}
 
-	// 3b. Inspect PCAP for directional traffic options if applicable
+	// 5. Inspect PCAP for directional traffic options if applicable
 	selectedDir := analyzer.TrafficDirection{Mode: "all"}
 	dirs, dirErr := analyzer.InspectPCAPDirections(streamFile)
 	if dirErr == nil && len(dirs) > 1 {
 		options := make([]string, len(dirs))
 		dirMap := make(map[string]analyzer.TrafficDirection)
+		defaultIdx := 0
+
 		for i, d := range dirs {
 			options[i] = d.Label
 			dirMap[d.Label] = d
+			// For Mock Routes, prefer Outgoing Responses (Src Port mode)
+			if isMockRouteGoal && d.Mode == "src" {
+				defaultIdx = i
+			} else if !isMockRouteGoal && d.Mode == "dst" {
+				defaultIdx = i
+			}
 		}
 
 		var chosenLabel string
 		dirPrompt := &survey.Select{
-			Message: "3b. Select Traffic Direction / Target Port Filter:",
+			Message: "5. Select Traffic Direction / Target Port Filter:",
 			Options: options,
-			Default: options[0],
+			Default: options[defaultIdx],
 		}
 		if err := survey.AskOne(dirPrompt, &chosenLabel); err == nil {
 			if d, ok := dirMap[chosenLabel]; ok {
@@ -167,14 +202,18 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		}
 	}
 
-	// 4. Select Target Transaction JSON file
+	// 6. Select Target Transaction / Mock Route JSON file
 	defaultTxFile := config.GetConfig().GetFile()
 	if defaultTxFile == "" {
-		defaultTxFile = "./transactions/transaction.json"
+		if isMockRouteGoal {
+			defaultTxFile = "./transactions/mock_routes.json"
+		} else {
+			defaultTxFile = "./transactions/transaction.json"
+		}
 	}
 	var outputTxFile string
 	outputPrompt := &survey.Input{
-		Message: "4. Target Transaction JSON output file:",
+		Message: "6. Target Transaction/Route JSON output file:",
 		Default: defaultTxFile,
 	}
 	if err := survey.AskOne(outputPrompt, &outputTxFile); err != nil {
@@ -182,7 +221,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	outputTxFile = strings.TrimSpace(outputTxFile)
 
-	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir)
+	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir, isMockRouteGoal)
 }
 
 func (ac *AnalyzeCommand) runAnalysis(
@@ -191,7 +230,10 @@ func (ac *AnalyzeCommand) runAnalysis(
 	headerType string,
 	outputTxFile string,
 	dir analyzer.TrafficDirection,
+	isMockRouteGoal ...bool,
 ) error {
+	mockRouteGoal := len(isMockRouteGoal) > 0 && isMockRouteGoal[0]
+
 	fmt.Printf("\n🔍 Extracting ISO8583 messages from '%s' (Header: %s)...\n", streamFile, headerType)
 
 	streamAnalyzer := analyzer.NewStreamAnalyzer(spec)
@@ -214,7 +256,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 		fmt.Printf("  • Flow [%s]: MTI=%s, DE3=%s (%d messages)\n", key, flow.MTI, flow.DE3, flow.Count)
 	}
 
-	// Perform variance analysis
+	// Perform variance / mock route analysis
 	varianceEngine := analyzer.NewVarianceEngine(spec)
 	var newItems []config.ConfigItem
 
@@ -222,7 +264,15 @@ func (ac *AnalyzeCommand) runAnalysis(
 	dsCount := 0
 
 	for _, flow := range flows {
-		results, err := varianceEngine.AnalyzeFlow(flow)
+		var results []*analyzer.VarianceResult
+		var err error
+
+		if mockRouteGoal {
+			results, err = varianceEngine.AnalyzeFlowToMockRoutes(flow)
+		} else {
+			results, err = varianceEngine.AnalyzeFlow(flow)
+		}
+
 		if err != nil {
 			fmt.Printf("⚠️ Warning: Failed variance analysis on flow MTI %s DE3 %s: %v\n", flow.MTI, flow.DE3, err)
 			continue
@@ -240,12 +290,16 @@ func (ac *AnalyzeCommand) runAnalysis(
 	}
 
 	if len(newItems) == 0 {
-		return fmt.Errorf("no transaction templates or datasets could be generated")
+		return fmt.Errorf("no transaction templates, mock routes, or datasets could be generated")
 	}
 
 	// Save to target transaction file
 	if outputTxFile == "" {
-		outputTxFile = "./transactions/transaction.json"
+		if mockRouteGoal {
+			outputTxFile = "./transactions/mock_routes.json"
+		} else {
+			outputTxFile = "./transactions/transaction.json"
+		}
 	}
 	if err := saveConfigItemsToFile(outputTxFile, newItems); err != nil {
 		return fmt.Errorf("failed to save generated items to '%s': %w", outputTxFile, err)
@@ -253,8 +307,12 @@ func (ac *AnalyzeCommand) runAnalysis(
 
 	fmt.Printf("\n================================================================================")
 	fmt.Printf("\n 🎉 ANALYSIS COMPLETE & SAVED TO: %s 🟢\n", outputTxFile)
-	fmt.Printf(" Added %d new ConfigItem(s) (%d transactions, %d datasets).\n",
-		len(newItems), txCount, dsCount)
+	if mockRouteGoal {
+		fmt.Printf(" Added %d new Mock Route ConfigItem(s).\n", txCount)
+	} else {
+		fmt.Printf(" Added %d new ConfigItem(s) (%d transactions, %d datasets).\n",
+			len(newItems), txCount, dsCount)
+	}
 	fmt.Println("================================================================================")
 
 	return nil
