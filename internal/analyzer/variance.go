@@ -1,10 +1,17 @@
 package analyzer
 
 import (
-	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 
 	"jiso/internal/config"
+	"jiso/internal/utils"
+
+	json "github.com/goccy/go-json"
+	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/field"
 )
 
 // VarianceResult holds the generated base transaction template and extracted dataset rows
@@ -14,23 +21,138 @@ type VarianceResult struct {
 }
 
 // VarianceEngine performs variance analysis on captured message flows
-type VarianceEngine struct{}
-
-// NewVarianceEngine creates a new VarianceEngine instance
-func NewVarianceEngine() *VarianceEngine {
-	return &VarianceEngine{}
+type VarianceEngine struct {
+	spec *iso8583.MessageSpec
 }
 
-// AnalyzeFlow inspects messages in a CapturedFlow and generates a base transaction template + dataset
-func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) (*VarianceResult, error) {
+// NewVarianceEngine creates a new VarianceEngine instance
+func NewVarianceEngine(spec ...*iso8583.MessageSpec) *VarianceEngine {
+	ve := &VarianceEngine{}
+	if len(spec) > 0 && spec[0] != nil {
+		ve.spec = spec[0]
+	}
+	return ve
+}
+
+func isNumericField(spec *iso8583.MessageSpec, fieldID int) bool {
+	if spec == nil || spec.Fields == nil {
+		return false
+	}
+	f, exists := spec.Fields[fieldID]
+	if !exists || f == nil {
+		return false
+	}
+	_, ok := f.(*field.Numeric)
+	return ok
+}
+
+// AnalyzeFlow inspects messages in a CapturedFlow and generates base transaction template(s) + dataset
+func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) ([]*VarianceResult, error) {
 	if flow == nil || len(flow.Messages) == 0 {
 		return nil, fmt.Errorf("flow is empty")
 	}
 
+	// Handle Network Management Messages (08XX MTI)
+	if strings.HasPrefix(flow.MTI, "08") {
+		return ve.analyzeNetworkManagementFlow(flow)
+	}
+
+	return ve.analyzeGeneralFlow(flow)
+}
+
+func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*VarianceResult, error) {
+	// Deduplicate unique 08XX messages based on field content
+	type uniqueMsg struct {
+		fields map[string]interface{}
+		key    string
+	}
+
+	seenKeys := make(map[string]bool)
+	uniqueList := make([]uniqueMsg, 0)
+
+	for _, msg := range flow.Messages {
+		tf := make(map[string]interface{})
+		var keyParts []string
+
+		// Sort field IDs for deterministic key fingerprinting
+		var fIDs []int
+		for i, f := range msg.GetFields() {
+			if f == nil || i == 1 { // Skip DE 1 (Bitmap)
+				continue
+			}
+			val, err := f.String()
+			if err != nil || val == "" {
+				continue
+			}
+			fIDs = append(fIDs, i)
+		}
+		sort.Ints(fIDs)
+
+		for _, i := range fIDs {
+			f := msg.GetField(i)
+			if f == nil {
+				continue
+			}
+			val, err := f.String()
+			if err != nil || val == "" {
+				continue
+			}
+			fieldKey := fmt.Sprintf("%d", i)
+
+			if i == 7 || i == 11 || i == 37 || i == 38 {
+				tf[fieldKey] = "auto"
+				keyParts = append(keyParts, fmt.Sprintf("%d=auto", i))
+			} else {
+				if isNumericField(ve.spec, i) && i != 0 {
+					if num, pErr := strconv.ParseInt(val, 10, 64); pErr == nil {
+						tf[fieldKey] = num
+					} else {
+						tf[fieldKey] = val
+					}
+				} else {
+					tf[fieldKey] = val
+				}
+				keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, val))
+			}
+		}
+
+		key := strings.Join(keyParts, "|")
+		if !seenKeys[key] {
+			seenKeys[key] = true
+			uniqueList = append(uniqueList, uniqueMsg{fields: tf, key: key})
+		}
+	}
+
+	results := make([]*VarianceResult, 0, len(uniqueList))
+	for idx, u := range uniqueList {
+		fieldsJSON, err := json.Marshal(u.fields)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal 08XX fields: %w", err)
+		}
+
+		txName := fmt.Sprintf("Captured Network %s #%d", flow.MTI, idx+1)
+		txItem := config.ConfigItem{
+			Type:        config.TypeTransaction,
+			Name:        txName,
+			Description: fmt.Sprintf("Auto-generated network management transaction MTI %s", flow.MTI),
+			Fields:      fieldsJSON,
+			DatasetName: "",
+		}
+
+		results = append(results, &VarianceResult{
+			Transaction: txItem,
+			Dataset:     config.ConfigItem{},
+		})
+	}
+
+	return results, nil
+}
+
+func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceResult, error) {
 	fieldValues := make(map[int][]string)
 	for _, msg := range flow.Messages {
 		for i, f := range msg.GetFields() {
-			if f == nil {
+			if f == nil || i == 1 { // Skip DE 1 (Bitmap)
 				continue
 			}
 			val, err := f.String()
@@ -44,11 +166,19 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) (*VarianceResult, erro
 	templateFields := make(map[string]interface{})
 	varyingFieldIDs := make([]int, 0)
 
-	for fieldID, values := range fieldValues {
+	// Sort field IDs for deterministic ordering
+	fieldIDs := make([]int, 0, len(fieldValues))
+	for fID := range fieldValues {
+		fieldIDs = append(fieldIDs, fID)
+	}
+	sort.Ints(fieldIDs)
+
+	for _, fieldID := range fieldIDs {
+		values := fieldValues[fieldID]
 		fieldKey := fmt.Sprintf("%d", fieldID)
 
-		// System fields (DE 7, DE 11, DE 37) map to "auto"
-		if fieldID == 7 || fieldID == 11 || fieldID == 37 {
+		// System fields (DE 7, DE 11, DE 37, DE 38) map to "auto"
+		if fieldID == 7 || fieldID == 11 || fieldID == 37 || fieldID == 38 {
 			templateFields[fieldKey] = "auto"
 			continue
 		}
@@ -64,7 +194,15 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) (*VarianceResult, erro
 		}
 
 		if allSame {
-			templateFields[fieldKey] = firstVal
+			if isNumericField(ve.spec, fieldID) && fieldID != 0 {
+				if num, pErr := strconv.ParseInt(firstVal, 10, 64); pErr == nil {
+					templateFields[fieldKey] = num
+				} else {
+					templateFields[fieldKey] = firstVal
+				}
+			} else {
+				templateFields[fieldKey] = firstVal
+			}
 		} else {
 			// Varying field -> add placeholder in template & extract to dataset
 			templateFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)
@@ -77,39 +215,246 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) (*VarianceResult, erro
 		return nil, fmt.Errorf("failed to marshal template fields: %w", err)
 	}
 
-	txName := fmt.Sprintf("Captured Flow %s_%s", flow.MTI, flow.DE3)
-	dsName := fmt.Sprintf("dataset_%s_%s", flow.MTI, flow.DE3)
+	var flowKey string
+	if flow.DE22 != "" {
+		flowKey = fmt.Sprintf("%s_%s_%s", flow.MTI, flow.DE3, flow.DE22)
+	} else {
+		flowKey = fmt.Sprintf("%s_%s", flow.MTI, flow.DE3)
+	}
+
+	txName := fmt.Sprintf("Captured Flow %s", flowKey)
+	dsName := fmt.Sprintf("dataset_%s", flowKey)
 
 	txItem := config.ConfigItem{
 		Type:        config.TypeTransaction,
 		Name:        txName,
-		Description: fmt.Sprintf("Auto-generated from PCAP flow MTI %s DE3 %s", flow.MTI, flow.DE3),
+		Description: fmt.Sprintf("Auto-generated from PCAP flow %s", flowKey),
 		Fields:      fieldsJSON,
-		DatasetName: dsName,
 	}
 
-	// Build dataset matrix rows
-	datasetRows := make([]map[string]string, len(flow.Messages))
-	for msgIdx, msg := range flow.Messages {
-		row := make(map[string]string)
-		for _, fieldID := range varyingFieldIDs {
-			if f := msg.GetField(fieldID); f != nil {
-				if val, err := f.String(); err == nil {
-					row[fmt.Sprintf("DE_%d", fieldID)] = val
+	dsItem := config.ConfigItem{}
+
+	// Only build dataset if there are varying fields
+	if len(varyingFieldIDs) > 0 {
+		txItem.DatasetName = dsName
+		datasetRows := make([]map[string]string, len(flow.Messages))
+		for msgIdx, msg := range flow.Messages {
+			row := make(map[string]string)
+			for _, fieldID := range varyingFieldIDs {
+				if f := msg.GetField(fieldID); f != nil {
+					if val, err := f.String(); err == nil {
+						row[fmt.Sprintf("DE_%d", fieldID)] = val
+					}
 				}
 			}
+			datasetRows[msgIdx] = row
 		}
-		datasetRows[msgIdx] = row
+
+		dsItem = config.ConfigItem{
+			Type: config.TypeDataset,
+			Name: dsName,
+			Data: datasetRows,
+		}
+	} else {
+		txItem.DatasetName = ""
 	}
 
-	dsItem := config.ConfigItem{
-		Type: config.TypeDataset,
-		Name: dsName,
-		Data: datasetRows,
+	return []*VarianceResult{
+		{
+			Transaction: txItem,
+			Dataset:     dsItem,
+		},
+	}, nil
+}
+
+func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) interface{} {
+	if isNumericField(ve.spec, fieldID) && fieldID != 0 {
+		if num, err := strconv.ParseInt(val, 10, 64); err == nil {
+			return num
+		}
+	}
+	return val
+}
+
+// AnalyzeFlowToMockRoutes generates Mock Server Route items from a captured response flow
+func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*VarianceResult, error) {
+	if flow == nil || len(flow.Messages) == 0 {
+		return nil, fmt.Errorf("flow is empty")
 	}
 
-	return &VarianceResult{
-		Transaction: txItem,
-		Dataset:     dsItem,
+	// Mock routes are generated ONLY for response messages (e.g. 0210, 0410, 0810)
+	if !utils.IsResponseMTI(flow.MTI) {
+		return nil, nil
+	}
+
+	reqMTI := utils.RequestMTI(flow.MTI)
+	if reqMTI == "" {
+		reqMTI = flow.MTI
+	}
+
+	matchFields := make(map[string]interface{})
+	matchFields["0"] = reqMTI
+	if flow.DE3 != "" {
+		matchFields["3"] = ve.formatFieldValue(3, flow.DE3)
+	}
+	if flow.DE22 != "" {
+		matchFields["22"] = ve.formatFieldValue(22, flow.DE22)
+	}
+
+	// Standard ISO8583 response echo fields:
+	// DE 7 (DateTime), DE 11 (STAN), DE 25 (POS Condition), DE 32 (Acquiring Inst ID),
+	// DE 37 (RRN), DE 41 (Terminal ID), DE 42 (Merchant ID), DE 63 (Network ID), DE 115 (Trace Data)
+	echoFields := []int{7, 11, 25, 32, 37, 41, 42, 63, 115}
+	echoSet := make(map[int]bool)
+	for _, id := range echoFields {
+		echoSet[id] = true
+	}
+
+	// Handle 08XX Network Management responses
+	if strings.HasPrefix(flow.MTI, "08") {
+		type uniqueMsg struct {
+			respFields map[string]string
+			key        string
+		}
+
+		seenKeys := make(map[string]bool)
+		uniqueList := make([]uniqueMsg, 0)
+
+		for _, msg := range flow.Messages {
+			rf := make(map[string]string)
+			var keyParts []string
+
+			var fIDs []int
+			for i, f := range msg.GetFields() {
+				if f == nil || i == 0 || i == 1 || echoSet[i] {
+					continue
+				}
+				val, err := f.String()
+				if err != nil || val == "" {
+					continue
+				}
+				fIDs = append(fIDs, i)
+			}
+			sort.Ints(fIDs)
+
+			for _, i := range fIDs {
+				f := msg.GetField(i)
+				if f == nil {
+					continue
+				}
+				val, err := f.String()
+				if err != nil || val == "" {
+					continue
+				}
+				fieldKey := fmt.Sprintf("%d", i)
+
+				if i == 38 {
+					rf[fieldKey] = "auth_code"
+					keyParts = append(keyParts, "38=auth_code")
+				} else {
+					rf[fieldKey] = val
+					keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, val))
+				}
+			}
+
+			key := strings.Join(keyParts, "|")
+			if !seenKeys[key] {
+				seenKeys[key] = true
+				uniqueList = append(uniqueList, uniqueMsg{respFields: rf, key: key})
+			}
+		}
+
+		results := make([]*VarianceResult, 0, len(uniqueList))
+		for idx, u := range uniqueList {
+			mf := make(map[string]interface{})
+			for k, v := range matchFields {
+				mf[k] = v
+			}
+			if f70Val, ok := u.respFields["70"]; ok && f70Val != "" {
+				mf["70"] = ve.formatFieldValue(70, f70Val)
+			}
+
+			txName := fmt.Sprintf("Mock Network Route %s #%d", flow.MTI, idx+1)
+			txItem := config.ConfigItem{
+				Type:           config.TypeMockRoute,
+				Name:           txName,
+				Description:    fmt.Sprintf("Auto-generated mock route for network management response MTI %s", flow.MTI),
+				MatchFields:    mf,
+				EchoFields:     echoFields,
+				ResponseMTI:    flow.MTI,
+				ResponseFields: u.respFields,
+				LatencyMs:      10,
+				JitterMs:       5,
+			}
+
+			results = append(results, &VarianceResult{
+				Transaction: txItem,
+				Dataset:     config.ConfigItem{},
+			})
+		}
+		return results, nil
+	}
+
+	// General response flow mock route generation
+	responseFields := make(map[string]string)
+	fieldValues := make(map[int][]string)
+
+	for _, msg := range flow.Messages {
+		for i, f := range msg.GetFields() {
+			if f == nil || i == 0 || i == 1 || echoSet[i] {
+				continue
+			}
+			val, err := f.String()
+			if err != nil || val == "" {
+				continue
+			}
+			fieldValues[i] = append(fieldValues[i], val)
+		}
+	}
+
+	fieldIDs := make([]int, 0, len(fieldValues))
+	for fID := range fieldValues {
+		fieldIDs = append(fieldIDs, fID)
+	}
+	sort.Ints(fieldIDs)
+
+	for _, fieldID := range fieldIDs {
+		values := fieldValues[fieldID]
+		fieldKey := fmt.Sprintf("%d", fieldID)
+
+		if fieldID == 38 {
+			responseFields[fieldKey] = "auth_code"
+			continue
+		}
+
+		// Use actual first captured value (never use dataset {{data.DE_X}} template placeholders in mock routes)
+		responseFields[fieldKey] = values[0]
+	}
+
+	var flowKey string
+	if flow.DE22 != "" {
+		flowKey = fmt.Sprintf("%s_%s_%s", flow.MTI, flow.DE3, flow.DE22)
+	} else {
+		flowKey = fmt.Sprintf("%s_%s", flow.MTI, flow.DE3)
+	}
+
+	txName := fmt.Sprintf("Mock Route %s", flowKey)
+	txItem := config.ConfigItem{
+		Type:           config.TypeMockRoute,
+		Name:           txName,
+		Description:    fmt.Sprintf("Auto-generated mock route for response flow %s", flowKey),
+		MatchFields:    matchFields,
+		EchoFields:     echoFields,
+		ResponseMTI:    flow.MTI,
+		ResponseFields: responseFields,
+		LatencyMs:      10,
+		JitterMs:       5,
+	}
+
+	return []*VarianceResult{
+		{
+			Transaction: txItem,
+			Dataset:     config.ConfigItem{},
+		},
 	}, nil
 }

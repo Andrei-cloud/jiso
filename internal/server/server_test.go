@@ -4,10 +4,12 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"os"
 	"testing"
 	"time"
 
 	"jiso/internal/config"
+	"jiso/internal/transactions"
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
@@ -263,4 +265,53 @@ func TestNilSpecServerFallback(t *testing.T) {
 	err = binary.Read(conn, binary.BigEndian, &respLen)
 	require.NoError(t, err)
 	assert.Greater(t, respLen, uint16(0))
+}
+
+func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
+	require.NoError(t, err)
+
+	dataBytes, err := os.ReadFile("../../transactions/mock_routes.json")
+	require.NoError(t, err)
+
+	tmpFile, err := os.CreateTemp(t.TempDir(), "mock_routes_*.json")
+	require.NoError(t, err)
+	_, err = tmpFile.Write(dataBytes)
+	require.NoError(t, err)
+	tmpFile.Close()
+
+	tcLoaded, err := transactions.NewTransactionCollection(tmpFile.Name(), spec)
+	require.NoError(t, err)
+	require.NotNil(t, tcLoaded)
+
+	routes := tcLoaded.GetMockRoutes()
+	require.NotEmpty(t, routes)
+
+	matcher := NewMatcher(routes)
+
+	// Test Network 0800 F70=1
+	msg0800_1 := iso8583.NewMessage(spec)
+	msg0800_1.MTI("0800")
+	msg0800_1.Field(7, "0725213831")
+	msg0800_1.Field(11, "008008")
+	msg0800_1.Field(70, "1")
+
+	matched1, resp1, err := matcher.MatchAndCompose(msg0800_1, spec)
+	require.NoError(t, err)
+	require.NotNil(t, matched1)
+	val39_1, _ := resp1.GetField(39).String()
+	assert.Equal(t, "00", val39_1)
+
+	// Test Network 0800 F70=301
+	msg0800_301 := iso8583.NewMessage(spec)
+	msg0800_301.MTI("0800")
+	msg0800_301.Field(7, "0725213835")
+	msg0800_301.Field(11, "008009")
+	msg0800_301.Field(70, "301")
+
+	matched2, resp2, err := matcher.MatchAndCompose(msg0800_301, spec)
+	require.NoError(t, err)
+	require.NotNil(t, matched2)
+	val39_2, _ := resp2.GetField(39).String()
+	assert.Equal(t, "00", val39_2)
 }

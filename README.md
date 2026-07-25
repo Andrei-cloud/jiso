@@ -79,23 +79,6 @@ jiso -reconnect-attempts 5 -connect-timeout 3s -total-connect-timeout 15s -respo
 
 ## Testing
 
-### Test Server
-
-JISO includes a built-in test server for local testing and development:
-
-```bash
-# Build the test server
-make testserver
-
-# Run the test server (default: localhost:9999)
-./testserver
-
-# Or run directly
-make run-testserver
-```
-
-The test server accepts ISO 8583 connections and responds to all transaction types with success codes. Use it to test JISO functionality without connecting to a real ISO 8583 server.
-
 ### Running Tests
 
 ```bash
@@ -341,9 +324,31 @@ Field features:
 
 ## Advanced Features
 
+### Traffic Analyzer (`analyze` / `pcap`)
+
+JISO includes an interactive reverse-engineering tool (`analyze` / `pcap`) that parses raw TCP byte stream dumps or network packet captures, groups traffic by `MTI` + `DE 3` (Processing Code), performs variance analysis, and automatically generates reusable JISO Transaction templates and Dataset matrix records.
+
+Interactive execution:
+```bash
+jiso> analyze
+# Or standalone CLI execution:
+./jiso analyze ./transactions/sample.stream ./specs/spec.json binary2 ./transactions/transaction.json
+```
+
+Interactive prompts guide you through:
+1. **Analysis Goal Selection**: Choose between:
+   - **Generate Transactions & Datasets**: Parses PCAP traffic to generate client request templates (`"type": "transaction"`) and dataset pools (`"type": "dataset"`).
+   - **Generate Mock Server Routes**: Generates server response routes (`"type": "mock_route"`) with `match_fields` matching incoming request MTIs/Processing Codes (`DE 3`, `DE 70`) and echoing mandatory response fields.
+2. **ISO 8583 Specification JSON Selection**: Select from available specifications (`specs/spec.json`, `spec_bcp.json`, etc.).
+3. **TCP Length Header Type Selection**: Choose header framing (`ascii4`, `binary2`, `bcd2`, `NAPS`, `visa`).
+4. **PCAP Capture File Selection**: Automatically scans local directories (`.`, `captures`, `pcap`, `dumps`) for `.pcap` / `.pcapng` capture files with file browser fallback.
+5. **Directional Traffic & Port Filtering**: Interactively inspects capture statistics and lets you filter traffic by direction (e.g. *Incoming Requests -> Dst Port 9999*).
+6. **Destination File Output**: Target output path (`transactions/pcaped.json`, `transactions/mock_routes.json`) formatted according to selected specification types (`*field.Numeric` as numbers, `*field.String` as strings preserving leading zeroes, DE 38 set to `"auth_code"`).
+
 ### Random Data Sets
 
 You can define datasets with random values for fields:
+
 
 ```json
 "dataset": [

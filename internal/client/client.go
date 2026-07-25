@@ -16,11 +16,11 @@ type ReconnectNotifier interface {
 
 // ClientConfig holds thread-safe client connection target settings
 type ClientConfig struct {
-	mu           sync.RWMutex
-	host         string
-	port         string
-	reconnector  ReconnectNotifier
-	lastSwapped  time.Time
+	mu          sync.RWMutex
+	host        string
+	port        string
+	reconnector ReconnectNotifier
+	lastSwapped time.Time
 }
 
 // NewClientConfig creates a thread-safe ClientConfig instance

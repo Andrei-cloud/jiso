@@ -1,7 +1,7 @@
 package command
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 	"os"
 	"sort"

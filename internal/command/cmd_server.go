@@ -150,7 +150,9 @@ func (sc *ServerCommand) promptStartServer() error {
 		if tcLoaded, err := transactions.NewTransactionCollection(txPath, sc.spec); err == nil && tcLoaded != nil {
 			sc.routes = tcLoaded.GetMockRoutes()
 			sc.tc = tcLoaded
-			fmt.Printf("Loaded %d mock routes from: %s\n", len(sc.routes), txPath)
+			fmt.Printf("   ✓ Loaded %d mock route(s) from: %s\n", len(sc.routes), txPath)
+		} else {
+			fmt.Printf("   ⚠️ Warning: Failed to load mock routes from '%s': %v\n", txPath, err)
 		}
 	}
 

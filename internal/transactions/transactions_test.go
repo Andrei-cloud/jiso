@@ -1,7 +1,7 @@
 package transactions
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"os"
 	"testing"
 

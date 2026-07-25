@@ -120,9 +120,10 @@ Field values in transaction definitions or scenario steps can use reserved keywo
     "70": "1"
   },
   "required_fields": ["7", "11", "70"],
-  "echo_fields": [7, 11, 37],
+  "echo_fields": [7, 11, 25, 32, 37, 41, 42, 63, 115],
   "response_mti": "0810",
   "response_fields": {
+    "38": "auth_code",
     "39": "00"
   },
   "delay_ms": 50,
@@ -131,6 +132,11 @@ Field values in transaction definitions or scenario steps can use reserved keywo
   "drop_connection": false
 }
 ```
+
+### ISO8583 Echo Fields & Response Keywords
+
+- **`echo_fields`**: Mandatory request fields echoed back in response messages per ISO8583 specification standards (DE 7 Transmission DateTime, DE 11 STAN, DE 25 POS Condition, DE 32 Acquiring Inst ID, DE 37 RRN, DE 41 Terminal ID, DE 42 Merchant ID, DE 63 Network ID, DE 115 Trace Data).
+- **`response_fields`**: Static or dynamic response values. Setting `"38": "auth_code"` triggers automatic 6-character random authorization code generation (`utils.RandString(6)`).
 
 ### Latency, Delay, and Network Jitter Simulation
 

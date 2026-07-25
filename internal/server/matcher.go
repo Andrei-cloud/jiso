@@ -109,8 +109,8 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 	respMTI := utils.ResponseMTI(mti)
 	resp.MTI(respMTI)
 
-	// Echo standard fields if present
-	for _, fNum := range []int{7, 11, 37, 41, 49} {
+	// Echo standard ISO8583 fields if present
+	for _, fNum := range []int{7, 11, 25, 32, 37, 41, 42, 63, 115} {
 		if reqField := req.GetField(fNum); reqField != nil {
 			if val, err := reqField.String(); err == nil {
 				resp.Field(fNum, val)

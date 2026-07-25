@@ -199,3 +199,11 @@ func (f *Factory) CreateServerCommand() Command {
 	}
 	return NewServerCommand(spec, routes, f.transactions)
 }
+// CreateAnalyzeCommand creates an analyze command
+func (f *Factory) CreateAnalyzeCommand() Command {
+	var spec *iso8583.MessageSpec
+	if f.service != nil {
+		spec = f.service.GetSpec()
+	}
+	return NewAnalyzeCommand(spec, f.transactions)
+}

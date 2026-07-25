@@ -1,12 +1,12 @@
 package service
 
 import (
-	"fmt"
-	"io"
 	"net"
 	"os"
 	"testing"
 	"time"
+
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/network"
@@ -237,7 +237,7 @@ func startTestServer(spec *iso8583.MessageSpec, respond bool) (*testServer, erro
 	server := &testServer{
 		listener: listener,
 		spec:     spec,
-		header:   &Binary2BytesAdapter{network.NewBinary2BytesHeader()},
+		header:   utils.NewBinary2BytesAdapter(),
 		respond:  respond,
 		done:     make(chan struct{}),
 	}
@@ -334,30 +334,4 @@ func (s *testServer) port() int {
 func (s *testServer) Close() {
 	close(s.done)
 	s.listener.Close()
-}
-
-type Binary2BytesAdapter struct {
-	binary2Bytes *network.Binary2Bytes
-}
-
-func (a *Binary2BytesAdapter) SetLength(length int) {
-	a.binary2Bytes.SetLength(length)
-}
-
-func (a *Binary2BytesAdapter) Length() int {
-	return a.binary2Bytes.Length()
-}
-
-func (a *Binary2BytesAdapter) WriteTo(w io.Writer) (int, error) {
-	n, err := a.binary2Bytes.WriteTo(w)
-	return n, err
-}
-
-func (a *Binary2BytesAdapter) ReadFrom(r io.Reader) (int, error) {
-	n, err := a.binary2Bytes.ReadFrom(r)
-	if err != nil {
-		return 0, fmt.Errorf("reading from reader: %w", err)
-	}
-
-	return n, nil
 }
