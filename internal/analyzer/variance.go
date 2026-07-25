@@ -282,6 +282,11 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		return nil, fmt.Errorf("flow is empty")
 	}
 
+	// Mock routes are generated ONLY for response messages (e.g. 0210, 0410, 0810)
+	if !utils.IsResponseMTI(flow.MTI) {
+		return nil, nil
+	}
+
 	reqMTI := utils.RequestMTI(flow.MTI)
 	if reqMTI == "" {
 		reqMTI = flow.MTI
@@ -296,7 +301,14 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		matchFields["22"] = ve.formatFieldValue(22, flow.DE22)
 	}
 
-	echoFields := []int{7, 11, 37}
+	// Standard ISO8583 response echo fields:
+	// DE 7 (DateTime), DE 11 (STAN), DE 25 (POS Condition), DE 32 (Acquiring Inst ID),
+	// DE 37 (RRN), DE 41 (Terminal ID), DE 42 (Merchant ID), DE 63 (Network ID), DE 115 (Trace Data)
+	echoFields := []int{7, 11, 25, 32, 37, 41, 42, 63, 115}
+	echoSet := make(map[int]bool)
+	for _, id := range echoFields {
+		echoSet[id] = true
+	}
 
 	// Handle 08XX Network Management responses
 	if strings.HasPrefix(flow.MTI, "08") {
@@ -314,7 +326,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 
 			var fIDs []int
 			for i, f := range msg.GetFields() {
-				if f == nil || i == 1 || i == 7 || i == 11 || i == 37 {
+				if f == nil || i == 0 || i == 1 || echoSet[i] {
 					continue
 				}
 				val, err := f.String()
@@ -354,12 +366,20 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 
 		results := make([]*VarianceResult, 0, len(uniqueList))
 		for idx, u := range uniqueList {
+			mf := make(map[string]interface{})
+			for k, v := range matchFields {
+				mf[k] = v
+			}
+			if f70Val, ok := u.respFields["70"]; ok && f70Val != "" {
+				mf["70"] = ve.formatFieldValue(70, f70Val)
+			}
+
 			txName := fmt.Sprintf("Mock Network Route %s #%d", flow.MTI, idx+1)
 			txItem := config.ConfigItem{
 				Type:           config.TypeMockRoute,
 				Name:           txName,
 				Description:    fmt.Sprintf("Auto-generated mock route for network management response MTI %s", flow.MTI),
-				MatchFields:    matchFields,
+				MatchFields:    mf,
 				EchoFields:     echoFields,
 				ResponseMTI:    flow.MTI,
 				ResponseFields: u.respFields,
@@ -381,7 +401,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 
 	for _, msg := range flow.Messages {
 		for i, f := range msg.GetFields() {
-			if f == nil || i == 1 || i == 7 || i == 11 || i == 37 {
+			if f == nil || i == 0 || i == 1 || echoSet[i] {
 				continue
 			}
 			val, err := f.String()
@@ -407,20 +427,8 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 			continue
 		}
 
-		allSame := true
-		firstVal := values[0]
-		for _, v := range values[1:] {
-			if v != firstVal {
-				allSame = false
-				break
-			}
-		}
-
-		if allSame {
-			responseFields[fieldKey] = firstVal
-		} else {
-			responseFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)
-		}
+		// Use actual first captured value (never use dataset {{data.DE_X}} template placeholders in mock routes)
+		responseFields[fieldKey] = values[0]
 	}
 
 	var flowKey string

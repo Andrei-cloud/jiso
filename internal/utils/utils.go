@@ -146,6 +146,14 @@ func RequestMTI(mti string) string {
 	return mti[:2] + "0" + mti[3:]
 }
 
+func IsResponseMTI(mti string) bool {
+	if len(mti) < 4 {
+		return false
+	}
+	c := mti[2]
+	return c == '1' || c == '3' || c == '5'
+}
+
 func GetTrxnDateTime() string {
 	currentTime := time.Now()
 	// The format is defined based on the following time: Mon Jan 2 15:04:05 -0700 MST 2006

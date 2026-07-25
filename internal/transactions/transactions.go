@@ -298,8 +298,8 @@ func NewTransactionCollection(
 		}
 	}
 
-	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 {
-		return nil, errors.New("no transactions or scenarios found in the file")
+	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 && len(tc.mockRoutes) == 0 {
+		return nil, errors.New("no transactions, scenarios, or mock routes found in the file")
 	}
 
 	// Pre-populate cache

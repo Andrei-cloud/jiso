@@ -211,6 +211,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		// Unpack request message
 		req := iso8583.NewMessage(spec)
 		if err := req.Unpack(payload); err != nil {
+			fmt.Printf("\n[SERVER] ❌ Error unpacking request payload: %v\n", err)
 			continue
 		}
 
@@ -220,6 +221,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			// Match and compose response (simulated latency/jitter sleep happens asynchronously)
 			matchedRoute, resp, err := s.matcher.MatchAndCompose(req, spec)
 			if err != nil || resp == nil {
+				fmt.Printf("\n[SERVER] ❌ Error matching/composing response for MTI %s: %v\n", mti, err)
 				return
 			}
 
@@ -227,6 +229,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			if matchedRoute != nil {
 				routeName = matchedRoute.Name
 				if matchedRoute.DropConnection {
+					fmt.Printf("\n[SERVER] 🔴 Matched Route '%s' for MTI %s -> Dropping connection\n", routeName, mti)
 					conn.Close()
 					return
 				}
@@ -236,6 +239,13 @@ func (s *Server) handleConn(conn net.Conn) {
 			if f39 := resp.GetField(39); f39 != nil {
 				respCode, _ = f39.String()
 			}
+			respMTI, _ := resp.GetMTI()
+
+			if matchedRoute != nil {
+				fmt.Printf("\n[SERVER] 🟢 Matched Route '%s' for MTI %s -> Responding %s (RC: %s)\n", routeName, mti, respMTI, respCode)
+			} else {
+				fmt.Printf("\n[SERVER] ⚠️ Fallback (No Route Match) for MTI %s -> Responding %s (RC: 12)\n", mti, respMTI)
+			}
 
 			// Record served message statistics
 			s.stats.RecordMessage(mti, routeName, respCode)
@@ -243,6 +253,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			// Pack response
 			respPacked, err := resp.Pack()
 			if err != nil {
+				fmt.Printf("[SERVER] ❌ Error packing response for route '%s': %v\n", routeName, err)
 				return
 			}
 

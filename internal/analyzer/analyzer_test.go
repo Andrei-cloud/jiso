@@ -216,6 +216,29 @@ func TestInspectAndFilterPCAPDirections(t *testing.T) {
 			data, err := json.MarshalIndent(items, "", "  ")
 			require.NoError(t, err)
 			_ = os.WriteFile("../../transactions/pcaped.json", data, 0o644)
+
+			// Test filtering by Src Port 9999 (Outgoing Responses -> Mock Routes)
+			srcDir := TrafficDirection{TargetPort: 9999, Mode: "src", Label: "Src 9999"}
+			extractedSrc, err := streamAnalyzer.ExtractMessagesFromFileWithDirection("../../output.pcap", "binary2", srcDir)
+			if err != nil {
+				extractedSrc, err = streamAnalyzer.ExtractMessagesFromFileWithDirection("output.pcap", "binary2", srcDir)
+			}
+			if err == nil && len(extractedSrc) > 0 {
+				srcFlows := streamAnalyzer.AggregateFlows(extractedSrc)
+				var routeItems []config.ConfigItem
+				for _, flow := range srcFlows {
+					results, err := varianceEng.AnalyzeFlowToMockRoutes(flow)
+					require.NoError(t, err)
+					for _, res := range results {
+						routeItems = append(routeItems, res.Transaction)
+					}
+				}
+				if len(routeItems) > 0 {
+					routeData, err := json.MarshalIndent(routeItems, "", "  ")
+					require.NoError(t, err)
+					_ = os.WriteFile("../../transactions/mock_routes.json", routeData, 0o644)
+				}
+			}
 		}
 	}
 }
@@ -292,7 +315,7 @@ func TestAnalyzeFlowToMockRoutes(t *testing.T) {
 	assert.Equal(t, "000000", route.MatchFields["3"])
 	assert.Equal(t, "021", route.MatchFields["22"])
 	assert.Equal(t, "0210", route.ResponseMTI)
-	assert.Equal(t, []int{7, 11, 37}, route.EchoFields)
+	assert.Equal(t, []int{7, 11, 25, 32, 37, 41, 42, 63, 115}, route.EchoFields)
 	assert.Equal(t, "00", route.ResponseFields["39"])
 	assert.Equal(t, "auto", route.ResponseFields["38"])
 }
