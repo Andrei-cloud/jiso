@@ -1,7 +1,7 @@
 package db
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"fmt"
 
 	"github.com/moov-io/iso8583"

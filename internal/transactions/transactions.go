@@ -1,13 +1,12 @@
 package transactions
 
 import (
-	"encoding/json"
+	json "github.com/goccy/go-json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -24,12 +23,72 @@ const (
 	transactionCacheFile = "transaction_cache.json"
 )
 
+
+
+type transactionParsedCache struct {
+	once         sync.Once
+	fieldMap     map[int]interface{}
+	staticFields map[int][]byte
+	autoFields   map[int]string
+}
+
 type Transaction struct {
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Fields      json.RawMessage  `json:"fields"`
-	Dataset     []map[int]string `json:"dataset"`
-	DatasetName string           `json:"dataset_name"`
+	Name        string                  `json:"name"`
+	Description string                  `json:"description"`
+	Fields      json.RawMessage         `json:"fields"`
+	Dataset     []map[int]string        `json:"dataset"`
+	DatasetName string                  `json:"dataset_name"`
+	parsedCache *transactionParsedCache `json:"-"`
+}
+
+func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
+	if t.parsedCache == nil {
+		t.parsedCache = &transactionParsedCache{}
+	}
+	var parseErr error
+	t.parsedCache.once.Do(func() {
+		if len(t.Fields) == 0 {
+			return
+		}
+
+		fieldMap := make(map[int]interface{})
+		if err := json.Unmarshal(t.Fields, &fieldMap); err != nil {
+			parseErr = fmt.Errorf("json unmarshal error: %w", err)
+			return
+		}
+		t.parsedCache.fieldMap = fieldMap
+
+		dummyMsg := iso8583.NewMessage(spec)
+		if err := json.Unmarshal(t.Fields, &dummyMsg); err != nil {
+			parseErr = fmt.Errorf("json unmarshal error: %w", err)
+			return
+		}
+
+		staticFields := make(map[int][]byte)
+		for i, f := range dummyMsg.GetFields() {
+			if v, err := f.Bytes(); err == nil {
+				if !isReservedAutoKeyword(v) {
+					staticFields[i] = v
+				}
+			}
+		}
+		t.parsedCache.staticFields = staticFields
+
+		autoFields := make(map[int]string)
+		for i, v := range fieldMap {
+			if i < 2 {
+				continue
+			}
+			if strVal, ok := v.(string); ok {
+				cleanVal := strings.TrimSpace(strings.ToLower(strVal))
+				if isReservedAutoKeywordString(cleanVal) {
+					autoFields[i] = cleanVal
+				}
+			}
+		}
+		t.parsedCache.autoFields = autoFields
+	})
+	return parseErr
 }
 
 type Dataset struct {
@@ -173,7 +232,8 @@ func NewTransactionCollection(
 	}
 
 	for _, item := range items {
-		if item.Type == "" || item.Type == "transaction" {
+		switch item.Type {
+		case "", "transaction":
 			t := Transaction{
 				Name:        item.Name,
 				Description: item.Description,
@@ -182,13 +242,13 @@ func NewTransactionCollection(
 				DatasetName: item.DatasetName,
 			}
 			tc.transactions = append(tc.transactions, t)
-		} else if item.Type == "dataset" {
+		case "dataset":
 			d := Dataset{
 				Name: item.Name,
 				Data: item.Data,
 			}
 			tc.datasets[item.Name] = &d
-		} else if item.Type == "scenario" {
+		case "scenario":
 			s := Scenario{
 				Name:        item.Name,
 				Description: item.Description,
@@ -196,7 +256,7 @@ func NewTransactionCollection(
 				Steps:       item.Steps,
 			}
 			tc.scenarios[item.Name] = &s
-		} else if item.Type == "mock_route" {
+		case "mock_route":
 			r := cfg.MockRouteConfig{
 				Name:           item.Name,
 				MatchFields:    item.MatchFields,
@@ -445,9 +505,6 @@ func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, erro
 }
 
 func (tc *TransactionCollection) interpolateMessageFieldsWithData(msg *iso8583.Message, datasetName string) {
-	dataRegex := regexp.MustCompile(`\{\{\s*data\.(\w+)\s*\}\}`)
-	contextRegex := regexp.MustCompile(`\{\{\s*context\.(\w+)\s*\}\}`)
-
 	var selectedRow map[string]string
 	var ok bool
 
@@ -515,18 +572,12 @@ func (tc *TransactionCollection) findTransaction(name string) (*Transaction, err
 }
 
 func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transaction) error {
-	fieldMap := make(map[int]interface{})
-	if err := json.Unmarshal(t.Fields, &fieldMap); err != nil {
-		return fmt.Errorf("json unmarshal error: %w", err)
+	if err := t.ensureParsed(tc.spec); err != nil {
+		return err
 	}
 
-	dummyMsg := iso8583.NewMessage(tc.spec)
-	if err := json.Unmarshal(t.Fields, &dummyMsg); err != nil {
-		return fmt.Errorf("json unmarshal error: %w", err)
-	}
-
-	tc.setAutoFields(msg, fieldMap, t)
-	tc.setStaticFields(msg, dummyMsg)
+	tc.setAutoFields(msg, t.parsedCache.autoFields, t)
+	tc.setStaticFields(msg, t.parsedCache.staticFields)
 	tc.applyRandomValues(msg, t.Dataset)
 
 	return nil
@@ -548,36 +599,21 @@ func isReservedAutoKeywordString(s string) bool {
 
 func (tc *TransactionCollection) setAutoFields(
 	msg *iso8583.Message,
-	fieldMap map[int]interface{},
+	autoFields map[int]string,
 	t *Transaction,
 ) {
-	for i, v := range fieldMap {
-		if i < 2 {
-			continue
-		}
-
-		switch v := v.(type) {
-		case string:
-			cleanVal := strings.TrimSpace(strings.ToLower(v))
-			if isReservedAutoKeywordString(cleanVal) {
-				if cleanVal == "random" || cleanVal == "$random" {
-					tc.handleRandomFields(msg, t)
-				} else {
-					tc.handleAutoFieldsWithKeyword(i, msg, cleanVal)
-				}
-			}
+	for i, cleanVal := range autoFields {
+		if cleanVal == "random" || cleanVal == "$random" {
+			tc.handleRandomFields(msg, t)
+		} else {
+			tc.handleAutoFieldsWithKeyword(i, msg, cleanVal)
 		}
 	}
 }
 
-func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, dummyMsg *iso8583.Message) {
-	for i, f := range dummyMsg.GetFields() {
-		if v, err := f.Bytes(); err == nil {
-			// Skip fields with reserved auto keywords as they are handled dynamically
-			if !isReservedAutoKeyword(v) {
-				msg.BinaryField(i, v)
-			}
-		}
+func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFields map[int][]byte) {
+	for i, v := range staticFields {
+		msg.BinaryField(i, v)
 	}
 }
 

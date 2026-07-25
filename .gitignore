@@ -11,3 +11,5 @@ coverage.out
 .github/copilot-instructions.md
 ./main
 *.db
+mem.prof
+cpu.prof
