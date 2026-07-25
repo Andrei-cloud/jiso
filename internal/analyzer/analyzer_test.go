@@ -317,7 +317,7 @@ func TestAnalyzeFlowToMockRoutes(t *testing.T) {
 	assert.Equal(t, "0210", route.ResponseMTI)
 	assert.Equal(t, []int{7, 11, 25, 32, 37, 41, 42, 63, 115}, route.EchoFields)
 	assert.Equal(t, "00", route.ResponseFields["39"])
-	assert.Equal(t, "auto", route.ResponseFields["38"])
+	assert.Equal(t, "auth_code", route.ResponseFields["38"])
 }
 
 func TestFindAvailablePCAPFiles(t *testing.T) {

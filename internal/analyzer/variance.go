@@ -349,8 +349,8 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 				fieldKey := fmt.Sprintf("%d", i)
 
 				if i == 38 {
-					rf[fieldKey] = "auto"
-					keyParts = append(keyParts, "38=auto")
+					rf[fieldKey] = "auth_code"
+					keyParts = append(keyParts, "38=auth_code")
 				} else {
 					rf[fieldKey] = val
 					keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, val))
@@ -423,7 +423,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		fieldKey := fmt.Sprintf("%d", fieldID)
 
 		if fieldID == 38 {
-			responseFields[fieldKey] = "auto"
+			responseFields[fieldKey] = "auth_code"
 			continue
 		}
 

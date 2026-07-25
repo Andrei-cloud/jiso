@@ -783,8 +783,8 @@ func (tc *TransactionCollection) Validate() error {
 		return fmt.Errorf("transaction collection is nil")
 	}
 
-	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 {
-		return fmt.Errorf("no transactions or scenarios found in collection")
+	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 && len(tc.mockRoutes) == 0 {
+		return fmt.Errorf("no transactions, scenarios, or mock routes found in collection")
 	}
 
 	// Track seen names for uniqueness validation
