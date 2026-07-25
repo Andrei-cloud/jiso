@@ -126,4 +126,3 @@ func (a *StreamAnalyzer) AggregateFlows(messages []*iso8583.Message) map[string]
 
 	return flows
 }
-

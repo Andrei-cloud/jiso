@@ -325,4 +325,3 @@ func TestFindAvailablePCAPFiles(t *testing.T) {
 	require.NotEmpty(t, files)
 	assert.Contains(t, files[len(files)-1], "Custom Path...")
 }
-

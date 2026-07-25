@@ -119,7 +119,6 @@ func (cli *CLI) registerAllCommands() {
 	serverCmd := cli.factory.CreateServerCommand()
 	cli.commands["serve"] = serverCmd
 	cli.commands["server"] = serverCmd
-
 	analyzeCmd := cli.factory.CreateAnalyzeCommand()
 	cli.commands["analyze"] = analyzeCmd
 	cli.commands["pcap"] = analyzeCmd

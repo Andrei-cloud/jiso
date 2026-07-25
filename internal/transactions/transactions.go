@@ -1,7 +1,6 @@
 package transactions
 
 import (
-	json "github.com/goccy/go-json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -14,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	json "github.com/goccy/go-json"
+
 	cfg "jiso/internal/config"
 	"jiso/internal/utils"
 
@@ -23,8 +24,6 @@ import (
 const (
 	transactionCacheFile = "transaction_cache.json"
 )
-
-
 
 type transactionParsedCache struct {
 	once         sync.Once
@@ -205,6 +204,15 @@ func NewTransactionCollection(
 	filename string,
 	specs *iso8583.MessageSpec,
 ) (*TransactionCollection, error) {
+	if filename == "" {
+		return &TransactionCollection{
+			spec:      specs,
+			cache:     make(map[string]*Transaction),
+			datasets:  make(map[string]*Dataset),
+			scenarios: make(map[string]*Scenario),
+		}, nil
+	}
+
 	if filename == "" {
 		return &TransactionCollection{
 			spec:      specs,
