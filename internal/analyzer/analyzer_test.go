@@ -62,7 +62,7 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 	require.True(t, exists)
 	assert.Equal(t, 2, flow.Count)
 
-	varianceEng := NewVarianceEngine()
+	varianceEng := NewVarianceEngine(spec)
 	results, err := varianceEng.AnalyzeFlow(flow)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
@@ -100,7 +100,7 @@ func TestNetworkManagement08XX(t *testing.T) {
 		Count:    2,
 	}
 
-	varianceEng := NewVarianceEngine()
+	varianceEng := NewVarianceEngine(spec)
 	results, err := varianceEng.AnalyzeFlow(flow)
 	require.NoError(t, err)
 
@@ -117,7 +117,7 @@ func TestNetworkManagement08XX(t *testing.T) {
 
 	assert.Equal(t, "auto", fields["7"])
 	assert.Equal(t, "auto", fields["11"])
-	assert.Equal(t, "301", fields["70"])
+	assert.EqualValues(t, 301, fields["70"])
 	assert.Nil(t, fields["1"]) // Field 1 (Bitmap) MUST NOT be present
 }
 
@@ -135,7 +135,7 @@ func TestExtractFromPCAPFile(t *testing.T) {
 	}
 	if err == nil && len(extracted) > 0 {
 		flows := analyzer.AggregateFlows(extracted)
-		varianceEng := NewVarianceEngine()
+		varianceEng := NewVarianceEngine(spec)
 		var items []config.ConfigItem
 
 		for _, flow := range flows {
@@ -190,7 +190,7 @@ func TestInspectAndFilterPCAPDirections(t *testing.T) {
 		if err == nil {
 			assert.NotEmpty(t, extractedDst)
 			flows := streamAnalyzer.AggregateFlows(extractedDst)
-			varianceEng := NewVarianceEngine()
+			varianceEng := NewVarianceEngine(spec)
 			var items []config.ConfigItem
 
 			for _, flow := range flows {

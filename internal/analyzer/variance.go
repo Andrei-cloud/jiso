@@ -3,11 +3,14 @@ package analyzer
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"jiso/internal/config"
 
 	json "github.com/goccy/go-json"
+	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/field"
 )
 
 // VarianceResult holds the generated base transaction template and extracted dataset rows
@@ -17,11 +20,29 @@ type VarianceResult struct {
 }
 
 // VarianceEngine performs variance analysis on captured message flows
-type VarianceEngine struct{}
+type VarianceEngine struct {
+	spec *iso8583.MessageSpec
+}
 
 // NewVarianceEngine creates a new VarianceEngine instance
-func NewVarianceEngine() *VarianceEngine {
-	return &VarianceEngine{}
+func NewVarianceEngine(spec ...*iso8583.MessageSpec) *VarianceEngine {
+	ve := &VarianceEngine{}
+	if len(spec) > 0 && spec[0] != nil {
+		ve.spec = spec[0]
+	}
+	return ve
+}
+
+func isNumericField(spec *iso8583.MessageSpec, fieldID int) bool {
+	if spec == nil || spec.Fields == nil {
+		return false
+	}
+	f, exists := spec.Fields[fieldID]
+	if !exists || f == nil {
+		return false
+	}
+	_, ok := f.(*field.Numeric)
+	return ok
 }
 
 // AnalyzeFlow inspects messages in a CapturedFlow and generates base transaction template(s) + dataset
@@ -81,7 +102,15 @@ func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*V
 				tf[fieldKey] = "auto"
 				keyParts = append(keyParts, fmt.Sprintf("%d=auto", i))
 			} else {
-				tf[fieldKey] = val
+				if isNumericField(ve.spec, i) && i != 0 {
+					if num, pErr := strconv.ParseInt(val, 10, 64); pErr == nil {
+						tf[fieldKey] = num
+					} else {
+						tf[fieldKey] = val
+					}
+				} else {
+					tf[fieldKey] = val
+				}
 				keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, val))
 			}
 		}
@@ -164,7 +193,15 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 		}
 
 		if allSame {
-			templateFields[fieldKey] = firstVal
+			if isNumericField(ve.spec, fieldID) && fieldID != 0 {
+				if num, pErr := strconv.ParseInt(firstVal, 10, 64); pErr == nil {
+					templateFields[fieldKey] = num
+				} else {
+					templateFields[fieldKey] = firstVal
+				}
+			} else {
+				templateFields[fieldKey] = firstVal
+			}
 		} else {
 			// Varying field -> add placeholder in template & extract to dataset
 			templateFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)

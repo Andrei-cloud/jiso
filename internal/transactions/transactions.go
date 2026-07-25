@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -59,9 +60,33 @@ func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
 		t.parsedCache.fieldMap = fieldMap
 
 		dummyMsg := iso8583.NewMessage(spec)
-		if err := json.Unmarshal(t.Fields, &dummyMsg); err != nil {
-			parseErr = fmt.Errorf("json unmarshal error: %w", err)
-			return
+		unmarshalBytes := t.Fields
+
+		// If dummyMsg.UnmarshalJSON fails on t.Fields (e.g. numeric fields formatted as JSON strings),
+		// sanitize string numbers into JSON numbers and retry.
+		if err := json.Unmarshal(unmarshalBytes, &dummyMsg); err != nil {
+			sanitizedMap := make(map[string]interface{})
+			for k, v := range fieldMap {
+				strKey := fmt.Sprintf("%d", k)
+				if strVal, ok := v.(string); ok && k != 0 {
+					if num, pErr := strconv.ParseInt(strVal, 10, 64); pErr == nil {
+						sanitizedMap[strKey] = num
+						continue
+					}
+				}
+				sanitizedMap[strKey] = v
+			}
+
+			if sBytes, mErr := json.Marshal(sanitizedMap); mErr == nil {
+				dummyMsg = iso8583.NewMessage(spec)
+				if sErr := json.Unmarshal(sBytes, &dummyMsg); sErr != nil {
+					parseErr = fmt.Errorf("json unmarshal error: %w", sErr)
+					return
+				}
+			} else {
+				parseErr = fmt.Errorf("json unmarshal error: %w", err)
+				return
+			}
 		}
 
 		staticFields := make(map[int][]byte)

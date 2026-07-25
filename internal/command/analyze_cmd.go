@@ -215,7 +215,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	}
 
 	// Perform variance analysis
-	varianceEngine := analyzer.NewVarianceEngine()
+	varianceEngine := analyzer.NewVarianceEngine(spec)
 	var newItems []config.ConfigItem
 
 	txCount := 0
