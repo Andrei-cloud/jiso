@@ -75,7 +75,7 @@ func (ac *AnalyzeCommand) Execute() error {
 		spec = utils.GetDefaultSpec()
 	}
 
-	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile)
+	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, analyzer.TrafficDirection{Mode: "all"})
 }
 
 func (ac *AnalyzeCommand) promptAnalyze() error {
@@ -142,6 +142,31 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		return fmt.Errorf("stream capture file path cannot be empty")
 	}
 
+	// 3b. Inspect PCAP for directional traffic options if applicable
+	selectedDir := analyzer.TrafficDirection{Mode: "all"}
+	dirs, dirErr := analyzer.InspectPCAPDirections(streamFile)
+	if dirErr == nil && len(dirs) > 1 {
+		options := make([]string, len(dirs))
+		dirMap := make(map[string]analyzer.TrafficDirection)
+		for i, d := range dirs {
+			options[i] = d.Label
+			dirMap[d.Label] = d
+		}
+
+		var chosenLabel string
+		dirPrompt := &survey.Select{
+			Message: "3b. Select Traffic Direction / Target Port Filter:",
+			Options: options,
+			Default: options[0],
+		}
+		if err := survey.AskOne(dirPrompt, &chosenLabel); err == nil {
+			if d, ok := dirMap[chosenLabel]; ok {
+				selectedDir = d
+				fmt.Printf("   ✓ Selected direction filter: %s\n", selectedDir.Label)
+			}
+		}
+	}
+
 	// 4. Select Target Transaction JSON file
 	defaultTxFile := config.GetConfig().GetFile()
 	if defaultTxFile == "" {
@@ -157,7 +182,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	outputTxFile = strings.TrimSpace(outputTxFile)
 
-	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile)
+	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir)
 }
 
 func (ac *AnalyzeCommand) runAnalysis(
@@ -165,17 +190,12 @@ func (ac *AnalyzeCommand) runAnalysis(
 	spec *iso8583.MessageSpec,
 	headerType string,
 	outputTxFile string,
+	dir analyzer.TrafficDirection,
 ) error {
 	fmt.Printf("\n🔍 Extracting ISO8583 messages from '%s' (Header: %s)...\n", streamFile, headerType)
 
-	f, err := os.Open(streamFile)
-	if err != nil {
-		return fmt.Errorf("failed to open stream file '%s': %w", streamFile, err)
-	}
-	defer f.Close()
-
 	streamAnalyzer := analyzer.NewStreamAnalyzer(spec)
-	extractedMessages, err := streamAnalyzer.ExtractMessagesFromReader(f, headerType)
+	extractedMessages, err := streamAnalyzer.ExtractMessagesFromFileWithDirection(streamFile, headerType, dir)
 	if err != nil {
 		return fmt.Errorf("extraction error: %w", err)
 	}
@@ -198,14 +218,25 @@ func (ac *AnalyzeCommand) runAnalysis(
 	varianceEngine := analyzer.NewVarianceEngine()
 	var newItems []config.ConfigItem
 
+	txCount := 0
+	dsCount := 0
+
 	for _, flow := range flows {
-		result, err := varianceEngine.AnalyzeFlow(flow)
+		results, err := varianceEngine.AnalyzeFlow(flow)
 		if err != nil {
 			fmt.Printf("⚠️ Warning: Failed variance analysis on flow MTI %s DE3 %s: %v\n", flow.MTI, flow.DE3, err)
 			continue
 		}
 
-		newItems = append(newItems, result.Transaction, result.Dataset)
+		for _, res := range results {
+			newItems = append(newItems, res.Transaction)
+			txCount++
+
+			if res.Dataset.Name != "" && len(res.Dataset.Data) > 0 {
+				newItems = append(newItems, res.Dataset)
+				dsCount++
+			}
+		}
 	}
 
 	if len(newItems) == 0 {
@@ -223,7 +254,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	fmt.Printf("\n================================================================================")
 	fmt.Printf("\n 🎉 ANALYSIS COMPLETE & SAVED TO: %s 🟢\n", outputTxFile)
 	fmt.Printf(" Added %d new ConfigItem(s) (%d transactions, %d datasets).\n",
-		len(newItems), len(newItems)/2, len(newItems)/2)
+		len(newItems), txCount, dsCount)
 	fmt.Println("================================================================================")
 
 	return nil

@@ -3,8 +3,11 @@ package analyzer
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
+	"path/filepath"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	"jiso/internal/config"
 	"jiso/internal/utils"
 
@@ -60,14 +63,161 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 	assert.Equal(t, 2, flow.Count)
 
 	varianceEng := NewVarianceEngine()
-	res, err := varianceEng.AnalyzeFlow(flow)
+	results, err := varianceEng.AnalyzeFlow(flow)
 	require.NoError(t, err)
+	require.Len(t, results, 1)
 
+	res := results[0]
 	assert.Equal(t, config.TypeTransaction, res.Transaction.GetType())
 	assert.Equal(t, config.TypeDataset, res.Dataset.GetType())
 	assert.Len(t, res.Dataset.Data, 2)
 	assert.Equal(t, "4111111111111111", res.Dataset.Data[0]["DE_2"])
 	assert.Equal(t, "4222222222222222", res.Dataset.Data[1]["DE_2"])
+}
+
+func TestNetworkManagement08XX(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
+	require.NoError(t, err)
+
+	msg1 := iso8583.NewMessage(spec)
+	msg1.MTI("0800")
+	msg1.Field(3, "990000")
+	msg1.Field(7, "0412232900")
+	msg1.Field(11, "000001")
+	msg1.Field(70, "301")
+
+	msg2 := iso8583.NewMessage(spec)
+	msg2.MTI("0800")
+	msg2.Field(3, "990000")
+	msg2.Field(7, "0412233000")
+	msg2.Field(11, "000002")
+	msg2.Field(70, "301")
+
+	flow := &CapturedFlow{
+		MTI:      "0800",
+		DE3:      "990000",
+		Messages: []*iso8583.Message{msg1, msg2},
+		Count:    2,
+	}
+
+	varianceEng := NewVarianceEngine()
+	results, err := varianceEng.AnalyzeFlow(flow)
+	require.NoError(t, err)
+
+	// Since MTI is 0800 and 70=301 is same for both (with 7,11 mapping to auto), they deduplicate to 1 network transaction
+	require.Len(t, results, 1)
+	tx := results[0].Transaction
+	assert.Equal(t, "Captured Network 0800 #1", tx.Name)
+	assert.Empty(t, tx.DatasetName)
+	assert.Empty(t, results[0].Dataset.Name)
+
+	var fields map[string]interface{}
+	err = json.Unmarshal(tx.Fields, &fields)
+	require.NoError(t, err)
+
+	assert.Equal(t, "auto", fields["7"])
+	assert.Equal(t, "auto", fields["11"])
+	assert.Equal(t, "301", fields["70"])
+	assert.Nil(t, fields["1"]) // Field 1 (Bitmap) MUST NOT be present
+}
+
+func TestExtractFromPCAPFile(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
+	if err != nil {
+		spec, err = utils.CreateSpecFromFile("./specs/spec.json")
+	}
+	require.NoError(t, err)
+
+	analyzer := NewStreamAnalyzer(spec)
+	extracted, err := analyzer.ExtractMessagesFromFile("../../output.pcap", "binary2")
+	if err != nil {
+		extracted, err = analyzer.ExtractMessagesFromFile("output.pcap", "binary2")
+	}
+	if err == nil && len(extracted) > 0 {
+		flows := analyzer.AggregateFlows(extracted)
+		varianceEng := NewVarianceEngine()
+		var items []config.ConfigItem
+
+		for _, flow := range flows {
+			results, err := varianceEng.AnalyzeFlow(flow)
+			require.NoError(t, err)
+			for _, res := range results {
+				items = append(items, res.Transaction)
+				if res.Dataset.Name != "" && len(res.Dataset.Data) > 0 {
+					items = append(items, res.Dataset)
+				}
+			}
+		}
+
+		require.NotEmpty(t, items)
+		data, err := json.MarshalIndent(items, "", "  ")
+		require.NoError(t, err)
+
+		_ = os.WriteFile(filepath.Join(t.TempDir(), "pcaped.json"), data, 0o644)
+	}
+}
+
+func TestInspectAndFilterPCAPDirections(t *testing.T) {
+	dirs, err := InspectPCAPDirections("../../output.pcap")
+	if err != nil {
+		dirs, err = InspectPCAPDirections("output.pcap")
+	}
+	if err == nil {
+		require.NotEmpty(t, dirs)
+		// Should discover Port 9999 directions and All directions
+		has9999 := false
+		for _, d := range dirs {
+			if d.TargetPort == 9999 || d.Mode == "all" {
+				has9999 = true
+				break
+			}
+		}
+		assert.True(t, has9999)
+
+		spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
+		if err != nil {
+			spec, err = utils.CreateSpecFromFile("./specs/spec.json")
+		}
+		require.NoError(t, err)
+
+		streamAnalyzer := NewStreamAnalyzer(spec)
+		// Test filtering by Dst Port 9999 (Requests)
+		dstDir := TrafficDirection{TargetPort: 9999, Mode: "dst", Label: "Dst 9999"}
+		extractedDst, err := streamAnalyzer.ExtractMessagesFromFileWithDirection("../../output.pcap", "binary2", dstDir)
+		if err != nil {
+			extractedDst, err = streamAnalyzer.ExtractMessagesFromFileWithDirection("output.pcap", "binary2", dstDir)
+		}
+		if err == nil {
+			assert.NotEmpty(t, extractedDst)
+			flows := streamAnalyzer.AggregateFlows(extractedDst)
+			varianceEng := NewVarianceEngine()
+			var items []config.ConfigItem
+
+			for _, flow := range flows {
+				results, err := varianceEng.AnalyzeFlow(flow)
+				require.NoError(t, err)
+				for _, res := range results {
+					items = append(items, res.Transaction)
+					if res.Dataset.Name != "" && len(res.Dataset.Data) > 0 {
+						items = append(items, res.Dataset)
+					}
+				}
+			}
+
+			// Verify that no response MTI (0210, 0410, 0810) exists in extractedDst or generated items
+			for _, item := range items {
+				var fields map[string]interface{}
+				if err := json.Unmarshal(item.Fields, &fields); err == nil {
+					mti, _ := fields["0"].(string)
+					assert.NotContains(t, []string{"0210", "0410", "0810"}, mti, "Response MTI should not be present in request-only directional extraction")
+				}
+			}
+
+			data, err := json.MarshalIndent(items, "", "  ")
+			require.NoError(t, err)
+			_ = os.WriteFile("../../transactions/pcaped.json", data, 0o644)
+		}
+	}
 }
 
 func TestStreamAnalyzerMultiHeader(t *testing.T) {

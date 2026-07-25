@@ -15,6 +15,7 @@ import (
 type CapturedFlow struct {
 	MTI      string
 	DE3      string
+	DE22     string
 	Messages []*iso8583.Message
 	Count    int
 }
@@ -86,7 +87,7 @@ func (a *StreamAnalyzer) ExtractMessagesFromStream(streamData []byte, headerType
 	return a.ExtractMessagesFromReader(bytes.NewReader(streamData), hType)
 }
 
-// AggregateFlows groups extracted messages by MTI + DE3 (Processing Code)
+// AggregateFlows groups extracted messages by MTI + DE3 (Processing Code) + DE22 (POS Entry Mode)
 func (a *StreamAnalyzer) AggregateFlows(messages []*iso8583.Message) map[string]*CapturedFlow {
 	flows := make(map[string]*CapturedFlow)
 
@@ -96,13 +97,24 @@ func (a *StreamAnalyzer) AggregateFlows(messages []*iso8583.Message) map[string]
 		if f := msg.GetField(3); f != nil {
 			de3, _ = f.String()
 		}
+		de22 := ""
+		if f := msg.GetField(22); f != nil {
+			de22, _ = f.String()
+		}
 
-		key := fmt.Sprintf("%s_%s", mti, de3)
+		var key string
+		if de22 != "" {
+			key = fmt.Sprintf("%s_%s_%s", mti, de3, de22)
+		} else {
+			key = fmt.Sprintf("%s_%s", mti, de3)
+		}
+
 		flow, exists := flows[key]
 		if !exists {
 			flow = &CapturedFlow{
 				MTI:      mti,
 				DE3:      de3,
+				DE22:     de22,
 				Messages: make([]*iso8583.Message, 0),
 			}
 			flows[key] = flow
