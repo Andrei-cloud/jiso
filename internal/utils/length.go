@@ -28,6 +28,8 @@ func SelectLength(lenType string) (network.Header, error) {
 		return network.NewASCII4BytesHeader(), nil
 	case "binary2", "NAPS":
 		return NewBinary2BytesAdapter(), nil
+	case "binary4":
+		return NewBinary4BytesAdapter(), nil
 	case "bcd2":
 		return network.NewBCD2BytesHeader(), nil
 	case "visa":
@@ -49,6 +51,8 @@ func SelectServerHeader(lenType string) (network.Header, error) {
 		return network.NewASCII4BytesHeader(), nil
 	case "binary2", "NAPS", "":
 		return NewBinary2BytesAdapter(), nil
+	case "binary4":
+		return NewBinary4BytesAdapter(), nil
 	case "bcd2":
 		return network.NewBCD2BytesHeader(), nil
 	case "visa":

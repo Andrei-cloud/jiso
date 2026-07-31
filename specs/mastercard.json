@@ -1,0 +1,905 @@
+{
+    "name": "ISO8583_MASTERCARD",
+    "fields": {
+        "0": {
+            "type": "String",
+            "length": 4,
+            "description": "Message Type Indicator (MTI)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "1": {
+            "type": "Bitmap",
+            "length": 8,
+            "description": "Primary Bitmap",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        },
+        "2": {
+            "type": "Numeric",
+            "length": 19,
+            "description": "Primary Account Number (PAN)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "3": {
+            "type": "String",
+            "length": 6,
+            "description": "Processing Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "4": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Amount, Transaction",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "5": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Amount, Settlement",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "6": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Amount, Cardholder Billing",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "7": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Transmission Date & Time (MMDDhhmmss)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "8": {
+            "type": "Numeric",
+            "length": 8,
+            "description": "Amount, Cardholder Billing Fee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "9": {
+            "type": "Numeric",
+            "length": 8,
+            "description": "Conversion Rate, Settlement",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "10": {
+            "type": "Numeric",
+            "length": 8,
+            "description": "Conversion Rate, Cardholder Billing",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "11": {
+            "type": "Numeric",
+            "length": 6,
+            "description": "Systems Trace Audit Number (STAN)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "12": {
+            "type": "Numeric",
+            "length": 6,
+            "description": "Local Transaction Time (hhmmss)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "13": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Local Transaction Date (MMDD)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "14": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Expiration Date (YYMM)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "15": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Settlement Date",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "16": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Conversion Date",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "17": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Capture Date",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "18": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Merchant Type",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
+        },
+        "19": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Acquiring Institution Country Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "20": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "PAN Extended Country Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "21": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Forwarding Institution Country Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "22": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Point of Service Entry Mode",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "23": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Card Sequence Number (CSN)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "24": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Network International ID",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "25": {
+            "type": "Numeric",
+            "length": 2,
+            "description": "Point of Service Condition Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "26": {
+            "type": "Numeric",
+            "length": 2,
+            "description": "Point of Service PIN Capture Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "27": {
+            "type": "Numeric",
+            "length": 1,
+            "description": "Authorizing ID Response Length",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "28": {
+            "type": "String",
+            "length": 9,
+            "description": "Amount, Transaction Fee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "29": {
+            "type": "String",
+            "length": 9,
+            "description": "Amount, Settlement Fee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "30": {
+            "type": "String",
+            "length": 9,
+            "description": "Amount, Transaction Processing Fee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "31": {
+            "type": "String",
+            "length": 9,
+            "description": "Amount, Settlement Processing Fee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "32": {
+            "type": "Numeric",
+            "length": 11,
+            "description": "Acquiring Institution Identification Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "33": {
+            "type": "Numeric",
+            "length": 11,
+            "description": "Forwarding Institution Identification Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "34": {
+            "type": "String",
+            "length": 28,
+            "description": "Primary Account Number, Extended",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "35": {
+            "type": "String",
+            "length": 37,
+            "description": "Track 2 Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "36": {
+            "type": "String",
+            "length": 104,
+            "description": "Track 3 Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "37": {
+            "type": "String",
+            "length": 12,
+            "description": "Retrieval Reference Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "38": {
+            "type": "String",
+            "length": 6,
+            "description": "Authorization ID Response",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "39": {
+            "type": "String",
+            "length": 2,
+            "description": "Response Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "40": {
+            "type": "String",
+            "length": 3,
+            "description": "Service Restriction Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "41": {
+            "type": "String",
+            "length": 8,
+            "description": "Card Acceptor Terminal Identification",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "42": {
+            "type": "String",
+            "length": 15,
+            "description": "Card Acceptor Identification Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "43": {
+            "type": "String",
+            "length": 40,
+            "description": "Card Acceptor Name/Location",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "44": {
+            "type": "String",
+            "length": 25,
+            "description": "Additional Response Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "45": {
+            "type": "String",
+            "length": 76,
+            "description": "Track 1 Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "46": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Data - ISO",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "47": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Data - National",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "48": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Data - Private",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "49": {
+            "type": "String",
+            "length": 3,
+            "description": "Currency Code, Transaction",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "50": {
+            "type": "String",
+            "length": 3,
+            "description": "Currency Code, Settlement",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "51": {
+            "type": "String",
+            "length": 3,
+            "description": "Currency Code, Cardholder Billing",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "52": {
+            "type": "String",
+            "length": 8,
+            "description": "Personal Identification Number (PIN) Data",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        },
+        "53": {
+            "type": "String",
+            "length": 16,
+            "description": "Security Related Control Information",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "54": {
+            "type": "String",
+            "length": 120,
+            "description": "Additional Amounts",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "55": {
+            "type": "String",
+            "length": 255,
+            "description": "Integrated Circuit Card (ICC) System Related Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "56": {
+            "type": "String",
+            "length": 37,
+            "description": "Payment Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "57": {
+            "type": "String",
+            "length": 999,
+            "description": "Reserved for National Use",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "58": {
+            "type": "String",
+            "length": 999,
+            "description": "Reserved for National Use",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "59": {
+            "type": "String",
+            "length": 999,
+            "description": "Reserved for National Use",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "60": {
+            "type": "String",
+            "length": 60,
+            "description": "Advice Reason Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "61": {
+            "type": "String",
+            "length": 26,
+            "description": "Point of Service (POS) Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "62": {
+            "type": "String",
+            "length": 100,
+            "description": "Intermediate Network Facility Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "63": {
+            "type": "String",
+            "length": 50,
+            "description": "Network Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "64": {
+            "type": "String",
+            "length": 8,
+            "description": "Message Authentication Code (MAC)",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        },
+        "65": {
+            "type": "Bitmap",
+            "length": 8,
+            "description": "Tertiary Bitmap",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        },
+        "66": {
+            "type": "Numeric",
+            "length": 1,
+            "description": "Settlement Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "67": {
+            "type": "Numeric",
+            "length": 2,
+            "description": "Extended Payment Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "68": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Receiving Institution Country Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "69": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Settlement Institution Country Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "70": {
+            "type": "Numeric",
+            "length": 3,
+            "description": "Network Management Information Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "71": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Message Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "72": {
+            "type": "Numeric",
+            "length": 4,
+            "description": "Message Number Last",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "73": {
+            "type": "Numeric",
+            "length": 6,
+            "description": "Date Action (YYMMDD)",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "74": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Credits Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "75": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Credits Reversal Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "76": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Debits Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "77": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Debits Reversal Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "78": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Transfer Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "79": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Transfer Reversal Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "80": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Inquiries Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "81": {
+            "type": "Numeric",
+            "length": 10,
+            "description": "Authorizations Number",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "82": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Credits Processing Fee Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "83": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Credits Transaction Fee Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "84": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Debits Processing Fee Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "85": {
+            "type": "Numeric",
+            "length": 12,
+            "description": "Debits Transaction Fee Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "86": {
+            "type": "Numeric",
+            "length": 16,
+            "description": "Credits Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "87": {
+            "type": "Numeric",
+            "length": 16,
+            "description": "Credits Reversal Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "88": {
+            "type": "Numeric",
+            "length": 16,
+            "description": "Debits Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "89": {
+            "type": "Numeric",
+            "length": 16,
+            "description": "Debits Reversal Amount",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "90": {
+            "type": "Numeric",
+            "length": 42,
+            "description": "Original Data Elements",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "91": {
+            "type": "String",
+            "length": 1,
+            "description": "File Update Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "92": {
+            "type": "String",
+            "length": 2,
+            "description": "File Security Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "93": {
+            "type": "String",
+            "length": 5,
+            "description": "Response Indicator",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "94": {
+            "type": "String",
+            "length": 7,
+            "description": "Service Indicator",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "95": {
+            "type": "String",
+            "length": 42,
+            "description": "Replacement Amounts",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "96": {
+            "type": "String",
+            "length": 8,
+            "description": "Message Security Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "97": {
+            "type": "String",
+            "length": 17,
+            "description": "Amount, Net Settlement",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "98": {
+            "type": "String",
+            "length": 25,
+            "description": "Payee",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.Fixed"
+        },
+        "99": {
+            "type": "Numeric",
+            "length": 11,
+            "description": "Settlement Institution Identification Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "100": {
+            "type": "Numeric",
+            "length": 11,
+            "description": "Receiving Institution Identification Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "101": {
+            "type": "String",
+            "length": 17,
+            "description": "File Name",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "102": {
+            "type": "String",
+            "length": 28,
+            "description": "Account Identification 1",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "103": {
+            "type": "String",
+            "length": 28,
+            "description": "Account Identification 2",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LL"
+        },
+        "104": {
+            "type": "String",
+            "length": 999,
+            "description": "Transaction Description",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "105": {
+            "type": "String",
+            "length": 999,
+            "description": "Transaction Description",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "108": {
+            "type": "String",
+            "length": 999,
+            "description": "MoneySend",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "110": {
+            "type": "String",
+            "length": 100,
+            "description": "Additional Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "112": {
+            "type": "String",
+            "length": 999,
+            "description": "National Use",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "117": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Transaction Reference",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "118": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Transaction Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "119": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "120": {
+            "type": "String",
+            "length": 999,
+            "description": "Record Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "121": {
+            "type": "String",
+            "length": 11,
+            "description": "Authorizing Agent Institution Identification Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "122": {
+            "type": "String",
+            "length": 999,
+            "description": "Additional Record Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "124": {
+            "type": "String",
+            "length": 299,
+            "description": "Goods Code",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "125": {
+            "type": "String",
+            "length": 8,
+            "description": "New PIN Data",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        },
+        "126": {
+            "type": "String",
+            "length": 150,
+            "description": "Transaction Description",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "127": {
+            "type": "String",
+            "length": 100,
+            "description": "Private Data",
+            "enc": "EBCDIC",
+            "prefix": "EBCDIC.LLL"
+        },
+        "128": {
+            "type": "String",
+            "length": 8,
+            "description": "Message Authentication Code (MAC)",
+            "enc": "Binary",
+            "prefix": "Binary.Fixed"
+        }
+    }
+}

@@ -9,3 +9,5 @@ jiso
 *.db
 *.prof
 *.pcap
+mc_cap.tgz
+*.txt
