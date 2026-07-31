@@ -51,6 +51,13 @@ func TestReadMessageLengthWrapper(t *testing.T) {
 			expectError: false,
 			expectedLen: 128,
 		},
+		{
+			name:        "valid binary4 header",
+			header:      NewBinary4BytesAdapter(),
+			input:       []byte{0x00, 0x00, 0x00, 0x40}, // 64 bytes
+			expectError: false,
+			expectedLen: 64,
+		},
 	}
 
 	for _, tt := range tests {
@@ -75,5 +82,23 @@ func TestReadMessageLengthWrapper(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSelectLengthBinary4(t *testing.T) {
+	hdr, err := SelectLength("binary4")
+	if err != nil {
+		t.Fatalf("unexpected error for binary4: %v", err)
+	}
+	if hdr == nil {
+		t.Fatalf("expected non-nil header for binary4")
+	}
+
+	srvHdr, err := SelectServerHeader("binary4")
+	if err != nil {
+		t.Fatalf("unexpected error for server binary4: %v", err)
+	}
+	if srvHdr == nil {
+		t.Fatalf("expected non-nil server header for binary4")
 	}
 }

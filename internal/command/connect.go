@@ -47,12 +47,13 @@ func (c *ConnectCommand) Execute() error {
 			Name: "length",
 			Prompt: &survey.Select{
 				Message: "Select length type:",
-				Options: []string{"ascii4", "binary2", "bcd2", "NAPS", "visa"},
+				Options: []string{"ascii4", "binary2", "binary4", "bcd2", "NAPS", "visa"},
 			},
 			Validate: func(ans interface{}) error {
 				validTypes := map[string]bool{
 					"ascii4":  true,
 					"binary2": true,
+					"binary4": true,
 					"bcd2":    true,
 					"NAPS":    true,
 					"visa":    true,
