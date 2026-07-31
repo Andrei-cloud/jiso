@@ -44,7 +44,9 @@ func NewFactory(
 // CreateConnectCommand creates a connect command
 func (f *Factory) CreateConnectCommand() Command {
 	return &ConnectCommand{
-		Svc: f.service,
+		Tc:   f.transactions,
+		Svc:  f.service,
+		Ctrl: f.cliCtrl,
 	}
 }
 

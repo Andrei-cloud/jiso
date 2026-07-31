@@ -19,7 +19,6 @@ import (
 	isoutl "github.com/moov-io/iso8583/utils"
 )
 
-// Manager handles connections to ISO8583 servers
 type Manager struct {
 	Connection          *moovconnection.Connection // Expose Connection as public for backward compatibility
 	address             string
@@ -32,6 +31,7 @@ type Manager struct {
 	reconnectMu         sync.Mutex
 	networkStats        *metrics.NetworkingStats
 	statusMu            sync.RWMutex // Protects connection status updates
+	mockMatcher         RouteMatcher
 
 	// Connection parameters for reconnection
 	naps   bool
@@ -44,13 +44,7 @@ type Manager struct {
 	responseTimeout    time.Duration
 }
 
-type pendingRequest struct {
-	responseChan    chan *iso8583.Message
-	timeout         time.Time
-	transactionName string
-}
 
-// NewManager creates a new connection manager
 func NewManager(
 	host, port string,
 	spec *iso8583.MessageSpec,
@@ -272,67 +266,7 @@ func (m *Manager) SetSpec(spec *iso8583.MessageSpec) {
 }
 
 // Send sends an ISO8583 message with optional debug logging
-func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
-	// Connection validation and error handling
-	m.statusMu.RLock()
-	conn := m.Connection
-	status := moovconnection.StatusOffline
-	if conn != nil {
-		status = conn.Status()
-	}
-	m.statusMu.RUnlock()
 
-	if conn == nil || status == moovconnection.StatusOffline {
-		return nil, moovconnection.ErrConnectionClosed
-	}
-
-	// Debug logging
-	if m.debugMode {
-		// Log the request
-		packedMsg, err := msg.Pack()
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack message: %w", err)
-		}
-		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(packedMsg))
-
-		// Send and get response
-		response, err := m.Connection.Send(msg)
-		if err != nil {
-			return nil, err
-		}
-
-		// Log the response
-		packedResponse, err := response.Pack()
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack response: %w", err)
-		}
-		fmt.Printf("\nRECEIVED RESPONSE:\n%v\n", hex.Dump(packedResponse))
-
-		return response, nil
-	}
-
-	// Regular operation without debug
-	return m.Connection.Send(msg)
-}
-
-// BackgroundSend sends a message without debug logging (for background operations)
-func (m *Manager) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error) {
-	m.statusMu.RLock()
-	conn := m.Connection
-	status := moovconnection.StatusOffline
-	if conn != nil {
-		status = conn.Status()
-	}
-	m.statusMu.RUnlock()
-
-	if conn == nil || status == moovconnection.StatusOffline {
-		return nil, moovconnection.ErrConnectionClosed
-	}
-
-	return m.Connection.Send(msg)
-}
-
-// IsConnected returns the connection status
 func (m *Manager) IsConnected() bool {
 	m.statusMu.RLock()
 	defer m.statusMu.RUnlock()
@@ -395,144 +329,15 @@ func (m *Manager) SetNetworkingStats(stats *metrics.NetworkingStats) {
 	m.networkStats = stats
 }
 
+// SetMockMatcher sets or clears the mock matcher for unsolicited incoming message processing
+func (m *Manager) SetMockMatcher(matcher RouteMatcher) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	m.mockMatcher = matcher
+}
+
 // handleInboundMessage handles messages received from the server
-func (m *Manager) handleInboundMessage(message *iso8583.Message) {
-	// Get STAN from response
-	stanField := message.GetField(11)
-	if stanField == nil {
-		if m.debugMode {
-			fmt.Printf("Inbound message missing STAN field\n")
-		}
-		return
-	}
-	stan, err := stanField.String()
-	if err != nil {
-		if m.debugMode {
-			fmt.Printf("Error getting STAN from inbound message: %v\n", err)
-		}
-		return
-	}
 
-	// Validate STAN format
-	if len(stan) != 6 {
-		if m.debugMode {
-			fmt.Printf("Invalid STAN format in inbound message: %s\n", stan)
-		}
-		return
-	}
-
-	// Find and remove pending request atomically
-	m.pendingMu.Lock()
-	pending, exists := m.pendingRequests[stan]
-	if exists {
-		delete(m.pendingRequests, stan)
-	}
-	m.pendingMu.Unlock()
-
-	if exists && pending != nil {
-		// Send response to waiting goroutine with timeout protection
-		select {
-		case pending.responseChan <- message:
-			// Successfully sent response
-		case <-time.After(100 * time.Millisecond):
-			if m.debugMode {
-				fmt.Printf("Timeout sending inbound message to channel for STAN %s\n", stan)
-			}
-			// Close the channel to signal completion
-			close(pending.responseChan)
-		}
-	} else {
-		// Unmatched response - could be a duplicate or late response
-		if m.debugMode {
-			fmt.Printf("Unmatched inbound message received for STAN %s\n", stan)
-		}
-		// Could log to metrics or file for debugging
-	}
-}
-
-// SendAsync sends a message asynchronously and returns a channel for the response
-func (m *Manager) SendAsync(
-	msg *iso8583.Message,
-	transactionName string,
-) (<-chan *iso8583.Message, error) {
-	m.statusMu.RLock()
-	conn := m.Connection
-	status := moovconnection.StatusOffline
-	if conn != nil {
-		status = conn.Status()
-	}
-	m.statusMu.RUnlock()
-
-	if conn == nil || status == moovconnection.StatusOffline {
-		return nil, moovconnection.ErrConnectionClosed
-	}
-
-	// Get STAN from request
-	stanField := msg.GetField(11)
-	if stanField == nil {
-		return nil, fmt.Errorf("request missing STAN field")
-	}
-	stan, err := stanField.String()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get STAN from request: %w", err)
-	}
-
-	// Create pending request
-	responseChan := make(chan *iso8583.Message, 1)
-	pending := &pendingRequest{
-		responseChan:    responseChan,
-		timeout:         time.Now().Add(m.responseTimeout),
-		transactionName: transactionName,
-	}
-
-	// Check for duplicate STAN and add to pending requests atomically
-	m.pendingMu.Lock()
-	if _, exists := m.pendingRequests[stan]; exists {
-		m.pendingMu.Unlock()
-		return nil, fmt.Errorf("STAN %s already in use by pending request", stan)
-	}
-
-	// Check if max pending requests limit is reached
-	if len(m.pendingRequests) >= m.maxPendingRequests {
-		m.pendingMu.Unlock()
-		return nil, fmt.Errorf("maximum pending requests limit reached (%d)", m.maxPendingRequests)
-	}
-
-	m.pendingRequests[stan] = pending
-	m.pendingMu.Unlock()
-
-	// Send the message without waiting for response
-	// If sending fails, clean up the pending request
-	err = conn.Reply(msg)
-	if err != nil {
-		m.pendingMu.Lock()
-		delete(m.pendingRequests, stan)
-		m.pendingMu.Unlock()
-		return nil, fmt.Errorf("failed to send message: %w", err)
-	}
-
-	// Start timeout handler
-	go func() {
-		time.Sleep(m.responseTimeout)
-		m.pendingMu.Lock()
-		if pendingReq, exists := m.pendingRequests[stan]; exists && pendingReq == pending {
-			delete(m.pendingRequests, stan)
-			select {
-			case pendingReq.responseChan <- nil: // Send nil to indicate timeout
-			default:
-			}
-			close(pendingReq.responseChan)
-			if m.debugMode {
-				fmt.Printf("Request timeout for STAN %s, transaction %s\n", stan, transactionName)
-			}
-		}
-		m.pendingMu.Unlock()
-	}()
-
-	return responseChan, nil
-}
-
-// SetResponseTimeout sets the timeout for waiting responses
 func (m *Manager) SetResponseTimeout(timeout time.Duration) {
 	m.responseTimeout = timeout
 }
@@ -556,71 +361,3 @@ func (m *Manager) GetMaxPendingRequests() int {
 }
 
 // attemptReconnect tries to reconnect in the background with exponential backoff
-func (m *Manager) attemptReconnect() {
-	m.reconnectMu.Lock()
-	if m.reconnecting {
-		m.reconnectMu.Unlock()
-		return // Already reconnecting
-	}
-	m.reconnecting = true
-	m.reconnectMu.Unlock()
-
-	defer func() {
-		m.reconnectMu.Lock()
-		m.reconnecting = false
-		m.reconnectMu.Unlock()
-	}()
-
-	maxBackoff := 30 * time.Second
-	baseDelay := 1 * time.Second
-
-	for attempt := 1; attempt <= m.reconnectAttempts; attempt++ {
-		delay := time.Duration(1<<uint(attempt-1)) * baseDelay
-		if delay > maxBackoff {
-			delay = maxBackoff
-		}
-
-		if m.networkStats != nil {
-			m.networkStats.RecordBackoff(delay)
-		}
-
-		if m.debugMode {
-			fmt.Printf(
-				"Waiting %v before reconnection attempt %d/%d\n",
-				delay,
-				attempt,
-				m.reconnectAttempts,
-			)
-		}
-		time.Sleep(delay)
-
-		if m.networkStats != nil {
-			m.networkStats.RecordReconnectAttempt()
-		}
-
-		startTime := time.Now()
-		err := m.Connect(m.naps, m.header)
-		if err == nil {
-			if m.networkStats != nil {
-				duration := time.Since(startTime)
-				m.networkStats.RecordReconnectSuccess(duration)
-			}
-			if m.debugMode {
-				fmt.Printf("Reconnection successful on attempt %d\n", attempt)
-			}
-			return
-		}
-
-		if m.networkStats != nil {
-			m.networkStats.RecordReconnectFailure()
-		}
-
-		if m.debugMode {
-			fmt.Printf("Reconnection attempt %d failed: %s\n", attempt, err)
-		}
-	}
-
-	if m.debugMode {
-		fmt.Printf("All reconnection attempts failed\n")
-	}
-}

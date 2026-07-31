@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -181,9 +180,4 @@ func (c *ReloadCommand) Execute() error {
 		return nil
 	}
 	return c.Ctrl.Reload()
-}
-
-// MemoryHelper clears operating system memory references (for Windows/Unix compatibility)
-func ClearOSMemory() {
-	_ = runtime.GOOS
 }

@@ -29,11 +29,16 @@ func NewVisaHeader(stationIDStr string) (*VisaHeader, error) {
 func ParseStationID(idStr string) ([3]byte, error) {
 	var bytes [3]byte
 	if len(idStr) != 6 {
-		return bytes, fmt.Errorf("visa station ID must be exactly 6 characters long")
+		return bytes, fmt.Errorf("visa station ID must be exactly 6 numeric digits long")
+	}
+	for _, ch := range idStr {
+		if ch < '0' || ch > '9' {
+			return bytes, fmt.Errorf("visa station ID must contain only numeric digits (0-9)")
+		}
 	}
 	decoded, err := hex.DecodeString(idStr)
 	if err != nil {
-		return bytes, fmt.Errorf("invalid visa station ID: must be a 6-digit hex/decimal string: %w", err)
+		return bytes, fmt.Errorf("invalid visa station ID: %w", err)
 	}
 	copy(bytes[:], decoded)
 	return bytes, nil
@@ -95,14 +100,8 @@ func (h *VisaHeader) WriteTo(w io.Writer) (int, error) {
 	buf[5] = 0x01                       // Header Flag
 	buf[6] = 0x02                       // Text Format
 	binary.BigEndian.PutUint16(buf[7:9], uint16(payloadLen)) // Total Message Length
-	// Destination Station (buf[9:12] are 0x00)
+
 	copy(buf[12:15], stationID[:])     // Source Station
-	// Round Trip Control (buf[15] is 0x00)
-	// VIP Flags (buf[16:18] are 0x00)
-	// Message Status Flags (buf[18:21] are 0x00)
-	// Batch Number (buf[21] is 0x00)
-	// Reserved (buf[22:25] are 0x00)
-	// User Information (buf[25] is 0x00)
 
 	n, err := w.Write(buf)
 	return n, err

@@ -170,7 +170,7 @@ func (sc *ServerCommand) promptStartServer() error {
 	var headerType string
 	headerPrompt := &survey.Select{
 		Message: "Select TCP header type:",
-		Options: []string{"ascii4", "binary2", "bcd2", "NAPS", "visa"},
+		Options: []string{"ascii4", "binary2", "binary4", "bcd2", "NAPS", "visa"},
 		Default: "binary2",
 	}
 	if err := survey.AskOne(headerPrompt, &headerType); err != nil {

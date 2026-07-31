@@ -3,16 +3,7 @@ package view
 import (
 	"bytes"
 	"testing"
-
-	"github.com/moov-io/iso8583"
 )
-
-func createTestMessage() *iso8583.Message {
-	msg := iso8583.NewMessage(iso8583.Spec87)
-	msg.Field(0, "0100")
-
-	return msg
-}
 
 func TestNewISOMessageRenderer(t *testing.T) {
 	// Test with nil output
