@@ -29,11 +29,16 @@ func NewVisaHeader(stationIDStr string) (*VisaHeader, error) {
 func ParseStationID(idStr string) ([3]byte, error) {
 	var bytes [3]byte
 	if len(idStr) != 6 {
-		return bytes, fmt.Errorf("visa station ID must be exactly 6 characters long")
+		return bytes, fmt.Errorf("visa station ID must be exactly 6 numeric digits long")
+	}
+	for _, ch := range idStr {
+		if ch < '0' || ch > '9' {
+			return bytes, fmt.Errorf("visa station ID must contain only numeric digits (0-9)")
+		}
 	}
 	decoded, err := hex.DecodeString(idStr)
 	if err != nil {
-		return bytes, fmt.Errorf("invalid visa station ID: must be a 6-digit hex/decimal string: %w", err)
+		return bytes, fmt.Errorf("invalid visa station ID: %w", err)
 	}
 	copy(bytes[:], decoded)
 	return bytes, nil

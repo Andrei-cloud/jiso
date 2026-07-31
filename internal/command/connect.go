@@ -93,25 +93,36 @@ func (c *ConnectCommand) Execute() error {
 	}
 
 	if answers.Length == "visa" {
-		var stationID string
-		stationPrompt := &survey.Input{
-			Message: "Enter Local Station ID (6-digit hex or decimal):",
-		}
-		err = survey.AskOne(stationPrompt, &stationID, survey.WithValidator(func(val interface{}) error {
-			str, ok := val.(string)
-			if !ok {
-				return errors.New("invalid input type")
+		stationID := config.GetConfig().GetVisaStationId()
+		if stationID != "" {
+			if _, err := utils.ParseStationID(stationID); err == nil {
+				fmt.Printf("Using Local Station ID from command argument: %s\n", stationID)
+			} else {
+				fmt.Printf("Invalid Station ID from command argument '%s': %v. Please enter a valid ID.\n", stationID, err)
+				stationID = ""
 			}
-			_, err := utils.ParseStationID(str)
+		}
+
+		if stationID == "" {
+			stationPrompt := &survey.Input{
+				Message: "Enter Local Station ID (6-digit numeric):",
+			}
+			err = survey.AskOne(stationPrompt, &stationID, survey.WithValidator(func(val interface{}) error {
+				str, ok := val.(string)
+				if !ok {
+					return errors.New("invalid input type")
+				}
+				_, err := utils.ParseStationID(str)
+				if err != nil {
+					return err
+				}
+				return nil
+			}))
 			if err != nil {
 				return err
 			}
-			return nil
-		}))
-		if err != nil {
-			return err
+			config.GetConfig().SetVisaStationId(stationID)
 		}
-		config.GetConfig().SetVisaStationId(stationID)
 	}
 
 	// Ask if unsolicited incoming messages should be parsed and processed via mock_routes

@@ -27,10 +27,9 @@ func TestParseStationID(t *testing.T) {
 			expectedHex: "000001",
 		},
 		{
-			name:        "valid letters hex station ID",
+			name:        "non-numeric station ID with letters",
 			input:       "ABCDEF",
-			expectError: false,
-			expectedHex: "abcdef",
+			expectError: true,
 		},
 		{
 			name:        "too short station ID",
