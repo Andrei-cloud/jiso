@@ -20,7 +20,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v1.3.0"
+var Version string = "v1.4.0"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -134,7 +134,6 @@ func (cli *CLI) Run() error {
 	return cli.runWithHistory()
 }
 
-
 func (cli *CLI) Close() {
 	cli.mu.Lock()
 
@@ -196,7 +195,6 @@ func (cli *CLI) Close() {
 	db.StopAsyncLogger()
 	db.Close()
 }
-
 
 func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 	if subcommand == "version" || subcommand == "v" || subcommand == "-v" || subcommand == "--version" {
