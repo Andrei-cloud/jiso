@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"jiso/internal/config"
 	"jiso/internal/metrics"
 	"jiso/internal/utils"
 
@@ -18,6 +19,11 @@ import (
 	"github.com/moov-io/iso8583/network"
 	isoutl "github.com/moov-io/iso8583/utils"
 )
+
+// RouteMatcher defines the interface for matching requests against mock routes
+type RouteMatcher interface {
+	MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpec) (*config.MockRouteConfig, *iso8583.Message, error)
+}
 
 // Manager handles connections to ISO8583 servers
 type Manager struct {
@@ -32,6 +38,7 @@ type Manager struct {
 	reconnectMu         sync.Mutex
 	networkStats        *metrics.NetworkingStats
 	statusMu            sync.RWMutex // Protects connection status updates
+	mockMatcher         RouteMatcher
 
 	// Connection parameters for reconnection
 	naps   bool
@@ -395,39 +402,33 @@ func (m *Manager) SetNetworkingStats(stats *metrics.NetworkingStats) {
 	m.networkStats = stats
 }
 
+// SetMockMatcher sets or clears the mock matcher for unsolicited incoming message processing
+func (m *Manager) SetMockMatcher(matcher RouteMatcher) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	m.mockMatcher = matcher
+}
+
 // handleInboundMessage handles messages received from the server
 func (m *Manager) handleInboundMessage(message *iso8583.Message) {
-	// Get STAN from response
+	// Get STAN from response if present
 	stanField := message.GetField(11)
-	if stanField == nil {
-		if m.debugMode {
-			fmt.Printf("Inbound message missing STAN field\n")
-		}
-		return
-	}
-	stan, err := stanField.String()
-	if err != nil {
-		if m.debugMode {
-			fmt.Printf("Error getting STAN from inbound message: %v\n", err)
-		}
-		return
+	var stan string
+	if stanField != nil {
+		stan, _ = stanField.String()
 	}
 
-	// Validate STAN format
-	if len(stan) != 6 {
-		if m.debugMode {
-			fmt.Printf("Invalid STAN format in inbound message: %s\n", stan)
+	var pending *pendingRequest
+	var exists bool
+	if len(stan) == 6 {
+		// Find and remove pending request atomically
+		m.pendingMu.Lock()
+		pending, exists = m.pendingRequests[stan]
+		if exists {
+			delete(m.pendingRequests, stan)
 		}
-		return
+		m.pendingMu.Unlock()
 	}
-
-	// Find and remove pending request atomically
-	m.pendingMu.Lock()
-	pending, exists := m.pendingRequests[stan]
-	if exists {
-		delete(m.pendingRequests, stan)
-	}
-	m.pendingMu.Unlock()
 
 	if exists && pending != nil {
 		// Send response to waiting goroutine with timeout protection
@@ -441,12 +442,59 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 			// Close the channel to signal completion
 			close(pending.responseChan)
 		}
-	} else {
-		// Unmatched response - could be a duplicate or late response
-		if m.debugMode {
-			fmt.Printf("Unmatched inbound message received for STAN %s\n", stan)
-		}
-		// Could log to metrics or file for debugging
+		return
+	}
+
+	// Unmatched response or unsolicited incoming message
+	m.statusMu.RLock()
+	matcher := m.mockMatcher
+	m.statusMu.RUnlock()
+
+	if matcher != nil {
+		go func(req *iso8583.Message) {
+			mti, _ := req.GetMTI()
+			matchedRoute, resp, err := matcher.MatchAndCompose(req, m.spec)
+			if err != nil || resp == nil {
+				if m.debugMode {
+					fmt.Printf("\n[CLIENT-UNSOLICITED] ❌ Error matching/composing response for MTI %s: %v\n", mti, err)
+				}
+				return
+			}
+
+			routeName := "Catch-all Fallback"
+			if matchedRoute != nil {
+				routeName = matchedRoute.Name
+				if matchedRoute.DropConnection {
+					fmt.Printf("\n[CLIENT-UNSOLICITED] 🔴 Matched Route '%s' for MTI %s -> Dropping connection\n", routeName, mti)
+					_ = m.Close()
+					return
+				}
+			}
+
+			respCode := ""
+			if f39 := resp.GetField(39); f39 != nil {
+				respCode, _ = f39.String()
+			}
+			respMTI, _ := resp.GetMTI()
+
+			if matchedRoute != nil {
+				fmt.Printf("\n[CLIENT-UNSOLICITED] 🟢 Matched Route '%s' for MTI %s -> Responding %s (RC: %s)\n", routeName, mti, respMTI, respCode)
+			} else {
+				fmt.Printf("\n[CLIENT-UNSOLICITED] ⚠️ Fallback (No Route Match) for MTI %s -> Responding %s (RC: 12)\n", mti, respMTI)
+			}
+
+			m.statusMu.RLock()
+			conn := m.Connection
+			m.statusMu.RUnlock()
+
+			if conn != nil {
+				if err := conn.Reply(resp); err != nil && m.debugMode {
+					fmt.Printf("\n[CLIENT-UNSOLICITED] ❌ Error sending reply: %v\n", err)
+				}
+			}
+		}(message)
+	} else if m.debugMode {
+		fmt.Printf("Unmatched inbound message received for STAN %s\n", stan)
 	}
 }
 

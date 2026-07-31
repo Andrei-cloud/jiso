@@ -133,6 +133,13 @@ func (s *Service) SetTarget(host, port string) {
 	}
 }
 
+// SetMockMatcher configures a mock matcher for processing unsolicited incoming messages
+func (s *Service) SetMockMatcher(matcher connection.RouteMatcher) {
+	if s.connManager != nil {
+		s.connManager.SetMockMatcher(matcher)
+	}
+}
+
 // Send sends an ISO8583 message and returns the response
 func (s *Service) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	return s.connManager.Send(msg)

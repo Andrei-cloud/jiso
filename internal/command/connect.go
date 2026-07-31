@@ -5,18 +5,20 @@ import (
 	"fmt"
 
 	"jiso/internal/config"
-	"jiso/internal/utils"
-
+	"jiso/internal/server"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+	"jiso/internal/utils"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/core"
+	"github.com/moov-io/iso8583"
 )
 
 type ConnectCommand struct {
-	Tc  *transactions.TransactionCollection
-	Svc *service.Service
+	Tc   transactions.Repository
+	Svc  *service.Service
+	Ctrl CLIController
 }
 
 func (c *ConnectCommand) Name() string {
@@ -109,6 +111,67 @@ func (c *ConnectCommand) Execute() error {
 			return err
 		}
 		config.GetConfig().SetVisaStationId(stationID)
+	}
+
+	// Ask if unsolicited incoming messages should be parsed and processed via mock_routes
+	var processUnsolicited bool
+	unsolicitedPrompt := &survey.Confirm{
+		Message: "Parse and process unsolicited incoming messages via mock_routes?",
+		Default: false,
+	}
+	if err := survey.AskOne(unsolicitedPrompt, &processUnsolicited); err != nil {
+		return err
+	}
+
+	if processUnsolicited {
+		txPath := config.GetConfig().GetFile()
+		if txPath == "" {
+			fmt.Println("No transaction file currently selected.")
+			selector := NewFileSelector("transaction")
+			selected, err := selector.SelectFile()
+			if err != nil {
+				return fmt.Errorf("transaction file selection failed: %w", err)
+			}
+			txPath = selected
+			config.GetConfig().SetFile(txPath)
+
+			if c.Ctrl != nil {
+				if _, err := c.Ctrl.ReloadTransactions(txPath); err != nil {
+					return fmt.Errorf("failed to reload transaction repository: %w", err)
+				}
+			} else {
+				var spec *iso8583.MessageSpec
+				if c.Svc != nil {
+					spec = c.Svc.GetSpec()
+				}
+				tc, err := transactions.NewTransactionCollection(txPath, spec)
+				if err != nil {
+					return fmt.Errorf("failed to load transaction file '%s': %w", txPath, err)
+				}
+				c.Tc = tc
+			}
+		}
+
+		var routes []config.MockRouteConfig
+		if c.Tc != nil {
+			routes = c.Tc.GetMockRoutes()
+		}
+
+		if len(routes) == 0 {
+			fmt.Printf("Warning: Selected transaction file '%s' contains no mock_routes.\n", txPath)
+			if c.Svc != nil {
+				c.Svc.SetMockMatcher(nil)
+			}
+		} else {
+			fmt.Printf("Loaded %d mock route(s) from '%s' for unsolicited incoming message handling.\n", len(routes), txPath)
+			if c.Svc != nil {
+				c.Svc.SetMockMatcher(server.NewMatcher(routes))
+			}
+		}
+	} else {
+		if c.Svc != nil {
+			c.Svc.SetMockMatcher(nil)
+		}
 	}
 
 	header, err := utils.SelectLength(answers.Length)
