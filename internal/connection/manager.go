@@ -124,6 +124,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 				}
 			}
 		}),
+
 		moovconnection.InboundMessageHandler(
 			func(c *moovconnection.Connection, message *iso8583.Message) {
 				// Handle incoming messages asynchronously

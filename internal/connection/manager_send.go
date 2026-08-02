@@ -31,6 +31,25 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 		return nil, moovconnection.ErrConnectionClosed
 	}
 
+	stan := getStan(msg)
+	var responseChan chan *iso8583.Message
+	if stan != "" {
+		responseChan = make(chan *iso8583.Message, 1)
+		pending := &pendingRequest{
+			responseChan: responseChan,
+			timeout:      time.Now().Add(m.responseTimeout),
+		}
+		m.pendingMu.Lock()
+		m.pendingRequests[stan] = pending
+		m.pendingMu.Unlock()
+
+		defer func() {
+			m.pendingMu.Lock()
+			delete(m.pendingRequests, stan)
+			m.pendingMu.Unlock()
+		}()
+	}
+
 	// Debug logging
 	if m.debugMode {
 		// Log the request
@@ -42,6 +61,17 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 
 		// Send and get response
 		response, err := m.Connection.Send(msg)
+		if err != nil && responseChan != nil {
+			select {
+			case respFromChan := <-responseChan:
+				if respFromChan != nil {
+					response = respFromChan
+					err = nil
+				}
+			default:
+			}
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +87,18 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	}
 
 	// Regular operation without debug
-	return m.Connection.Send(msg)
+	response, err := m.Connection.Send(msg)
+	if err != nil && responseChan != nil {
+		select {
+		case respFromChan := <-responseChan:
+			if respFromChan != nil {
+				response = respFromChan
+				err = nil
+			}
+		default:
+		}
+	}
+	return response, err
 }
 
 // BackgroundSend sends a message without debug logging (for background operations)
@@ -96,13 +137,9 @@ func (m *Manager) SendAsync(
 	}
 
 	// Get STAN from request
-	stanField := msg.GetField(11)
-	if stanField == nil {
-		return nil, fmt.Errorf("request missing STAN field")
-	}
-	stan, err := stanField.String()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get STAN from request: %w", err)
+	stan := getStan(msg)
+	if stan == "" {
+		return nil, fmt.Errorf("request missing or invalid STAN field")
 	}
 
 	// Create pending request
@@ -131,8 +168,7 @@ func (m *Manager) SendAsync(
 
 	// Send the message without waiting for response
 	// If sending fails, clean up the pending request
-	err = conn.Reply(msg)
-	if err != nil {
+	if err := conn.Reply(msg); err != nil {
 		m.pendingMu.Lock()
 		delete(m.pendingRequests, stan)
 		m.pendingMu.Unlock()

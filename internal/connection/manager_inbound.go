@@ -2,6 +2,7 @@ package connection
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"jiso/internal/config"
@@ -13,19 +14,45 @@ type RouteMatcher interface {
 	MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpec) (*config.MockRouteConfig, *iso8583.Message, error)
 }
 
+func NormalizeStan(stan string) string {
+	stan = strings.TrimSpace(stan)
+	if stan == "" {
+		return ""
+	}
+	if len(stan) < 6 {
+		return strings.Repeat("0", 6-len(stan)) + stan
+	}
+	return stan
+}
+
+func getStan(message *iso8583.Message) string {
+	if message == nil {
+		return ""
+	}
+	stanField := message.GetField(11)
+	if stanField == nil {
+		return ""
+	}
+	val, err := stanField.String()
+	if err != nil || val == "" {
+		return ""
+	}
+	return NormalizeStan(val)
+}
+
 // Manager handles connections to ISO8583 servers
 
 func (m *Manager) handleInboundMessage(message *iso8583.Message) {
-	// Get STAN from response if present
-	stanField := message.GetField(11)
-	var stan string
-	if stanField != nil {
-		stan, _ = stanField.String()
-	}
+	// Get normalized STAN from response if present
+	stan := getStan(message)
+	mti, _ := message.GetMTI()
+
+	// Check if message is a response MTI (e.g., 0810, 0110, 0210, 0410 - 3rd digit is odd 1/3/5)
+	isResponse := len(mti) == 4 && (mti[2] == '1' || mti[2] == '3' || mti[2] == '5')
 
 	var pending *pendingRequest
 	var exists bool
-	if len(stan) == 6 {
+	if stan != "" {
 		// Find and remove pending request atomically
 		m.pendingMu.Lock()
 		pending, exists = m.pendingRequests[stan]
@@ -33,6 +60,27 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 			delete(m.pendingRequests, stan)
 		}
 		m.pendingMu.Unlock()
+	}
+
+	if exists && pending != nil {
+		// Send response to waiting goroutine with timeout protection
+		select {
+		case pending.responseChan <- message:
+			// Successfully sent response
+		case <-time.After(100 * time.Millisecond):
+			if m.debugMode {
+				fmt.Printf("Timeout sending inbound message to channel for STAN %s\n", stan)
+			}
+			// Close the channel to signal completion
+			close(pending.responseChan)
+		}
+		return
+	}
+
+	// If this is a response to a synchronous Send() call, iso8583-connection matches it internally.
+	// We don't want to log unsolicited warning or trigger mock route matchers for response messages.
+	if isResponse {
+		return
 	}
 
 	if exists && pending != nil {

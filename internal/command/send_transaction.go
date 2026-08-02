@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"jiso/internal/config"
+	iconn "jiso/internal/connection"
 	"jiso/internal/db"
 	"jiso/internal/metrics"
 	"jiso/internal/service"
@@ -163,15 +164,19 @@ func (c *SendCommand) Execute() error {
 		return fmt.Errorf("failed to get response STAN: %w", err)
 	}
 
-	if requestStan != responseStan {
+	// Verify STAN correlation for response processing
+	reqStanNorm := iconn.NormalizeStan(requestStan)
+	respStanNorm := iconn.NormalizeStan(responseStan)
+
+	if reqStanNorm != respStanNorm {
 		// Log STAN mismatch as a protocol error
 		fmt.Printf(
 			"STAN mismatch detected: request=%s, response=%s for transaction %s\n",
-			requestStan,
-			responseStan,
+			reqStanNorm,
+			respStanNorm,
 			trxnName,
 		)
-		return fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
+		return fmt.Errorf("STAN mismatch: request=%s, response=%s", reqStanNorm, respStanNorm)
 	}
 
 	if config.GetConfig().GetHex() && !c.Svc.GetDebugMode() {
@@ -342,12 +347,12 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, se
 		return "STAN_ERR", execTime, fmt.Errorf("failed to get response STAN: %w", err)
 	}
 
-	if requestStan != responseStan {
+	if iconn.NormalizeStan(requestStan) != iconn.NormalizeStan(responseStan) {
 		// Log STAN mismatch as a protocol error
 		fmt.Printf(
 			"STAN mismatch detected: request=%s, response=%s for transaction %s\n",
-			requestStan,
-			responseStan,
+			iconn.NormalizeStan(requestStan),
+			iconn.NormalizeStan(responseStan),
 			trxnName,
 		)
 		c.Tc.LogTransaction(trxnName, false)
