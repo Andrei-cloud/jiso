@@ -1,9 +1,12 @@
 package connection
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
@@ -16,6 +19,35 @@ type pendingRequest struct {
 }
 
 // NewManager creates a new connection manager
+
+func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
+	packedMsg, err := msg.Pack()
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack message: %w", err)
+	}
+
+	if m.header == nil {
+		return packedMsg, nil
+	}
+
+	hdr := cloneHeader(m.header)
+	hdr.SetLength(len(packedMsg))
+
+	var buf bytes.Buffer
+	if m.naps {
+		napsWrite := utils.NapsWriteLengthWrapper(utils.WriteMessageLengthWrapper(hdr))
+		if _, err := napsWrite(&buf, len(packedMsg)); err != nil {
+			return nil, fmt.Errorf("failed to write message header: %w", err)
+		}
+	} else {
+		if _, err := hdr.WriteTo(&buf); err != nil {
+			return nil, fmt.Errorf("failed to write message header: %w", err)
+		}
+	}
+
+	fullPayload := append(buf.Bytes(), packedMsg...)
+	return fullPayload, nil
+}
 
 func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	// Connection validation and error handling
@@ -50,17 +82,17 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 		}()
 	}
 
-	packedMsg, err := msg.Pack()
+	fullPayload, err := m.buildFullPayload(msg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack message: %w", err)
+		return nil, fmt.Errorf("failed to build message payload: %w", err)
 	}
 
 	if m.debugMode {
-		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(packedMsg))
+		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(fullPayload))
 	}
 
-	// Send raw message bytes directly to the network connection
-	if err := conn.Reply(msg); err != nil {
+	// Send raw combined header + message payload directly in one TCP write
+	if _, err := conn.Write(fullPayload); err != nil {
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
@@ -107,10 +139,17 @@ func (m *Manager) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error)
 		return nil, moovconnection.ErrConnectionClosed
 	}
 
-	return m.Connection.Send(msg)
-}
+	fullPayload, err := m.buildFullPayload(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build message payload: %w", err)
+	}
 
-// IsConnected returns the connection status
+	if _, err := conn.Write(fullPayload); err != nil {
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	return nil, nil
+}
 
 func (m *Manager) SendAsync(
 	msg *iso8583.Message,
@@ -158,9 +197,19 @@ func (m *Manager) SendAsync(
 	m.pendingRequests[stan] = pending
 	m.pendingMu.Unlock()
 
-	// Send the message without waiting for response
-	// If sending fails, clean up the pending request
-	if err := conn.Reply(msg); err != nil {
+	fullPayload, err := m.buildFullPayload(msg)
+	if err != nil {
+		m.pendingMu.Lock()
+		delete(m.pendingRequests, stan)
+		m.pendingMu.Unlock()
+		return nil, fmt.Errorf("failed to build message payload: %w", err)
+	}
+
+	if m.debugMode {
+		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(fullPayload))
+	}
+
+	if _, err := conn.Write(fullPayload); err != nil {
 		m.pendingMu.Lock()
 		delete(m.pendingRequests, stan)
 		m.pendingMu.Unlock()
