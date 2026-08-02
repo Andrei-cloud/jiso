@@ -23,6 +23,20 @@
   },
   {
     "type": "transaction",
+    "name": "Echo Mastercard",
+    "description": "Network Management: Echo Mastercard",
+    "spec": "specs/mastercard.json",
+    "fields": {
+      "0": "0800",
+      "2": "41275",
+      "7": "datetime",
+      "11": "stan",
+      "33": "003729",
+      "70": "301"
+    }
+  },
+  {
+    "type": "transaction",
     "name": "Purchase Template",
     "description": "Financial Request (0200) Base Template",
     "dataset_name": "card_pool",

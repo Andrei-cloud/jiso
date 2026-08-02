@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"jiso/internal/utils"
 )
 
 func (tc *TransactionCollection) Validate() error {
@@ -79,12 +81,13 @@ func (tc *TransactionCollection) Validate() error {
 	return nil
 }
 
-
 func (tc *TransactionCollection) validateTransactionFields(t Transaction) error {
 	fieldMap := make(map[int]interface{})
 	if err := json.Unmarshal(t.Fields, &fieldMap); err != nil {
 		return fmt.Errorf("invalid JSON in fields: %w", err)
 	}
+
+	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
 
 	for fieldID, value := range fieldMap {
 		// Validate field ID range (ISO8583 fields are 0-128, where 0=MTI, 1=bitmap, 2-128=data)
@@ -105,8 +108,8 @@ func (tc *TransactionCollection) validateTransactionFields(t Transaction) error 
 				continue
 			}
 			// For string values, check length against spec if available
-			if tc.spec != nil && tc.spec.Fields != nil {
-				if fieldSpec := tc.spec.Fields[fieldID]; fieldSpec != nil {
+			if targetSpec != nil && targetSpec.Fields != nil {
+				if fieldSpec := targetSpec.Fields[fieldID]; fieldSpec != nil {
 					maxLen := fieldSpec.Spec().Length
 					if len(v) > maxLen {
 						return fmt.Errorf("field %d value '%s' exceeds maximum length %d", fieldID, v, maxLen)
@@ -131,6 +134,8 @@ func (tc *TransactionCollection) validateTransactionDataset(t Transaction) error
 		return nil
 	}
 
+	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
+
 	for i, entry := range t.Dataset {
 		if entry == nil {
 			return fmt.Errorf("dataset entry at index %d is nil", i)
@@ -152,8 +157,8 @@ func (tc *TransactionCollection) validateTransactionDataset(t Transaction) error
 			}
 
 			// Check length against spec if available
-			if tc.spec != nil && tc.spec.Fields != nil {
-				if fieldSpec := tc.spec.Fields[fieldID]; fieldSpec != nil {
+			if targetSpec != nil && targetSpec.Fields != nil {
+				if fieldSpec := targetSpec.Fields[fieldID]; fieldSpec != nil {
 					maxLen := fieldSpec.Spec().Length
 					if len(value) > maxLen {
 						return fmt.Errorf(

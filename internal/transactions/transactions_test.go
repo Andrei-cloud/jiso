@@ -3,6 +3,7 @@ package transactions
 import (
 	json "github.com/goccy/go-json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/moov-io/iso8583"
@@ -79,6 +80,26 @@ func (suite *TransactionCollectionSuite) TestInfo() {
     }`, fields)
 }
 
+func TestLoadRealTransactionJSON(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectRoot := filepath.Dir(filepath.Dir(wd))
+	txFile := filepath.Join(projectRoot, "transactions", "transaction.json")
+	if _, err := os.Stat(txFile); err != nil {
+		t.Skip("transaction.json not found at project root")
+	}
+
+	spec := iso8583.Spec87
+	tc, err := NewTransactionCollection(txFile, spec)
+	if err != nil {
+		t.Fatalf("failed to load transaction.json: %v", err)
+	}
+	if tc == nil {
+		t.Fatalf("expected non-nil transaction collection")
+	}
+}
 
 func TestTransactionCollectionSuite(t *testing.T) {
 	suite.Run(t, new(TransactionCollectionSuite))

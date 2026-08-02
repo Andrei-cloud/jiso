@@ -39,6 +39,22 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 	return specs.Builder.ImportJSON(raw)
 }
 
+func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.MessageSpec {
+	if specPath == "" {
+		return fallback
+	}
+	if spec, err := CreateSpecFromFile(specPath); err == nil && spec != nil {
+		return spec
+	}
+	if !strings.HasSuffix(specPath, ".json") {
+		specPathWithJSON := filepath.Join("specs", specPath+".json")
+		if spec, err := CreateSpecFromFile(specPathWithJSON); err == nil && spec != nil {
+			return spec
+		}
+	}
+	return fallback
+}
+
 func GetDefaultSpec() *iso8583.MessageSpec {
 	if len(templates.DefaultSpecJSON) > 0 {
 		if spec, err := specs.Builder.ImportJSON(templates.DefaultSpecJSON); err == nil && spec != nil {

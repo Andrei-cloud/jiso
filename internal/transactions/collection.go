@@ -91,9 +91,14 @@ func NewTransactionCollection(
 	for _, item := range items {
 		switch item.Type {
 		case "", "transaction":
+			specPath := item.Spec
+			if specPath == "" {
+				specPath = item.SpecFile
+			}
 			t := Transaction{
 				Name:        item.Name,
 				Description: item.Description,
+				Spec:        specPath,
 				Fields:      item.Fields,
 				Dataset:     item.Dataset,
 				DatasetName: item.DatasetName,

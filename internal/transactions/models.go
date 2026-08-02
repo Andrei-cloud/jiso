@@ -24,6 +24,7 @@ type transactionParsedCache struct {
 type Transaction struct {
 	Name        string                  `json:"name"`
 	Description string                  `json:"description"`
+	Spec        string                  `json:"spec,omitempty"`
 	Fields      json.RawMessage         `json:"fields"`
 	Dataset     []map[int]string        `json:"dataset"`
 	DatasetName string                  `json:"dataset_name"`
@@ -61,6 +62,8 @@ type ConfigItem struct {
 	Type           string                 `json:"type"`
 	Name           string                 `json:"name"`
 	Description    string                 `json:"description"`
+	Spec           string                 `json:"spec,omitempty"`
+	SpecFile       string                 `json:"spec_file,omitempty"`
 	Fields         json.RawMessage        `json:"fields,omitempty"`
 	Dataset        []map[int]string       `json:"dataset,omitempty"`
 	Data           []map[string]string    `json:"data,omitempty"`

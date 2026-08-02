@@ -119,3 +119,30 @@ func (suite *TransactionCollectionSuite) TestValidateInvalidDataset() {
 	suite.Nil(tc)
 }
 
+func (suite *TransactionCollectionSuite) TestValidatePerTransactionSpec() {
+	data := []map[string]interface{}{
+		{
+			"type":        "transaction",
+			"name":        "Echo Mastercard Test",
+			"description": "Network Management: Echo Mastercard",
+			"spec":        "specs/mastercard.json",
+			"fields": map[string]interface{}{
+				"0":  "0800",
+				"70": "301",
+			},
+		},
+	}
+	dataBytes, err := json.Marshal(data)
+	suite.Require().NoError(err)
+	file, err := os.CreateTemp("", "per_spec_transactions.json")
+	suite.Require().NoError(err)
+	defer os.Remove(file.Name())
+	_, err = file.Write(dataBytes)
+	suite.Require().NoError(err)
+
+	spec := iso8583.Spec87
+	tc, err := NewTransactionCollection(file.Name(), spec)
+	suite.NoError(err)
+	suite.NotNil(tc)
+}
+
