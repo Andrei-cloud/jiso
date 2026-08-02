@@ -3,6 +3,7 @@ package transactions
 import (
 	json "github.com/goccy/go-json"
 	"os"
+	"path/filepath"
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/encoding"
 	"github.com/moov-io/iso8583/field"
@@ -43,6 +44,43 @@ func (suite *TransactionCollectionSuite) TestCompose() {
 	value, err = msg.GetField(37).String()
 	suite.NoError(err)
 	suite.NotEmpty(value)
+}
+
+func (suite *TransactionCollectionSuite) TestComposeEchoMastercard() {
+	wd, err := os.Getwd()
+	suite.Require().NoError(err)
+	projectRoot := filepath.Dir(filepath.Dir(wd))
+	txPath := filepath.Join(projectRoot, "transactions", "transaction.json")
+
+	tc, err := NewTransactionCollection(txPath, iso8583.Spec87)
+	suite.Require().NoError(err)
+	suite.Require().NotNil(tc)
+
+	msg, err := tc.Compose("Echo Mastercard")
+	suite.NoError(err)
+	suite.NotNil(msg)
+
+	// Check fields
+	f2, err := msg.GetField(2).String()
+	suite.NoError(err)
+	suite.Equal("41275", f2)
+
+	f7, err := msg.GetField(7).String()
+	suite.NoError(err)
+	suite.NotEmpty(f7)
+
+	f11, err := msg.GetField(11).String()
+	suite.NoError(err)
+	suite.NotEmpty(f11)
+
+	f70, err := msg.GetField(70).String()
+	suite.NoError(err)
+	suite.Equal("270", f70)
+
+	// Pack message to verify ISO8583 encoding succeeds
+	packed, err := msg.Pack()
+	suite.NoError(err)
+	suite.NotEmpty(packed)
 }
 
 func (suite *TransactionCollectionSuite) TestListFormatted() {

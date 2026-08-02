@@ -30,58 +30,28 @@ func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
 		}
 		t.parsedCache.fieldMap = fieldMap
 
-		dummyMsg := iso8583.NewMessage(spec)
-		unmarshalBytes := t.Fields
-
-		// If dummyMsg.UnmarshalJSON fails on t.Fields (e.g. numeric fields formatted as JSON strings),
-		// sanitize string numbers into JSON numbers and retry.
-		if err := json.Unmarshal(unmarshalBytes, &dummyMsg); err != nil {
-			sanitizedMap := make(map[string]interface{})
-			for k, v := range fieldMap {
-				strKey := fmt.Sprintf("%d", k)
-				if strVal, ok := v.(string); ok && k != 0 {
-					if num, pErr := strconv.ParseInt(strVal, 10, 64); pErr == nil {
-						sanitizedMap[strKey] = num
-						continue
-					}
-				}
-				sanitizedMap[strKey] = v
-			}
-
-			if sBytes, mErr := json.Marshal(sanitizedMap); mErr == nil {
-				dummyMsg = iso8583.NewMessage(spec)
-				if sErr := json.Unmarshal(sBytes, &dummyMsg); sErr != nil {
-					parseErr = fmt.Errorf("json unmarshal error: %w", sErr)
-					return
-				}
-			} else {
-				parseErr = fmt.Errorf("json unmarshal error: %w", err)
-				return
-			}
-		}
-
 		staticFields := make(map[int][]byte)
-		for i, f := range dummyMsg.GetFields() {
-			if v, err := f.Bytes(); err == nil {
-				if !isReservedAutoKeyword(v) {
-					staticFields[i] = v
-				}
-			}
-		}
-		t.parsedCache.staticFields = staticFields
-
 		autoFields := make(map[int]string)
-		for i, v := range fieldMap {
-			if i < 2 {
-				continue
-			}
+
+		for k, v := range fieldMap {
 			if strVal, ok := v.(string); ok {
 				cleanVal := strings.TrimSpace(strings.ToLower(strVal))
 				if isReservedAutoKeywordString(cleanVal) {
-					autoFields[i] = cleanVal
+					autoFields[k] = cleanVal
+					continue
 				}
+				staticFields[k] = []byte(strVal)
+			} else if numVal, ok := v.(float64); ok {
+				intVal := int64(numVal)
+				staticFields[k] = []byte(strconv.FormatInt(intVal, 10))
+			} else if bVal, ok := v.(bool); ok {
+				staticFields[k] = []byte(strconv.FormatBool(bVal))
+			} else if v != nil {
+				staticFields[k] = []byte(fmt.Sprintf("%v", v))
 			}
 		}
+
+		t.parsedCache.staticFields = staticFields
 		t.parsedCache.autoFields = autoFields
 	})
 	return parseErr
@@ -121,7 +91,8 @@ func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, erro
 		return nil, err
 	}
 
-	msg := iso8583.NewMessage(tc.spec)
+	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
+	msg := iso8583.NewMessage(targetSpec)
 	err = tc.populateFields(msg, t)
 	if err != nil {
 		return nil, err
@@ -198,7 +169,8 @@ func (tc *TransactionCollection) findTransaction(name string) (*Transaction, err
 }
 
 func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transaction) error {
-	if err := t.ensureParsed(tc.spec); err != nil {
+	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
+	if err := t.ensureParsed(targetSpec); err != nil {
 		return err
 	}
 
@@ -239,7 +211,11 @@ func (tc *TransactionCollection) setAutoFields(
 
 func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFields map[int][]byte) {
 	for i, v := range staticFields {
-		msg.BinaryField(i, v)
+		if i == 0 {
+			msg.MTI(string(v))
+		} else {
+			msg.Field(i, string(v))
+		}
 	}
 }
 
