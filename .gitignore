@@ -11,3 +11,7 @@ jiso
 *.pcap
 mc_cap.tgz
 *.txt
+*.v
+*.m
+*.bak
+*.bcp

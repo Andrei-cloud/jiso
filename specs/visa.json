@@ -2,7 +2,7 @@
     "name": "ISO8583_VISA",
     "fields": {
         "0": {
-            "type": "String",
+            "type": "Numeric",
             "length": 4,
             "description": "Message Type Indicator (MTI)",
             "enc": "BCD",
@@ -27,7 +27,11 @@
             "length": 6,
             "description": "Processing Code",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "4": {
             "type": "Numeric",
@@ -45,21 +49,33 @@
             "length": 12,
             "description": "Settlement Amount",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "6": {
             "type": "Numeric",
             "length": 12,
             "description": "Cardholder Billing Amount",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "7": {
             "type": "Numeric",
             "length": 10,
             "description": "Transmission Date & Time (MMDDhhmmss)",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "8": {
             "type": "Numeric",
@@ -87,7 +103,11 @@
             "length": 6,
             "description": "Systems Trace Audit Number (STAN)",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "12": {
             "type": "Numeric",
@@ -157,7 +177,11 @@
             "length": 3,
             "description": "Forwarding Institution Country Code",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "22": {
             "type": "Numeric",
@@ -213,21 +237,33 @@
             "length": 9,
             "description": "Settlement Fee Amounts",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "30": {
             "type": "Numeric",
             "length": 9,
             "description": "Transaction Processing Fee Amount",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "31": {
             "type": "Numeric",
             "length": 9,
             "description": "Settlement Processing Fee Amount",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "32": {
             "type": "String",
@@ -1150,15 +1186,45 @@
             "prefix": "Binary.L"
         },
         "61": {
-            "type": "Binary",
+            "type": "Composite",
             "length": 18,
             "description": "Other Amounts",
-            "enc": "Binary",
-            "prefix": "Binary.L"
+            "prefix": "Binary.L",
+            "bitmap": {
+                "type": "Bitmap",
+                "length": 1,
+                "description": "Field 61 Bitmap",
+                "enc": "Binary",
+                "prefix": "Binary.Fixed",
+                "disableAutoExpand": true
+            },
+            "subfields": {
+                "1": {
+                    "type": "Numeric",
+                    "length": 12,
+                    "description": "61.1 Other Amount 1",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "2": {
+                    "type": "Numeric",
+                    "length": 12,
+                    "description": "61.2 Other Amount 2",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "3": {
+                    "type": "Numeric",
+                    "length": 12,
+                    "description": "61.3 Other Amount 3",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                }
+            }
         },
         "62": {
             "type": "Composite",
-            "length": 255,
+            "length": 115,
             "description": "Custom Payment Service Fields (bitmap format)",
             "prefix": "Binary.L",
             "bitmap": {
@@ -1182,11 +1248,7 @@
                     "length": 15,
                     "description": "62.2 Transaction Identifier",
                     "enc": "BCD",
-                    "prefix": "BCD.Fixed",
-                    "padding": {
-                        "type": "Left",
-                        "pad": "0"
-                    }
+                    "prefix": "BCD.Fixed"
                 },
                 "3": {
                     "type": "String",
@@ -1207,16 +1269,12 @@
                     "length": 2,
                     "description": "62.5 Duration",
                     "enc": "BCD",
-                    "prefix": "BCD.Fixed",
-                    "padding": {
-                        "type": "Left",
-                        "pad": "0"
-                    }
+                    "prefix": "BCD.Fixed"
                 },
                 "6": {
                     "type": "String",
                     "length": 1,
-                    "description": "62.6 Reserved",
+                    "description": "62.6 Prestige Property / Reserved",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
@@ -1227,10 +1285,66 @@
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
+                "8": {
+                    "type": "Numeric",
+                    "length": 6,
+                    "description": "62.8 Multiple Clearing Date",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "9": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "62.9 No Show Indicator",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "10": {
+                    "type": "Numeric",
+                    "length": 6,
+                    "description": "62.10 Extra Charges",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "11": {
+                    "type": "Numeric",
+                    "length": 2,
+                    "description": "62.11 Multiple Clearing Sequence Number",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "12": {
+                    "type": "Numeric",
+                    "length": 2,
+                    "description": "62.12 Multiple Clearing Total Count",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "13": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "62.13 Restricted Ticket Indicator",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "14": {
+                    "type": "Numeric",
+                    "length": 12,
+                    "description": "62.14 Total Amount Authorized",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "15": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "62.15 Requested Payment Service",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
                 "16": {
                     "type": "String",
                     "length": 2,
-                    "description": "62.16 Reserved",
+                    "description": "62.16 Chargeback Rights Indicator",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
@@ -1241,12 +1355,26 @@
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
+                "18": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "62.18 Transaction Identifier",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "19": {
+                    "type": "String",
+                    "length": 2,
+                    "description": "62.19 Electronic Commerce Indicator",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
                 "20": {
-                    "type": "Binary",
-                    "length": 5,
+                    "type": "Numeric",
+                    "length": 10,
                     "description": "62.20 Merchant Verification Value",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
                 },
                 "21": {
                     "type": "String",
@@ -1265,7 +1393,7 @@
                 "23": {
                     "type": "String",
                     "length": 2,
-                    "description": "62.23 Product ID",
+                    "description": "62.23 Product ID / Card Level Result",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
@@ -1294,7 +1422,7 @@
         },
         "63": {
             "type": "Composite",
-            "length": 255,
+            "length": 139,
             "description": "V.I.P. Private-Use Field (bitmap format)",
             "prefix": "Binary.L",
             "bitmap": {
@@ -1311,51 +1439,91 @@
                     "length": 4,
                     "description": "63.1 Network Identification Code",
                     "enc": "BCD",
-                    "prefix": "BCD.Fixed",
-                    "padding": {
-                        "type": "Left",
-                        "pad": "0"
-                    }
+                    "prefix": "BCD.Fixed"
                 },
                 "2": {
                     "type": "Numeric",
                     "length": 4,
-                    "description": "63.2 Time (Preauth Time Limit)",
+                    "description": "63.2 Preauth Time Limit",
                     "enc": "BCD",
-                    "prefix": "BCD.Fixed",
-                    "padding": {
-                        "type": "Left",
-                        "pad": "0"
-                    }
+                    "prefix": "BCD.Fixed"
                 },
                 "3": {
                     "type": "Numeric",
                     "length": 4,
                     "description": "63.3 Message Reason Code",
                     "enc": "BCD",
-                    "prefix": "BCD.Fixed",
-                    "padding": {
-                        "type": "Left",
-                        "pad": "0"
-                    }
+                    "prefix": "BCD.Fixed"
                 },
                 "4": {
                     "type": "Numeric",
                     "length": 4,
                     "description": "63.4 STIP/Switch Reason Code",
                     "enc": "BCD",
-                    "prefix": "BCD.Fixed",
-                    "padding": {
-                        "type": "Left",
-                        "pad": "0"
-                    }
+                    "prefix": "BCD.Fixed"
                 },
-                "19": {
+                "5": {
+                    "type": "Numeric",
+                    "length": 6,
+                    "description": "63.5 Primary Member Clearing ID",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "6": {
                     "type": "String",
-                    "length": 3,
-                    "description": "63.19 Fee Program Indicator",
+                    "length": 7,
+                    "description": "63.6 Chargeback Flag",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
+                },
+                "7": {
+                    "type": "String",
+                    "length": 8,
+                    "description": "63.7 Network Partition",
+                    "enc": "Hex",
+                    "prefix": "ASCII.Fixed"
+                },
+                "8": {
+                    "type": "Numeric",
+                    "length": 8,
+                    "description": "63.8 Acquirer Member ID",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
+                },
+                "9": {
+                    "type": "String",
+                    "length": 14,
+                    "description": "63.9 Fraud Report",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "10": {
+                    "type": "String",
+                    "length": 13,
+                    "description": "63.10 Gateway Merchant",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "11": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "63.11 Reimbursement Attribute",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "12": {
+                    "type": "String",
+                    "length": 30,
+                    "description": "63.12 Sharing Group",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "13": {
+                    "type": "Numeric",
+                    "length": 6,
+                    "description": "63.13 Decimal Point Position",
+                    "enc": "BCD",
+                    "prefix": "BCD.Fixed"
                 }
             }
         },
@@ -1616,11 +1784,26 @@
             "prefix": "EBCDIC.Fixed"
         },
         "95": {
-            "type": "String",
+            "type": "Composite",
             "length": 42,
             "description": "Replacement Amounts",
-            "enc": "ASCII",
-            "prefix": "ASCII.Fixed"
+            "prefix": "Binary.L",
+            "subfields": {
+                "1": {
+                    "type": "String",
+                    "length": 12,
+                    "description": "95.1 Actual Amount 1",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "2": {
+                    "type": "String",
+                    "length": 30,
+                    "description": "95.2 Other Amount 2",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                }
+            }
         },
         "96": {
             "type": "Binary",
@@ -2481,79 +2664,162 @@
         },
         "126": {
             "type": "Composite",
-            "length": 255,
-            "description": "Private Use - Bitmap-governed composite",
+            "length": 171,
+            "description": "Private Use - Electronic Banking",
             "prefix": "Binary.L",
             "bitmap": {
                 "type": "Bitmap",
                 "length": 8,
-                "description": "Internal subfield bitmap",
+                "description": "Field 126 Bitmap",
                 "enc": "Binary",
                 "prefix": "Binary.Fixed",
-                "disableAutoExpand": true,
-                "skipUnknownTLVTags": false
+                "disableAutoExpand": true
             },
             "subfields": {
+                "1": {
+                    "type": "String",
+                    "length": 25,
+                    "description": "126.1 Consumer Name",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "2": {
+                    "type": "String",
+                    "length": 57,
+                    "description": "126.2 Consumer Address",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "3": {
+                    "type": "String",
+                    "length": 57,
+                    "description": "126.3 Biller Address",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "4": {
+                    "type": "String",
+                    "length": 18,
+                    "description": "126.4 Biller Phone Number",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
                 "5": {
                     "type": "String",
                     "length": 8,
-                    "description": "Visa Merchant Identifier",
+                    "description": "126.5 Processed By Date / Visa Merchant Identifier",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
                 "6": {
                     "type": "String",
-                    "length": 2,
-                    "description": "Cardholder Certificate Serial Number",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
+                    "length": 34,
+                    "description": "126.6 Cardholder Certificate Serial Number",
+                    "enc": "Hex",
+                    "prefix": "ASCII.Fixed"
                 },
                 "7": {
                     "type": "String",
-                    "length": 2,
-                    "description": "Merchant Certificate Serial Number",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
+                    "length": 34,
+                    "description": "126.7 Merchant Certificate Serial Number",
+                    "enc": "Hex",
+                    "prefix": "ASCII.Fixed"
                 },
                 "8": {
                     "type": "String",
                     "length": 20,
-                    "description": "Transaction ID",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
+                    "description": "126.8 Transaction ID",
+                    "enc": "Hex",
+                    "prefix": "ASCII.Fixed"
                 },
                 "9": {
-                    "type": "Binary",
+                    "type": "String",
                     "length": 20,
-                    "description": "CAVV / 3DS Data",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
+                    "description": "126.9 Transaction Stain / CAVV",
+                    "enc": "Hex",
+                    "prefix": "ASCII.Fixed"
                 },
                 "10": {
                     "type": "String",
                     "length": 6,
-                    "description": "CVV2 Authorization Request Data",
+                    "description": "126.10 CVV2 Authorization Request Data",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "11": {
+                    "type": "String",
+                    "length": 2,
+                    "description": "126.11 Inter-Outlet Group (IOG)",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
                 "12": {
-                    "type": "Binary",
+                    "type": "String",
                     "length": 3,
-                    "description": "Service Indicators",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
+                    "description": "126.12 Service Indicators",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
                 },
                 "13": {
                     "type": "String",
                     "length": 1,
-                    "description": "POS Environment",
+                    "description": "126.13 POS Environment",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "14": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "126.14 Reserved",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "15": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "126.15 Mastercard UCAF Indicator",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "16": {
+                    "type": "String",
+                    "length": 33,
+                    "description": "126.16 Mastercard UCAF Data",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "17": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "126.17 Reserved",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "18": {
+                    "type": "String",
+                    "length": 12,
+                    "description": "126.18 Agent Unique ID",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "19": {
+                    "type": "String",
+                    "length": 1,
+                    "description": "126.19 Dynamic Currency Conversion Indicator",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 },
                 "20": {
                     "type": "String",
                     "length": 1,
-                    "description": "3-D Secure Indicator",
+                    "description": "126.20 Authentication Method",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                },
+                "21": {
+                    "type": "String",
+                    "length": 2,
+                    "description": "126.21 Authentication Response Code",
                     "enc": "EBCDIC",
                     "prefix": "EBCDIC.Fixed"
                 }
@@ -2572,6 +2838,28 @@
             "description": "Message Authentication Code (MAC)",
             "enc": "Binary",
             "prefix": "Binary.Fixed"
+        },
+        "139": {
+            "type": "Composite",
+            "length": 10,
+            "description": "ARPC Data",
+            "prefix": "Binary.L",
+            "subfields": {
+                "1": {
+                    "type": "String",
+                    "length": 8,
+                    "description": "139.1 ARPC Cryptogram",
+                    "enc": "Hex",
+                    "prefix": "ASCII.Fixed"
+                },
+                "2": {
+                    "type": "String",
+                    "length": 2,
+                    "description": "139.2 ARPC Response Code",
+                    "enc": "EBCDIC",
+                    "prefix": "EBCDIC.Fixed"
+                }
+            }
         }
     }
 }
