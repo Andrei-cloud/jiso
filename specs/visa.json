@@ -59,7 +59,11 @@
             "length": 10,
             "description": "Transmission Date & Time",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "8": {
             "type": "Numeric",
@@ -87,7 +91,11 @@
             "length": 6,
             "description": "Systems Trace Audit Number (STAN)",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "12": {
             "type": "Numeric",
@@ -986,7 +994,11 @@
             "length": 3,
             "description": "Network Management Information Code",
             "enc": "BCD",
-            "prefix": "BCD.Fixed"
+            "prefix": "BCD.Fixed",
+            "padding": {
+                "type": "Left",
+                "pad": "0"
+            }
         },
         "73": {
             "type": "Numeric",

@@ -22,6 +22,9 @@ type Repository interface {
 
 	// GetMockRoutes returns configured mock routes
 	GetMockRoutes() []cfg.MockRouteConfig
+
+	// SetSpec updates the default fallback spec for transaction composition
+	SetSpec(spec *iso8583.MessageSpec)
 }
 
 // Ensure TransactionCollection implements Repository interface

@@ -24,6 +24,12 @@ func (tc *TransactionCollection) GetMockRoutes() []cfg.MockRouteConfig {
 	return tc.mockRoutes
 }
 
+func (tc *TransactionCollection) SetSpec(spec *iso8583.MessageSpec) {
+	if tc != nil {
+		tc.spec = spec
+	}
+}
+
 func NewTransactionCollection(
 	filename string,
 	specs *iso8583.MessageSpec,

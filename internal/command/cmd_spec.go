@@ -5,6 +5,7 @@ import (
 
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
+	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
 
@@ -12,6 +13,8 @@ import (
 type SpecCommand struct {
 	SpecPath string
 	Svc      *service.Service
+	Tc       transactions.Repository
+	Ctrl     CLIController
 }
 
 func (c *SpecCommand) Name() string     { return "spec" }
@@ -42,6 +45,16 @@ func (c *SpecCommand) Execute() error {
 	cfg.GetConfig().SetSpec(specPath)
 	if c.Svc != nil {
 		c.Svc.SetSpec(spec)
+	}
+	if c.Tc != nil {
+		c.Tc.SetSpec(spec)
+	}
+
+	if c.Ctrl != nil {
+		txPath := cfg.GetConfig().GetFile()
+		if txPath != "" {
+			_, _ = c.Ctrl.ReloadTransactions(txPath)
+		}
 	}
 
 	fmt.Printf("Specification updated successfully to: %s (Spec: %s)\n", specPath, spec.Name)

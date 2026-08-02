@@ -176,7 +176,9 @@ func (f *Factory) CreateTargetCommand() Command {
 // CreateSpecCommand creates a spec command
 func (f *Factory) CreateSpecCommand() Command {
 	return &SpecCommand{
-		Svc: f.service,
+		Svc:  f.service,
+		Tc:   f.transactions,
+		Ctrl: f.cliCtrl,
 	}
 }
 
