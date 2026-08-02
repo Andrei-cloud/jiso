@@ -50,55 +50,47 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 		}()
 	}
 
-	// Debug logging
+	packedMsg, err := msg.Pack()
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack message: %w", err)
+	}
+
 	if m.debugMode {
-		// Log the request
-		packedMsg, err := msg.Pack()
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack message: %w", err)
-		}
 		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(packedMsg))
+	}
 
-		// Send and get response
-		response, err := m.Connection.Send(msg)
-		if err != nil && responseChan != nil {
-			select {
-			case respFromChan := <-responseChan:
-				if respFromChan != nil {
-					response = respFromChan
-					err = nil
-				}
-			default:
+	// Send raw message bytes directly to the network connection
+	if err := conn.Reply(msg); err != nil {
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	// Wait for response via responseChan (delivered immediately by reader goroutine) or timeout
+	var response *iso8583.Message
+	if responseChan != nil {
+		select {
+		case response = <-responseChan:
+			if response == nil {
+				return nil, fmt.Errorf("response timeout for STAN %s", stan)
 			}
+		case <-time.After(m.responseTimeout):
+			return nil, fmt.Errorf("response timeout after %v for STAN %s", m.responseTimeout, stan)
 		}
-
+	} else {
+		// Fallback for requests without STAN
+		response, err = m.Connection.Send(msg)
 		if err != nil {
 			return nil, err
 		}
-
-		// Log the response
-		packedResponse, err := response.Pack()
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack response: %w", err)
-		}
-		fmt.Printf("\nRECEIVED RESPONSE:\n%v\n", hex.Dump(packedResponse))
-
-		return response, nil
 	}
 
-	// Regular operation without debug
-	response, err := m.Connection.Send(msg)
-	if err != nil && responseChan != nil {
-		select {
-		case respFromChan := <-responseChan:
-			if respFromChan != nil {
-				response = respFromChan
-				err = nil
-			}
-		default:
+	if m.debugMode && response != nil {
+		packedResponse, packErr := response.Pack()
+		if packErr == nil {
+			fmt.Printf("\nRECEIVED RESPONSE:\n%v\n", hex.Dump(packedResponse))
 		}
 	}
-	return response, err
+
+	return response, nil
 }
 
 // BackgroundSend sends a message without debug logging (for background operations)

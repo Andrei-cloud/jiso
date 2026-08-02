@@ -1,38 +1,6 @@
 [
   {
     "type": "mock_route",
-    "name": "Mock Route 0210_000000",
-    "description": "Auto-generated mock route for response flow 0210_000000",
-    "match_fields": {
-      "0": "0200",
-      "3": "000000"
-    },
-    "echo_fields": [
-      7,
-      11,
-      25,
-      32,
-      37,
-      41,
-      42,
-      63,
-      115
-    ],
-    "response_mti": "0210",
-    "response_fields": {
-      "14": "2601",
-      "2": "9876543210987654",
-      "3": "000000",
-      "38": "auth_code",
-      "39": "00",
-      "4": "1000",
-      "49": "634"
-    },
-    "latency_ms": 10,
-    "jitter_ms": 5
-  },
-  {
-    "type": "mock_route",
     "name": "Mock Route 0410_000000",
     "description": "Auto-generated mock route for response flow 0410_000000",
     "match_fields": {
@@ -113,6 +81,38 @@
     "response_fields": {
       "39": "00",
       "70": "301"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0210_000000",
+    "description": "Auto-generated mock route for response flow 0210_000000",
+    "match_fields": {
+      "0": "0200",
+      "3": "000000"
+    },
+    "echo_fields": [
+      7,
+      11,
+      25,
+      32,
+      37,
+      41,
+      42,
+      63,
+      115
+    ],
+    "response_mti": "0210",
+    "response_fields": {
+      "14": "2601",
+      "2": "9876543210987654",
+      "3": "000000",
+      "38": "auth_code",
+      "39": "00",
+      "4": "1000",
+      "49": "634"
     },
     "latency_ms": 10,
     "jitter_ms": 5
