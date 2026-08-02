@@ -208,3 +208,54 @@ func TestVisaHeader_ReadFrom_Errors(t *testing.T) {
 		t.Errorf("expected error for invalid header length (< 22)")
 	}
 }
+
+func TestVisaHeader_SessionControl(t *testing.T) {
+	vh, _ := NewVisaHeader("000000")
+
+	// Session control indicator '2' in BCD is 0x20
+	sessionCtrlTCPHeader := []byte{0x00, 0x00, 0x00, 0x20}
+	n, err := vh.ReadFrom(bytes.NewReader(sessionCtrlTCPHeader))
+	if err != nil {
+		t.Fatalf("unexpected error reading session control header: %v", err)
+	}
+	if n != 4 {
+		t.Errorf("expected 4 bytes read, got %d", n)
+	}
+	if !vh.IsSessionControl() {
+		t.Errorf("expected IsSessionControl to be true")
+	}
+
+	// Write session control
+	vh.SetSessionControl(true)
+	vh.SetLength(0)
+	var buf bytes.Buffer
+	nWrite, err := vh.WriteTo(&buf)
+	if err != nil {
+		t.Fatalf("unexpected error writing session control: %v", err)
+	}
+	if nWrite != 4 {
+		t.Errorf("expected 4 bytes written for session control frame, got %d", nWrite)
+	}
+	res := buf.Bytes()
+	if res[3] != 0x20 {
+		t.Errorf("expected BCD indicator byte 0x20, got 0x%02x", res[3])
+	}
+}
+
+func TestVisaHeader_ExceedMaxMessageLength(t *testing.T) {
+	vh, _ := NewVisaHeader("000000")
+	vh.SetLength(3000)
+
+	var buf bytes.Buffer
+	_, err := vh.WriteTo(&buf)
+	if err == nil {
+		t.Errorf("expected error when length exceeds MaxMessageLength (2048)")
+	}
+
+	// Exceed max length on ReadFrom
+	longLenTCPHeader := []byte{0x09, 0x00, 0x00, 0x00} // 2304 > 2048
+	_, err = vh.ReadFrom(bytes.NewReader(longLenTCPHeader))
+	if err == nil {
+		t.Errorf("expected error when payloadLen exceeds MaxMessageLength (2048)")
+	}
+}
