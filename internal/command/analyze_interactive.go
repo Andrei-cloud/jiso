@@ -143,7 +143,22 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		}
 	}
 
-	// 6. Select Target Transaction / Mock Route JSON file
+	// 6. Select Security Mode for Sensitive Data
+	var securityMode string
+	secPrompt := &survey.Select{
+		Message: "6. Select Security Mode (Card Numbers & Track Data):",
+		Options: []string{
+			"1. Secure (Anonymize PAN & Tracks with '000' autogen indicator - Default)",
+			"2. Unsecure (Include raw clear card numbers & track data)",
+		},
+		Default: "1. Secure (Anonymize PAN & Tracks with '000' autogen indicator - Default)",
+	}
+	if err := survey.AskOne(secPrompt, &securityMode); err != nil {
+		return err
+	}
+	unsecure := strings.HasPrefix(securityMode, "2.")
+
+	// 7. Select Target Transaction / Mock Route JSON file
 	defaultTxFile := config.GetConfig().GetFile()
 	if defaultTxFile == "" {
 		if isMockRouteGoal {
@@ -154,7 +169,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	var outputTxFile string
 	outputPrompt := &survey.Input{
-		Message: "6. Target Transaction/Route JSON output file:",
+		Message: "7. Target Transaction/Route JSON output file:",
 		Default: defaultTxFile,
 	}
 	if err := survey.AskOne(outputPrompt, &outputTxFile); err != nil {
@@ -162,7 +177,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	outputTxFile = strings.TrimSpace(outputTxFile)
 
-	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir, isMockRouteGoal)
+	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir, unsecure, isMockRouteGoal)
 }
 
 func (ac *AnalyzeCommand) runAnalysis(
@@ -171,6 +186,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	headerType string,
 	outputTxFile string,
 	dir analyzer.TrafficDirection,
+	unsecure bool,
 	isMockRouteGoal ...bool,
 ) error {
 	mockRouteGoal := len(isMockRouteGoal) > 0 && isMockRouteGoal[0]
@@ -225,7 +241,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	}
 
 	// Perform variance / mock route analysis
-	varianceEngine := analyzer.NewVarianceEngine(spec)
+	varianceEngine := analyzer.NewVarianceEngine(spec, unsecure)
 	var newItems []config.ConfigItem
 
 	txCount := 0

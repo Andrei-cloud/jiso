@@ -50,6 +50,7 @@ func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*V
 			if !ok {
 				continue
 			}
+			extracted = AnonymizeFieldValue(i, extracted, ve.unsecure)
 
 			val := ""
 			if asString, isString := extracted.(string); isString {

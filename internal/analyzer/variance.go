@@ -19,16 +19,28 @@ type VarianceResult struct {
 
 // VarianceEngine performs variance analysis on captured message flows
 type VarianceEngine struct {
-	spec *iso8583.MessageSpec
+	spec     *iso8583.MessageSpec
+	unsecure bool
 }
 
 // NewVarianceEngine creates a new VarianceEngine instance
-func NewVarianceEngine(spec ...*iso8583.MessageSpec) *VarianceEngine {
+func NewVarianceEngine(spec *iso8583.MessageSpec, unsecure ...bool) *VarianceEngine {
 	ve := &VarianceEngine{}
-	if len(spec) > 0 && spec[0] != nil {
-		ve.spec = spec[0]
+	if spec != nil {
+		ve.spec = spec
+	}
+	if len(unsecure) > 0 {
+		ve.unsecure = unsecure[0]
 	}
 	return ve
+}
+
+func (ve *VarianceEngine) SetUnsecure(unsecure bool) {
+	ve.unsecure = unsecure
+}
+
+func (ve *VarianceEngine) IsUnsecure() bool {
+	return ve.unsecure
 }
 
 func isNumericField(spec *iso8583.MessageSpec, fieldID int) bool {

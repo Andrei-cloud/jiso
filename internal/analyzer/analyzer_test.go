@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"jiso/internal/config"
@@ -75,8 +76,18 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 	assert.Equal(t, config.TypeTransaction, res.Transaction.GetType())
 	assert.Equal(t, config.TypeDataset, res.Dataset.GetType())
 	assert.Len(t, res.Dataset.Data, 2)
-	assert.Equal(t, "4111111111111111", res.Dataset.Data[0]["DE_2"])
-	assert.Equal(t, "4222222222222222", res.Dataset.Data[1]["DE_2"])
+	assert.True(t, strings.HasPrefix(res.Dataset.Data[0]["DE_2"], "41111111"))
+	assert.True(t, strings.HasSuffix(res.Dataset.Data[0]["DE_2"], "000"))
+	assert.True(t, strings.HasPrefix(res.Dataset.Data[1]["DE_2"], "42222222"))
+	assert.True(t, strings.HasSuffix(res.Dataset.Data[1]["DE_2"], "000"))
+
+	// Test Unsecure mode (unsecure = true) preserves clear PANs
+	unsecEng := NewVarianceEngine(spec, true)
+	unsecResults, err := unsecEng.AnalyzeFlow(flow)
+	require.NoError(t, err)
+	require.Len(t, unsecResults, 1)
+	assert.Equal(t, "4111111111111111", unsecResults[0].Dataset.Data[0]["DE_2"])
+	assert.Equal(t, "4222222222222222", unsecResults[0].Dataset.Data[1]["DE_2"])
 }
 
 func TestNetworkManagement08XX(t *testing.T) {

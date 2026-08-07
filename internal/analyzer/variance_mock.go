@@ -26,6 +26,7 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 			if !ok {
 				continue
 			}
+			val = AnonymizeFieldValue(i, val, ve.unsecure)
 
 			if strVal, isString := val.(string); isString {
 				fieldValues[i] = append(fieldValues[i], strVal)
@@ -76,7 +77,7 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 			firstField := flow.Messages[0].GetField(fieldID)
 			extracted, ok := extractFieldValueForTemplate(firstField)
 			if ok {
-				templateFields[fieldKey] = extracted
+				templateFields[fieldKey] = AnonymizeFieldValue(fieldID, extracted, ve.unsecure)
 				continue
 			}
 
@@ -152,6 +153,7 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 					if !ok {
 						continue
 					}
+					extracted = AnonymizeFieldValue(fieldID, extracted, ve.unsecure)
 					flattenValueForDataset(fmt.Sprintf("DE_%d", fieldID), extracted, row)
 				}
 			}
@@ -269,6 +271,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 				if !ok {
 					continue
 				}
+				extracted = AnonymizeFieldValue(i, extracted, ve.unsecure)
 				fieldKey := fmt.Sprintf("%d", i)
 
 				if i == 70 {
@@ -344,6 +347,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 			if !ok {
 				continue
 			}
+			extracted = AnonymizeFieldValue(i, extracted, ve.unsecure)
 			fieldValues[i] = append(fieldValues[i], extracted)
 		}
 	}

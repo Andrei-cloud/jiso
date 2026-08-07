@@ -37,24 +37,34 @@ func (ac *AnalyzeCommand) SetArgs(args []string) {
 }
 
 func (ac *AnalyzeCommand) Execute() error {
-	if len(ac.args) == 0 {
+	var cleanArgs []string
+	unsecure := false
+	for _, arg := range ac.args {
+		if arg == "--unsecure" || arg == "-u" || arg == "unsecure" {
+			unsecure = true
+		} else {
+			cleanArgs = append(cleanArgs, arg)
+		}
+	}
+
+	if len(cleanArgs) == 0 {
 		return ac.promptAnalyze()
 	}
 
-	// Non-interactive command format: analyze <streamFile> [specFile] [headerType] [outputTxFile]
-	streamFile := ac.args[0]
+	// Non-interactive command format: analyze [--unsecure] <streamFile> [specFile] [headerType] [outputTxFile]
+	streamFile := cleanArgs[0]
 	specPath := config.GetConfig().GetSpec()
 	headerType := "binary2"
 	outputTxFile := config.GetConfig().GetFile()
 
-	if len(ac.args) > 1 && ac.args[1] != "" {
-		specPath = ac.args[1]
+	if len(cleanArgs) > 1 && cleanArgs[1] != "" {
+		specPath = cleanArgs[1]
 	}
-	if len(ac.args) > 2 && ac.args[2] != "" {
-		headerType = ac.args[2]
+	if len(cleanArgs) > 2 && cleanArgs[2] != "" {
+		headerType = cleanArgs[2]
 	}
-	if len(ac.args) > 3 && ac.args[3] != "" {
-		outputTxFile = ac.args[3]
+	if len(cleanArgs) > 3 && cleanArgs[3] != "" {
+		outputTxFile = cleanArgs[3]
 	}
 
 	var spec *iso8583.MessageSpec
@@ -70,5 +80,5 @@ func (ac *AnalyzeCommand) Execute() error {
 		spec = utils.GetDefaultSpec()
 	}
 
-	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, analyzer.TrafficDirection{Mode: "all"})
+	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, analyzer.TrafficDirection{Mode: "all"}, unsecure)
 }
