@@ -1,13 +1,15 @@
 package utils
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	json "github.com/goccy/go-json"
 )
 
 const (
@@ -87,6 +89,11 @@ func loadPersistedData() (PersistentData, error) {
 	}
 
 	// Unmarshal data
+	if strings.TrimSpace(string(fileData)) == "" {
+		// Empty file can happen after interrupted writes; treat as no persisted value.
+		return data, nil
+	}
+
 	err = json.Unmarshal(fileData, &data)
 	if err != nil {
 		return data, fmt.Errorf("failed to unmarshal persisted data: %w", err)
@@ -113,10 +120,18 @@ func persistData(data PersistentData) error {
 		return fmt.Errorf("failed to marshal data for persistence: %w", err)
 	}
 
-	// Write to file
-	err = os.WriteFile(getPersistencePath(), jsonData, 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to persist data: %w", err)
+	// Write atomically using temp file + rename to avoid partial JSON files.
+	filePath := getPersistencePath()
+	tempFile := filePath + ".tmp"
+
+	if err := os.WriteFile(tempFile, jsonData, 0o644); err != nil {
+		return fmt.Errorf("failed to write persisted data to temp file: %w", err)
+	}
+
+	if err := os.Rename(tempFile, filePath); err != nil {
+		// Best-effort cleanup.
+		_ = os.Remove(tempFile)
+		return fmt.Errorf("failed to rename persisted temp file: %w", err)
 	}
 
 	return nil
@@ -126,16 +141,17 @@ func GetCounter() *counter {
 	once.Do(func() {
 		// Load persisted data
 		data, err := loadPersistedData()
+		initialValue := uint32(0)
 		if err != nil {
-			// If we can't load, start from 0 but log the error
+			// If we can't load, start from 0 but keep the worker active so value can self-heal on next persist.
 			fmt.Printf("Warning: Could not load persisted STAN value: %v\n", err)
-			counterInstance = &counter{value: 0}
-			return
+		} else {
+			initialValue = data.StanValue
+			fmt.Printf("STAN counter initialized with persisted value: %d\n", data.StanValue)
 		}
 
-		// Initialize counter with the loaded value
-		counterInstance = &counter{value: data.StanValue}
-		fmt.Printf("STAN counter initialized with persisted value: %d\n", data.StanValue)
+		// Initialize counter with loaded or fallback value.
+		counterInstance = &counter{value: initialValue}
 
 		// Start persistence goroutine
 		persistChan = make(chan uint32, 1)

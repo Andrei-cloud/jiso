@@ -10,7 +10,10 @@ run: ## Run the service
 	@go run ./cmd/main.go
 
 build: ## Build the service
-	@go build -o bin/jiso ./cmd/main.go
+	@CGO_ENABLED=0 go build -o bin/jiso ./cmd/
+
+build-linux: ## Build the service for linux
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/jiso ./cmd/
 
 # default target, when make executed without arguments
 all: help

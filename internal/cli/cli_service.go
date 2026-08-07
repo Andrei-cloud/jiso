@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	cmd "jiso/internal/command"
@@ -13,8 +14,6 @@ import (
 
 	"github.com/moov-io/iso8583"
 )
-
-
 
 func (cli *CLI) InitService() error {
 	// Validate configuration before creating service
@@ -38,9 +37,14 @@ func (cli *CLI) InitService() error {
 
 	cli.setService(svc)
 
+	txPath := cfg.GetConfig().GetFile()
+	if strings.TrimSpace(txPath) != "" && strings.TrimSpace(cfg.GetConfig().GetSpec()) == "" {
+		return fmt.Errorf("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+	}
+
 	// Create transaction collection through the repository interface
 	tcInstance, err := transactions.NewTransactionCollection(
-		cfg.GetConfig().GetFile(),
+		txPath,
 		cli.getSpec(),
 	)
 	if err != nil {
@@ -132,17 +136,22 @@ func (cli *CLI) Reload() error {
 
 // ReloadTransactions reloads the transaction repository with the given transaction file path
 func (cli *CLI) ReloadTransactions(txPath string) (int, error) {
+	specPath := strings.TrimSpace(cfg.GetConfig().GetSpec())
+	if specPath == "" {
+		return 0, fmt.Errorf("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+	}
+
+	selectedSpec, err := utils.CreateSpecFromFile(specPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to load selected specification from '%s': %w", specPath, err)
+	}
+
 	var spec *iso8583.MessageSpec
 	if cli.svc != nil {
 		spec = cli.svc.GetSpec()
 	}
 	if spec == nil {
-		specPath := cfg.GetConfig().GetSpec()
-		if specPath != "" {
-			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
-				spec = s
-			}
-		}
+		spec = selectedSpec
 	}
 
 	tcInstance, err := transactions.NewTransactionCollection(txPath, spec)
@@ -165,4 +174,3 @@ func (cli *CLI) setService(svc *service.Service) {
 func (cli *CLI) getSpec() *iso8583.MessageSpec {
 	return cli.svc.GetSpec()
 }
-

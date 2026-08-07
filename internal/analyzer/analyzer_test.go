@@ -7,11 +7,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	json "github.com/goccy/go-json"
 	"jiso/internal/config"
 	"jiso/internal/utils"
 
+	json "github.com/goccy/go-json"
+
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/encoding"
+	"github.com/moov-io/iso8583/field"
+	"github.com/moov-io/iso8583/prefix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -119,6 +123,67 @@ func TestNetworkManagement08XX(t *testing.T) {
 	assert.Equal(t, "auto", fields["11"])
 	assert.EqualValues(t, 301, fields["70"])
 	assert.Nil(t, fields["1"]) // Field 1 (Bitmap) MUST NOT be present
+}
+
+func TestAnalyzeFlow_VaryingBitmapCompositeUsesSubfieldDataset(t *testing.T) {
+	spec := &iso8583.MessageSpec{
+		Name: "bitmap-composite-test",
+		Fields: map[int]field.Field{
+			0: field.NewString(&field.Spec{Length: 4, Description: "MTI", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+			1: field.NewBitmap(&field.Spec{Length: 8, Description: "Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed}),
+			3: field.NewString(&field.Spec{Length: 6, Description: "Processing Code", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+			62: field.NewComposite(&field.Spec{
+				Length:      20,
+				Description: "Bitmap Composite",
+				Pref:        prefix.ASCII.LL,
+				Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Field 62.0 Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+				Subfields: map[string]field.Field{
+					"1": field.NewString(&field.Spec{Length: 2, Description: "Field 62.1", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+					"2": field.NewString(&field.Spec{Length: 2, Description: "Field 62.2", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+				},
+			}),
+		},
+	}
+
+	buildMsg := func(subfieldID, value string) *iso8583.Message {
+		msg := iso8583.NewMessage(spec)
+		msg.MTI("0100")
+		require.NoError(t, msg.Field(3, "000000"))
+
+		composite := field.NewComposite(spec.Fields[62].Spec())
+		require.NoError(t, composite.MarshalPath(subfieldID, value))
+		packed, err := composite.Bytes()
+		require.NoError(t, err)
+		require.NoError(t, msg.BinaryField(62, packed))
+		return msg
+	}
+
+	flow := &CapturedFlow{
+		MTI:      "0100",
+		DE3:      "000000",
+		Messages: []*iso8583.Message{buildMsg("1", "AA"), buildMsg("2", "BB")},
+		Count:    2,
+	}
+
+	results, err := NewVarianceEngine(spec).AnalyzeFlow(flow)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	var fields map[string]interface{}
+	require.NoError(t, json.Unmarshal(results[0].Transaction.Fields, &fields))
+	field62, ok := fields["62"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "{{data.DE_62_1}}", field62["1"])
+	assert.Equal(t, "{{data.DE_62_2}}", field62["2"])
+
+	require.Len(t, results[0].Dataset.Data, 2)
+	assert.Equal(t, "AA", results[0].Dataset.Data[0]["DE_62_1"])
+	assert.Empty(t, results[0].Dataset.Data[0]["DE_62"])
+	_, hasBitmapBlob := results[0].Dataset.Data[0]["DE_62"]
+	assert.False(t, hasBitmapBlob)
+	assert.Equal(t, "BB", results[0].Dataset.Data[1]["DE_62_2"])
+	_, hasRawField := results[0].Dataset.Data[1]["DE_62"]
+	assert.False(t, hasRawField)
 }
 
 func TestExtractFromPCAPFile(t *testing.T) {

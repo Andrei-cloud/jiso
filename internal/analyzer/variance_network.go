@@ -46,8 +46,21 @@ func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*V
 			if f == nil {
 				continue
 			}
-			val, err := f.String()
-			if err != nil || val == "" {
+			extracted, ok := extractFieldValueForTemplate(f)
+			if !ok {
+				continue
+			}
+
+			val := ""
+			if asString, isString := extracted.(string); isString {
+				val = asString
+			} else {
+				serialized, sErr := json.Marshal(extracted)
+				if sErr == nil {
+					val = string(serialized)
+				}
+			}
+			if val == "" {
 				continue
 			}
 			fieldKey := fmt.Sprintf("%d", i)
@@ -56,7 +69,9 @@ func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*V
 				tf[fieldKey] = "auto"
 				keyParts = append(keyParts, fmt.Sprintf("%d=auto", i))
 			} else {
-				if isNumericField(ve.spec, i) && i != 0 {
+				if extractedMap, isMap := extracted.(map[string]interface{}); isMap {
+					tf[fieldKey] = extractedMap
+				} else if isNumericField(ve.spec, i) && i != 0 {
 					if num, pErr := strconv.ParseInt(val, 10, 64); pErr == nil {
 						tf[fieldKey] = num
 					} else {
@@ -100,4 +115,3 @@ func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*V
 
 	return results, nil
 }
-

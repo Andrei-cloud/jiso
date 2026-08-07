@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"jiso/internal/utils"
+
 	"github.com/moov-io/iso8583"
 )
 
@@ -24,7 +26,7 @@ func NewISOMessageRenderer(output io.Writer) *ISOMessageRenderer {
 
 // RenderMessage renders an ISO8583 message
 func (r *ISOMessageRenderer) RenderMessage(msg *iso8583.Message) {
-	iso8583.Describe(msg, r.output, iso8583.DoNotFilterFields()...)
+	utils.Describe(msg, r.output, iso8583.DoNotFilterFields()...)
 }
 
 // RenderRequestResponse renders a request-response pair with timing

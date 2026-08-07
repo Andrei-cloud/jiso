@@ -1,11 +1,14 @@
 package transactions
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"jiso/internal/utils"
+
+	isofield "github.com/moov-io/iso8583/field"
 )
 
 func (tc *TransactionCollection) Validate() error {
@@ -111,13 +114,21 @@ func (tc *TransactionCollection) validateTransactionFields(t Transaction) error 
 			if targetSpec != nil && targetSpec.Fields != nil {
 				if fieldSpec := targetSpec.Fields[fieldID]; fieldSpec != nil {
 					maxLen := fieldSpec.Spec().Length
-					if len(v) > maxLen {
+					if validationLength(fieldSpec, v) > maxLen {
 						return fmt.Errorf("field %d value '%s' exceeds maximum length %d", fieldID, v, maxLen)
 					}
 				}
 			}
 		case float64:
 			// Numeric fields are valid
+			continue
+		case map[string]interface{}:
+			if targetSpec == nil || targetSpec.Fields == nil || targetSpec.Fields[fieldID] == nil {
+				return fmt.Errorf("field %d composite value provided but field is not defined in spec", fieldID)
+			}
+			if len(targetSpec.Fields[fieldID].Spec().Subfields) == 0 {
+				return fmt.Errorf("field %d has object value but is not configured with subfields in spec", fieldID)
+			}
 			continue
 		default:
 			return fmt.Errorf("field %d has unsupported value type: %T", fieldID, v)
@@ -160,7 +171,7 @@ func (tc *TransactionCollection) validateTransactionDataset(t Transaction) error
 			if targetSpec != nil && targetSpec.Fields != nil {
 				if fieldSpec := targetSpec.Fields[fieldID]; fieldSpec != nil {
 					maxLen := fieldSpec.Spec().Length
-					if len(value) > maxLen {
+					if validationLength(fieldSpec, value) > maxLen {
 						return fmt.Errorf(
 							"dataset entry %d field %d value '%s' exceeds maximum length %d",
 							i,
@@ -175,4 +186,14 @@ func (tc *TransactionCollection) validateTransactionDataset(t Transaction) error
 	}
 
 	return nil
+}
+
+func validationLength(fieldSpec isofield.Field, value string) int {
+	if _, ok := fieldSpec.(*isofield.Binary); ok {
+		if decoded, err := hex.DecodeString(value); err == nil {
+			return len(decoded)
+		}
+	}
+
+	return len(value)
 }

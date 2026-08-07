@@ -1,11 +1,12 @@
 package analyzer
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+
+	json "github.com/goccy/go-json"
 
 	"jiso/internal/config"
 	"jiso/internal/utils"
@@ -15,16 +16,29 @@ import (
 
 func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceResult, error) {
 	fieldValues := make(map[int][]string)
+	fieldStructuredValues := make(map[int][]interface{})
 	for _, msg := range flow.Messages {
 		for i, f := range msg.GetFields() {
 			if f == nil || i == 1 { // Skip DE 1 (Bitmap)
 				continue
 			}
-			val, err := f.String()
-			if err != nil || val == "" {
+			val, ok := extractFieldValueForTemplate(f)
+			if !ok {
 				continue
 			}
-			fieldValues[i] = append(fieldValues[i], val)
+
+			if strVal, isString := val.(string); isString {
+				fieldValues[i] = append(fieldValues[i], strVal)
+				fieldStructuredValues[i] = append(fieldStructuredValues[i], strVal)
+				continue
+			}
+
+			serialized, sErr := json.Marshal(val)
+			if sErr != nil {
+				continue
+			}
+			fieldValues[i] = append(fieldValues[i], string(serialized))
+			fieldStructuredValues[i] = append(fieldStructuredValues[i], val)
 		}
 	}
 
@@ -59,6 +73,13 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 		}
 
 		if allSame {
+			firstField := flow.Messages[0].GetField(fieldID)
+			extracted, ok := extractFieldValueForTemplate(firstField)
+			if ok {
+				templateFields[fieldKey] = extracted
+				continue
+			}
+
 			if isNumericField(ve.spec, fieldID) && fieldID != 0 {
 				if num, pErr := strconv.ParseInt(firstVal, 10, 64); pErr == nil {
 					templateFields[fieldKey] = num
@@ -70,7 +91,27 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 			}
 		} else {
 			// Varying field -> add placeholder in template & extract to dataset
-			templateFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)
+			if structuredValues := fieldStructuredValues[fieldID]; len(structuredValues) > 0 {
+				if firstStructured, isMap := structuredValues[0].(map[string]interface{}); isMap {
+					merged := make(map[string]interface{})
+					for _, raw := range structuredValues {
+						structuredMap, ok := raw.(map[string]interface{})
+						if !ok {
+							continue
+						}
+						merged = mergeStructuredValues(merged, structuredMap)
+					}
+					if len(merged) > 0 {
+						templateFields[fieldKey] = buildPlaceholderValue(fmt.Sprintf("DE_%d", fieldID), merged)
+					} else {
+						templateFields[fieldKey] = buildPlaceholderValue(fmt.Sprintf("DE_%d", fieldID), firstStructured)
+					}
+				} else {
+					templateFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)
+				}
+			} else {
+				templateFields[fieldKey] = fmt.Sprintf("{{data.DE_%d}}", fieldID)
+			}
 			varyingFieldIDs = append(varyingFieldIDs, fieldID)
 		}
 	}
@@ -107,9 +148,11 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 			row := make(map[string]string)
 			for _, fieldID := range varyingFieldIDs {
 				if f := msg.GetField(fieldID); f != nil {
-					if val, err := f.String(); err == nil {
-						row[fmt.Sprintf("DE_%d", fieldID)] = val
+					extracted, ok := extractFieldValueForTemplate(f)
+					if !ok {
+						continue
 					}
+					flattenValueForDataset(fmt.Sprintf("DE_%d", fieldID), extracted, row)
 				}
 			}
 			datasetRows[msgIdx] = row
@@ -131,7 +174,6 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 		},
 	}, nil
 }
-
 
 func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*VarianceResult, error) {
 	if flow == nil || len(flow.Messages) == 0 {

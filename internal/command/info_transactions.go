@@ -1,16 +1,18 @@
 package command
 
 import (
-	json "github.com/goccy/go-json"
+	"bytes"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
+	json "github.com/goccy/go-json"
+
 	"jiso/internal/transactions"
+	"jiso/internal/utils"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/olekukonko/tablewriter"
+	"github.com/moov-io/iso8583"
 )
 
 type InfoCommand struct {
@@ -92,31 +94,41 @@ func (c *InfoCommand) Execute() error {
 	// Format message field with better readability
 	formattedMessage := formatFieldsJSON(fields)
 
-	// Show details in nice table - using Auto-merge to handle multi-line cells properly
-	table := tablewriter.NewWriter(os.Stdout)
-	// table.SetHeader([]string{"Field", "Value"})
-	// table.SetAutoMergeCells(false)
-	// table.SetRowLine(true)
-	table.Append([]string{"Name", name})
-	table.Append([]string{"MTI", mti})
-	table.Append([]string{"Processing Code", procCode})
+	fmt.Printf("Name: %s\n", name)
+	fmt.Printf("MTI: %s\n", mti)
+	fmt.Printf("Processing Code: %s\n", procCode)
+	fmt.Println("Message:")
+	fmt.Print(formattedMessage)
 
-	// Split the formatted message into lines and add each one to preserve formatting
-	messageLines := strings.Split(formattedMessage, "\n")
-	if len(messageLines) > 0 {
-		// Add first line with "Message" label
-		table.Append([]string{"Message", messageLines[0]})
+	fmt.Println("\nSample Message Build")
+	fmt.Println("--------------------")
+	fmt.Println("Composing a sample message with dataset interpolation if dataset_name is configured...")
 
-		// Add remaining lines with empty label for proper alignment
-		for i := 1; i < len(messageLines); i++ {
-			if messageLines[i] != "" {
-				table.Append([]string{"", messageLines[i]})
-			}
-		}
+	sampleMsg, composeErr := c.Tc.Compose(trxnName)
+	if composeErr != nil {
+		fmt.Printf("Compose error: %v\n", composeErr)
+		return nil
 	}
 
-	table.Render()
+	packed, packErr := sampleMsg.Pack()
+	if packErr != nil {
+		fmt.Printf("Pack error: %v\n", packErr)
+	} else {
+		fmt.Printf("Packed bytes: %d\n", len(packed))
+		fmt.Println("\nPacked HEX dump:")
+		fmt.Print(hexDump(packed))
+	}
+
+	fmt.Println("\nParsed field view:")
+	fmt.Print(renderParsedMessage(sampleMsg))
+
 	return nil
+}
+
+func renderParsedMessage(msg *iso8583.Message) string {
+	var buf bytes.Buffer
+	utils.Describe(msg, &buf, iso8583.DoNotFilterFields()...)
+	return buf.String()
 }
 
 // formatFieldsJSON formats the fields JSON in a clean, readable format

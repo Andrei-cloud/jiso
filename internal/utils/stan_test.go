@@ -78,6 +78,26 @@ func TestLoadPersistedData(t *testing.T) {
 	}
 }
 
+func TestLoadPersistedData_EmptyFile(t *testing.T) {
+	tempDir := t.TempDir()
+	SetPersistenceDirectory(tempDir)
+
+	filePath := getPersistencePath()
+	err := os.WriteFile(filePath, []byte(""), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create empty persisted file: %v", err)
+	}
+
+	data, err := loadPersistedData()
+	if err != nil {
+		t.Fatalf("loadPersistedData failed for empty file: %v", err)
+	}
+
+	if data.StanValue != 0 {
+		t.Errorf("Expected StanValue 0 for empty file, got %d", data.StanValue)
+	}
+}
+
 func TestPersistData(t *testing.T) {
 	// Create a temporary directory
 	tempDir := t.TempDir()

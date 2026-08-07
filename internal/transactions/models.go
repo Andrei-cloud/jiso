@@ -17,7 +17,7 @@ const (
 type transactionParsedCache struct {
 	once         sync.Once
 	fieldMap     map[int]interface{}
-	staticFields map[int][]byte
+	staticFields map[int]interface{}
 	autoFields   map[int]string
 }
 
