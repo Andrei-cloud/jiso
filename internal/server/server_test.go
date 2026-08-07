@@ -272,7 +272,7 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
 	require.NoError(t, err)
 
-	dataBytes, err := os.ReadFile("../../transactions/mock_routes.json")
+	dataBytes, err := os.ReadFile("../../transactions/transaction.json")
 	require.NoError(t, err)
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "mock_routes_*.json")
@@ -312,6 +312,8 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 	msg0200.Field(7, "0725213835")
 	msg0200.Field(11, "008009")
 	msg0200.Field(14, "2601")
+	msg0200.Field(41, "77973588")
+	msg0200.Field(49, "634")
 
 	matched2, resp2, err := matcher.MatchAndCompose(msg0200, spec)
 	require.NoError(t, err)
