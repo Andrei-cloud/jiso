@@ -390,3 +390,51 @@ func TestFindAvailablePCAPFiles(t *testing.T) {
 	require.NotEmpty(t, files)
 	assert.Contains(t, files[len(files)-1], "Custom Path...")
 }
+
+func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/example_composed_emv.json")
+	require.NoError(t, err)
+
+	respMsg := iso8583.NewMessage(spec)
+	respMsg.MTI("0210")
+	respMsg.Field(3, "000000")
+	respMsg.Field(39, "00")
+
+	compField55 := spec.Fields[55]
+	require.NotNil(t, compField55)
+
+	instance := field.NewInstanceOf(compField55)
+	comp, ok := instance.(*field.Composite)
+	require.True(t, ok)
+
+	err = comp.MarshalPath("9F26", "11223344")
+	require.NoError(t, err)
+	err = comp.MarshalPath("9F27", "8")
+	require.NoError(t, err)
+
+	packed55, err := comp.Bytes()
+	require.NoError(t, err)
+	respMsg.BinaryField(55, packed55)
+
+	flow := &CapturedFlow{
+		MTI:      "0210",
+		DE3:      "000000",
+		Messages: []*iso8583.Message{respMsg},
+		Count:    1,
+	}
+
+	ve := NewVarianceEngine(spec)
+	results, err := ve.AnalyzeFlowToMockRoutes(flow)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	route := results[0].Transaction
+	f55, exists := route.ResponseFields["55"]
+	require.True(t, exists)
+
+	f55Map, isMap := f55.(map[string]interface{})
+	require.True(t, isMap, "Composite response field 55 should be a map of subfields, not raw string")
+	assert.Equal(t, "11223344", f55Map["9F26"])
+	assert.Equal(t, "8", f55Map["9F27"])
+}
+

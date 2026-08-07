@@ -383,75 +383,9 @@ func (tc *TransactionCollection) setCompositeFieldValue(
 	fieldID int,
 	value map[string]interface{},
 ) error {
-	if spec == nil || spec.Fields == nil {
-		return fmt.Errorf("spec is required for composite field %d", fieldID)
-	}
-
-	specField, exists := spec.Fields[fieldID]
-	if !exists || specField == nil {
-		return fmt.Errorf("field %d is not defined in spec", fieldID)
-	}
-
-	instance := field.NewInstanceOf(specField)
-	composite, ok := instance.(*field.Composite)
-	if !ok {
-		return msg.Field(fieldID, fmt.Sprintf("%v", value))
-	}
-
-	if err := applyCompositePaths(composite, value, ""); err != nil {
-		return fmt.Errorf("failed to apply composite field %d: %w", fieldID, err)
-	}
-
-	packed, err := composite.Bytes()
-	if err != nil {
-		return fmt.Errorf("failed to pack composite field %d: %w", fieldID, err)
-	}
-
-	return msg.BinaryField(fieldID, packed)
+	return utils.SetCompositeFieldValue(msg, spec, fieldID, value)
 }
 
-func applyCompositePaths(composite *field.Composite, value map[string]interface{}, prefix string) error {
-	for key, raw := range value {
-		path := key
-		if prefix != "" {
-			path = prefix + "." + key
-		}
-
-		if nested, ok := raw.(map[string]interface{}); ok {
-			if err := applyCompositePaths(composite, nested, path); err != nil {
-				return err
-			}
-			continue
-		}
-
-		normalized := normalizeCompositeScalar(raw)
-		if err := composite.MarshalPath(path, normalized); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func normalizeCompositeScalar(v interface{}) interface{} {
-	switch val := v.(type) {
-	case string:
-		return val
-	case float64:
-		if math.Mod(val, 1) == 0 {
-			return strconv.FormatInt(int64(val), 10)
-		}
-		return strconv.FormatFloat(val, 'f', -1, 64)
-	case int:
-		return strconv.Itoa(val)
-	case int64:
-		return strconv.FormatInt(val, 10)
-	case bool:
-		return strconv.FormatBool(val)
-	default:
-		return fmt.Sprintf("%v", val)
-	}
-}
 
 func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583.Message, keyword string) {
 	cleanKey := strings.TrimSpace(strings.ToLower(keyword))

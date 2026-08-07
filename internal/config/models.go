@@ -29,7 +29,7 @@ type MockRouteConfig struct {
 	RequiredFields []string               `json:"required_fields,omitempty"`
 	EchoFields     []int                  `json:"echo_fields,omitempty"`
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
-	ResponseFields map[string]string      `json:"response_fields,omitempty"`
+	ResponseFields map[string]interface{} `json:"response_fields,omitempty"`
 	DelayMs        int                    `json:"delay_ms,omitempty"`
 	LatencyMs      int                    `json:"latency_ms,omitempty"`
 	JitterMs       int                    `json:"jitter_ms,omitempty"`
@@ -50,7 +50,7 @@ type ConfigItem struct {
 	RequiredFields []string               `json:"required_fields,omitempty"`
 	EchoFields     []int                  `json:"echo_fields,omitempty"`
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
-	ResponseFields map[string]string      `json:"response_fields,omitempty"`
+	ResponseFields map[string]interface{} `json:"response_fields,omitempty"`
 	DelayMs        int                    `json:"delay_ms,omitempty"`
 	LatencyMs      int                    `json:"latency_ms,omitempty"`
 	JitterMs       int                    `json:"jitter_ms,omitempty"`
@@ -180,15 +180,15 @@ func SortFieldsJSON(raw json.RawMessage) json.RawMessage {
 	return json.RawMessage(data)
 }
 
-// SortStringMapKeys sorts a map[string]string into an OrderedMap for numeric ascending JSON output
-func SortStringMapKeys(m map[string]string) interface{} {
+// SortStringMapKeys sorts a map[string]interface{} into an OrderedMap for numeric ascending JSON output
+func SortStringMapKeys(m map[string]interface{}) interface{} {
 	if m == nil {
 		return nil
 	}
 	type keyVal struct {
 		key string
 		num int
-		val string
+		val interface{}
 	}
 	var kvs []keyVal
 	for k, v := range m {

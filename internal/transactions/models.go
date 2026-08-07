@@ -73,7 +73,7 @@ type ConfigItem struct {
 	RequiredFields []string               `json:"required_fields,omitempty"`
 	EchoFields     []int                  `json:"echo_fields,omitempty"`
 	ResponseMTI    string                 `json:"response_mti,omitempty"`
-	ResponseFields map[string]string      `json:"response_fields,omitempty"`
+	ResponseFields map[string]interface{} `json:"response_fields,omitempty"`
 	DelayMs        int                    `json:"delay_ms,omitempty"`
 	LatencyMs      int                    `json:"latency_ms,omitempty"`
 	JitterMs       int                    `json:"jitter_ms,omitempty"`
