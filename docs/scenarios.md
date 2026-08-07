@@ -134,18 +134,20 @@ When executing standard non-scenario commands (e.g. `send`, `bgsend`, `stress`):
 
 Step execution runs validation checks on received ISO8583 response fields:
 
-- **Exact Match (`expect`)**: Checks if the field value matches exactly.
+- **Exact Match (`expect`)**: Checks if the field value matches exactly. Step fails if the field is absent or the value does not match.
   ```json
   {"field": "39", "expect": "00"}
   ```
-- **Regex Match (`regex`)**: Checks if the field matches a regular expression.
+- **Regex Match (`regex`)**: Checks if the field value matches a Go-compatible regular expression. Step fails if the value does not match the pattern.
   ```json
-  {"field": "38", "regex": "^[0-9]{6}$"}
+  {"field": "38", "regex": "^[0-9A-Z]{6}$"}
   ```
 - **Existence Check (`exists`)**: Asserts whether a field is present (`true`) or absent (`false`) in the response message.
   ```json
   {"field": "38", "exists": true}
   ```
+
+Multiple assertions can be combined in a single step's `validate` array. All assertions must pass for the step to succeed.
 
 ---
 
@@ -159,24 +161,48 @@ Execute operations directly from the terminal without entering the interactive s
 
 ```bash
 # Generate default specification schema
-./jiso init-spec [custom_spec_path.json]
+jiso init-spec [custom_spec_path.json]
 
 # Generate default comprehensive unified transactions config
-./jiso init-tx [custom_tx_path.json]
+jiso init-tx [custom_tx_path.json]
 
 # List all available scenarios
-./jiso -spec-file specs/spec.json -file transactions/transaction.json scenarios
+jiso -spec-file specs/spec.json -file transactions/transaction.json scenarios
 
 # Run a test scenario with ANSI color-coded tree logs and export JSON test report
-./jiso -host localhost -port 9999 -spec-file specs/spec.json -file transactions/transaction.json run-scenario "E2E Purchase and Reversal" --report report.json --length ascii4
+jiso -host localhost -port 9999 \
+     -spec-file specs/spec.json \
+     -file transactions/transaction.json \
+     run-scenario "E2E Purchase and Reversal" --report report.json --length ascii4
 ```
+
+#### `run-scenario` CLI Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--report <path>` | `""` | Path to export the test report as a JSON file (`TestReport` struct). Useful for CI/CD pipeline integration. |
+| `--length <type>` | `ascii4` | TCP length header type for the connection: `ascii4`, `binary2`, `binary4`, `bcd2`, `NAPS`, `visa`. |
+
+The JSON test report (`TestReport`) contains:
+- `scenario_name`, `description`, `success` (overall pass/fail), `duration_ms`
+- `steps[]` — array of step results with `step_name`, `success`, `latency_ms`, `error`, and `validation_errors[]`
+- Each `validation_error` includes: `field`, `expected`, `actual`, `message`
 
 ### 5.2 Interactive Shell Mode
 
 Type commands directly inside the `jiso>` prompt:
 
 ```text
+# List all scenarios
 jiso> scenarios
+
+# Run a scenario by name (prompts for selection if name is omitted)
 jiso> run-scenario "E2E Purchase and Reversal"
+jiso> run-scenario
+
+# Generate boilerplate files
 jiso> init-tx custom.json
+jiso> init-spec custom_spec.json
 ```
+
+> **Note:** Scenario execution in interactive mode requires an active server connection (`connect` must be called first).
