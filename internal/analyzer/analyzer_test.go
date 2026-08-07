@@ -5,13 +5,18 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	json "github.com/goccy/go-json"
 	"jiso/internal/config"
 	"jiso/internal/utils"
 
+	json "github.com/goccy/go-json"
+
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/encoding"
+	"github.com/moov-io/iso8583/field"
+	"github.com/moov-io/iso8583/prefix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,8 +76,18 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 	assert.Equal(t, config.TypeTransaction, res.Transaction.GetType())
 	assert.Equal(t, config.TypeDataset, res.Dataset.GetType())
 	assert.Len(t, res.Dataset.Data, 2)
-	assert.Equal(t, "4111111111111111", res.Dataset.Data[0]["DE_2"])
-	assert.Equal(t, "4222222222222222", res.Dataset.Data[1]["DE_2"])
+	assert.True(t, strings.HasPrefix(res.Dataset.Data[0]["DE_2"], "41111111"))
+	assert.True(t, strings.HasSuffix(res.Dataset.Data[0]["DE_2"], "000"))
+	assert.True(t, strings.HasPrefix(res.Dataset.Data[1]["DE_2"], "42222222"))
+	assert.True(t, strings.HasSuffix(res.Dataset.Data[1]["DE_2"], "000"))
+
+	// Test Unsecure mode (unsecure = true) preserves clear PANs
+	unsecEng := NewVarianceEngine(spec, true)
+	unsecResults, err := unsecEng.AnalyzeFlow(flow)
+	require.NoError(t, err)
+	require.Len(t, unsecResults, 1)
+	assert.Equal(t, "4111111111111111", unsecResults[0].Dataset.Data[0]["DE_2"])
+	assert.Equal(t, "4222222222222222", unsecResults[0].Dataset.Data[1]["DE_2"])
 }
 
 func TestNetworkManagement08XX(t *testing.T) {
@@ -119,6 +134,67 @@ func TestNetworkManagement08XX(t *testing.T) {
 	assert.Equal(t, "auto", fields["11"])
 	assert.EqualValues(t, 301, fields["70"])
 	assert.Nil(t, fields["1"]) // Field 1 (Bitmap) MUST NOT be present
+}
+
+func TestAnalyzeFlow_VaryingBitmapCompositeUsesSubfieldDataset(t *testing.T) {
+	spec := &iso8583.MessageSpec{
+		Name: "bitmap-composite-test",
+		Fields: map[int]field.Field{
+			0: field.NewString(&field.Spec{Length: 4, Description: "MTI", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+			1: field.NewBitmap(&field.Spec{Length: 8, Description: "Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed}),
+			3: field.NewString(&field.Spec{Length: 6, Description: "Processing Code", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+			62: field.NewComposite(&field.Spec{
+				Length:      20,
+				Description: "Bitmap Composite",
+				Pref:        prefix.ASCII.LL,
+				Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Field 62.0 Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+				Subfields: map[string]field.Field{
+					"1": field.NewString(&field.Spec{Length: 2, Description: "Field 62.1", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+					"2": field.NewString(&field.Spec{Length: 2, Description: "Field 62.2", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+				},
+			}),
+		},
+	}
+
+	buildMsg := func(subfieldID, value string) *iso8583.Message {
+		msg := iso8583.NewMessage(spec)
+		msg.MTI("0100")
+		require.NoError(t, msg.Field(3, "000000"))
+
+		composite := field.NewComposite(spec.Fields[62].Spec())
+		require.NoError(t, composite.MarshalPath(subfieldID, value))
+		packed, err := composite.Bytes()
+		require.NoError(t, err)
+		require.NoError(t, msg.BinaryField(62, packed))
+		return msg
+	}
+
+	flow := &CapturedFlow{
+		MTI:      "0100",
+		DE3:      "000000",
+		Messages: []*iso8583.Message{buildMsg("1", "AA"), buildMsg("2", "BB")},
+		Count:    2,
+	}
+
+	results, err := NewVarianceEngine(spec).AnalyzeFlow(flow)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	var fields map[string]interface{}
+	require.NoError(t, json.Unmarshal(results[0].Transaction.Fields, &fields))
+	field62, ok := fields["62"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "{{data.DE_62_1}}", field62["1"])
+	assert.Equal(t, "{{data.DE_62_2}}", field62["2"])
+
+	require.Len(t, results[0].Dataset.Data, 2)
+	assert.Equal(t, "AA", results[0].Dataset.Data[0]["DE_62_1"])
+	assert.Empty(t, results[0].Dataset.Data[0]["DE_62"])
+	_, hasBitmapBlob := results[0].Dataset.Data[0]["DE_62"]
+	assert.False(t, hasBitmapBlob)
+	assert.Equal(t, "BB", results[0].Dataset.Data[1]["DE_62_2"])
+	_, hasRawField := results[0].Dataset.Data[1]["DE_62"]
+	assert.False(t, hasRawField)
 }
 
 func TestExtractFromPCAPFile(t *testing.T) {
@@ -315,7 +391,7 @@ func TestAnalyzeFlowToMockRoutes(t *testing.T) {
 	assert.Equal(t, "000000", route.MatchFields["3"])
 	assert.Equal(t, "021", route.MatchFields["22"])
 	assert.Equal(t, "0210", route.ResponseMTI)
-	assert.Equal(t, []int{7, 11, 25, 32, 37, 41, 42, 63, 115}, route.EchoFields)
+	assert.Equal(t, []int{3, 7, 11, 22}, route.EchoFields)
 	assert.Equal(t, "00", route.ResponseFields["39"])
 	assert.Equal(t, "auth_code", route.ResponseFields["38"])
 }
@@ -325,3 +401,51 @@ func TestFindAvailablePCAPFiles(t *testing.T) {
 	require.NotEmpty(t, files)
 	assert.Contains(t, files[len(files)-1], "Custom Path...")
 }
+
+func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/example_composed_emv.json")
+	require.NoError(t, err)
+
+	respMsg := iso8583.NewMessage(spec)
+	respMsg.MTI("0210")
+	respMsg.Field(3, "000000")
+	respMsg.Field(39, "00")
+
+	compField55 := spec.Fields[55]
+	require.NotNil(t, compField55)
+
+	instance := field.NewInstanceOf(compField55)
+	comp, ok := instance.(*field.Composite)
+	require.True(t, ok)
+
+	err = comp.MarshalPath("9F26", "11223344")
+	require.NoError(t, err)
+	err = comp.MarshalPath("9F27", "8")
+	require.NoError(t, err)
+
+	packed55, err := comp.Bytes()
+	require.NoError(t, err)
+	respMsg.BinaryField(55, packed55)
+
+	flow := &CapturedFlow{
+		MTI:      "0210",
+		DE3:      "000000",
+		Messages: []*iso8583.Message{respMsg},
+		Count:    1,
+	}
+
+	ve := NewVarianceEngine(spec)
+	results, err := ve.AnalyzeFlowToMockRoutes(flow)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	route := results[0].Transaction
+	f55, exists := route.ResponseFields["55"]
+	require.True(t, exists)
+
+	f55Map, isMap := f55.(map[string]interface{})
+	require.True(t, isMap, "Composite response field 55 should be a map of subfields, not raw string")
+	assert.Equal(t, "11223344", f55Map["9F26"])
+	assert.Equal(t, "8", f55Map["9F27"])
+}
+

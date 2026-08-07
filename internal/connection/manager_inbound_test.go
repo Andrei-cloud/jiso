@@ -68,4 +68,3 @@ func TestCloseCleansUpPendingRequests(t *testing.T) {
 		}
 	}
 }
-

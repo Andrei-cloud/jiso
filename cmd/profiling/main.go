@@ -89,10 +89,10 @@ func main() {
 	startTime := time.Now()
 	workerID, err := cliTool.StartStressTestWorker(
 		[]string{"Sign On"},
-		1000,            // target TPS
-		1*time.Second,   // ramp up duration
-		3*time.Second,   // test duration
-		5,               // concurrent workers
+		1000,          // target TPS
+		1*time.Second, // ramp up duration
+		3*time.Second, // test duration
+		5,             // concurrent workers
 	)
 	if err != nil {
 		log.Fatalf("Failed to start stress test worker: %v", err)

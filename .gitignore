@@ -9,9 +9,11 @@ jiso
 *.db
 *.prof
 *.pcap
-mc_cap.tgz
+*.tgz
 *.txt
 *.v
 *.m
 *.bak
 *.bcp
+*.bin
+iso8583

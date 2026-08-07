@@ -192,7 +192,6 @@ func (c *SendCommand) Execute() error {
 	return nil
 }
 
-
 func (c *SendCommand) retrySend(msg *iso8583.Message, maxRetries int) (*iso8583.Message, error) {
 	var lastErr error
 	baseDelay := 500 * time.Millisecond
@@ -469,4 +468,3 @@ func (c *SendCommand) ResponseCodes() map[string]uint64 {
 	}
 	return c.stats.ResponseCodes()
 }
-

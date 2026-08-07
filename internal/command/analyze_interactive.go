@@ -1,11 +1,13 @@
 package command
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	json "github.com/goccy/go-json"
 
 	"jiso/internal/analyzer"
 	"jiso/internal/config"
@@ -141,7 +143,22 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		}
 	}
 
-	// 6. Select Target Transaction / Mock Route JSON file
+	// 6. Select Security Mode for Sensitive Data
+	var securityMode string
+	secPrompt := &survey.Select{
+		Message: "6. Select Security Mode (Card Numbers & Track Data):",
+		Options: []string{
+			"1. Secure (Anonymize PAN & Tracks with '000' autogen indicator - Default)",
+			"2. Unsecure (Include raw clear card numbers & track data)",
+		},
+		Default: "1. Secure (Anonymize PAN & Tracks with '000' autogen indicator - Default)",
+	}
+	if err := survey.AskOne(secPrompt, &securityMode); err != nil {
+		return err
+	}
+	unsecure := strings.HasPrefix(securityMode, "2.")
+
+	// 7. Select Target Transaction / Mock Route JSON file
 	defaultTxFile := config.GetConfig().GetFile()
 	if defaultTxFile == "" {
 		if isMockRouteGoal {
@@ -152,7 +169,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	var outputTxFile string
 	outputPrompt := &survey.Input{
-		Message: "6. Target Transaction/Route JSON output file:",
+		Message: "7. Target Transaction/Route JSON output file:",
 		Default: defaultTxFile,
 	}
 	if err := survey.AskOne(outputPrompt, &outputTxFile); err != nil {
@@ -160,7 +177,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	outputTxFile = strings.TrimSpace(outputTxFile)
 
-	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir, isMockRouteGoal)
+	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir, unsecure, isMockRouteGoal)
 }
 
 func (ac *AnalyzeCommand) runAnalysis(
@@ -169,6 +186,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	headerType string,
 	outputTxFile string,
 	dir analyzer.TrafficDirection,
+	unsecure bool,
 	isMockRouteGoal ...bool,
 ) error {
 	mockRouteGoal := len(isMockRouteGoal) > 0 && isMockRouteGoal[0]
@@ -191,18 +209,49 @@ func (ac *AnalyzeCommand) runAnalysis(
 	flows := streamAnalyzer.AggregateFlows(extractedMessages)
 	fmt.Printf("✓ Aggregated traffic into %d distinct transaction flow(s):\n", len(flows))
 
+	// Sort flow keys deterministically
+	flowKeys := make([]string, 0, len(flows))
+	flowMap := make(map[string]string) // option label -> flow key
+	var multiOptions []string
+
 	for key, flow := range flows {
-		fmt.Printf("  • Flow [%s]: MTI=%s, DE3=%s (%d messages)\n", key, flow.MTI, flow.DE3, flow.Count)
+		label := fmt.Sprintf("Flow [%s]: MTI=%s, DE3=%s, DE22=%s (%d messages)", key, flow.MTI, flow.DE3, flow.DE22, flow.Count)
+		fmt.Printf("  • %s\n", label)
+		flowKeys = append(flowKeys, key)
+		flowMap[label] = key
+		multiOptions = append(multiOptions, label)
+	}
+
+	selectedFlowKeys := flowKeys
+	if len(multiOptions) > 0 {
+		var selectedOptions []string
+		exportPrompt := &survey.MultiSelect{
+			Message: "Select flow(s) to export:",
+			Options: multiOptions,
+			Default: multiOptions,
+		}
+		if err := survey.AskOne(exportPrompt, &selectedOptions); err == nil && len(selectedOptions) > 0 {
+			selectedFlowKeys = make([]string, 0, len(selectedOptions))
+			for _, opt := range selectedOptions {
+				if k, ok := flowMap[opt]; ok {
+					selectedFlowKeys = append(selectedFlowKeys, k)
+				}
+			}
+		}
 	}
 
 	// Perform variance / mock route analysis
-	varianceEngine := analyzer.NewVarianceEngine(spec)
+	varianceEngine := analyzer.NewVarianceEngine(spec, unsecure)
 	var newItems []config.ConfigItem
 
 	txCount := 0
 	dsCount := 0
 
-	for _, flow := range flows {
+	for _, key := range selectedFlowKeys {
+		flow, ok := flows[key]
+		if !ok {
+			continue
+		}
 		var results []*analyzer.VarianceResult
 		var err error
 
@@ -280,10 +329,87 @@ func saveConfigItemsToFile(filename string, newItems []config.ConfigItem) error 
 		itemMap[item.Name] = item
 	}
 
-	mergedItems := make([]config.ConfigItem, 0, len(itemMap))
-	for _, item := range itemMap {
-		mergedItems = append(mergedItems, item)
+	// Create a custom serializable struct to preserve sorted map order during JSON marshaling
+	type serializableConfigItem struct {
+		Type           config.ConfigDiscriminator `json:"type,omitempty"`
+		Name           string                     `json:"name"`
+		Description    string                     `json:"description,omitempty"`
+		Fields         interface{}                `json:"fields,omitempty"`
+		Dataset        interface{}                `json:"dataset,omitempty"`
+		Data           interface{}                `json:"data,omitempty"`
+		DatasetName    string                     `json:"dataset_name,omitempty"`
+		Steps          json.RawMessage            `json:"steps,omitempty"`
+		MatchFields    interface{}                `json:"match_fields,omitempty"`
+		RequiredFields []string                   `json:"required_fields,omitempty"`
+		EchoFields     []int                      `json:"echo_fields,omitempty"`
+		ResponseMTI    string                     `json:"response_mti,omitempty"`
+		ResponseFields interface{}                `json:"response_fields,omitempty"`
+		DelayMs        int                        `json:"delay_ms,omitempty"`
+		LatencyMs      int                        `json:"latency_ms,omitempty"`
+		JitterMs       int                        `json:"jitter_ms,omitempty"`
+		DropConnection bool                       `json:"drop_connection,omitempty"`
 	}
+
+	mergedItems := make([]serializableConfigItem, 0, len(itemMap))
+	for _, item := range itemMap {
+		sItem := serializableConfigItem{
+			Type:           item.Type,
+			Name:           item.Name,
+			Description:    item.Description,
+			DatasetName:    item.DatasetName,
+			Steps:          item.Steps,
+			RequiredFields: item.RequiredFields,
+			EchoFields:     item.EchoFields,
+			ResponseMTI:    item.ResponseMTI,
+			DelayMs:        item.DelayMs,
+			LatencyMs:      item.LatencyMs,
+			JitterMs:       item.JitterMs,
+			DropConnection: item.DropConnection,
+		}
+
+		if len(item.Fields) > 0 {
+			var parsed interface{}
+			if err := json.Unmarshal(item.Fields, &parsed); err == nil {
+				sorted := config.SortMapKeysRecursively(parsed)
+				if sortedBytes, sErr := json.Marshal(sorted); sErr == nil {
+					sItem.Fields = json.RawMessage(sortedBytes)
+				} else {
+					sItem.Fields = item.Fields
+				}
+			} else {
+				sItem.Fields = item.Fields
+			}
+		}
+		if item.Dataset != nil {
+			sItem.Dataset = item.Dataset
+		}
+		if item.Data != nil {
+			sItem.Data = item.Data
+		}
+		if item.MatchFields != nil {
+			sorted := config.SortInterfaceMapKeys(item.MatchFields)
+			if sortedBytes, sErr := json.Marshal(sorted); sErr == nil {
+				sItem.MatchFields = json.RawMessage(sortedBytes)
+			} else {
+				sItem.MatchFields = item.MatchFields
+			}
+		}
+		if item.ResponseFields != nil {
+			sorted := config.SortStringMapKeys(item.ResponseFields)
+			if sortedBytes, sErr := json.Marshal(sorted); sErr == nil {
+				sItem.ResponseFields = json.RawMessage(sortedBytes)
+			} else {
+				sItem.ResponseFields = item.ResponseFields
+			}
+		}
+
+		mergedItems = append(mergedItems, sItem)
+	}
+
+	// Sort items by Name for deterministic order
+	sort.Slice(mergedItems, func(i, j int) bool {
+		return mergedItems[i].Name < mergedItems[j].Name
+	})
 
 	outputBytes, err := json.MarshalIndent(mergedItems, "", "  ")
 	if err != nil {

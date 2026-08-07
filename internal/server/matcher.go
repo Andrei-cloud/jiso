@@ -78,22 +78,10 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 			}
 		}
 
-		// Inject response fields (supporting auto/dynamic keywords like auth_code, stan, rrn, datetime)
+		// Inject response fields (supporting auto/dynamic keywords like auth_code, stan, rrn, datetime, and composite fields)
 		for fKey, fVal := range matchedRoute.ResponseFields {
 			if fNum, err := strconv.Atoi(fKey); err == nil {
-				cleanVal := strings.TrimSpace(strings.ToLower(fVal))
-				switch cleanVal {
-				case "auth_code", "$auth_code", "gen_auth_code":
-					resp.Field(fNum, utils.RandString(6))
-				case "stan", "$stan", "gen_stan":
-					resp.Field(fNum, utils.GetCounter().GetStan())
-				case "rrn", "$rrn", "gen_rrn":
-					resp.Field(fNum, utils.GetRRNInstance().GetRRN())
-				case "datetime", "$datetime":
-					resp.Field(fNum, utils.GetTrxnDateTime())
-				default:
-					resp.Field(fNum, fVal)
-				}
+				_ = setResponseFieldValue(resp, spec, fNum, fVal)
 			}
 		}
 
@@ -233,3 +221,27 @@ func matchFieldValue(val string, exists bool, condition interface{}) bool {
 		return false
 	}
 }
+
+func setResponseFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		cleanVal := strings.TrimSpace(strings.ToLower(v))
+		switch cleanVal {
+		case "auth_code", "$auth_code", "gen_auth_code":
+			return msg.Field(fieldID, utils.RandString(6))
+		case "stan", "$stan", "gen_stan":
+			return msg.Field(fieldID, utils.GetCounter().GetStan())
+		case "rrn", "$rrn", "gen_rrn":
+			return msg.Field(fieldID, utils.GetRRNInstance().GetRRN())
+		case "datetime", "$datetime":
+			return msg.Field(fieldID, utils.GetTrxnDateTime())
+		default:
+			return msg.Field(fieldID, v)
+		}
+	case map[string]interface{}:
+		return utils.SetCompositeFieldValue(msg, spec, fieldID, v)
+	default:
+		return msg.Field(fieldID, fmt.Sprintf("%v", v))
+	}
+}
+

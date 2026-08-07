@@ -3,6 +3,7 @@ package transactions
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/field"
 )
 
 func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
@@ -30,7 +32,7 @@ func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
 		}
 		t.parsedCache.fieldMap = fieldMap
 
-		staticFields := make(map[int][]byte)
+		staticFields := make(map[int]interface{})
 		autoFields := make(map[int]string)
 
 		for k, v := range fieldMap {
@@ -40,14 +42,9 @@ func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
 					autoFields[k] = cleanVal
 					continue
 				}
-				staticFields[k] = []byte(strVal)
-			} else if numVal, ok := v.(float64); ok {
-				intVal := int64(numVal)
-				staticFields[k] = []byte(strconv.FormatInt(intVal, 10))
-			} else if bVal, ok := v.(bool); ok {
-				staticFields[k] = []byte(strconv.FormatBool(bVal))
+				staticFields[k] = strVal
 			} else if v != nil {
-				staticFields[k] = []byte(fmt.Sprintf("%v", v))
+				staticFields[k] = v
 			}
 		}
 
@@ -57,16 +54,10 @@ func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
 	return parseErr
 }
 
-
 func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) {
-	msg, err := tc.ComposeRaw(name)
-	if err != nil {
-		return nil, err
-	}
-
 	t, err := tc.findTransaction(name)
 	if err != nil {
-		return msg, nil
+		return nil, err
 	}
 
 	datasetName := t.DatasetName
@@ -81,7 +72,30 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 		}
 	}
 
-	tc.interpolateMessageFieldsWithData(msg, datasetName)
+	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
+	if err := t.ensureParsed(targetSpec); err != nil {
+		return nil, err
+	}
+
+	msg := iso8583.NewMessage(targetSpec)
+	tc.setAutoFields(msg, t.parsedCache.autoFields, t)
+
+	var selectedRow map[string]string
+	if datasetName != "" {
+		selectedRow = tc.selectDatasetRow(datasetName)
+	}
+
+	for fieldID, rawValue := range t.parsedCache.staticFields {
+		resolvedValue, keep := resolveFieldValueWithData(rawValue, selectedRow)
+		if !keep {
+			continue
+		}
+		if err := tc.setFieldValue(msg, targetSpec, fieldID, resolvedValue); err != nil {
+			return nil, err
+		}
+	}
+
+	tc.applyRandomValues(msg, t.Dataset)
 	return msg, nil
 }
 
@@ -104,50 +118,172 @@ func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, erro
 func (tc *TransactionCollection) interpolateMessageFieldsWithData(msg *iso8583.Message, datasetName string) {
 	var selectedRow map[string]string
 	var ok bool
+	ensureSelectedRow := func() {
+		if ok || datasetName == "" {
+			return
+		}
+		if ds, exist := tc.datasets[datasetName]; exist && len(ds.Data) > 0 {
+			randomIndex := rand.Intn(len(ds.Data))
+			selectedRow = ds.Data[randomIndex]
+			ok = true
+		}
+	}
 
 	for i, f := range msg.GetFields() {
 		if f == nil {
 			continue
 		}
+
+		if composite, isComposite := f.(*field.Composite); isComposite {
+			ensureSelectedRow()
+			if ok {
+				_ = tc.interpolateCompositeFieldWithData(composite, "", selectedRow)
+			}
+			continue
+		}
+
 		val, err := f.String()
 		if err != nil || val == "" {
 			continue
 		}
 
 		if strings.Contains(val, "{{") && strings.Contains(val, "}}") {
-			val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
-				match := dataRegex.FindStringSubmatch(m)
-				if len(match) > 1 {
-					key := match[1]
-
-					if !ok && datasetName != "" {
-						if ds, exist := tc.datasets[datasetName]; exist && len(ds.Data) > 0 {
-							randomIndex := rand.Intn(len(ds.Data))
-							selectedRow = ds.Data[randomIndex]
-							ok = true
-						}
-					}
-
-					if ok {
-						if v, exist := selectedRow[key]; exist {
-							return v
-						}
-					}
-				}
-				return m
-			})
-
-			val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
-				match := contextRegex.FindStringSubmatch(m)
-				if len(match) > 1 {
-					return ""
-				}
-				return m
-			})
+			ensureSelectedRow()
+			val = interpolateStringWithData(val, selectedRow)
 
 			msg.Field(i, val)
 		}
 	}
+}
+
+func (tc *TransactionCollection) selectDatasetRow(datasetName string) map[string]string {
+	if datasetName == "" {
+		return nil
+	}
+	if ds, exist := tc.datasets[datasetName]; exist && len(ds.Data) > 0 {
+		randomIndex := rand.Intn(len(ds.Data))
+		return ds.Data[randomIndex]
+	}
+	return nil
+}
+
+func resolveFieldValueWithData(value interface{}, selectedRow map[string]string) (interface{}, bool) {
+	switch v := value.(type) {
+	case string:
+		if !strings.Contains(v, "{{") || !strings.Contains(v, "}}") {
+			return v, true
+		}
+		resolved, missingData := interpolateCompositePlaceholderString(v, selectedRow)
+		if missingData {
+			return nil, false
+		}
+		return resolved, true
+	case map[string]interface{}:
+		resolved := make(map[string]interface{})
+		for key, nested := range v {
+			resolvedValue, keep := resolveFieldValueWithData(nested, selectedRow)
+			if !keep {
+				continue
+			}
+			resolved[key] = resolvedValue
+		}
+		if len(resolved) == 0 {
+			return nil, false
+		}
+		return resolved, true
+	default:
+		return value, true
+	}
+}
+
+func interpolateStringWithData(val string, selectedRow map[string]string) string {
+	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
+		match := dataRegex.FindStringSubmatch(m)
+		if len(match) > 1 && selectedRow != nil {
+			if v, exist := selectedRow[match[1]]; exist {
+				return v
+			}
+		}
+		return m
+	})
+
+	val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
+		match := contextRegex.FindStringSubmatch(m)
+		if len(match) > 1 {
+			return ""
+		}
+		return m
+	})
+
+	return val
+}
+
+func (tc *TransactionCollection) interpolateCompositeFieldWithData(
+	composite *field.Composite,
+	prefix string,
+	selectedRow map[string]string,
+) error {
+	for key, subField := range composite.GetSubfields() {
+		if subField == nil {
+			continue
+		}
+
+		path := key
+		if prefix != "" {
+			path = prefix + "." + key
+		}
+
+		if nestedComposite, ok := subField.(*field.Composite); ok {
+			if err := tc.interpolateCompositeFieldWithData(nestedComposite, path, selectedRow); err != nil {
+				return err
+			}
+			continue
+		}
+
+		val, err := subField.String()
+		if err != nil || val == "" || !strings.Contains(val, "{{") || !strings.Contains(val, "}}") {
+			continue
+		}
+
+		resolved, missingData := interpolateCompositePlaceholderString(val, selectedRow)
+		if missingData {
+			if err := composite.UnsetPath(path); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := composite.MarshalPath(path, resolved); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func interpolateCompositePlaceholderString(val string, selectedRow map[string]string) (string, bool) {
+	missingData := false
+
+	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
+		match := dataRegex.FindStringSubmatch(m)
+		if len(match) > 1 && selectedRow != nil {
+			if v, exist := selectedRow[match[1]]; exist {
+				return v
+			}
+		}
+		missingData = true
+		return ""
+	})
+
+	val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
+		match := contextRegex.FindStringSubmatch(m)
+		if len(match) > 1 {
+			return ""
+		}
+		return m
+	})
+
+	return val, missingData
 }
 
 func (tc *TransactionCollection) findTransaction(name string) (*Transaction, error) {
@@ -175,7 +311,7 @@ func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transac
 	}
 
 	tc.setAutoFields(msg, t.parsedCache.autoFields, t)
-	tc.setStaticFields(msg, t.parsedCache.staticFields)
+	tc.setStaticFields(msg, t.parsedCache.staticFields, targetSpec)
 	tc.applyRandomValues(msg, t.Dataset)
 
 	return nil
@@ -209,15 +345,47 @@ func (tc *TransactionCollection) setAutoFields(
 	}
 }
 
-func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFields map[int][]byte) {
+func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFields map[int]interface{}, spec *iso8583.MessageSpec) {
 	for i, v := range staticFields {
-		if i == 0 {
-			msg.MTI(string(v))
-		} else {
-			msg.Field(i, string(v))
-		}
+		_ = tc.setFieldValue(msg, spec, i, v)
 	}
 }
+
+func (tc *TransactionCollection) setFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		if fieldID == 0 {
+			msg.MTI(v)
+			return nil
+		}
+		return msg.Field(fieldID, v)
+	case float64:
+		if math.Mod(v, 1) == 0 {
+			return tc.setFieldValue(msg, spec, fieldID, strconv.FormatInt(int64(v), 10))
+		}
+		return tc.setFieldValue(msg, spec, fieldID, strconv.FormatFloat(v, 'f', -1, 64))
+	case int:
+		return tc.setFieldValue(msg, spec, fieldID, strconv.Itoa(v))
+	case int64:
+		return tc.setFieldValue(msg, spec, fieldID, strconv.FormatInt(v, 10))
+	case bool:
+		return tc.setFieldValue(msg, spec, fieldID, strconv.FormatBool(v))
+	case map[string]interface{}:
+		return tc.setCompositeFieldValue(msg, spec, fieldID, v)
+	default:
+		return tc.setFieldValue(msg, spec, fieldID, fmt.Sprintf("%v", v))
+	}
+}
+
+func (tc *TransactionCollection) setCompositeFieldValue(
+	msg *iso8583.Message,
+	spec *iso8583.MessageSpec,
+	fieldID int,
+	value map[string]interface{},
+) error {
+	return utils.SetCompositeFieldValue(msg, spec, fieldID, value)
+}
+
 
 func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583.Message, keyword string) {
 	cleanKey := strings.TrimSpace(strings.ToLower(keyword))
@@ -338,4 +506,3 @@ func (tc *TransactionCollection) applyRandomValues(msg *iso8583.Message, dataset
 		}
 	}
 }
-

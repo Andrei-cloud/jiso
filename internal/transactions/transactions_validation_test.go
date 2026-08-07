@@ -1,13 +1,14 @@
 package transactions
 
 import (
-	json "github.com/goccy/go-json"
 	"os"
+
+	json "github.com/goccy/go-json"
+
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 )
-
-
 
 func (suite *TransactionCollectionSuite) TestValidate() {
 	// Test valid transaction collection (should pass)
@@ -146,3 +147,34 @@ func (suite *TransactionCollectionSuite) TestValidatePerTransactionSpec() {
 	suite.NotNil(tc)
 }
 
+func (suite *TransactionCollectionSuite) TestValidateBinaryFieldHexLengthUsesBytes() {
+	// DE61 in VISA spec is Binary length 18 bytes; analyzer emits it as a 36-char hex string.
+	data := []map[string]interface{}{
+		{
+			"type":        "transaction",
+			"name":        "binary_hex_len_ok",
+			"description": "Binary field hex length validation",
+			"fields": map[string]interface{}{
+				"0":  "0400",
+				"61": "000000000000000000000000000000001300",
+			},
+		},
+	}
+	dataBytes, err := json.Marshal(data)
+	suite.Require().NoError(err)
+	file, err := os.CreateTemp("", "binary_hex_len_transactions.json")
+	suite.Require().NoError(err)
+	defer os.Remove(file.Name())
+	_, err = file.Write(dataBytes)
+	suite.Require().NoError(err)
+
+	spec, err := utils.CreateSpecFromFile("../../specs/visa.json")
+	if err != nil {
+		spec, err = utils.CreateSpecFromFile("./specs/visa.json")
+	}
+	suite.Require().NoError(err)
+
+	tc, err := NewTransactionCollection(file.Name(), spec)
+	suite.NoError(err)
+	suite.NotNil(tc)
+}

@@ -1,8 +1,8 @@
 package db
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
+	json "github.com/goccy/go-json"
 
 	"github.com/moov-io/iso8583"
 	"zombiezen.com/go/sqlite"

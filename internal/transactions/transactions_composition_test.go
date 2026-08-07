@@ -1,17 +1,16 @@
 package transactions
 
 import (
-	json "github.com/goccy/go-json"
 	"os"
 	"path/filepath"
+
+	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/encoding"
 	"github.com/moov-io/iso8583/field"
 	"github.com/moov-io/iso8583/prefix"
 	"github.com/moov-io/iso8583/specs"
 )
-
-
 
 func (suite *TransactionCollectionSuite) TestCompose() {
 	msg, err := suite.tc.Compose("test1")
@@ -190,6 +189,80 @@ func (suite *TransactionCollectionSuite) TestCompositeField() {
 	suite.Equal("22004000000000000011 456", string(packed))
 }
 
+func (suite *TransactionCollectionSuite) TestComposeBitmapCompositeFromDatasetSubfields() {
+	spec := &iso8583.MessageSpec{
+		Name: "bitmap-composite-compose-test",
+		Fields: map[int]field.Field{
+			0: field.NewString(&field.Spec{Length: 4, Description: "MTI", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+			1: field.NewBitmap(&field.Spec{Length: 8, Description: "Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed}),
+			3: field.NewString(&field.Spec{Length: 6, Description: "Processing Code", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+			62: field.NewComposite(&field.Spec{
+				Length:      20,
+				Description: "Bitmap Composite",
+				Pref:        prefix.ASCII.LL,
+				Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Field 62.0 Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+				Subfields: map[string]field.Field{
+					"1": field.NewString(&field.Spec{Length: 2, Description: "Field 62.1", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+					"2": field.NewString(&field.Spec{Length: 2, Description: "Field 62.2", Enc: encoding.ASCII, Pref: prefix.ASCII.Fixed}),
+				},
+			}),
+		},
+	}
+
+	file, err := os.CreateTemp("", "bitmap_composite_dataset_*.json")
+	suite.Require().NoError(err)
+	defer os.Remove(file.Name())
+
+	content := []byte(`[
+		{
+			"type": "transaction",
+			"name": "bitmap-compose",
+			"dataset_name": "bitmap_dataset",
+			"fields": {
+				"0": "0100",
+				"3": "000000",
+				"62": {
+					"1": "{{data.DE_62_1}}",
+					"2": "{{data.DE_62_2}}"
+				}
+			}
+		},
+		{
+			"type": "dataset",
+			"name": "bitmap_dataset",
+			"data": [
+				{
+					"DE_62_2": "BB"
+				}
+			]
+		}
+	]`)
+	_, err = file.Write(content)
+	suite.Require().NoError(err)
+
+	tc, err := NewTransactionCollection(file.Name(), spec)
+	suite.Require().NoError(err)
+
+	msg, err := tc.Compose("bitmap-compose")
+	suite.Require().NoError(err)
+
+	composite, ok := msg.GetField(62).(*field.Composite)
+	suite.Require().True(ok)
+	subfields := composite.GetSubfields()
+	_, hasField1 := subfields["1"]
+	field2, hasField2 := subfields["2"]
+	suite.False(hasField1)
+	suite.True(hasField2)
+
+	value2, err := field2.String()
+	suite.Require().NoError(err)
+	suite.Equal("BB", value2)
+
+	packed, err := msg.Pack()
+	suite.Require().NoError(err)
+	suite.NotEmpty(packed)
+}
+
 func (suite *TransactionCollectionSuite) TestSpecWithCompositeField() {
 	specJSON := []byte(`{
 		"name": "ISO8583_DHI",
@@ -310,7 +383,6 @@ func (suite *TransactionCollectionSuite) TestSpecWithCompositeField() {
 	suite.Equal("22004000000000000011 456", string(packed))
 }
 
-
 func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
 	suite.True(isReservedAutoKeywordString("auto"))
 	suite.True(isReservedAutoKeywordString("$auto"))
@@ -401,4 +473,3 @@ func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
 	suite.Equal(100, routes[0].LatencyMs)
 	suite.Equal(25, routes[0].JitterMs)
 }
-
