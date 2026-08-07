@@ -338,6 +338,10 @@ func (m *Manager) SetMockMatcher(matcher RouteMatcher) {
 
 // handleInboundMessage handles messages received from the server
 
+func (m *Manager) SetDebugMode(debug bool) {
+	m.debugMode = debug
+}
+
 func (m *Manager) SetResponseTimeout(timeout time.Duration) {
 	m.responseTimeout = timeout
 }

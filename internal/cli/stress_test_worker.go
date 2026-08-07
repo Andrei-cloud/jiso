@@ -66,6 +66,16 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 	sendCmd.StartClock()
 
+	// Temporarily disable debugMode during stress test to silence SENDING MESSAGE / raw payloads
+	var origDebugMode bool
+	if cli != nil && cli.svc != nil {
+		origDebugMode = cli.svc.GetDebugMode()
+		cli.svc.SetDebugMode(false)
+		defer func() {
+			cli.svc.SetDebugMode(origDebugMode)
+		}()
+	}
+
 	w.mu.Lock()
 	w.startTime = time.Now()
 	w.mu.Unlock()
