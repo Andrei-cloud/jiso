@@ -44,7 +44,6 @@ type Manager struct {
 	responseTimeout    time.Duration
 }
 
-
 func NewManager(
 	host, port string,
 	spec *iso8583.MessageSpec,

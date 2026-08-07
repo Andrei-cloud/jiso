@@ -57,7 +57,6 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) ([]*VarianceResult, er
 	return ve.analyzeGeneralFlow(flow)
 }
 
-
 func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) interface{} {
 	if isNumericField(ve.spec, fieldID) && fieldID != 0 {
 		if num, err := strconv.ParseInt(val, 10, 64); err == nil {

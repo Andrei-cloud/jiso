@@ -1,8 +1,8 @@
 package reporter
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
+	json "github.com/goccy/go-json"
 	"os"
 
 	"jiso/internal/transactions"

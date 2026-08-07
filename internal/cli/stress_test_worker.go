@@ -15,7 +15,7 @@ import (
 	"jiso/internal/metrics"
 )
 
-// txStats holds the stats for an individual transaction type
+// txStats holds the stats for an individual transaction type.
 type txStats struct {
 	successful int
 	failed     int
@@ -23,7 +23,7 @@ type txStats struct {
 	latencies  []time.Duration
 }
 
-// stressTestWorker holds the state of a stress test worker
+// stressTestWorker holds the state of a stress test worker.
 type stressTestWorker struct {
 	id                  string
 	sessionID           string
@@ -56,7 +56,7 @@ type stressTestWorker struct {
 	originalMaxPending  int            // Store the original max pending requests to restore it later
 }
 
-// runStressTest implements the stress testing logic with TPS ramp-up
+// runStressTest implements the stress testing logic with TPS ramp-up.
 func (w *stressTestWorker) runStressTest(cli *CLI) {
 	sendCmd, ok := cli.commands["send"].(*command.SendCommand)
 	if !ok {
@@ -79,7 +79,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 		defer ticker.Stop()
 
 		var lastTotal int
-		var lastTime time.Time = time.Now()
+		lastTime := time.Now()
 		var smoothInstantTPS float64
 
 		for {
@@ -103,52 +103,43 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 				}
 
 				now := time.Now()
-				elapsed := now.Sub(startTime)
-				var avgTps float64
-				if elapsed.Seconds() > 0 {
-					avgTps = float64(total) / elapsed.Seconds()
-				}
-
-				deltaTime := now.Sub(lastTime).Seconds()
-				if deltaTime > 0 {
-					deltaTotal := total - lastTotal
-					inst := float64(deltaTotal) / deltaTime
+				elapsed := now.Sub(lastTime).Seconds()
+				if elapsed > 0 {
+					delta := total - lastTotal
+					instTPS := float64(delta) / elapsed
 					if smoothInstantTPS == 0 {
-						smoothInstantTPS = inst
+						smoothInstantTPS = instTPS
 					} else {
-						smoothInstantTPS = 0.7*inst + 0.3*smoothInstantTPS
+						smoothInstantTPS = 0.3*instTPS + 0.7*smoothInstantTPS
 					}
-				}
-				lastTotal = total
-				lastTime = now
+					lastTotal = total
+					lastTime = now
 
-				w.mu.Lock()
-				w.instantTps = smoothInstantTPS
-				if smoothInstantTPS > w.peakInstantTps {
-					w.peakInstantTps = smoothInstantTPS
+					w.mu.Lock()
+					w.instantTps = smoothInstantTPS
+					if smoothInstantTPS > w.peakInstantTps {
+						w.peakInstantTps = smoothInstantTPS
+					}
+					w.mu.Unlock()
 				}
-				w.mu.Unlock()
 
-				var timeStr string
-				var phase string
-				if elapsed < rampUpDuration {
-					phase = "Ramp-up"
-					timeStr = fmt.Sprintf("%s/%s", formatDuration(elapsed), formatDuration(rampUpDuration))
-				} else {
-					phase = "Maintain"
-					maintainElapsed := elapsed - rampUpDuration
+				totalElapsed := now.Sub(startTime)
+				var avgTps float64
+				if totalElapsed.Seconds() > 0 {
+					avgTps = float64(successful) / totalElapsed.Seconds()
+				}
+
+				phase := "RAMP-UP"
+				timeStr := fmt.Sprintf("%s/%s", formatDuration(totalElapsed), formatDuration(rampUpDuration))
+				if totalElapsed >= rampUpDuration {
+					phase = "TESTING"
+					maintainElapsed := totalElapsed - rampUpDuration
 					timeStr = fmt.Sprintf("%s/%s", formatDuration(maintainElapsed), formatDuration(duration))
 				}
 
-				fmt.Printf("\r[STEST] Phase: %-8s | Time: %s | Sent: %d (OK:%d, Err:%d) | Instant TPS: %.1f | Avg TPS: %.1f (Target: %.1f)\033[K",
-					phase,
-					timeStr,
-					total,
-					successful,
-					failed,
-					smoothInstantTPS,
-					avgTps,
-					currentTps,
+				fmt.Printf(
+					"\r[STEST] Phase: %-8s | Time: %s | Sent: %d (OK:%d, Err:%d) | Instant TPS: %.1f | Avg TPS: %.1f (Target: %.1f)\033[K",
+					phase, timeStr, total, successful, failed, smoothInstantTPS, avgTps, currentTps,
 				)
 			}
 		}
@@ -166,7 +157,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 
 	// Calculate initial worker-specific interval for step 0
 	// workerInterval = globalInterval * numWorkers
-	initialInterval := time.Duration(float64(time.Second) / startTps) * time.Duration(w.numWorkers)
+	initialInterval := time.Duration(float64(time.Second)/startTps) * time.Duration(w.numWorkers)
 	if initialInterval < time.Millisecond {
 		initialInterval = time.Millisecond
 	}
@@ -269,7 +260,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 							w.id,
 							w.consecutiveFailures,
 						)
-						w.cancel() // Stop all other workers by cancelling the context
+						w.cancel() // Stop all other workers by canceling the context
 					}
 					w.mu.Unlock()
 				}(name)
@@ -303,6 +294,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			workersWg.Wait()
 			w.requestsWg.Wait()
 			w.finishAndPrintSummary(cli)
+
 			return
 		default:
 		}
@@ -338,6 +330,7 @@ func (w *stressTestWorker) runStressTest(cli *CLI) {
 			workersWg.Wait()
 			w.requestsWg.Wait()
 			w.finishAndPrintSummary(cli)
+
 			return
 		case <-time.After(stepDuration):
 		}
@@ -481,11 +474,12 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	// Latency budgets
 	var satisfactory, tolerable, exceeded int
 	for _, d := range latenciesCopy {
-		if d <= timeout/2 {
+		switch {
+		case d <= timeout/2:
 			satisfactory++
-		} else if d <= timeout {
+		case d <= timeout:
 			tolerable++
-		} else {
+		default:
 			exceeded++
 		}
 	}
@@ -551,9 +545,21 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 	}
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("Latency Profile:\n")
-	fmt.Printf("  Min Latency:          %-15s Median (p50):          %-15s\n", minLatency.Round(time.Microsecond), p50.Round(time.Microsecond))
-	fmt.Printf("  Max Latency:          %-15s p90 Percentile:        %-15s\n", maxLatency.Round(time.Microsecond), p90.Round(time.Microsecond))
-	fmt.Printf("  Mean Latency:         %-15s p95 Percentile:        %-15s\n", meanLatency.Round(time.Microsecond), p95.Round(time.Microsecond))
+	fmt.Printf(
+		"  Min Latency:          %-15s Median (p50):          %-15s\n",
+		minLatency.Round(time.Microsecond),
+		p50.Round(time.Microsecond),
+	)
+	fmt.Printf(
+		"  Max Latency:          %-15s p90 Percentile:        %-15s\n",
+		maxLatency.Round(time.Microsecond),
+		p90.Round(time.Microsecond),
+	)
+	fmt.Printf(
+		"  Mean Latency:         %-15s p95 Percentile:        %-15s\n",
+		meanLatency.Round(time.Microsecond),
+		p95.Round(time.Microsecond),
+	)
 	fmt.Printf("                                       p99 Percentile:        %-15s\n", p99.Round(time.Microsecond))
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("Latency Budget (Timeout: %s):\n", timeout)
@@ -606,7 +612,7 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 		if tsTotal > 0 {
 			fmt.Printf("  Successful:           %-10d (%6.2f%%)\n", tsSuccessful, float64(tsSuccessful)/float64(tsTotal)*100.0)
 			fmt.Printf("  Failed:               %-10d (%6.2f%%)\n", tsFailed, float64(tsFailed)/float64(tsTotal)*100.0)
-			
+
 			// Response code breakdown
 			fmt.Printf("  Response Code Breakdown:\n")
 			if count, ok := tsRespCodes["00"]; ok {
@@ -643,13 +649,25 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 				tsP99 = percentile(tsLatencies, 0.99)
 			}
 			fmt.Printf("  Latency Profile:\n")
-			fmt.Printf("    Min Latency:        %-15s Median (p50):          %-15s\n", tsMin.Round(time.Microsecond), tsP50.Round(time.Microsecond))
-			fmt.Printf("    Max Latency:        %-15s p90 Percentile:        %-15s\n", tsMax.Round(time.Microsecond), tsP90.Round(time.Microsecond))
-			fmt.Printf("    Mean Latency:       %-15s p95 Percentile:        %-15s\n", tsMean.Round(time.Microsecond), tsP95.Round(time.Microsecond))
+			fmt.Printf(
+				"    Min Latency:        %-15s Median (p50):          %-15s\n",
+				tsMin.Round(time.Microsecond),
+				tsP50.Round(time.Microsecond),
+			)
+			fmt.Printf(
+				"    Max Latency:        %-15s p90 Percentile:        %-15s\n",
+				tsMax.Round(time.Microsecond),
+				tsP90.Round(time.Microsecond),
+			)
+			fmt.Printf(
+				"    Mean Latency:       %-15s p95 Percentile:        %-15s\n",
+				tsMean.Round(time.Microsecond),
+				tsP95.Round(time.Microsecond),
+			)
 			fmt.Printf("                                         p99 Percentile:        %-15s\n", tsP99.Round(time.Microsecond))
 		} else {
-			fmt.Printf("  Successful:           0          (  0.00%%)\n")
-			fmt.Printf("  Failed:               0          (  0.00%%)\n")
+			fmt.Printf("  Successful:           0          (  0.00%%\n")
+			fmt.Printf("  Failed:               0          (  0.00%%\n")
 		}
 		fmt.Println("--------------------------------------------------------------------------------")
 	}
@@ -675,7 +693,6 @@ func percentile(sorted []time.Duration, pct float64) time.Duration {
 	diff := idx - float64(low)
 	return time.Duration(float64(sorted[low]) + diff*float64(sorted[high]-sorted[low]))
 }
-
 
 func formatDuration(d time.Duration) string {
 	d = d.Round(time.Second)

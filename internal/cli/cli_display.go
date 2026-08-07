@@ -7,8 +7,12 @@ import (
 	"runtime"
 )
 
+type commandGroup struct {
+	category string
+	commands []string
+}
 
-
+// ClearTerminal clears the terminal output screen.
 func (cli *CLI) ClearTerminal() {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
@@ -22,14 +26,9 @@ func (cli *CLI) ClearTerminal() {
 	}
 }
 
-
+// PrintHelp prints available commands and their descriptions.
 func (cli *CLI) PrintHelp() {
 	cli.printHelp()
-}
-
-type commandGroup struct {
-	category string
-	commands []string
 }
 
 func (cli *CLI) printHelp() {
@@ -96,6 +95,7 @@ func (cli *CLI) printHelp() {
 	fmt.Println("\n================================================================================")
 }
 
+// PrintVersion prints the version of the JISO CLI.
 func (cli *CLI) PrintVersion() {
 	cli.printVersion()
 }
@@ -104,4 +104,3 @@ func (cli *CLI) printVersion() {
 	fmt.Printf("JISO CLI (JSON ISO8583) tool version %s\n", Version)
 	fmt.Println("(c) 2025 Andrey Babikov <andrei.babikov@gmail.com>")
 }
-

@@ -72,4 +72,3 @@ func (ac *AnalyzeCommand) Execute() error {
 
 	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, analyzer.TrafficDirection{Mode: "all"})
 }
-

@@ -10,6 +10,8 @@ import (
 )
 
 func TestStressTestWorkerMultiTransactions(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a dummy spec file
@@ -18,11 +20,15 @@ func TestStressTestWorkerMultiTransactions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp spec file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+	}()
 	_, _ = tmpFile.WriteString(spec)
 
-	svc, err := service.NewService("localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second)
+	svc, err := service.NewService(
+		"localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second,
+	)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
@@ -37,10 +43,10 @@ func TestStressTestWorkerMultiTransactions(t *testing.T) {
 	txNames := []string{"TX_A", "TX_B"}
 	workerID, err := cli.StartStressTestWorker(
 		txNames,
-		50,                   // target TPS
-		10*time.Millisecond,  // ramp up duration
-		10*time.Millisecond,  // test duration
-		2,                    // num workers
+		50,                  // target TPS
+		10*time.Millisecond, // ramp up duration
+		10*time.Millisecond, // test duration
+		2,                   // num workers
 	)
 	if err != nil {
 		t.Fatalf("Failed to start stress test worker: %v", err)
@@ -70,8 +76,9 @@ func TestStressTestWorkerMultiTransactions(t *testing.T) {
 
 	// Verify worker is stopped
 	stats := cli.GetWorkerStats()
-	if stats["active"].(int) != 0 {
-		t.Errorf("Expected 0 active workers after stop, got %d", stats["active"])
+	activeCount, _ := stats["active"].(int)
+	if activeCount != 0 {
+		t.Errorf("Expected 0 active workers after stop, got %d", activeCount)
 	}
 
 	// Check if stats are recorded per transaction type

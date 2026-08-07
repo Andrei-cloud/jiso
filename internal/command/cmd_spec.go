@@ -17,8 +17,10 @@ type SpecCommand struct {
 	Ctrl     CLIController
 }
 
-func (c *SpecCommand) Name() string     { return "spec" }
-func (c *SpecCommand) Synopsis() string { return "Select or load ISO8583 specification file (spec [<path>])" }
+func (c *SpecCommand) Name() string { return "spec" }
+func (c *SpecCommand) Synopsis() string {
+	return "Select or load ISO8583 specification file (spec [<path>])"
+}
 
 func (c *SpecCommand) SetArgs(args []string) {
 	if len(args) > 0 {

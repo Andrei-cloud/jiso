@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +20,7 @@ import (
 	"github.com/moov-io/iso8583"
 )
 
-var Version string = "v1.4.12"
+var Version = "v1.4.12"
 
 type CLI struct {
 	commands map[string]cmd.Command
@@ -46,11 +46,12 @@ func NewCLI() *CLI {
 	}
 }
 
-func (cli *CLI) AddCommand(command cmd.Command) {
+func (cli *CLI) AddCommand(command cmd.Command) error {
 	if _, exists := cli.commands[command.Name()]; exists {
-		log.Fatalf("Command '%s' is already registered", command.Name())
+		return fmt.Errorf("command '%s' is already registered", command.Name())
 	}
 	cli.commands[command.Name()] = command
+	return nil
 }
 
 func (cli *CLI) registerAllCommands() {
@@ -83,22 +84,22 @@ func (cli *CLI) registerAllCommands() {
 	cli.commands["reload"] = cli.factory.CreateReloadCommand()
 
 	// Core & Feature commands
-	cli.AddCommand(cli.factory.CreateListCommand())
-	cli.AddCommand(cli.factory.CreateInfoCommand())
-	cli.AddCommand(cli.factory.CreateSendCommand())
-	cli.AddCommand(cli.factory.CreateConnectCommand())
-	cli.AddCommand(cli.factory.CreateDisconnectCommand())
-	cli.AddCommand(cli.factory.CreateBackgroundCommand())
-	cli.AddCommand(cli.factory.CreateStressTestCommand())
-	cli.AddCommand(cli.factory.CreateDbStatsCommand())
+	_ = cli.AddCommand(cli.factory.CreateListCommand())
+	_ = cli.AddCommand(cli.factory.CreateInfoCommand())
+	_ = cli.AddCommand(cli.factory.CreateSendCommand())
+	_ = cli.AddCommand(cli.factory.CreateConnectCommand())
+	_ = cli.AddCommand(cli.factory.CreateDisconnectCommand())
+	_ = cli.AddCommand(cli.factory.CreateBackgroundCommand())
+	_ = cli.AddCommand(cli.factory.CreateStressTestCommand())
+	_ = cli.AddCommand(cli.factory.CreateDbStatsCommand())
 
 	scenarioCmd := cli.factory.CreateScenarioCommand()
 	cli.commands["scenario"] = scenarioCmd
 	cli.commands["scenarios"] = scenarioCmd
 
-	cli.AddCommand(cli.factory.CreateRunScenarioCommand())
-	cli.AddCommand(cli.factory.CreateInitSpecCommand())
-	cli.AddCommand(cli.factory.CreateInitTxCommand())
+	_ = cli.AddCommand(cli.factory.CreateRunScenarioCommand())
+	_ = cli.AddCommand(cli.factory.CreateInitSpecCommand())
+	_ = cli.AddCommand(cli.factory.CreateInitTxCommand())
 
 	targetCmd := cli.factory.CreateTargetCommand()
 	cli.commands["target"] = targetCmd
@@ -183,7 +184,9 @@ func (cli *CLI) Close() {
 	}
 
 	if cli.svc != nil {
-		cli.svc.Close()
+		if err := cli.svc.Close(); err != nil {
+			fmt.Printf("Warning: Failed to close service: %v\n", err)
+		}
 	}
 
 	// Save final transaction collection state
@@ -193,7 +196,9 @@ func (cli *CLI) Close() {
 
 	// Close database connection
 	db.StopAsyncLogger()
-	db.Close()
+	if err := db.Close(); err != nil {
+		fmt.Printf("Warning: Failed to close database: %v\n", err)
+	}
 }
 
 func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
@@ -207,6 +212,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			path = args[0]
 		}
 		cmdObj := &cmd.InitSpecCommand{OutputPath: path}
+
 		return cmdObj.Execute()
 	}
 	if subcommand == "init-tx" {
@@ -215,6 +221,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			path = args[0]
 		}
 		cmdObj := &cmd.InitTxCommand{OutputPath: path}
+
 		return cmdObj.Execute()
 	}
 
@@ -235,6 +242,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 		}
 		cmdObj := cmd.NewAnalyzeCommand(spec, tcRepo)
 		cmdObj.SetArgs(args)
+
 		return cmdObj.Execute()
 	}
 
@@ -242,10 +250,10 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 		specPath := cfg.GetConfig().GetSpec()
 		txPath := cfg.GetConfig().GetFile()
 		if specPath == "" {
-			return fmt.Errorf("spec file is required (use -spec-file)")
+			return errors.New("spec file is required (use -spec-file)")
 		}
 		if txPath == "" {
-			return fmt.Errorf("transaction file is required (use -file)")
+			return errors.New("transaction file is required (use -file)")
 		}
 		spec, err := utils.CreateSpecFromFile(specPath)
 		if err != nil {
@@ -256,6 +264,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			return err
 		}
 		cmdObj := &cmd.ScenarioCommand{Tc: tc}
+
 		return cmdObj.Execute()
 	}
 
@@ -289,7 +298,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 			subCmd = strings.ToLower(args[0])
 		}
 		if subCmd == "stop" {
-			return fmt.Errorf("'serve stop' is only applicable in interactive REPL mode. In standalone mode, stop the server with Ctrl+C")
+			return errors.New("'serve stop' is only applicable in interactive REPL mode. In standalone mode, stop the server with Ctrl+C")
 		}
 
 		if subCmd == "routes" || subCmd == "list" {
@@ -349,7 +358,7 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 		}
 
 		if scenarioName == "" {
-			return fmt.Errorf("scenario name is required")
+			return errors.New("scenario name is required")
 		}
 
 		// Connect first
@@ -362,13 +371,18 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 		if err := cli.svc.Connect(naps, header); err != nil {
 			return fmt.Errorf("failed to connect to server: %w", err)
 		}
-		defer cli.svc.Disconnect()
+		defer func() {
+			if err := cli.svc.Disconnect(); err != nil {
+				fmt.Printf("Warning: Disconnect error: %v\n", err)
+			}
+		}()
 
 		cmdObj := cli.factory.CreateRunScenarioCommand()
 		if runScenarioCmd, ok := cmdObj.(*cmd.RunScenarioCommand); ok {
 			runScenarioCmd.ScenarioName = scenarioName
 			runScenarioCmd.ReportPath = *reportPath
 		}
+
 		return cmdObj.Execute()
 	}
 

@@ -176,4 +176,3 @@ func GetTrxnDateTime() string {
 	// MMDDhhmmss format (month, day, hour, minute, second) - exactly 10 characters
 	return currentTime.Format("0102150405")
 }
-
