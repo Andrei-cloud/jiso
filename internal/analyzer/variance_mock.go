@@ -199,10 +199,33 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		matchFields["22"] = ve.formatFieldValue(22, flow.DE22)
 	}
 
-	// Standard ISO8583 response echo fields:
-	// DE 7 (DateTime), DE 11 (STAN), DE 25 (POS Condition), DE 32 (Acquiring Inst ID),
-	// DE 37 (RRN), DE 41 (Terminal ID), DE 42 (Merchant ID), DE 63 (Network ID), DE 115 (Trace Data)
-	echoFields := []int{7, 11, 25, 32, 37, 41, 42, 63, 115}
+	// Standard candidate echo fields in ISO8583 response flows:
+	// DE 2 (PAN), DE 3 (ProcCode), DE 4 (Amount), DE 7 (DateTime), DE 11 (STAN),
+	// DE 14 (Expiration), DE 22 (POS Entry Mode), DE 23 (Card Seq), DE 25 (POS Condition),
+	// DE 32 (Acquiring ID), DE 33 (Forwarding ID), DE 35 (Track 2), DE 37 (RRN),
+	// DE 41 (Terminal ID), DE 42 (Merchant ID), DE 43 (Merchant Name/Loc), DE 45 (Track 1),
+	// DE 49 (Currency), DE 63 (Network Data), DE 70 (Network Mgmt Code), DE 115 (Trace Data)
+	standardEchoIDs := []int{2, 3, 4, 7, 11, 14, 22, 23, 25, 32, 33, 35, 37, 41, 42, 43, 45, 49, 63, 70, 115}
+	presentEchoMap := make(map[int]bool)
+	for _, msg := range flow.Messages {
+		for _, fID := range standardEchoIDs {
+			if f := msg.GetField(fID); f != nil {
+				if val, err := f.String(); err == nil && val != "" {
+					presentEchoMap[fID] = true
+				}
+			}
+		}
+	}
+
+	echoFields := make([]int, 0, len(presentEchoMap))
+	for fID := range presentEchoMap {
+		echoFields = append(echoFields, fID)
+	}
+	sort.Ints(echoFields)
+	if len(echoFields) == 0 {
+		echoFields = []int{7, 11, 25, 32, 37, 41, 42, 63, 115}
+	}
+
 	echoSet := make(map[int]bool)
 	for _, id := range echoFields {
 		echoSet[id] = true
@@ -212,6 +235,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 	if strings.HasPrefix(flow.MTI, "08") {
 		type uniqueMsg struct {
 			respFields map[string]interface{}
+			f70Val     string
 			key        string
 		}
 
@@ -221,10 +245,11 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		for _, msg := range flow.Messages {
 			rf := make(map[string]interface{})
 			var keyParts []string
+			var f70ValStr string
 
 			var fIDs []int
 			for i, f := range msg.GetFields() {
-				if f == nil || i == 0 || i == 1 || echoSet[i] {
+				if f == nil || i == 0 || i == 1 {
 					continue
 				}
 				_, ok := extractFieldValueForTemplate(f)
@@ -246,6 +271,14 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 				}
 				fieldKey := fmt.Sprintf("%d", i)
 
+				if i == 70 {
+					f70ValStr = fmt.Sprintf("%v", extracted)
+				}
+
+				if echoSet[i] {
+					continue
+				}
+
 				if i == 38 {
 					rf[fieldKey] = "auth_code"
 					keyParts = append(keyParts, "38=auth_code")
@@ -263,7 +296,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 			key := strings.Join(keyParts, "|")
 			if !seenKeys[key] {
 				seenKeys[key] = true
-				uniqueList = append(uniqueList, uniqueMsg{respFields: rf, key: key})
+				uniqueList = append(uniqueList, uniqueMsg{respFields: rf, f70Val: f70ValStr, key: key})
 			}
 		}
 
@@ -273,8 +306,8 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 			for k, v := range matchFields {
 				mf[k] = v
 			}
-			if f70Val, ok := u.respFields["70"]; ok && f70Val != "" {
-				mf["70"] = ve.formatFieldValue(70, fmt.Sprintf("%v", f70Val))
+			if u.f70Val != "" {
+				mf["70"] = ve.formatFieldValue(70, u.f70Val)
 			}
 
 			txName := fmt.Sprintf("Mock Network Route %s #%d", flow.MTI, idx+1)

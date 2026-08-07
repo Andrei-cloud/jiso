@@ -380,7 +380,7 @@ func TestAnalyzeFlowToMockRoutes(t *testing.T) {
 	assert.Equal(t, "000000", route.MatchFields["3"])
 	assert.Equal(t, "021", route.MatchFields["22"])
 	assert.Equal(t, "0210", route.ResponseMTI)
-	assert.Equal(t, []int{7, 11, 25, 32, 37, 41, 42, 63, 115}, route.EchoFields)
+	assert.Equal(t, []int{3, 7, 11, 22}, route.EchoFields)
 	assert.Equal(t, "00", route.ResponseFields["39"])
 	assert.Equal(t, "auth_code", route.ResponseFields["38"])
 }

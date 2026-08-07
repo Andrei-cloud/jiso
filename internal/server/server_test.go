@@ -303,18 +303,23 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 	val39_1, _ := resp1.GetField(39).String()
 	assert.Equal(t, "00", val39_1)
 
-	// Test Network 0800 F70=301
-	msg0800_301 := iso8583.NewMessage(spec)
-	msg0800_301.MTI("0800")
-	msg0800_301.Field(7, "0725213835")
-	msg0800_301.Field(11, "008009")
-	msg0800_301.Field(70, "301")
+	// Test Financial 0200 matching & echoing card/track/fields
+	msg0200 := iso8583.NewMessage(spec)
+	msg0200.MTI("0200")
+	msg0200.Field(2, "9876543210987654")
+	msg0200.Field(3, "000000")
+	msg0200.Field(4, "2500")
+	msg0200.Field(7, "0725213835")
+	msg0200.Field(11, "008009")
+	msg0200.Field(14, "2601")
 
-	matched2, resp2, err := matcher.MatchAndCompose(msg0800_301, spec)
+	matched2, resp2, err := matcher.MatchAndCompose(msg0200, spec)
 	require.NoError(t, err)
 	require.NotNil(t, matched2)
 	val39_2, _ := resp2.GetField(39).String()
 	assert.Equal(t, "00", val39_2)
+	val2_2, _ := resp2.GetField(2).String()
+	assert.Equal(t, "9876543210987654", val2_2, "Card PAN DE 2 should be echoed from request")
 }
 
 func TestMatchAndComposeWithCompositeFields(t *testing.T) {
