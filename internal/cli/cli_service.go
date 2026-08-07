@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	cmd "jiso/internal/command"
@@ -13,8 +15,6 @@ import (
 
 	"github.com/moov-io/iso8583"
 )
-
-
 
 func (cli *CLI) InitService() error {
 	// Validate configuration before creating service
@@ -38,9 +38,14 @@ func (cli *CLI) InitService() error {
 
 	cli.setService(svc)
 
+	txPath := cfg.GetConfig().GetFile()
+	if strings.TrimSpace(txPath) != "" && strings.TrimSpace(cfg.GetConfig().GetSpec()) == "" {
+		return errors.New("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+	}
+
 	// Create transaction collection through the repository interface
 	tcInstance, err := transactions.NewTransactionCollection(
-		cfg.GetConfig().GetFile(),
+		txPath,
 		cli.getSpec(),
 	)
 	if err != nil {
@@ -62,7 +67,7 @@ func (cli *CLI) InitService() error {
 	return nil
 }
 
-// Prepare initializes the service and registers commands without starting the interactive shell
+// Prepare initializes the service and registers commands without starting the interactive shell.
 func (cli *CLI) Prepare() error {
 	if err := cli.InitService(); err != nil {
 		return err
@@ -75,7 +80,7 @@ func (cli *CLI) Prepare() error {
 	return nil
 }
 
-// Connect establishes a connection with the specified length type (non-interactive)
+// Connect establishes a connection with the specified length type (non-interactive).
 func (cli *CLI) Connect(lengthType string) error {
 	header, err := utils.SelectLength(lengthType)
 	if err != nil {
@@ -83,14 +88,10 @@ func (cli *CLI) Connect(lengthType string) error {
 	}
 
 	naps := (lengthType == "NAPS")
-	if err := cli.svc.Connect(naps, header); err != nil {
-		return err
-	}
-
-	return nil
+	return cli.svc.Connect(naps, header)
 }
 
-// Reload reloads the service and transaction specifications
+// Reload reloads the service and transaction specifications.
 func (cli *CLI) Reload() error {
 	fmt.Println("Reloading service...")
 
@@ -127,22 +128,28 @@ func (cli *CLI) Reload() error {
 	cli.registerAllCommands()
 
 	fmt.Println("Service reloaded successfully")
+
 	return nil
 }
 
-// ReloadTransactions reloads the transaction repository with the given transaction file path
+// ReloadTransactions reloads the transaction repository with the given transaction file path.
 func (cli *CLI) ReloadTransactions(txPath string) (int, error) {
+	specPath := strings.TrimSpace(cfg.GetConfig().GetSpec())
+	if specPath == "" {
+		return 0, errors.New("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+	}
+
+	selectedSpec, err := utils.CreateSpecFromFile(specPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to load selected specification from '%s': %w", specPath, err)
+	}
+
 	var spec *iso8583.MessageSpec
 	if cli.svc != nil {
 		spec = cli.svc.GetSpec()
 	}
 	if spec == nil {
-		specPath := cfg.GetConfig().GetSpec()
-		if specPath != "" {
-			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
-				spec = s
-			}
-		}
+		spec = selectedSpec
 	}
 
 	tcInstance, err := transactions.NewTransactionCollection(txPath, spec)
@@ -153,16 +160,16 @@ func (cli *CLI) ReloadTransactions(txPath string) (int, error) {
 	cli.tc = tcInstance
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
 	cli.registerAllCommands()
+
 	return len(tcInstance.ListNames()), nil
 }
 
-// Set service instance
+// Set service instance.
 func (cli *CLI) setService(svc *service.Service) {
 	cli.svc = svc
 }
 
-// Get message spec from service
+// Get message spec from service.
 func (cli *CLI) getSpec() *iso8583.MessageSpec {
 	return cli.svc.GetSpec()
 }
-

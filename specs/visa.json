@@ -1,1241 +1,3462 @@
 {
-    "name": "ISO8583_VISA",
-    "fields": {
-        "0": {
-            "type": "String",
-            "length": 4,
-            "description": "Message Type Indicator",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "1": {
-            "type": "Bitmap",
-            "length": 8,
-            "description": "Bitmap",
-            "enc": "Binary",
-            "prefix": "Binary.Fixed"
-        },
-        "2": {
-            "type": "Numeric",
-            "length": 19,
-            "description": "Primary Account Number",
-            "enc": "BCD",
-            "prefix": "Binary.L",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "3": {
-            "type": "Numeric",
-            "length": 6,
-            "description": "Processing Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "4": {
-            "type": "Numeric",
-            "length": 12,
-            "description": "Transaction Amount",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "5": {
-            "type": "Numeric",
-            "length": 12,
-            "description": "Settlement Amount",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "6": {
-            "type": "Numeric",
-            "length": 12,
-            "description": "Billing Amount",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "7": {
-            "type": "Numeric",
-            "length": 10,
-            "description": "Transmission Date & Time",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "8": {
-            "type": "Numeric",
-            "length": 8,
-            "description": "Billing Fee",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "9": {
-            "type": "Numeric",
-            "length": 8,
-            "description": "Settlement Conversion Rate",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "10": {
-            "type": "Numeric",
-            "length": 8,
-            "description": "Cardholder Billing Conversion Rate",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "11": {
-            "type": "Numeric",
-            "length": 6,
-            "description": "Systems Trace Audit Number (STAN)",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "12": {
-            "type": "Numeric",
-            "length": 6,
-            "description": "Local Transaction Time",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "13": {
-            "type": "Numeric",
-            "length": 4,
-            "description": "Local Transaction Date",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "14": {
-            "type": "Numeric",
-            "length": 4,
-            "description": "Expiration Date",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "15": {
-            "type": "Numeric",
-            "length": 4,
-            "description": "Date Settlement",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "16": {
-            "type": "Numeric",
-            "length": 4,
-            "description": "Date Conversion",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "17": {
-            "type": "Numeric",
-            "length": 4,
-            "description": "CAP DT",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "18": {
-            "type": "Numeric",
-            "length": 4,
-            "description": "Merchant Type",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "19": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Acquirer Country",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "20": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "PAN Extended Country Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "21": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "FWD Country Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "22": {
-            "type": "String",
-            "length": 4,
-            "description": "Point of Sale (POS) Entry Mode",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "23": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Card Sequence Number (CSN)",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "24": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "NTW INT ID",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "25": {
-            "type": "Numeric",
-            "length": 2,
-            "description": "POS Condition Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "26": {
-            "type": "Numeric",
-            "length": 2,
-            "description": "Point of Service PIN Capture Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "27": {
-            "type": "Numeric",
-            "length": 1,
-            "description": "AUTH RS LN",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "28": {
-            "type": "String",
-            "length": 9,
-            "description": "Transaction Fee Amount",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "32": {
-            "type": "Numeric",
-            "length": 11,
-            "description": "Acquiring Institution Identification Code",
-            "enc": "BCD",
-            "prefix": "Binary.L",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "33": {
-            "type": "Numeric",
-            "length": 11,
-            "description": "Forwarding Institution Identification Code",
-            "enc": "BCD",
-            "prefix": "Binary.L",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "34": {
-            "type": "String",
-            "length": 1000,
-            "description": "Electronic Commerce Data (TLV Format)",
-            "enc": "Binary",
-            "prefix": "Binary.LL"
-        },
-        "35": {
-            "type": "String",
-            "length": 37,
-            "description": "Track 2 Data",
-            "enc": "BCD",
-            "prefix": "Binary.L",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "37": {
-            "type": "String",
-            "length": 12,
-            "description": "Retrieval Reference Number",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "38": {
-            "type": "String",
-            "length": 6,
-            "description": "Authorization Identification Response",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "39": {
-            "type": "String",
-            "length": 2,
-            "description": "Response Code",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "40": {
-            "type": "String",
-            "length": 3,
-            "description": "SVC RSTRC",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "41": {
-            "type": "String",
-            "length": 8,
-            "description": "Card Acceptor Terminal Identification",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "42": {
-            "type": "String",
-            "length": 15,
-            "description": "Card Acceptor Identification Code",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "43": {
-            "type": "String",
-            "length": 40,
-            "description": "Card Acceptor Name/Location",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "44": {
-            "type": "String",
-            "length": 25,
-            "description": "Additional Response Data",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "45": {
-            "type": "String",
-            "length": 76,
-            "description": "Track 1 Data",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "48": {
-            "type": "String",
-            "length": 255,
-            "description": "Additional data (Private)",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "49": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Transaction Currency Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "50": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Settlement Currency Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "51": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Cardholder Billing Currency Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "52": {
-            "type": "Binary",
-            "length": 8,
-            "description": "PIN Data",
-            "enc": "Binary",
-            "prefix": "Binary.Fixed"
-        },
-        "53": {
-            "type": "Numeric",
-            "length": 16,
-            "description": "Security Related Control Information",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "54": {
-            "type": "String",
-            "length": 120,
-            "description": "Additional Amounts",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "55": {
-            "type": "Composite",
-            "length": 255,
-            "description": "ICC Related Data",
-            "prefix": "Binary.L",
-            "tag": {
-                "length": 1,
-                "enc": "Binary",
-                "sort": "StringsByHex",
-                "skipUnknownTLVTags": true,
-                "storeUnknownTLVTags": true
+  "name": "ISO8583_VISA",
+  "fields": {
+    "0": {
+      "type": "String",
+      "length": 4,
+      "description": "Message Type Indicator (MTI)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed"
+    },
+    "1": {
+      "type": "Bitmap",
+      "length": 8,
+      "description": "Primary Bitmap",
+      "enc": "Binary",
+      "prefix": "Binary.Fixed"
+    },
+    "2": {
+      "type": "Numeric",
+      "length": 19,
+      "description": "Primary Account Number (PAN)",
+      "enc": "BCD",
+      "prefix": "Binary.L"
+    },
+    "3": {
+      "type": "Numeric",
+      "length": 6,
+      "description": "Processing Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "4": {
+      "type": "Numeric",
+      "length": 12,
+      "description": "Transaction Amount",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
+    },
+    "5": {
+      "type": "Numeric",
+      "length": 12,
+      "description": "Settlement Amount",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "6": {
+      "type": "Numeric",
+      "length": 12,
+      "description": "Cardholder Billing Amount",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "7": {
+      "type": "Numeric",
+      "length": 10,
+      "description": "Transmission Date & Time (MMDDhhmmss)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "8": {
+      "type": "Numeric",
+      "length": 8,
+      "description": "Billing Fee Amount",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "9": {
+      "type": "Numeric",
+      "length": 8,
+      "description": "Settlement Conversion Rate",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "10": {
+      "type": "Numeric",
+      "length": 8,
+      "description": "Cardholder Billing Conversion Rate",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "11": {
+      "type": "Numeric",
+      "length": 6,
+      "description": "Systems Trace Audit Number (STAN)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "12": {
+      "type": "Numeric",
+      "length": 6,
+      "description": "Local Transaction Time (hhmmss)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "13": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Local Transaction Date (MMDD)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "14": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Expiration Date (YYMM)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "15": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Settlement Date",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "16": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Conversion Date",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "17": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Capture Date",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "18": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Merchant Type",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "19": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Acquiring Institution Country Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "20": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "PAN Extended Country Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "21": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Forwarding Institution Country Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "22": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Point of Sale Entry Mode",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "23": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Card Sequence Number (CSN)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "24": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Function Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "25": {
+      "type": "Numeric",
+      "length": 2,
+      "description": "Point of Service Condition Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "26": {
+      "type": "Numeric",
+      "length": 2,
+      "description": "Point of Service PIN Capture Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "27": {
+      "type": "Numeric",
+      "length": 1,
+      "description": "Authorizing ID Response Length",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "28": {
+      "type": "String",
+      "length": 9,
+      "description": "Amount Transaction Fee",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "29": {
+      "type": "Numeric",
+      "length": 9,
+      "description": "Settlement Fee Amounts",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "30": {
+      "type": "Numeric",
+      "length": 9,
+      "description": "Transaction Processing Fee Amount",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "31": {
+      "type": "Numeric",
+      "length": 9,
+      "description": "Settlement Processing Fee Amount",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "32": {
+      "type": "String",
+      "length": 11,
+      "description": "Acquiring Institution ID Code",
+      "enc": "BCD",
+      "prefix": "Binary.L"
+    },
+    "33": {
+      "type": "String",
+      "length": 11,
+      "description": "Forwarding Institution ID Code",
+      "enc": "BCD",
+      "prefix": "Binary.L"
+    },
+    "34": {
+      "type": "Composite",
+      "length": 1535,
+      "description": "Acceptance Environment Data (TLV Format)",
+      "prefix": "Binary.LL",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true,
+        "prefUnknownTLV": "Binary.LL"
+      },
+      "subfields": {
+        "01": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 01 Authentication Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "86": {
+              "type": "String",
+              "length": 8,
+              "description": "3-D Secure Protocol Version Number",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
             },
-            "subfields": {
-                "01": {
-                    "type": "Composite",
-                    "length": 252,
-                    "description": "Chip TLV data",
-                    "prefix": "Binary.LL",
-                    "tag": {
-                        "enc": "BerTLVTag",
-                        "sort": "StringsByHex",
-                        "skipUnknownTLVTags": true,
-                        "storeUnknownTLVTags": true
-                    },
-                    "subfields": {
-                        "5F2A": {
-                            "type": "Binary",
-                            "length": 2,
-                            "description": "Transaction Currency Code",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "82": {
-                            "type": "Binary",
-                            "length": 2,
-                            "description": "Application Interchange Profile",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "84": {
-                            "type": "Binary",
-                            "length": 16,
-                            "description": "Dedicated File Name",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "95": {
-                            "type": "Binary",
-                            "length": 5,
-                            "description": "Terminal Verification Result (TVR)",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9A": {
-                            "type": "Binary",
-                            "length": 3,
-                            "description": "Transaction Date",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9C": {
-                            "type": "Binary",
-                            "length": 1,
-                            "description": "Transaction Type",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F02": {
-                            "type": "Binary",
-                            "length": 6,
-                            "description": "Amount Authorized",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F03": {
-                            "type": "Binary",
-                            "length": 6,
-                            "description": "Amount Other",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F10": {
-                            "type": "Binary",
-                            "length": 32,
-                            "description": "Issuer Application Data (IAD)",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F1A": {
-                            "type": "Binary",
-                            "length": 2,
-                            "description": "Terminal Country Code",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F26": {
-                            "type": "Binary",
-                            "length": 8,
-                            "description": "Application Cryptogram (AC)",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F27": {
-                            "type": "Binary",
-                            "length": 1,
-                            "description": "Cryptogram Information Data",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F34": {
-                            "type": "Binary",
-                            "length": 3,
-                            "description": "Cardholder Verification Method (CVM) Results",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F36": {
-                            "type": "Binary",
-                            "length": 2,
-                            "description": "Application Transaction Counter (ATC)",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F37": {
-                            "type": "Binary",
-                            "length": 4,
-                            "description": "Unpredictable Number",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F33": {
-                            "type": "Binary",
-                            "length": 3,
-                            "description": "Terminal Capabilities",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "5F34": {
-                            "type": "Binary",
-                            "length": 1,
-                            "description": "Application PAN Sequence Number",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F0A": {
-                            "type": "Binary",
-                            "length": 200,
-                            "description": "Application Selection Data",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F35": {
-                            "type": "Binary",
-                            "length": 1,
-                            "description": "Terminal Type",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F1E": {
-                            "type": "Binary",
-                            "length": 8,
-                            "description": "Interface Device (IFD) Serial Number",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F53": {
-                            "type": "Binary",
-                            "length": 1,
-                            "description": "Transaction Category Code",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F09": {
-                            "type": "Binary",
-                            "length": 2,
-                            "description": "Application Version Number",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F41": {
-                            "type": "Binary",
-                            "length": 4,
-                            "description": "Transaction Sequence Counter",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "9F6E": {
-                            "type": "Binary",
-                            "length": 32,
-                            "description": "Third Party Data",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "C0": {
-                            "type": "Binary",
-                            "length": 8,
-                            "description": "New Pin Block",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "91": {
-                            "type": "Binary",
-                            "length": 16,
-                            "description": "Issuer Authentication Data",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "71": {
-                            "type": "Binary",
-                            "length": 127,
-                            "description": "Issuer Script Template 1",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        },
-                        "72": {
-                            "type": "Binary",
-                            "length": 127,
-                            "description": "Issuer Script Template 2",
-                            "enc": "Binary",
-                            "prefix": "BerTLV"
-                        }
-                    }
-                }
+            "89": {
+              "type": "String",
+              "length": 45,
+              "description": "3DS Browser IP Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "92": {
+              "type": "String",
+              "length": 45,
+              "description": "3DS App IP Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "93": {
+              "type": "String",
+              "length": 2,
+              "description": "Shipping Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C0": {
+              "type": "String",
+              "length": 2,
+              "description": "Authentication Program",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C1": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Authentication Data Quality Indicator",
+              "enc": "Binary",
+              "prefix": "BerTLV"
             }
+          }
+        },
+        "02": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 02 Acceptance Environment Additional Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "80": {
+              "type": "String",
+              "length": 1,
+              "description": "Initiating Party Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "87": {
+              "type": "String",
+              "length": 1,
+              "description": "Acceptance Environment Authentication Outage Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "88": {
+              "type": "String",
+              "length": 1,
+              "description": "Payment Credential Merchant Relationship Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C0": {
+              "type": "String",
+              "length": 99,
+              "description": "Acceptor Street Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C1": {
+              "type": "String",
+              "length": 80,
+              "description": "Acquirer Name",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C2": {
+              "type": "String",
+              "length": 99,
+              "description": "Acquirer Street Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C3": {
+              "type": "String",
+              "length": 50,
+              "description": "Acquirer City Name",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C4": {
+              "type": "String",
+              "length": 2,
+              "description": "Acquirer State/Province Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C5": {
+              "type": "String",
+              "length": 10,
+              "description": "Acquirer Postal Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C6": {
+              "type": "String",
+              "length": 3,
+              "description": "Acquirer Country Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C7": {
+              "type": "String",
+              "length": 256,
+              "description": "Acceptor URL Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C8": {
+              "type": "String",
+              "length": 16,
+              "description": "Acceptor Customer Service Phone Number",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C9": {
+              "type": "String",
+              "length": 16,
+              "description": "Acceptor Phone Number",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CA": {
+              "type": "String",
+              "length": 256,
+              "description": "Acceptor Additional Contact Information",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CB": {
+              "type": "String",
+              "length": 35,
+              "description": "Acceptor Tax ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CC": {
+              "type": "String",
+              "length": 8,
+              "description": "Acceptor Partner ID Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CD": {
+              "type": "String",
+              "length": 50,
+              "description": "Acceptor Service Location City Name",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CE": {
+              "type": "String",
+              "length": 3,
+              "description": "Acceptor Service Location State/Province Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CF": {
+              "type": "String",
+              "length": 3,
+              "description": "Acceptor Service Location Country Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "D0": {
+              "type": "String",
+              "length": 10,
+              "description": "Acceptor Service Location Postal Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "D1": {
+              "type": "String",
+              "length": 99,
+              "description": "Payment Facilitator Street Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "D2": {
+              "type": "String",
+              "length": 50,
+              "description": "Payment Facilitator City Name",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "D3": {
+              "type": "String",
+              "length": 3,
+              "description": "Payment Facilitator State/Province Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "D4": {
+              "type": "String",
+              "length": 10,
+              "description": "Payment Facilitator Postal Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "D5": {
+              "type": "String",
+              "length": 3,
+              "description": "Payment Facilitator Country Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "03": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 03 Additional Service Request Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "C0": {
+              "type": "String",
+              "length": 1,
+              "description": "Account Name Request",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "04": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 04 Additional Service Result Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "C0": {
+              "type": "String",
+              "length": 2,
+              "description": "Account Name Request Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C2": {
+              "type": "String",
+              "length": 2,
+              "description": "Tran ID Service Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C4": {
+              "type": "String",
+              "length": 2,
+              "description": "Full Name Account Match Decision",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C8": {
+              "type": "String",
+              "length": 2,
+              "description": "Last Name Account Match Decision",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C9": {
+              "type": "String",
+              "length": 2,
+              "description": "Middle Name Account Match Decision",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "CA": {
+              "type": "String",
+              "length": 2,
+              "description": "First Name Account Match Decision",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "06": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 06 Device Platform Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "86": {
+              "type": "String",
+              "length": 64,
+              "description": "Device ID (Platform)",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "87": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Device Type (Platform)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "07": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 07 Device Common Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "8D": {
+              "type": "String",
+              "length": 37,
+              "description": "SDK App ID (Common)",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
         },
         "56": {
-            "type": "Binary",
-            "length": 255,
-            "description": "Customer Related Data",
-            "enc": "Binary",
-            "prefix": "Binary.L"
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 56 Supplemental Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "81": {
+              "type": "String",
+              "length": 32,
+              "description": "Session ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "9F1F": {
+              "type": "String",
+              "length": 39,
+              "description": "Consumer Device IP Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "9F20": {
+              "type": "Binary",
+              "length": 1,
+              "description": "IP Address Velocity Count",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F21": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Device ID Velocity Count",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F22": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Visa Risk-based Authentication Score",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F28": {
+              "type": "Binary",
+              "length": 1,
+              "description": "CAVV Version Number",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F29": {
+              "type": "Binary",
+              "length": 1,
+              "description": "CAVV Type",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "DF1F": {
+              "type": "String",
+              "length": 2,
+              "description": "VCAS Score",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF20": {
+              "type": "String",
+              "length": 1,
+              "description": "CYBS DM Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF21": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Secure Remote Commerce",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "4A": {
+          "type": "Composite",
+          "length": 1535,
+          "description": "Dataset 4A EU PSD2 Strong Consumer Authentication and Common and Secure Communication",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "84": {
+              "type": "String",
+              "length": 1,
+              "description": "Trusted Merchant Exemption Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "87": {
+              "type": "String",
+              "length": 1,
+              "description": "Low Value Exemption Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "88": {
+              "type": "String",
+              "length": 1,
+              "description": "Secure Corporate Payment Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "89": {
+              "type": "String",
+              "length": 1,
+              "description": "Transaction Risk Analysis Exemption Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8A": {
+              "type": "String",
+              "length": 1,
+              "description": "Delegated Authentication Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8C": {
+              "type": "String",
+              "length": 80,
+              "description": "Reasons For Not Honoring Exemptions",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "C0": {
+              "type": "String",
+              "length": 2,
+              "description": "TRA Score",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        }
+      }
+    },
+    "35": {
+      "type": "Track2",
+      "length": 37,
+      "description": "Track 2 Data",
+      "enc": "ASCIIToHex",
+      "prefix": "Binary.L"
+    },
+    "36": {
+      "type": "String",
+      "length": 104,
+      "description": "Track 3 Data",
+      "enc": "ASCIIToHex",
+      "prefix": "Binary.L"
+    },
+    "37": {
+      "type": "String",
+      "length": 12,
+      "description": "Retrieval Reference Number (RRN)",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "38": {
+      "type": "String",
+      "length": 6,
+      "description": "Authorization Identification Response",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "39": {
+      "type": "String",
+      "length": 2,
+      "description": "Response Code",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "40": {
+      "type": "String",
+      "length": 3,
+      "description": "Service Restriction Code",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "41": {
+      "type": "String",
+      "length": 8,
+      "description": "Card Acceptor Terminal ID",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "42": {
+      "type": "String",
+      "length": 15,
+      "description": "Card Acceptor ID Code (Merchant ID)",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "43": {
+      "type": "String",
+      "length": 40,
+      "description": "Card Acceptor Name/Location",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "44": {
+      "type": "String",
+      "length": 25,
+      "description": "Additional Response Data",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "45": {
+      "type": "String",
+      "length": 76,
+      "description": "Track 1 Data",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "46": {
+      "type": "String",
+      "length": 999,
+      "description": "Additional Data - ISO",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "47": {
+      "type": "Binary",
+      "length": 999,
+      "description": "Additional Data - National",
+      "enc": "Binary",
+      "prefix": "Binary.L"
+    },
+    "48": {
+      "type": "Composite",
+      "length": 255,
+      "description": "Additional Data - Private",
+      "prefix": "Binary.L",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true,
+        "prefUnknownTLV": "None.Fixed"
+      },
+      "subfields": {
+        "4F": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 27 Commercial Card Type Request/Response payload (after '!')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        },
+        "50": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 14 Dynamic Key Exchange Working Key Check Value payload (after '&')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        },
+        "5B": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 26/36 payload (after '$')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        },
+        "5C": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 2 Unformatted Text payload (after '*')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        },
+        "7B": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 9a Text Messages payload (after '#')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        },
+        "D4": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 38 Additional Data for OCTs with BAI of MP payload (after 'M')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        },
+        "D6": {
+          "type": "String",
+          "length": 254,
+          "description": "Usage 37 OCT payload (after 'O')",
+          "enc": "EBCDIC",
+          "prefix": "None.Fixed"
+        }
+      }
+    },
+    "49": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Currency Code (ISO 4217)",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "50": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Currency Code Settlement",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "51": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Currency Code Cardholder",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "52": {
+      "type": "Binary",
+      "length": 8,
+      "description": "PIN Data",
+      "enc": "Binary",
+      "prefix": "Binary.Fixed"
+    },
+    "53": {
+      "type": "String",
+      "length": 16,
+      "description": "Security Related Control Information",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed"
+    },
+    "54": {
+      "type": "String",
+      "length": 120,
+      "description": "Additional Amounts",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "55": {
+      "type": "Composite",
+      "length": 255,
+      "description": "ICC-Related Data",
+      "prefix": "Binary.L",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true
+      },
+      "subfields": {
+        "00": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Usage 2 dataset payload (ISO-based TLV elements)",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "01": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Usage 1 dataset payload (VSDC TLV elements)",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "71": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Issuer Script Template 1",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "72": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Issuer Script Template 2",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "82": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Application Interchange Profile",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "84": {
+              "type": "Binary",
+              "length": 16,
+              "description": "Dedicated File Name (AID)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "91": {
+              "type": "Binary",
+              "length": 17,
+              "description": "Issuer Authentication Data",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "95": {
+              "type": "Binary",
+              "length": 5,
+              "description": "Terminal Verification Results",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9A": {
+              "type": "Binary",
+              "length": 3,
+              "description": "Transaction Date",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9C": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Transaction Type",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "C0": {
+              "type": "Binary",
+              "length": 8,
+              "description": "Secondary PIN Block",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "5F2A": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Transaction Currency Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F02": {
+              "type": "Binary",
+              "length": 6,
+              "description": "Amount, Authorized",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F03": {
+              "type": "Binary",
+              "length": 6,
+              "description": "Amount, Other",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F10": {
+              "type": "Binary",
+              "length": 32,
+              "description": "Issuer Application Data",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F1A": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Terminal Country Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F26": {
+              "type": "Binary",
+              "length": 8,
+              "description": "Application Cryptogram",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F27": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Cryptogram Information Data",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F33": {
+              "type": "Binary",
+              "length": 3,
+              "description": "Terminal Capability Profile",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F35": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Terminal Type",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F36": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Application Transaction Counter",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F37": {
+              "type": "Binary",
+              "length": 4,
+              "description": "Unpredictable Number",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F5B": {
+              "type": "Binary",
+              "length": 21,
+              "description": "Issuer Script Results",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F6E": {
+              "type": "Binary",
+              "length": 4,
+              "description": "Form Factor Indicator",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "9F7C": {
+              "type": "Binary",
+              "length": 33,
+              "description": "Customer Exclusive Data",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        }
+      }
+    },
+    "56": {
+      "type": "Binary",
+      "length": 35,
+      "description": "Parameter Data",
+      "enc": "Binary",
+      "prefix": "Binary.LL"
+    },
+    "57": {
+      "type": "String",
+      "length": 999,
+      "description": "Track 2 Data Extended",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "58": {
+      "type": "String",
+      "length": 179,
+      "description": "Authorising Agent Institution ID Code",
+      "enc": "ASCII",
+      "prefix": "ASCII.LL"
+    },
+    "59": {
+      "type": "String",
+      "length": 999,
+      "description": "Postal Code",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "60": {
+      "type": "Binary",
+      "length": 255,
+      "description": "POS Capture Data",
+      "enc": "Binary",
+      "prefix": "Binary.L"
+    },
+    "61": {
+      "type": "Binary",
+      "length": 18,
+      "description": "Other Amounts",
+      "enc": "Binary",
+      "prefix": "Binary.L"
+    },
+    "62": {
+      "type": "Composite",
+      "length": 255,
+      "description": "Custom Payment Service Fields (bitmap format)",
+      "prefix": "Binary.L",
+      "bitmap": {
+        "type": "Bitmap",
+        "length": 8,
+        "description": "Field 62.0 Bitmap",
+        "enc": "Binary",
+        "prefix": "Binary.Fixed",
+        "disableAutoExpand": true
+      },
+      "subfields": {
+        "1": {
+          "type": "String",
+          "length": 1,
+          "description": "62.1 Authorization Characteristics Indicator",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "2": {
+          "type": "Numeric",
+          "length": 15,
+          "description": "62.2 Transaction Identifier",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed",
+          "padding": { "type": "Left", "pad": "0" }
+        },
+        "3": {
+          "type": "String",
+          "length": 4,
+          "description": "62.3 Validation Code",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "4": {
+          "type": "String",
+          "length": 1,
+          "description": "62.4 Market-Specific Data Identifier",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "5": {
+          "type": "Numeric",
+          "length": 2,
+          "description": "62.5 Duration",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed",
+          "padding": { "type": "Left", "pad": "0" }
+        },
+        "6": {
+          "type": "String",
+          "length": 1,
+          "description": "62.6 Reserved",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "7": {
+          "type": "String",
+          "length": 26,
+          "description": "62.7 Purchase Identifier",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "16": {
+          "type": "String",
+          "length": 2,
+          "description": "62.16 Reserved",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "17": {
+          "type": "String",
+          "length": 15,
+          "description": "62.17 Gateway Transaction Identifier / Mastercard Interchange Compliance",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "20": {
+          "type": "Binary",
+          "length": 5,
+          "description": "62.20 Merchant Verification Value",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "21": {
+          "type": "String",
+          "length": 4,
+          "description": "62.21 Online Risk Assessment Risk Score and Reason Codes",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "22": {
+          "type": "String",
+          "length": 6,
+          "description": "62.22 Online Risk Assessment Condition Codes",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "23": {
+          "type": "String",
+          "length": 2,
+          "description": "62.23 Product ID",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "24": {
+          "type": "String",
+          "length": 6,
+          "description": "62.24 Program Identifier",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "25": {
+          "type": "String",
+          "length": 1,
+          "description": "62.25 Spend Qualified Indicator",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "26": {
+          "type": "String",
+          "length": 1,
+          "description": "62.26 Account Status",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        }
+      }
+    },
+    "63": {
+      "type": "Composite",
+      "length": 255,
+      "description": "V.I.P. Private-Use Field (bitmap format)",
+      "prefix": "Binary.L",
+      "bitmap": {
+        "type": "Bitmap",
+        "length": 3,
+        "description": "Field 63.0 Bitmap",
+        "enc": "Binary",
+        "prefix": "Binary.Fixed",
+        "disableAutoExpand": true
+      },
+      "subfields": {
+        "1": {
+          "type": "Numeric",
+          "length": 4,
+          "description": "63.1 Network Identification Code",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed",
+          "padding": { "type": "Left", "pad": "0" }
+        },
+        "2": {
+          "type": "Numeric",
+          "length": 4,
+          "description": "63.2 Time (Preauth Time Limit)",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed",
+          "padding": { "type": "Left", "pad": "0" }
+        },
+        "3": {
+          "type": "Numeric",
+          "length": 4,
+          "description": "63.3 Message Reason Code",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed",
+          "padding": { "type": "Left", "pad": "0" }
+        },
+        "4": {
+          "type": "Numeric",
+          "length": 4,
+          "description": "63.4 STIP/Switch Reason Code",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed",
+          "padding": { "type": "Left", "pad": "0" }
+        },
+        "19": {
+          "type": "String",
+          "length": 3,
+          "description": "63.19 Fee Program Indicator",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        }
+      }
+    },
+    "64": {
+      "type": "Binary",
+      "length": 8,
+      "description": "Message Authentication Code (MAC)",
+      "enc": "Binary",
+      "prefix": "Binary.Fixed"
+    },
+    "65": {
+      "type": "Bitmap",
+      "length": 8,
+      "description": "Secondary Bitmap",
+      "enc": "Binary",
+      "prefix": "Binary.Fixed"
+    },
+    "66": {
+      "type": "Numeric",
+      "length": 1,
+      "description": "Settlement Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "67": {
+      "type": "Numeric",
+      "length": 2,
+      "description": "Extended Payment Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "68": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Receiving Institution Country Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "69": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Settlement Institution Country Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "70": {
+      "type": "Numeric",
+      "length": 3,
+      "description": "Network Management Information Code",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "71": {
+      "type": "Numeric",
+      "length": 4,
+      "description": "Message Number",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "72": {
+      "type": "String",
+      "length": 998,
+      "description": "Message Number Last",
+      "enc": "ASCII",
+      "prefix": "Binary.L"
+    },
+    "73": {
+      "type": "Numeric",
+      "length": 6,
+      "description": "Action Date",
+      "enc": "BCD",
+      "prefix": "BCD.Fixed",
+      "padding": { "type": "Left", "pad": "0" }
+    },
+    "74": {
+      "type": "String",
+      "length": 10,
+      "description": "Credits, Number and Amount",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "75": {
+      "type": "String",
+      "length": 10,
+      "description": "Debits, Number and Amount",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "76": {
+      "type": "String",
+      "length": 10,
+      "description": "Credits, Reversal Number and Amount",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "77": {
+      "type": "String",
+      "length": 10,
+      "description": "Debits, Reversal Number and Amount",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "78": {
+      "type": "String",
+      "length": 10,
+      "description": "Transfer, Number and Amount",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "79": {
+      "type": "String",
+      "length": 10,
+      "description": "Inquiries, Number and Amount",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "80": {
+      "type": "String",
+      "length": 10,
+      "description": "Authorization Counts",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "81": {
+      "type": "String",
+      "length": 12,
+      "description": "Net Reconciliation",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "82": {
+      "type": "String",
+      "length": 16,
+      "description": "Merchant Category Code",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "83": {
+      "type": "String",
+      "length": 12,
+      "description": "Settlement Institution ID Code",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "84": {
+      "type": "String",
+      "length": 15,
+      "description": "Card Acceptor Location ID",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "85": {
+      "type": "String",
+      "length": 8,
+      "description": "Card Acceptor ID Code 2",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "86": {
+      "type": "String",
+      "length": 16,
+      "description": "Authorising Agent ID Code",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "87": {
+      "type": "String",
+      "length": 16,
+      "description": "Originating DFI Identification",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "88": {
+      "type": "String",
+      "length": 16,
+      "description": "Receiving DFI Identification",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "89": {
+      "type": "String",
+      "length": 16,
+      "description": "File Update Code",
+      "enc": "ASCII",
+      "prefix": "ASCII.Fixed"
+    },
+    "90": {
+      "type": "Composite",
+      "length": 21,
+      "description": "Original Data Elements (positional composite)",
+      "prefix": "BCD.Fixed",
+      "tag": {
+        "sort": "StringsByInt"
+      },
+      "subfields": {
+        "1": {
+          "type": "String",
+          "length": 4,
+          "description": "Original MTI",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed"
+        },
+        "2": {
+          "type": "String",
+          "length": 6,
+          "description": "Original STAN",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed"
+        },
+        "3": {
+          "type": "String",
+          "length": 10,
+          "description": "Original Transmission Date & Time",
+          "enc": "BCD",
+          "prefix": "BCD.Fixed"
+        },
+        "4": {
+          "type": "Binary",
+          "length": 6,
+          "description": "Original Acquiring Institution ID packed segment (includes shared boundary nibble)",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "5": {
+          "type": "Binary",
+          "length": 6,
+          "description": "Original Forwarding Institution ID packed tail segment",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        }
+      }
+    },
+    "91": {
+      "type": "String",
+      "length": 1,
+      "description": "File Update Code",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "92": {
+      "type": "String",
+      "length": 2,
+      "description": "Issuer Authentication Data",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "93": {
+      "type": "String",
+      "length": 5,
+      "description": "Response Indicator",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "94": {
+      "type": "String",
+      "length": 7,
+      "description": "Service Indicator",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "95": {
+      "type": "Composite",
+      "length": 42,
+      "description": "Replacement Amounts",
+      "prefix": "EBCDIC.Fixed",
+      "tag": {
+        "sort": "StringsByInt"
+      },
+      "subfields": {
+        "1": {
+          "type": "Numeric",
+          "length": 12,
+          "description": "Actual Amount, Transaction",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed",
+          "padding": {
+            "type": "Left",
+            "pad": "0"
+          }
+        },
+        "2": {
+          "type": "Numeric",
+          "length": 12,
+          "description": "Actual Amount, Settlement (unused, zero-fill)",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed",
+          "padding": {
+            "type": "Left",
+            "pad": "0"
+          }
+        },
+        "3": {
+          "type": "Numeric",
+          "length": 9,
+          "description": "Actual Amount, Transaction Fee (unused, zero-fill)",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed",
+          "padding": {
+            "type": "Left",
+            "pad": "0"
+          }
+        },
+        "4": {
+          "type": "Numeric",
+          "length": 9,
+          "description": "Actual Amount, Settlement Fee (unused, zero-fill)",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed",
+          "padding": {
+            "type": "Left",
+            "pad": "0"
+          }
+        }
+      }
+    },
+    "96": {
+      "type": "Binary",
+      "length": 8,
+      "description": "Message Security Code",
+      "enc": "Binary",
+      "prefix": "Binary.Fixed"
+    },
+    "97": {
+      "type": "String",
+      "length": 17,
+      "description": "Amount Net Settlement",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "98": {
+      "type": "String",
+      "length": 25,
+      "description": "Payee/Payor ID",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.Fixed"
+    },
+    "99": {
+      "type": "String",
+      "length": 11,
+      "description": "Settlement Institution ID Code",
+      "enc": "BCD",
+      "prefix": "Binary.L"
+    },
+    "100": {
+      "type": "String",
+      "length": 11,
+      "description": "Receiving Institution ID Code",
+      "enc": "BCD",
+      "prefix": "Binary.L"
+    },
+    "101": {
+      "type": "String",
+      "length": 17,
+      "description": "File Name",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "102": {
+      "type": "String",
+      "length": 28,
+      "description": "Account Identification 1",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "103": {
+      "type": "String",
+      "length": 28,
+      "description": "Account Identification 2",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "104": {
+      "type": "Composite",
+      "length": 255,
+      "description": "Transaction Description and Transaction-Specific Data (Usage 2 TLV dataset wrapper)",
+      "prefix": "Binary.L",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true
+      },
+      "subfields": {
+        "1A": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 1A Fleet Line Item Detail",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "02": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 02 Purchase Line-Item Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "18": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 18 Recurring Payment",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "56": {
+          "type": "String",
+          "length": 255,
+          "description": "Dataset 56 Payment Facilitator Data",
+          "enc": "EBCDIC",
+          "prefix": "Binary.LL"
+        },
+        "57": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 57 Business Application Identifier / Related Transaction Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "String",
+              "length": 2,
+              "description": "BAI",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "String",
+              "length": 1,
+              "description": "Source of Funds",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "80": {
+              "type": "String",
+              "length": 2,
+              "description": "Service Processing Type",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "81": {
+              "type": "Binary",
+              "length": 6,
+              "description": "Deferred OCT Date/Time",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "82": {
+              "type": "String",
+              "length": 12,
+              "description": "Purpose of Payment",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "83": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Maximum Processing Date (yddd)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "58": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 58 Benefit Supporting Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
         "59": {
-            "type": "String",
-            "length": 14,
-            "description": "Geographic Data",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 59 Promotion Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "5B": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 5B Visa Assessment Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "5C": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 5C Commercial Card Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "5D": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 5D Installment Payment Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "5F": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 5F Sender Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
         "60": {
-            "type": "Binary",
-            "length": 12,
-            "description": "Additional POS Information",
-            "enc": "Binary",
-            "prefix": "Binary.L"
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 60 Airline Industry-Specific Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
         "61": {
-            "type": "Binary",
-            "length": 36,
-            "description": "Other Amounts",
-            "enc": "Binary",
-            "prefix": "Binary.L"
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 61 Car Rental Industry-Specific Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
         "62": {
-            "type": "Composite",
-            "length": 255,
-            "description": "Custom Payment Service Fields",
-            "prefix": "Binary.L",
-            "bitmap": {
-                "type": "Bitmap",
-                "length": 8,
-                "description": "Bitmap",
-                "enc": "Binary",
-                "prefix": "Binary.Fixed",
-                "disableAutoExpand": true
-            },
-            "subfields": {
-                "1": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "Authorization Characteristics Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "2": {
-                    "type": "Numeric",
-                    "length": 15,
-                    "description": "Transaction Identifier",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "3": {
-                    "type": "String",
-                    "length": 4,
-                    "description": "Validation Code",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "4": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "Market-Specific Data Identifier",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "5": {
-                    "type": "Numeric",
-                    "length": 2,
-                    "description": "Duration",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "6": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "Prestigious Property Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "7": {
-                    "type": "String",
-                    "length": 26,
-                    "description": "PURCH ID",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "8": {
-                    "type": "Numeric",
-                    "length": 6,
-                    "description": "DATE",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "9": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "NO SHOW",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "10": {
-                    "type": "Numeric",
-                    "length": 6,
-                    "description": "XTRA CHRGS",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "11": {
-                    "type": "Numeric",
-                    "length": 2,
-                    "description": "MULT CLR",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "12": {
-                    "type": "Numeric",
-                    "length": 2,
-                    "description": "MULT CLRCT",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "13": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "RSTRCT TKT",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "14": {
-                    "type": "Numeric",
-                    "length": 12,
-                    "description": "TLT AMT AU",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "15": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "REQ PAYMNT",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "16": {
-                    "type": "String",
-                    "length": 2,
-                    "description": "CHGBK RGHT",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "17": {
-                    "type": "String",
-                    "length": 15,
-                    "description": "Gateway Transaction Identifier",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "18": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "TRXN ID",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "19": {
-                    "type": "String",
-                    "length": 2,
-                    "description": "ECOM IND",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "20": {
-                    "type": "Binary",
-                    "length": 5,
-                    "description": "Merchant Verification Value",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "21": {
-                    "type": "String",
-                    "length": 4,
-                    "description": "Online Risk Assessment Risk Score and Reason Codes",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "22": {
-                    "type": "String",
-                    "length": 6,
-                    "description": "Online Risk Assessment Condition Codes",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "23": {
-                    "type": "String",
-                    "length": 2,
-                    "description": "Product ID",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "24": {
-                    "type": "String",
-                    "length": 6,
-                    "description": "Program Identifier",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "25": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "Spend Qualified Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "26": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "Account Status",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                }
-            }
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 62 Lodging Industry-Specific Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
         "63": {
-            "type": "Composite",
-            "length": 255,
-            "description": "V.I.P. Private-Use Field",
-            "prefix": "Binary.L",
-            "bitmap": {
-                "type": "Bitmap",
-                "length": 3,
-                "description": "Bitmap",
-                "enc": "Binary",
-                "prefix": "Binary.Fixed",
-                "disableAutoExpand": true
-            },
-            "subfields": {
-                "1": {
-                    "type": "Numeric",
-                    "length": 4,
-                    "description": "Network Identification Code",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "2": {
-                    "type": "Numeric",
-                    "length": 4,
-                    "description": "Preauth Time Limit",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "3": {
-                    "type": "Numeric",
-                    "length": 4,
-                    "description": "Message Reason Code",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "4": {
-                    "type": "Numeric",
-                    "length": 4,
-                    "description": "STIP/Switch Reason Code",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "5": {
-                    "type": "Numeric",
-                    "length": 6,
-                    "description": "PMC ID",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "6": {
-                    "type": "String",
-                    "length": 7,
-                    "description": "CHGBK/FLG",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "7": {
-                    "type": "Binary",
-                    "length": 8,
-                    "description": "NET PART",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "8": {
-                    "type": "Numeric",
-                    "length": 8,
-                    "description": "ACQ MEM ID",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "9": {
-                    "type": "String",
-                    "length": 14,
-                    "description": "FRAUD RPT",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "10": {
-                    "type": "String",
-                    "length": 13,
-                    "description": "GTWY MERCH",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "11": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "REIMBURSEMENT ATTRIBUTE",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "12": {
-                    "type": "String",
-                    "length": 30,
-                    "description": "SHARING GP",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "13": {
-                    "type": "Numeric",
-                    "length": 6,
-                    "description": "DECIMAL PT",
-                    "enc": "BCD",
-                    "prefix": "BCD.Fixed"
-                },
-                "14": {
-                    "type": "String",
-                    "length": 36,
-                    "description": "IS CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "15": {
-                    "type": "String",
-                    "length": 18,
-                    "description": "AQ CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "16": {
-                    "type": "String",
-                    "length": 3,
-                    "description": "AQ CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "17": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "AQ CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "18": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "AQ CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "19": {
-                    "type": "String",
-                    "length": 3,
-                    "description": "Fee Program Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "20": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "AQ CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "21": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "AQ CUR CON",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                }
-            }
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 63 Non-Industry-Specific Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
-        "68": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Receiving Institution Country Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
+        "64": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 64 Visa Advanced Authorization Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "65": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 65 Mastercard Client-Defined Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "66": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 66 American Express Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "67": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 67 National Payment Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "69": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 69 Multiple Payment Forms",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "6C": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 6C Travel Tag Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "6D": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 6D Issuer-Supplied Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
+        },
+        "6E": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 6E Loan Details",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
         "70": {
-            "type": "Numeric",
-            "length": 3,
-            "description": "Network Management Information Code",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 70 ATM Mini Statement",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         },
-        "73": {
-            "type": "Numeric",
-            "length": 6,
-            "description": "Date, Action",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "90": {
-            "type": "Numeric",
-            "length": 42,
-            "description": "Original Data Elements",
-            "enc": "BCD",
-            "prefix": "BCD.Fixed"
-        },
-        "91": {
-            "type": "String",
-            "length": 1,
-            "description": "File Update Code",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "92": {
-            "type": "String",
-            "length": 2,
-            "description": "File Security Code",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "95": {
-            "type": "String",
-            "length": 42,
-            "description": "Replacement Amounts",
-            "enc": "EBCDIC",
-            "prefix": "Binary.Fixed"
-        },
-        "100": {
-            "type": "Numeric",
-            "length": 11,
-            "description": "Receiving Institution Identification Code",
-            "enc": "BCD",
-            "prefix": "Binary.L",
-            "padding": {
-                "type": "Left",
-                "pad": "0"
-            }
-        },
-        "101": {
-            "type": "String",
-            "length": 17,
-            "description": "File Name",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "102": {
-            "type": "String",
-            "length": 28,
-            "description": "Account Identification 1",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "103": {
-            "type": "String",
-            "length": 28,
-            "description": "Account Identification 2",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
-        },
-        "126": {
-            "type": "Composite",
-            "length": 256,
-            "description": "Visa Private-Use Fields",
-            "prefix": "Binary.L",
-            "bitmap": {
-                "type": "Bitmap",
-                "length": 8,
-                "description": "Bitmap",
-                "enc": "Binary",
-                "prefix": "Binary.Fixed",
-                "disableAutoExpand": true
-            },
-            "subfields": {
-                "1": {
-                    "type": "String",
-                    "length": 25,
-                    "description": "CONSUMR NM",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "2": {
-                    "type": "String",
-                    "length": 57,
-                    "description": "CONSUMR AD",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "3": {
-                    "type": "String",
-                    "length": 57,
-                    "description": "BILLER ADR",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "4": {
-                    "type": "String",
-                    "length": 18,
-                    "description": "BILLER PN",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "5": {
-                    "type": "String",
-                    "length": 8,
-                    "description": "Cardholder certificate Serial Number",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "6": {
-                    "type": "Binary",
-                    "length": 17,
-                    "description": "Cardholder Certificate Serial Number",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "7": {
-                    "type": "Binary",
-                    "length": 17,
-                    "description": "Merchant certificate Serial Number",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "8": {
-                    "type": "Binary",
-                    "length": 20,
-                    "description": "Transaction ID(XID)",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "9": {
-                    "type": "Binary",
-                    "length": 20,
-                    "description": "CAVV",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "10": {
-                    "type": "String",
-                    "length": 6,
-                    "description": "CVV2 Data",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "11": {
-                    "type": "String",
-                    "length": 2,
-                    "description": "IOG",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "12": {
-                    "type": "Binary",
-                    "length": 3,
-                    "description": "Service Indicators",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "13": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "POS Environment",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "14": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "RESERVED",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "15": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "MasterCard UCAF Collection Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "16": {
-                    "type": "String",
-                    "length": 32,
-                    "description": "MasterCard UCAF Field",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.L"
-                },
-                "17": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "RESERVED",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "18": {
-                    "type": "Binary",
-                    "length": 12,
-                    "description": "Agent Unique Account Result",
-                    "enc": "Binary",
-                    "prefix": "Binary.Fixed"
-                },
-                "19": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "Dynamic Currency Conversion Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "20": {
-                    "type": "String",
-                    "length": 1,
-                    "description": "3-D Secure Indicator",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                },
-                "21": {
-                    "type": "String",
-                    "length": 2,
-                    "description": "AUTH RC",
-                    "enc": "EBCDIC",
-                    "prefix": "Binary.Fixed"
-                }
-            }
-        },
-        "127": {
-            "type": "String",
-            "length": 255,
-            "description": "File Maintenance",
-            "enc": "EBCDIC",
-            "prefix": "Binary.L"
+        "71": {
+          "type": "Binary",
+          "length": 255,
+          "description": "Dataset 71 Free-Form Description Data",
+          "enc": "Binary",
+          "prefix": "Binary.LL"
         }
+      }
+    },
+    "105": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "106": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "107": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "108": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "109": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "110": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "111": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "112": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "113": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "114": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "115": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "116": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "117": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "118": {
+      "type": "String",
+      "length": 12,
+      "description": "Intra Country Data",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "119": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "120": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved",
+      "enc": "ASCII",
+      "prefix": "ASCII.LLL"
+    },
+    "121": {
+      "type": "String",
+      "length": 11,
+      "description": "Issuer Institution ID Code",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "122": {
+      "type": "String",
+      "length": 13,
+      "description": "Remote OTU Data",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "123": {
+      "type": "Composite",
+      "length": 255,
+      "description": "Verification Data (Usage 1) / Verification & Token Data (Usage 2)",
+      "prefix": "Binary.L",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true,
+        "prefUnknownTLV": "None.Fixed"
+      },
+      "subfields": {
+        "36": {
+          "type": "Binary",
+          "length": 20,
+          "description": "ASCII-wrapped Dataset 68 payload tail (input starts with 36 38)",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "66": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 66 Verification Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "C0": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Postal Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "CF": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Street Address",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "D0": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Compressed AVS Data",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "D4": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Cardholder Name",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "D6": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Cardholder Shipping Hash",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "67": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 67 Activation Verification Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "03": {
+              "type": "String",
+              "length": 255,
+              "description": "Activation Verification Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "String",
+              "length": 255,
+              "description": "AAM Velocity Checking Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Cardholder Verification Methods",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "07": {
+              "type": "String",
+              "length": 255,
+              "description": "Issuer Special Condition Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "08": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Verification Result Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "84": {
+              "type": "String",
+              "length": 255,
+              "description": "Other Phone Verification Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "85": {
+              "type": "String",
+              "length": 255,
+              "description": "Other Email Verification Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "68": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 68 Token Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "String",
+              "length": 255,
+              "description": "Token",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Assurance Method",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "03": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Requestor ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "String",
+              "length": 255,
+              "description": "PAN Account Range",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Reference ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "06": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Expiration Date",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "07": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Type",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "08": {
+              "type": "String",
+              "length": 255,
+              "description": "Token Status",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0A": {
+              "type": "String",
+              "length": 255,
+              "description": "Last Updated By",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0B": {
+              "type": "String",
+              "length": 255,
+              "description": "PAN Reference ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0D": {
+              "type": "String",
+              "length": 255,
+              "description": "Auto Fill Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0E": {
+              "type": "String",
+              "length": 255,
+              "description": "VDCU First Use Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0F": {
+              "type": "String",
+              "length": 255,
+              "description": "PAN/Token Update Channel",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "10": {
+              "type": "String",
+              "length": 255,
+              "description": "Visa Token Score",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "11": {
+              "type": "String",
+              "length": 255,
+              "description": "Visa Token Decisioning",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "12": {
+              "type": "String",
+              "length": 255,
+              "description": "Number of Active Tokens",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "13": {
+              "type": "String",
+              "length": 255,
+              "description": "Number of Inactive Tokens",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "14": {
+              "type": "String",
+              "length": 255,
+              "description": "Number of Suspended Tokens",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1A": {
+              "type": "String",
+              "length": 255,
+              "description": "Activation Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1B": {
+              "type": "Binary",
+              "length": 6,
+              "description": "Activation Code Expiry",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "1C": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Activation Verification Attempts",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "1D": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Number of Activation Codes Issued",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "1E": {
+              "type": "Binary",
+              "length": 3,
+              "description": "Token Activation Date/Time",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "80": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Bound Device Index",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "81": {
+              "type": "String",
+              "length": 255,
+              "description": "Token User Identifier",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "82": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Token User Application Type",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "83": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Token Auth Factor A",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "84": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Token Auth Factor B",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "85": {
+              "type": "Binary",
+              "length": 3,
+              "description": "Token Authentication Amount",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "86": {
+              "type": "Binary",
+              "length": 6,
+              "description": "Token Requestor TSP ID",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "1F31": {
+              "type": "String",
+              "length": 255,
+              "description": "Elapsed Time To Live",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1F32": {
+              "type": "String",
+              "length": 255,
+              "description": "Count of Number of Transactions",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1F33": {
+              "type": "String",
+              "length": 255,
+              "description": "Cumulative Transaction Amount",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1F35": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Total Number of Tokens",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "1F37": {
+              "type": "String",
+              "length": 255,
+              "description": "Issuer Custom Data FCI",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1F38": {
+              "type": "String",
+              "length": 255,
+              "description": "Issuer Custom Data IAD",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "1F7F": {
+              "type": "Binary",
+              "length": 1,
+              "description": "PAN Expiration Date",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "69": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 69 Account Lookup Results",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Card Type Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Billing Currency Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "03": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Billing Currency Minor Units",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Issuer BID",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Card Issuer Country Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "06": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Fast Funds Indicator",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "07": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Blocked for all OCTs",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "08": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Online Gambling Block Indicator",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "09": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Geographic Restriction Indicator",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "0A": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Destination Currency Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "0B": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Destination Currency Minor Units",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "0C": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Issuing Institution Country Code",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "70": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 70 Customer ID Data Verification Result",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "Binary",
+              "length": 255,
+              "description": "National ID Verification Result",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Passport Number Verification Result",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "03": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Driver License Verification Result",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "Binary",
+              "length": 255,
+              "description": "Tax ID Verification Result",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        }
+      }
+    },
+    "124": {
+      "type": "String",
+      "length": 7,
+      "description": "Field 124",
+      "enc": "EBCDIC",
+      "prefix": "Binary.L"
+    },
+    "125": {
+      "type": "Composite",
+      "length": 255,
+      "description": "Supporting Information (TLV Format)",
+      "prefix": "Binary.L",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true,
+        "prefUnknownTLV": "Binary.LL"
+      },
+      "subfields": {
+        "01": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 01 Token Device",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "String",
+              "length": 2,
+              "description": "Device Type",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "String",
+              "length": 3,
+              "description": "Device Language Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "03": {
+              "type": "String",
+              "length": 48,
+              "description": "Device ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "String",
+              "length": 15,
+              "description": "Device Number",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "String",
+              "length": 16,
+              "description": "Device Name",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "06": {
+              "type": "String",
+              "length": 25,
+              "description": "Device Location",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "07": {
+              "type": "String",
+              "length": 15,
+              "description": "IP Address",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "02": {
+          "type": "Composite",
+          "length": 255,
+          "des    cription": "Dataset 02 Wallet Provider",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "03": {
+              "type": "String",
+              "length": 1,
+              "description": "Wallet Provider Risk Assessment",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "String",
+              "length": 10,
+              "description": "Wallet Provider Risk Assessment Version",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "String",
+              "length": 2,
+              "description": "Wallet Provider Device Score",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "06": {
+              "type": "String",
+              "length": 2,
+              "description": "Wallet Provider Account Score",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "07": {
+              "type": "String",
+              "length": 30,
+              "description": "Wallet Provider Reason Codes",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "08": {
+              "type": "String",
+              "length": 2,
+              "description": "PAN Source",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "09": {
+              "type": "String",
+              "length": 32,
+              "description": "Wallet Account ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0A": {
+              "type": "Binary",
+              "length": 32,
+              "description": "Wallet Account E-mail Address (SHA256)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "80": {
+              "type": "String",
+              "length": 2,
+              "description": "Overall Assessment",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "03": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 03 Additional Original Data Elements",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "03": {
+              "type": "Binary",
+              "length": 8,
+              "description": "Original Transaction Identifier (15 N in 8 BCD bytes)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "80": {
+              "type": "Binary",
+              "length": 7,
+              "description": "Original Transaction Date Time (14 N in 7 BCD bytes)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "81": {
+              "type": "String",
+              "length": 26,
+              "description": "Original Purchase Identifier",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "82": {
+              "type": "String",
+              "length": 1,
+              "description": "Original POS Environment",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "83": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Original POS Entry Mode (1 BCD byte)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "84": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Original POS Condition Code (1 BCD byte)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "85": {
+              "type": "String",
+              "length": 2,
+              "description": "Original Response Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "86": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Original Additional Authorization Indicators (1 BCD byte)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "87": {
+              "type": "String",
+              "length": 1,
+              "description": "Original Delegated Authentication Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "88": {
+              "type": "String",
+              "length": 1,
+              "description": "Original CAVV Results Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "89": {
+              "type": "String",
+              "length": 1,
+              "description": "Original CVV2/dCVV2 Results Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8A": {
+              "type": "String",
+              "length": 1,
+              "description": "Original AVS Results Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8B": {
+              "type": "String",
+              "length": 1,
+              "description": "Original Card Authentication Results Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8C": {
+              "type": "String",
+              "length": 1,
+              "description": "Original CVV/dCVV Results Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8D": {
+              "type": "String",
+              "length": 1,
+              "description": "Original Token Verification Result",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "8E": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Original Cardholder ID Method (1 BCD byte)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "8F": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Original CDCVM",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "90": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Total Number of Original Transaction Details (2 BCD bytes)",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "67": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 67 MagnePrint Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "D0": {
+              "type": "Binary",
+              "length": 54,
+              "description": "MagnePrint Data",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "69": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 69 Additional Multicurrency and Settlement Information",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "80": {
+              "type": "Numeric",
+              "length": 8,
+              "description": "Internal Transfer Pricing",
+              "enc": "BCD",
+              "prefix": "BerTLV"
+            },
+            "81": {
+              "type": "String",
+              "length": 5,
+              "description": "Number of Settlement Positions",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "70": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 70 ATM Mini Statement Dataset 2",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "String",
+              "length": 36,
+              "description": "Transaction Statement 1",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "String",
+              "length": 36,
+              "description": "Transaction Statement 2",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "03": {
+              "type": "String",
+              "length": 36,
+              "description": "Transaction Statement 3",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "String",
+              "length": 36,
+              "description": "Transaction Statement 4",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "String",
+              "length": 36,
+              "description": "Transaction Statement 5",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "6B": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 6B Expanded Fleet Service",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "0D": {
+              "type": "String",
+              "length": 1,
+              "description": "Purchase Restriction Flag",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0E": {
+              "type": "Binary",
+              "length": 16,
+              "description": "Host-Based Purchase Restrictions",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        }
+      }
+    },
+    "126": {
+      "type": "Composite",
+      "length": 255,
+      "description": "Private Use - Bitmap-governed composite",
+      "prefix": "Binary.L",
+      "bitmap": {
+        "type": "Bitmap",
+        "length": 8,
+        "description": "Internal subfield bitmap",
+        "enc": "Binary",
+        "prefix": "Binary.Fixed",
+        "disableAutoExpand": true,
+        "skipUnknownTLVTags": false
+      },
+      "subfields": {
+        "5": {
+          "type": "String",
+          "length": 8,
+          "description": "Visa Merchant Identifier",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "6": {
+          "type": "String",
+          "length": 2,
+          "description": "Cardholder Certificate Serial Number",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "7": {
+          "type": "String",
+          "length": 2,
+          "description": "Merchant Certificate Serial Number",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "8": {
+          "type": "String",
+          "length": 20,
+          "description": "Transaction ID",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "9": {
+          "type": "Binary",
+          "length": 20,
+          "description": "CAVV / 3DS Data",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "10": {
+          "type": "String",
+          "length": 6,
+          "description": "CVV2 Authorization Request Data",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "12": {
+          "type": "Binary",
+          "length": 3,
+          "description": "Service Indicators",
+          "enc": "Binary",
+          "prefix": "Binary.Fixed"
+        },
+        "13": {
+          "type": "String",
+          "length": 1,
+          "description": "POS Environment",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        },
+        "20": {
+          "type": "String",
+          "length": 1,
+          "description": "3-D Secure Indicator",
+          "enc": "EBCDIC",
+          "prefix": "EBCDIC.Fixed"
+        }
+      }
+    },
+    "127": {
+      "type": "Composite",
+      "length": 255,
+      "description": "File Record(s): Action and Data",
+      "prefix": "Binary.L",
+      "tag": {
+        "length": 1,
+        "enc": "ASCIIToHex",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true,
+        "prefUnknownTLV": "None.Fixed"
+      },
+      "subfields": {
+        "40": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 40 Terms and Conditions",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "String",
+              "length": 64,
+              "description": "Terms and Conditions Verification",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "String",
+              "length": 32,
+              "description": "Issuer Terms and Conditions Date/Time",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "41": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 41 PAN Update Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "Binary",
+              "length": 10,
+              "description": "Replacement PAN",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "02": {
+              "type": "Binary",
+              "length": 2,
+              "description": "Replacement PAN Expiration Date",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "04": {
+              "type": "String",
+              "length": 1,
+              "description": "Account Status",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "05": {
+              "type": "String",
+              "length": 1,
+              "description": "Conversion Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "06": {
+              "type": "String",
+              "length": 5,
+              "description": "VAU Segment ID",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "07": {
+              "type": "String",
+              "length": 1,
+              "description": "Request from Merchant for Updated Account",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "08": {
+              "type": "Binary",
+              "length": 1,
+              "description": "PAN Replacement Status",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
+            "09": {
+              "type": "String",
+              "length": 6,
+              "description": "Error/Reason Code",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "0A": {
+              "type": "String",
+              "length": 1,
+              "description": "dCVV2 Participation",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "42": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 42 Inquiry Control Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "01": {
+              "type": "Binary",
+              "length": 1,
+              "description": "Starting Query Number",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "69": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 69 Stop Payment Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "DF11": {
+              "type": "String",
+              "length": 2,
+              "description": "Type of Stop Instruction",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF14": {
+              "type": "String",
+              "length": 8,
+              "description": "Stop Instruction Start Date",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF15": {
+              "type": "String",
+              "length": 12,
+              "description": "Minimum Amount",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF16": {
+              "type": "String",
+              "length": 12,
+              "description": "Maximum Amount",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF17": {
+              "type": "String",
+              "length": 96,
+              "description": "Stop ID Data",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF18": {
+              "type": "String",
+              "length": 1,
+              "description": "Recurring/Installment Transaction Indicator",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        },
+        "6A": {
+          "type": "Composite",
+          "length": 255,
+          "description": "Dataset 6A ALP Product Processing Data",
+          "prefix": "Binary.LL",
+          "tag": {
+            "enc": "BerTLVTag",
+            "sort": "StringsByHex",
+            "skipUnknownTLVTags": true,
+            "storeUnknownTLVTags": true
+          },
+          "subfields": {
+            "DF22": {
+              "type": "String",
+              "length": 6,
+              "description": "Activation Date",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            },
+            "DF23": {
+              "type": "String",
+              "length": 6,
+              "description": "Creation Date",
+              "enc": "EBCDIC",
+              "prefix": "BerTLV"
+            }
+          }
+        }
+      }
+    },
+    "128": {
+      "type": "Binary",
+      "length": 8,
+      "description": "Message Authentication Code (MAC)",
+      "enc": "Binary",
+      "prefix": "Binary.Fixed"
     }
+  }
 }

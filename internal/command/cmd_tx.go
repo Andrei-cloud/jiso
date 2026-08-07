@@ -2,10 +2,12 @@ package command
 
 import (
 	"fmt"
+	"strings"
 
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 )
@@ -27,6 +29,16 @@ func (c *TxCommand) SetArgs(args []string) {
 }
 
 func (c *TxCommand) Execute() error {
+	specPath := strings.TrimSpace(cfg.GetConfig().GetSpec())
+	if specPath == "" {
+		return fmt.Errorf("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+	}
+
+	selectedSpec, err := utils.CreateSpecFromFile(specPath)
+	if err != nil {
+		return fmt.Errorf("failed to load selected specification from '%s': %w", specPath, err)
+	}
+
 	txPath := c.TxPath
 	if txPath == "" {
 		selector := NewFileSelector("transaction")
@@ -50,6 +62,9 @@ func (c *TxCommand) Execute() error {
 		var spec *iso8583.MessageSpec
 		if c.Svc != nil {
 			spec = c.Svc.GetSpec()
+		}
+		if spec == nil {
+			spec = selectedSpec
 		}
 		tc, err := transactions.NewTransactionCollection(txPath, spec)
 		if err != nil {

@@ -25,8 +25,10 @@ type ServerCommand struct {
 	args   []string
 }
 
-func (sc *ServerCommand) Name() string     { return "serve" }
-func (sc *ServerCommand) Synopsis() string { return "Manage embedded ISO8583 mock server (serve start [port] [headerType], serve stop, routes list)" }
+func (sc *ServerCommand) Name() string { return "serve" }
+func (sc *ServerCommand) Synopsis() string {
+	return "Manage embedded ISO8583 mock server (serve start [port] [headerType], serve stop, routes list)"
+}
 
 func (sc *ServerCommand) SetArgs(args []string) {
 	sc.args = args

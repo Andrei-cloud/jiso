@@ -176,6 +176,14 @@ func (s *Service) GetDebugMode() bool {
 	return s.debugMode
 }
 
+// SetDebugMode sets whether debug mode is enabled on service and connection manager
+func (s *Service) SetDebugMode(debug bool) {
+	s.debugMode = debug
+	if s.connManager != nil {
+		s.connManager.SetDebugMode(debug)
+	}
+}
+
 // SetMaxPendingRequests sets the maximum number of pending requests on the connection manager
 func (s *Service) SetMaxPendingRequests(max int) {
 	if s.connManager != nil {
@@ -198,4 +206,3 @@ func (s *Service) GetResponseTimeout() time.Duration {
 	}
 	return 5 * time.Second
 }
-

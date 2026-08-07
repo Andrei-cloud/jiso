@@ -154,4 +154,3 @@ func (s *testServer) Close() {
 	close(s.done)
 	s.listener.Close()
 }
-

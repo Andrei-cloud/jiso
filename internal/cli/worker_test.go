@@ -10,8 +10,9 @@ import (
 	"jiso/internal/service"
 )
 
-
 func TestWorkerResourceCleanup(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a real send command with nil dependencies for testing
@@ -26,8 +27,9 @@ func TestWorkerResourceCleanup(t *testing.T) {
 
 	// Verify worker is running
 	stats := cli.GetWorkerStats()
-	if stats["active"].(int) != 1 {
-		t.Errorf("Expected 1 active worker, got %d", stats["active"])
+	activeCount, _ := stats["active"].(int)
+	if activeCount != 1 {
+		t.Errorf("Expected 1 active worker, got %d", activeCount)
 	}
 
 	// Stop the worker
@@ -38,8 +40,9 @@ func TestWorkerResourceCleanup(t *testing.T) {
 
 	// Verify worker is stopped
 	stats = cli.GetWorkerStats()
-	if stats["active"].(int) != 0 {
-		t.Errorf("Expected 0 active workers after stop, got %d", stats["active"])
+	activeCount, _ = stats["active"].(int)
+	if activeCount != 0 {
+		t.Errorf("Expected 0 active workers after stop, got %d", activeCount)
 	}
 
 	// Verify worker is removed from map
@@ -52,6 +55,8 @@ func TestWorkerResourceCleanup(t *testing.T) {
 }
 
 func TestStressTestWorkerResourceCleanup(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a real send command with nil dependencies for testing
@@ -72,8 +77,9 @@ func TestStressTestWorkerResourceCleanup(t *testing.T) {
 
 	// Verify worker is running
 	stats := cli.GetWorkerStats()
-	if stats["active"].(int) != 1 {
-		t.Errorf("Expected 1 active worker, got %d", stats["active"])
+	activeCount, _ := stats["active"].(int)
+	if activeCount != 1 {
+		t.Errorf("Expected 1 active worker, got %d", activeCount)
 	}
 
 	// Stop the worker immediately to avoid executing background logic
@@ -84,12 +90,15 @@ func TestStressTestWorkerResourceCleanup(t *testing.T) {
 
 	// Verify worker is stopped
 	stats = cli.GetWorkerStats()
-	if stats["active"].(int) != 0 {
-		t.Errorf("Expected 0 active workers after stop, got %d", stats["active"])
+	activeCount, _ = stats["active"].(int)
+	if activeCount != 0 {
+		t.Errorf("Expected 0 active workers after stop, got %d", activeCount)
 	}
 }
 
 func TestStressTestWorkerParallel(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a dummy spec file
@@ -98,11 +107,15 @@ func TestStressTestWorkerParallel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp spec file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+	}()
 	_, _ = tmpFile.WriteString(spec)
 
-	svc, err := service.NewService("localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second)
+	svc, err := service.NewService(
+		"localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second,
+	)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
@@ -115,10 +128,10 @@ func TestStressTestWorkerParallel(t *testing.T) {
 	// Start a stress test worker with short duration
 	workerID, err := cli.StartStressTestWorker(
 		[]string{"test-transaction"},
-		20,                   // target TPS
-		50*time.Millisecond,  // ramp up duration
-		50*time.Millisecond,  // test duration
-		3,                    // num workers
+		20,                  // target TPS
+		50*time.Millisecond, // ramp up duration
+		50*time.Millisecond, // test duration
+		3,                   // num workers
 	)
 	if err != nil {
 		t.Fatalf("Failed to start stress test worker: %v", err)
@@ -135,12 +148,15 @@ func TestStressTestWorkerParallel(t *testing.T) {
 
 	// Verify worker is stopped
 	stats := cli.GetWorkerStats()
-	if stats["active"].(int) != 0 {
-		t.Errorf("Expected 0 active workers after stop, got %d", stats["active"])
+	activeCount, _ := stats["active"].(int)
+	if activeCount != 0 {
+		t.Errorf("Expected 0 active workers after stop, got %d", activeCount)
 	}
 }
 
 func TestStressTestWorkerSessionID(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a real send command with nil dependencies for testing
@@ -158,7 +174,9 @@ func TestStressTestWorkerSessionID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start worker 1: %v", err)
 	}
-	defer cli.StopWorker(workerID1)
+	defer func() {
+		_ = cli.StopWorker(workerID1)
+	}()
 
 	workerID2, err := cli.StartStressTestWorker(
 		[]string{"test-transaction-2"},
@@ -170,7 +188,9 @@ func TestStressTestWorkerSessionID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start worker 2: %v", err)
 	}
-	defer cli.StopWorker(workerID2)
+	defer func() {
+		_ = cli.StopWorker(workerID2)
+	}()
 
 	cli.mu.Lock()
 	worker1 := cli.stressWorkers[workerID1]
@@ -193,8 +213,9 @@ func TestStressTestWorkerSessionID(t *testing.T) {
 	}
 }
 
-
 func TestStopAllWorkersCleanup(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a real send command with nil dependencies for testing
@@ -225,8 +246,9 @@ func TestStopAllWorkersCleanup(t *testing.T) {
 
 	// Verify all workers are running
 	stats := cli.GetWorkerStats()
-	if stats["active"].(int) != 3 {
-		t.Errorf("Expected 3 active workers, got %d", stats["active"])
+	activeCount, _ := stats["active"].(int)
+	if activeCount != 3 {
+		t.Errorf("Expected 3 active workers, got %d", activeCount)
 	}
 
 	// Stop all workers immediately to avoid executing background logic
@@ -237,8 +259,9 @@ func TestStopAllWorkersCleanup(t *testing.T) {
 
 	// Verify all workers are stopped
 	stats = cli.GetWorkerStats()
-	if stats["active"].(int) != 0 {
-		t.Errorf("Expected 0 active workers after stop all, got %d", stats["active"])
+	activeCount, _ = stats["active"].(int)
+	if activeCount != 0 {
+		t.Errorf("Expected 0 active workers after stop all, got %d", activeCount)
 	}
 
 	// Verify workers are removed from maps
@@ -254,6 +277,8 @@ func TestStopAllWorkersCleanup(t *testing.T) {
 }
 
 func TestCLICloseWaitsForWorkers(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a real send command with nil dependencies for testing
@@ -268,8 +293,9 @@ func TestCLICloseWaitsForWorkers(t *testing.T) {
 
 	// Verify worker is running before close
 	stats := cli.GetWorkerStats()
-	if stats["active"].(int) != 1 {
-		t.Errorf("Expected 1 active worker before Close, got %d", stats["active"])
+	activeCount, _ := stats["active"].(int)
+	if activeCount != 1 {
+		t.Errorf("Expected 1 active worker before Close, got %d", activeCount)
 	}
 
 	// Close CLI (should wait for workers)
@@ -277,8 +303,9 @@ func TestCLICloseWaitsForWorkers(t *testing.T) {
 
 	// Verify no workers remain after close
 	stats = cli.GetWorkerStats()
-	if stats["active"].(int) != 0 {
-		t.Errorf("Expected 0 active workers after Close, got %d", stats["active"])
+	activeCount, _ = stats["active"].(int)
+	if activeCount != 0 {
+		t.Errorf("Expected 0 active workers after Close, got %d", activeCount)
 	}
 
 	// Verify maps are cleared
@@ -291,6 +318,8 @@ func TestCLICloseWaitsForWorkers(t *testing.T) {
 }
 
 func TestWorkerStopTimeout(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a worker that doesn't respond to cancellation quickly
@@ -349,34 +378,9 @@ func TestWorkerStopTimeout(t *testing.T) {
 	}
 }
 
-// Mock command for testing
-type mockCommand struct {
-	name string
-}
-
-func (m *mockCommand) Name() string {
-	return m.name
-}
-
-func (m *mockCommand) Synopsis() string {
-	return "mock synopsis"
-}
-
-func (m *mockCommand) Execute() error {
-	return nil
-}
-
-type mockSendCommand struct {
-	*command.SendCommand
-}
-
-func (m *mockSendCommand) ExecuteBackground(name string) (string, time.Duration, error) {
-	// Don't call the real method, just simulate some work
-	time.Sleep(1 * time.Millisecond)
-	return "00", 1 * time.Millisecond, nil
-}
-
 func TestPercentile(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		sorted   []time.Duration
@@ -428,7 +432,10 @@ func TestPercentile(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			actual := percentile(tc.sorted, tc.pct)
 			if actual != tc.expected {
 				t.Errorf("Expected %v, got %v", tc.expected, actual)
@@ -438,6 +445,8 @@ func TestPercentile(t *testing.T) {
 }
 
 func TestStressTestWorkerIntervalAndMaxPending(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a dummy spec file
@@ -446,11 +455,15 @@ func TestStressTestWorkerIntervalAndMaxPending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp spec file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+	}()
 	_, _ = tmpFile.WriteString(spec)
 
-	svc, err := service.NewService("localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second)
+	svc, err := service.NewService(
+		"localhost", "9999", tmpFile.Name(), false, 0, 5*time.Second, 10*time.Second, 5*time.Second,
+	)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
@@ -467,18 +480,18 @@ func TestStressTestWorkerIntervalAndMaxPending(t *testing.T) {
 	// Start stress test worker with target TPS of 200
 	workerID, err := cli.StartStressTestWorker(
 		[]string{"test-transaction"},
-		200,                  // target TPS
-		10*time.Millisecond,  // ramp up duration
-		10*time.Millisecond,  // test duration
-		2,                    // num workers
+		200,                 // target TPS
+		10*time.Millisecond, // ramp up duration
+		10*time.Millisecond, // test duration
+		2,                   // num workers
 	)
 	if err != nil {
 		t.Fatalf("Failed to start stress test worker: %v", err)
 	}
 
-	// Verify that max pending requests was increased to at least 1000
-	if svc.GetMaxPendingRequests() < 1000 {
-		t.Errorf("Expected max pending requests to be scaled to at least 1000, got %d", svc.GetMaxPendingRequests())
+	// Verify that max pending requests was increased to at least 400
+	if svc.GetMaxPendingRequests() < 400 {
+		t.Errorf("Expected max pending requests to be scaled to at least 400, got %d", svc.GetMaxPendingRequests())
 	}
 
 	// Stop the worker
@@ -487,9 +500,11 @@ func TestStressTestWorkerIntervalAndMaxPending(t *testing.T) {
 		t.Fatalf("Failed to stop stress test worker: %v", err)
 	}
 
+	// Give worker goroutine brief moment to run finishAndPrintSummary
+	time.Sleep(50 * time.Millisecond)
+
 	// Verify that max pending requests was restored to 100
 	if svc.GetMaxPendingRequests() != 100 {
 		t.Errorf("Expected max pending requests to be restored to 100, got %d", svc.GetMaxPendingRequests())
 	}
 }
-

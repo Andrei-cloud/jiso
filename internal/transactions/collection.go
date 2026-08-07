@@ -330,7 +330,6 @@ func (tc *TransactionCollection) Info(name string) (string, string, string, erro
 	return t.Name, t.Description, string(fieldsJSON), nil
 }
 
-
 func (tc *TransactionCollection) ListFormatted() []string {
 	maxNameLen := 0
 	for _, t := range tc.transactions {

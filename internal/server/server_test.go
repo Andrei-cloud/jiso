@@ -13,6 +13,7 @@ import (
 	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/field"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ func TestMockServerLifecycleAndMatching(t *testing.T) {
 			},
 			ResponseMTI:    "0810",
 			EchoFields:     []int{7, 11, 37},
-			ResponseFields: map[string]string{"39": "00"},
+			ResponseFields: map[string]interface{}{"39": "00"},
 			LatencyMs:      10,
 			JitterMs:       5,
 		},
@@ -114,7 +115,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 				"70": "1",
 			},
 			ResponseMTI:    "0810",
-			ResponseFields: map[string]string{"39": "00"},
+			ResponseFields: map[string]interface{}{"39": "00"},
 		},
 		{
 			Name: "Regex Condition Code",
@@ -125,7 +126,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 				},
 			},
 			ResponseMTI:    "0210",
-			ResponseFields: map[string]string{"39": "00"},
+			ResponseFields: map[string]interface{}{"39": "00"},
 		},
 		{
 			Name: "Field Existence Check",
@@ -136,7 +137,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 				},
 			},
 			ResponseMTI:    "0410",
-			ResponseFields: map[string]string{"39": "00"},
+			ResponseFields: map[string]interface{}{"39": "00"},
 		},
 	}
 
@@ -199,7 +200,7 @@ func TestRequiredFieldsMissingResponse30(t *testing.T) {
 			},
 			RequiredFields: []string{"4", "11", "41"},
 			ResponseMTI:    "0210",
-			ResponseFields: map[string]string{"38": "123456", "39": "00"},
+			ResponseFields: map[string]interface{}{"38": "123456", "39": "00"},
 		},
 	}
 
@@ -302,16 +303,72 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 	val39_1, _ := resp1.GetField(39).String()
 	assert.Equal(t, "00", val39_1)
 
-	// Test Network 0800 F70=301
-	msg0800_301 := iso8583.NewMessage(spec)
-	msg0800_301.MTI("0800")
-	msg0800_301.Field(7, "0725213835")
-	msg0800_301.Field(11, "008009")
-	msg0800_301.Field(70, "301")
+	// Test Financial 0200 matching & echoing card/track/fields
+	msg0200 := iso8583.NewMessage(spec)
+	msg0200.MTI("0200")
+	msg0200.Field(2, "9876543210987654")
+	msg0200.Field(3, "000000")
+	msg0200.Field(4, "2500")
+	msg0200.Field(7, "0725213835")
+	msg0200.Field(11, "008009")
+	msg0200.Field(14, "2601")
 
-	matched2, resp2, err := matcher.MatchAndCompose(msg0800_301, spec)
+	matched2, resp2, err := matcher.MatchAndCompose(msg0200, spec)
 	require.NoError(t, err)
 	require.NotNil(t, matched2)
 	val39_2, _ := resp2.GetField(39).String()
 	assert.Equal(t, "00", val39_2)
+	val2_2, _ := resp2.GetField(2).String()
+	assert.Equal(t, "9876543210987654", val2_2, "Card PAN DE 2 should be echoed from request")
 }
+
+func TestMatchAndComposeWithCompositeFields(t *testing.T) {
+	spec, err := utils.CreateSpecFromFile("../../specs/example_composed_emv.json")
+	require.NoError(t, err)
+
+	routes := []config.MockRouteConfig{
+		{
+			Name: "Composite EMV Route",
+			MatchFields: map[string]interface{}{
+				"0": "0200",
+			},
+			ResponseMTI: "0210",
+			ResponseFields: map[string]interface{}{
+				"39": "00",
+				"55": map[string]interface{}{
+					"9F26": "11223344",
+					"9F27": "8",
+				},
+			},
+		},
+	}
+
+	matcher := NewMatcher(routes)
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0200")
+
+	matched, resp, err := matcher.MatchAndCompose(msg, spec)
+	require.NoError(t, err)
+	require.NotNil(t, matched)
+
+	val39, _ := resp.GetField(39).String()
+	assert.Equal(t, "00", val39)
+
+	f55 := resp.GetField(55)
+	require.NotNil(t, f55)
+	comp55, ok := f55.(*field.Composite)
+	require.True(t, ok)
+
+	sub9f26 := comp55.GetSubfields()["9F26"]
+	require.NotNil(t, sub9f26)
+	str9f26, err := sub9f26.String()
+	require.NoError(t, err)
+	assert.Equal(t, "11223344", str9f26)
+
+	sub9f27 := comp55.GetSubfields()["9F27"]
+	require.NotNil(t, sub9f27)
+	str9f27, err := sub9f27.String()
+	require.NoError(t, err)
+	assert.Equal(t, "8", str9f27)
+}
+

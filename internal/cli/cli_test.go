@@ -4,7 +4,25 @@ import (
 	"testing"
 )
 
+type mockCommand struct {
+	name string
+}
+
+func (m *mockCommand) Name() string {
+	return m.name
+}
+
+func (m *mockCommand) Synopsis() string {
+	return "mock synopsis"
+}
+
+func (m *mockCommand) Execute() error {
+	return nil
+}
+
 func TestNewCLI(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 	if cli == nil {
 		t.Fatal("NewCLI returned nil")
@@ -24,12 +42,16 @@ func TestNewCLI(t *testing.T) {
 }
 
 func TestAddCommand(t *testing.T) {
+	t.Parallel()
+
 	cli := NewCLI()
 
 	// Create a mock command
 	mockCmd := &mockCommand{name: "test"}
 
-	cli.AddCommand(mockCmd)
+	if err := cli.AddCommand(mockCmd); err != nil {
+		t.Fatalf("AddCommand failed: %v", err)
+	}
 
 	if len(cli.commands) != 1 {
 		t.Errorf("Expected 1 command, got %d", len(cli.commands))
@@ -39,4 +61,3 @@ func TestAddCommand(t *testing.T) {
 		t.Error("Command not added correctly")
 	}
 }
-

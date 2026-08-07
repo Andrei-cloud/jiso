@@ -1,8 +1,8 @@
 package utils
 
 import (
-	json "github.com/goccy/go-json"
 	"fmt"
+	json "github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 	"sync"

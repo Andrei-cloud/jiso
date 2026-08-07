@@ -59,4 +59,3 @@ func TestNewManager(t *testing.T) {
 	assert.Equal(t, "Not initialized", manager.GetStatus())
 	assert.False(t, manager.IsConnected())
 }
-

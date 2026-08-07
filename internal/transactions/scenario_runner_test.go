@@ -385,4 +385,3 @@ func TestComposeInterpolationRandom(t *testing.T) {
 	// Verify that we saw multiple different randomly-selected values
 	assert.Greater(t, len(seen), 1, "Should select different items randomly across 50 invocations")
 }
-

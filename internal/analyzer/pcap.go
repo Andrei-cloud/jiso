@@ -103,29 +103,46 @@ func InspectPCAPDirections(filePath string) ([]TrafficDirection, error) {
 		return nil, nil // Not a PCAP file
 	}
 
-	type portStats struct {
-		dstPackets int
-		dstBytes   int
-		srcPackets int
-		srcBytes   int
+	type pairKey struct {
+		p1, p2 uint16
 	}
-	stats := make(map[uint16]*portStats)
+	type pairStats struct {
+		p1, p2       uint16
+		p1DstPackets int
+		p1DstBytes   int
+		p2DstPackets int
+		p2DstBytes   int
+	}
+
+	pairs := make(map[pairKey]*pairStats)
+	totalPackets := 0
+	totalBytes := 0
 
 	collector := func(srcPort, dstPort uint16, payload []byte) {
 		if len(payload) == 0 {
 			return
 		}
-		if _, ok := stats[dstPort]; !ok {
-			stats[dstPort] = &portStats{}
-		}
-		stats[dstPort].dstPackets++
-		stats[dstPort].dstBytes += len(payload)
+		totalPackets++
+		totalBytes += len(payload)
 
-		if _, ok := stats[srcPort]; !ok {
-			stats[srcPort] = &portStats{}
+		p1, p2 := srcPort, dstPort
+		if p1 > p2 {
+			p1, p2 = p2, p1
 		}
-		stats[srcPort].srcPackets++
-		stats[srcPort].srcBytes += len(payload)
+		key := pairKey{p1: p1, p2: p2}
+		ps, ok := pairs[key]
+		if !ok {
+			ps = &pairStats{p1: p1, p2: p2}
+			pairs[key] = ps
+		}
+
+		if dstPort == p1 {
+			ps.p1DstPackets++
+			ps.p1DstBytes += len(payload)
+		} else {
+			ps.p2DstPackets++
+			ps.p2DstBytes += len(payload)
+		}
 	}
 
 	magicBE := binary.BigEndian.Uint32(headerBuf[0:4])
@@ -135,40 +152,57 @@ func InspectPCAPDirections(filePath string) ([]TrafficDirection, error) {
 		_ = parsePCAPPackets(f, collector)
 	}
 
-	var ports []uint16
-	for p := range stats {
-		ports = append(ports, p)
+	// Order pairs deterministically
+	var sortedKeys []pairKey
+	for k := range pairs {
+		sortedKeys = append(sortedKeys, k)
 	}
-	sort.Slice(ports, func(i, j int) bool {
-		return ports[i] < ports[j]
+	sort.Slice(sortedKeys, func(i, j int) bool {
+		if sortedKeys[i].p1 != sortedKeys[j].p1 {
+			return sortedKeys[i].p1 < sortedKeys[j].p1
+		}
+		return sortedKeys[i].p2 < sortedKeys[j].p2
 	})
 
 	var directions []TrafficDirection
-	totalPackets := 0
-	totalBytes := 0
+	for _, k := range sortedKeys {
+		ps := pairs[k]
+		// Identify which port is the server port.
+		// Rule: Server port is the listener. If one port has lower port number (e.g. 4005 vs 47772),
+		// or if traffic volume is unequal, pick the primary server port.
+		serverPort := ps.p1
+		clientPort := ps.p2
+		serverDstPackets := ps.p1DstPackets
+		serverDstBytes := ps.p1DstBytes
+		serverSrcPackets := ps.p2DstPackets // Client destination is server source
+		serverSrcBytes := ps.p2DstBytes
 
-	for _, p := range ports {
-		st := stats[p]
-		if st.dstPackets > 0 {
+		// If p2 is a known well-known/lower port or has significantly higher incoming payload count, swap:
+		if ps.p2 < ps.p1 {
+			serverPort, clientPort = ps.p2, ps.p1
+			serverDstPackets, serverDstBytes = ps.p2DstPackets, ps.p2DstBytes
+			serverSrcPackets, serverSrcBytes = ps.p1DstPackets, ps.p1DstBytes
+		}
+
+		if serverDstPackets > 0 {
 			directions = append(directions, TrafficDirection{
-				Label:       fmt.Sprintf("Incoming Requests -> Dst Port %d (%d pkts, %d bytes)", p, st.dstPackets, st.dstBytes),
-				TargetPort:  p,
+				Label:       fmt.Sprintf("-> Dst Port %d (%d pkts, %d bytes)", serverPort, serverDstPackets, serverDstBytes),
+				TargetPort:  serverPort,
 				Mode:        "dst",
-				PacketCount: st.dstPackets,
-				ByteCount:   st.dstBytes,
+				PacketCount: serverDstPackets,
+				ByteCount:   serverDstBytes,
 			})
-			totalPackets += st.dstPackets
-			totalBytes += st.dstBytes
 		}
-		if st.srcPackets > 0 {
+		if serverSrcPackets > 0 {
 			directions = append(directions, TrafficDirection{
-				Label:       fmt.Sprintf("Outgoing Responses -> Src Port %d (%d pkts, %d bytes)", p, st.srcPackets, st.srcBytes),
-				TargetPort:  p,
+				Label:       fmt.Sprintf("<- Src Port %d (%d pkts, %d bytes)", serverPort, serverSrcPackets, serverSrcBytes),
+				TargetPort:  serverPort,
 				Mode:        "src",
-				PacketCount: st.srcPackets,
-				ByteCount:   st.srcBytes,
+				PacketCount: serverSrcPackets,
+				ByteCount:   serverSrcBytes,
 			})
 		}
+		_ = clientPort
 	}
 
 	if len(directions) > 0 {

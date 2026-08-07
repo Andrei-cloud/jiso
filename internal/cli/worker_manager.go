@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 // workerInfo holds the state of a background worker
 // Use a different name to avoid conflict with existing workerState
 type workerInfo struct {
@@ -133,8 +132,11 @@ func (cli *CLI) StartStressTestWorker(
 			timeoutSec = 1
 		}
 		requiredMaxPending := targetTps * timeoutSec
-		if requiredMaxPending < 1000 {
-			requiredMaxPending = 1000
+		if requiredMaxPending < targetTps*2 {
+			requiredMaxPending = targetTps * 2
+		}
+		if requiredMaxPending < 100 {
+			requiredMaxPending = 100
 		}
 		if requiredMaxPending > originalMaxPending {
 			cli.svc.SetMaxPendingRequests(requiredMaxPending)
@@ -182,83 +184,89 @@ func (cli *CLI) StartStressTestWorker(
 		currentTps:         0,
 		actualTps:          0,
 		rampUpProgress:     0.0,
-		latencies:          make([]time.Duration, 0, expectedRequests),
-		respCodes:          make(map[string]int),
-		txStats:            txStatsMap,
+		txStats:            make(map[string]*txStats),
 		originalMaxPending: originalMaxPending,
 	}
 
-	// Store the worker
+	// Initialize txStats map for each selected transaction
+	for _, name := range names {
+		worker.txStats[name] = &txStats{
+			respCodes: make(map[string]int),
+		}
+	}
+
 	cli.mu.Lock()
 	cli.stressWorkers[workerID] = worker
 	cli.mu.Unlock()
 
-	// Start the stress test worker in a goroutine
-	worker.wg.Add(1)
-	go func() {
-		defer worker.wg.Done()
-		worker.runStressTest(cli)
-	}()
+	// Start stress test worker in background
+	go worker.runStressTest(cli)
 
 	return workerID, nil
 }
 
-// StopWorker stops a worker by its ID
-func (cli *CLI) StopWorker(id string) error {
+// StopWorker stops a specific worker by ID.
+func (cli *CLI) StopWorker(workerID string) error {
 	cli.mu.Lock()
-	defer cli.mu.Unlock()
 
-	// Check regular workers first
-	worker, exists := cli.workers[id]
-	if exists {
+	// Check regular workers
+	if worker, exists := cli.workers[workerID]; exists {
+		delete(cli.workers, workerID)
+		cli.mu.Unlock() // Unlock early
+
 		worker.cancel()
-		// Wait for the goroutine to finish with a timeout
+
+		// Wait for goroutines to finish with timeout
 		done := make(chan struct{})
 		go func() {
 			worker.wg.Wait()
 			close(done)
 		}()
+
 		select {
 		case <-done:
-			// Goroutine finished cleanly
+			// Stopped cleanly
 		case <-time.After(5 * time.Second):
-			// Timeout - goroutine didn't finish, but continue with cleanup
-			fmt.Printf("Warning: Worker %s did not stop cleanly within timeout\n", id)
+			fmt.Printf("Warning: Worker %s did not stop cleanly within 5 seconds\n", workerID)
 		}
-		delete(cli.workers, id)
+
 		return nil
 	}
 
 	// Check stress test workers
-	stressWorker, exists := cli.stressWorkers[id]
-	if exists {
+	if stressWorker, exists := cli.stressWorkers[workerID]; exists {
+		delete(cli.stressWorkers, workerID)
+		cli.mu.Unlock() // Unlock early
+
 		stressWorker.cancel()
-		// Wait for the goroutine to finish with a timeout
+
+		// Wait for goroutines to finish with timeout
 		done := make(chan struct{})
 		go func() {
 			stressWorker.wg.Wait()
+			stressWorker.requestsWg.Wait()
 			close(done)
 		}()
+
 		select {
 		case <-done:
-			// Goroutine finished cleanly
+			// Stopped cleanly
 		case <-time.After(5 * time.Second):
-			// Timeout - goroutine didn't finish, but continue with cleanup
-			fmt.Printf("Warning: Stress test worker %s did not stop cleanly within timeout\n", id)
+			fmt.Printf("Warning: Stress test worker %s did not stop cleanly within 5 seconds\n", workerID)
 		}
-		delete(cli.stressWorkers, id)
+
 		return nil
 	}
 
-	return fmt.Errorf("worker with ID %s not found", id)
+	cli.mu.Unlock()
+
+	return fmt.Errorf("worker '%s' not found", workerID)
 }
 
-// StopAllWorkers stops all running workers
+// StopAllWorkers stops all running background and stress test workers.
 func (cli *CLI) StopAllWorkers() error {
 	cli.mu.Lock()
-	defer cli.mu.Unlock()
 
-	// Collect all workers to stop
 	workersToStop := make([]*workerInfo, 0, len(cli.workers))
 	stressWorkersToStop := make([]*stressTestWorker, 0, len(cli.stressWorkers))
 
@@ -269,19 +277,19 @@ func (cli *CLI) StopAllWorkers() error {
 		stressWorkersToStop = append(stressWorkersToStop, stressWorker)
 	}
 
-	// Clear maps immediately to prevent new operations
+	// Clear maps immediately under lock
 	cli.workers = make(map[string]*workerInfo)
 	cli.stressWorkers = make(map[string]*stressTestWorker)
 
-	// Cancel all workers
+	cli.mu.Unlock() // Unlock while stopping workers
+
+	// Cancel all contexts
 	for _, worker := range workersToStop {
 		worker.cancel()
 	}
 	for _, stressWorker := range stressWorkersToStop {
 		stressWorker.cancel()
 	}
-
-	cli.mu.Unlock() // Unlock while waiting for goroutines
 
 	// Wait for all goroutines to finish with timeout
 	done := make(chan struct{})
@@ -291,28 +299,28 @@ func (cli *CLI) StopAllWorkers() error {
 		}
 		for _, stressWorker := range stressWorkersToStop {
 			stressWorker.wg.Wait()
+			stressWorker.requestsWg.Wait()
 		}
 		close(done)
 	}()
 
 	select {
 	case <-done:
-		// All goroutines finished cleanly
+		// All stopped cleanly
 	case <-time.After(10 * time.Second):
 		// Timeout - some goroutines didn't finish, but continue
 		fmt.Printf("Warning: Some workers did not stop cleanly within timeout\n")
 	}
 
-	cli.mu.Lock() // Re-lock before returning
 	return nil
 }
 
-// GetWorkerStats returns statistics for all workers
-func (cli *CLI) GetWorkerStats() map[string]interface{} {
+// GetWorkerStats returns statistics for all workers.
+func (cli *CLI) GetWorkerStats() map[string]any {
 	cli.mu.Lock()
 	defer cli.mu.Unlock()
 
-	stats := make(map[string]interface{})
+	stats := make(map[string]any)
 
 	totalWorkers := len(cli.workers) + len(cli.stressWorkers)
 	if totalWorkers == 0 {
@@ -321,12 +329,12 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 	}
 
 	stats["active"] = totalWorkers
-	workerDetails := make([]map[string]interface{}, 0, totalWorkers)
+	workerDetails := make([]map[string]any, 0, totalWorkers)
 
 	// Add regular workers
 	for id, worker := range cli.workers {
 		worker.mu.Lock()
-		workerStats := map[string]interface{}{
+		workerStats := map[string]any{
 			"id":                   id,
 			"name":                 worker.name,
 			"type":                 "background",
@@ -359,7 +367,7 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 			statusStr = "completed"
 		}
 
-		stressWorkerStats := map[string]interface{}{
+		stressWorkerStats := map[string]any{
 			"id":                   id,
 			"name":                 strings.Join(stressWorker.names, ", "),
 			"type":                 "stress_test",
@@ -385,4 +393,3 @@ func (cli *CLI) GetWorkerStats() map[string]interface{} {
 	stats["workers"] = workerDetails
 	return stats
 }
-

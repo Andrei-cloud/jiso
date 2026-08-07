@@ -16,7 +16,6 @@ var (
 	contextRegex = regexp.MustCompile(`\{\{\s*context\.(\w+)\s*\}\}`)
 )
 
-
 func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string) StepResult {
 	// Re-initialize selectedDatasets map on every step run to ensure random selection per step
 	sr.selectedDatasets = make(map[string]map[string]string)
