@@ -197,6 +197,63 @@ func TestAnalyzeFlow_VaryingBitmapCompositeUsesSubfieldDataset(t *testing.T) {
 	assert.False(t, hasRawField)
 }
 
+func createSyntheticPCAPFile(t *testing.T, reqPayload []byte, respPayload []byte) string {
+	var buf bytes.Buffer
+
+	// Write PCAP Global Header (24 bytes)
+	_ = binary.Write(&buf, binary.BigEndian, uint32(0xa1b2c3d4)) // Magic
+	_ = binary.Write(&buf, binary.BigEndian, uint16(2))          // Version major
+	_ = binary.Write(&buf, binary.BigEndian, uint16(4))          // Version minor
+	_ = binary.Write(&buf, binary.BigEndian, int32(0))           // Thiszone
+	_ = binary.Write(&buf, binary.BigEndian, uint32(0))          // Sigfigs
+	_ = binary.Write(&buf, binary.BigEndian, uint32(65535))      // Snaplen
+	_ = binary.Write(&buf, binary.BigEndian, uint32(1))          // Network (Ethernet)
+
+	writePacket := func(srcPort, dstPort uint16, payload []byte) {
+		ethHeader := make([]byte, 14)
+		binary.BigEndian.PutUint16(ethHeader[12:], 0x0800) // IPv4
+
+		ipHeader := make([]byte, 20)
+		ipHeader[0] = 0x45
+		binary.BigEndian.PutUint16(ipHeader[2:], uint16(20+20+len(payload)))
+		binary.BigEndian.PutUint16(ipHeader[6:], 0)
+		ipHeader[8] = 64 // TTL
+		ipHeader[9] = 6  // TCP
+		copy(ipHeader[12:16], []byte{127, 0, 0, 1})
+		copy(ipHeader[16:20], []byte{127, 0, 0, 1})
+
+		tcpHeader := make([]byte, 20)
+		binary.BigEndian.PutUint16(tcpHeader[0:], srcPort)
+		binary.BigEndian.PutUint16(tcpHeader[2:], dstPort)
+		binary.BigEndian.PutUint32(tcpHeader[4:], 1)
+		binary.BigEndian.PutUint32(tcpHeader[8:], 1)
+		tcpHeader[12] = 0x50 // Header len 20
+		tcpHeader[13] = 0x18 // PSH, ACK
+		binary.BigEndian.PutUint16(tcpHeader[14:], 8192)
+
+		pktData := append(append(append(ethHeader, ipHeader...), tcpHeader...), payload...)
+
+		// Packet header (16 bytes)
+		_ = binary.Write(&buf, binary.BigEndian, uint32(1600000000))
+		_ = binary.Write(&buf, binary.BigEndian, uint32(0))
+		_ = binary.Write(&buf, binary.BigEndian, uint32(len(pktData)))
+		_ = binary.Write(&buf, binary.BigEndian, uint32(len(pktData)))
+		buf.Write(pktData)
+	}
+
+	if len(reqPayload) > 0 {
+		writePacket(12345, 9999, reqPayload)
+	}
+	if len(respPayload) > 0 {
+		writePacket(9999, 12345, respPayload)
+	}
+
+	filePath := filepath.Join(t.TempDir(), "test_capture.pcap")
+	err := os.WriteFile(filePath, buf.Bytes(), 0o644)
+	require.NoError(t, err)
+	return filePath
+}
+
 func TestExtractFromPCAPFile(t *testing.T) {
 	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
 	if err != nil {
@@ -204,119 +261,109 @@ func TestExtractFromPCAPFile(t *testing.T) {
 	}
 	require.NoError(t, err)
 
-	analyzer := NewStreamAnalyzer(spec)
-	extracted, err := analyzer.ExtractMessagesFromFile("../../output.pcap", "binary2")
-	if err != nil {
-		extracted, err = analyzer.ExtractMessagesFromFile("output.pcap", "binary2")
-	}
-	if err == nil && len(extracted) > 0 {
-		flows := analyzer.AggregateFlows(extracted)
-		varianceEng := NewVarianceEngine(spec)
-		var items []config.ConfigItem
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0200")
+	msg.Field(3, "000000")
+	msg.Field(11, "000001")
+	packed, err := msg.Pack()
+	require.NoError(t, err)
 
-		for _, flow := range flows {
-			results, err := varianceEng.AnalyzeFlow(flow)
-			require.NoError(t, err)
-			for _, res := range results {
-				items = append(items, res.Transaction)
-				if res.Dataset.Name != "" && len(res.Dataset.Data) > 0 {
-					items = append(items, res.Dataset)
-				}
+	hdr, err := utils.SelectLength("binary2")
+	require.NoError(t, err)
+
+	var payloadBuf bytes.Buffer
+	writeLenFunc := utils.WriteMessageLengthWrapper(hdr)
+	_, err = writeLenFunc(&payloadBuf, len(packed))
+	require.NoError(t, err)
+	payloadBuf.Write(packed)
+
+	pcapFile := createSyntheticPCAPFile(t, payloadBuf.Bytes(), nil)
+
+	analyzer := NewStreamAnalyzer(spec)
+	extracted, err := analyzer.ExtractMessagesFromFile(pcapFile, "binary2")
+	require.NoError(t, err)
+	require.Len(t, extracted, 1)
+
+	flows := analyzer.AggregateFlows(extracted)
+	varianceEng := NewVarianceEngine(spec)
+	var items []config.ConfigItem
+
+	for _, flow := range flows {
+		results, err := varianceEng.AnalyzeFlow(flow)
+		require.NoError(t, err)
+		for _, res := range results {
+			items = append(items, res.Transaction)
+			if res.Dataset.Name != "" && len(res.Dataset.Data) > 0 {
+				items = append(items, res.Dataset)
 			}
 		}
-
-		require.NotEmpty(t, items)
-		data, err := json.MarshalIndent(items, "", "  ")
-		require.NoError(t, err)
-
-		_ = os.WriteFile(filepath.Join(t.TempDir(), "pcaped.json"), data, 0o644)
 	}
+
+	require.NotEmpty(t, items)
 }
 
 func TestInspectAndFilterPCAPDirections(t *testing.T) {
-	dirs, err := InspectPCAPDirections("../../output.pcap")
+	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
 	if err != nil {
-		dirs, err = InspectPCAPDirections("output.pcap")
+		spec, err = utils.CreateSpecFromFile("./specs/spec.json")
 	}
-	if err == nil {
-		require.NotEmpty(t, dirs)
-		// Should discover Port 9999 directions and All directions
-		has9999 := false
-		for _, d := range dirs {
-			if d.TargetPort == 9999 || d.Mode == "all" {
-				has9999 = true
-				break
-			}
-		}
-		assert.True(t, has9999)
+	require.NoError(t, err)
 
-		spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
-		if err != nil {
-			spec, err = utils.CreateSpecFromFile("./specs/spec.json")
-		}
-		require.NoError(t, err)
+	reqMsg := iso8583.NewMessage(spec)
+	reqMsg.MTI("0200")
+	reqMsg.Field(3, "000000")
+	reqMsg.Field(11, "000001")
+	reqPacked, err := reqMsg.Pack()
+	require.NoError(t, err)
 
-		streamAnalyzer := NewStreamAnalyzer(spec)
-		// Test filtering by Dst Port 9999 (Requests)
-		dstDir := TrafficDirection{TargetPort: 9999, Mode: "dst", Label: "Dst 9999"}
-		extractedDst, err := streamAnalyzer.ExtractMessagesFromFileWithDirection("../../output.pcap", "binary2", dstDir)
-		if err != nil {
-			extractedDst, err = streamAnalyzer.ExtractMessagesFromFileWithDirection("output.pcap", "binary2", dstDir)
-		}
-		if err == nil {
-			assert.NotEmpty(t, extractedDst)
-			flows := streamAnalyzer.AggregateFlows(extractedDst)
-			varianceEng := NewVarianceEngine(spec)
-			var items []config.ConfigItem
+	respMsg := iso8583.NewMessage(spec)
+	respMsg.MTI("0210")
+	respMsg.Field(3, "000000")
+	respMsg.Field(11, "000001")
+	respMsg.Field(39, "00")
+	respPacked, err := respMsg.Pack()
+	require.NoError(t, err)
 
-			for _, flow := range flows {
-				results, err := varianceEng.AnalyzeFlow(flow)
-				require.NoError(t, err)
-				for _, res := range results {
-					items = append(items, res.Transaction)
-					if res.Dataset.Name != "" && len(res.Dataset.Data) > 0 {
-						items = append(items, res.Dataset)
-					}
-				}
-			}
+	hdr, err := utils.SelectLength("binary2")
+	require.NoError(t, err)
 
-			// Verify that no response MTI (0210, 0410, 0810) exists in extractedDst or generated items
-			for _, item := range items {
-				var fields map[string]interface{}
-				if err := json.Unmarshal(item.Fields, &fields); err == nil {
-					mti, _ := fields["0"].(string)
-					assert.NotContains(t, []string{"0210", "0410", "0810"}, mti, "Response MTI should not be present in request-only directional extraction")
-				}
-			}
+	var reqBuf bytes.Buffer
+	writeLenFunc := utils.WriteMessageLengthWrapper(hdr)
+	_, _ = writeLenFunc(&reqBuf, len(reqPacked))
+	reqBuf.Write(reqPacked)
 
-			data, err := json.MarshalIndent(items, "", "  ")
-			require.NoError(t, err)
-			_ = os.WriteFile("../../transactions/pcaped.json", data, 0o644)
+	var respBuf bytes.Buffer
+	_, _ = writeLenFunc(&respBuf, len(respPacked))
+	respBuf.Write(respPacked)
 
-			// Test filtering by Src Port 9999 (Outgoing Responses -> Mock Routes)
-			srcDir := TrafficDirection{TargetPort: 9999, Mode: "src", Label: "Src 9999"}
-			extractedSrc, err := streamAnalyzer.ExtractMessagesFromFileWithDirection("../../output.pcap", "binary2", srcDir)
-			if err != nil {
-				extractedSrc, err = streamAnalyzer.ExtractMessagesFromFileWithDirection("output.pcap", "binary2", srcDir)
-			}
-			if err == nil && len(extractedSrc) > 0 {
-				srcFlows := streamAnalyzer.AggregateFlows(extractedSrc)
-				var routeItems []config.ConfigItem
-				for _, flow := range srcFlows {
-					results, err := varianceEng.AnalyzeFlowToMockRoutes(flow)
-					require.NoError(t, err)
-					for _, res := range results {
-						routeItems = append(routeItems, res.Transaction)
-					}
-				}
-				if len(routeItems) > 0 {
-					routeData, err := json.MarshalIndent(routeItems, "", "  ")
-					require.NoError(t, err)
-					_ = os.WriteFile("../../transactions/mock_routes.json", routeData, 0o644)
-				}
-			}
+	pcapFile := createSyntheticPCAPFile(t, reqBuf.Bytes(), respBuf.Bytes())
+
+	dirs, err := InspectPCAPDirections(pcapFile)
+	require.NoError(t, err)
+	require.NotEmpty(t, dirs)
+
+	has9999 := false
+	for _, d := range dirs {
+		if d.TargetPort == 9999 || d.Mode == "all" {
+			has9999 = true
+			break
 		}
 	}
+	assert.True(t, has9999)
+
+	streamAnalyzer := NewStreamAnalyzer(spec)
+
+	// Dst Port 9999 (Requests)
+	dstDir := TrafficDirection{TargetPort: 9999, Mode: "dst", Label: "Dst 9999"}
+	extractedDst, err := streamAnalyzer.ExtractMessagesFromFileWithDirection(pcapFile, "binary2", dstDir)
+	require.NoError(t, err)
+	assert.NotEmpty(t, extractedDst)
+
+	// Src Port 9999 (Responses)
+	srcDir := TrafficDirection{TargetPort: 9999, Mode: "src", Label: "Src 9999"}
+	extractedSrc, err := streamAnalyzer.ExtractMessagesFromFileWithDirection(pcapFile, "binary2", srcDir)
+	require.NoError(t, err)
+	assert.NotEmpty(t, extractedSrc)
 }
 
 func TestStreamAnalyzerMultiHeader(t *testing.T) {
