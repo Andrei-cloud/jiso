@@ -1,10 +1,14 @@
 package config
 
 import (
-	json "github.com/goccy/go-json"
+	"bytes"
 	"fmt"
 	"math/rand"
+	"sort"
+	"strconv"
 	"time"
+
+	json "github.com/goccy/go-json"
 )
 
 // ConfigDiscriminator defines the valid configuration item types
@@ -74,6 +78,170 @@ func ParseConfigItems(data []byte) ([]ConfigItem, error) {
 		}
 	}
 	return items, nil
+}
+
+// OrderedMap represents a map with preserved, sorted key insertion order for JSON marshaling
+type OrderedMap struct {
+	keys   []string
+	values map[string]interface{}
+}
+
+func NewOrderedMap() *OrderedMap {
+	return &OrderedMap{
+		keys:   make([]string, 0),
+		values: make(map[string]interface{}),
+	}
+}
+
+func (om *OrderedMap) Set(key string, value interface{}) {
+	if _, exists := om.values[key]; !exists {
+		om.keys = append(om.keys, key)
+	}
+	om.values[key] = value
+}
+
+func (om *OrderedMap) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	for i, k := range om.keys {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		keyBytes, err := json.Marshal(k)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(keyBytes)
+		buf.WriteByte(':')
+		valBytes, err := json.Marshal(om.values[k])
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(valBytes)
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+// SortMapKeysRecursively takes a map or slice or primitive interface{} and ensures any map[string]interface{}
+// with numeric string keys (or subfields/subelements) is sorted in numerical ascending order.
+func SortMapKeysRecursively(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		type keyVal struct {
+			key string
+			num int
+			val interface{}
+		}
+		var kvs []keyVal
+		for k, elem := range val {
+			n, err := strconv.Atoi(k)
+			if err != nil {
+				n = 999999
+			}
+			kvs = append(kvs, keyVal{key: k, num: n, val: SortMapKeysRecursively(elem)})
+		}
+		sort.Slice(kvs, func(i, j int) bool {
+			if kvs[i].num != kvs[j].num {
+				return kvs[i].num < kvs[j].num
+			}
+			return kvs[i].key < kvs[j].key
+		})
+
+		ordered := NewOrderedMap()
+		for _, kv := range kvs {
+			ordered.Set(kv.key, kv.val)
+		}
+		return ordered
+	case []interface{}:
+		for i, elem := range val {
+			val[i] = SortMapKeysRecursively(elem)
+		}
+		return val
+	default:
+		return v
+	}
+}
+
+// SortFieldsJSON normalizes a raw JSON message by sorting all key-value objects in ascending numeric key order
+func SortFieldsJSON(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return raw
+	}
+	var parsed interface{}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return raw
+	}
+	sorted := SortMapKeysRecursively(parsed)
+	data, err := json.Marshal(sorted)
+	if err != nil {
+		return raw
+	}
+	return json.RawMessage(data)
+}
+
+// SortStringMapKeys sorts a map[string]string into an OrderedMap for numeric ascending JSON output
+func SortStringMapKeys(m map[string]string) interface{} {
+	if m == nil {
+		return nil
+	}
+	type keyVal struct {
+		key string
+		num int
+		val string
+	}
+	var kvs []keyVal
+	for k, v := range m {
+		n, err := strconv.Atoi(k)
+		if err != nil {
+			n = 999999
+		}
+		kvs = append(kvs, keyVal{key: k, num: n, val: v})
+	}
+	sort.Slice(kvs, func(i, j int) bool {
+		if kvs[i].num != kvs[j].num {
+			return kvs[i].num < kvs[j].num
+		}
+		return kvs[i].key < kvs[j].key
+	})
+
+	ordered := NewOrderedMap()
+	for _, kv := range kvs {
+		ordered.Set(kv.key, kv.val)
+	}
+	return ordered
+}
+
+// SortInterfaceMapKeys sorts a map[string]interface{} into an OrderedMap for numeric ascending JSON output
+func SortInterfaceMapKeys(m map[string]interface{}) interface{} {
+	if m == nil {
+		return nil
+	}
+	type keyVal struct {
+		key string
+		num int
+		val interface{}
+	}
+	var kvs []keyVal
+	for k, v := range m {
+		n, err := strconv.Atoi(k)
+		if err != nil {
+			n = 999999
+		}
+		kvs = append(kvs, keyVal{key: k, num: n, val: SortMapKeysRecursively(v)})
+	}
+	sort.Slice(kvs, func(i, j int) bool {
+		if kvs[i].num != kvs[j].num {
+			return kvs[i].num < kvs[j].num
+		}
+		return kvs[i].key < kvs[j].key
+	})
+
+	ordered := NewOrderedMap()
+	for _, kv := range kvs {
+		ordered.Set(kv.key, kv.val)
+	}
+	return ordered
 }
 
 // GetTotalDelay calculates base latency + random jitter range in milliseconds
