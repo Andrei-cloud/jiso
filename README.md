@@ -1,5 +1,7 @@
 # JISO — JSON ISO8583 Client & Mock Server Tool
 
+![JISO](docs/jiso.png)
+
 JISO is a feature-rich command-line tool for simulating, testing, and debugging ISO8583 payment message flows. It connects to ISO8583 servers, composes and sends transactions from JSON templates, runs multi-step test scenarios, stress-tests payment switches, hosts an embedded mock server, and reverse-engineers PCAP traffic captures — all from a single binary.
 
 ## Features
