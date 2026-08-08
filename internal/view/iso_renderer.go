@@ -26,7 +26,7 @@ func NewISOMessageRenderer(output io.Writer) *ISOMessageRenderer {
 
 // RenderMessage renders an ISO8583 message
 func (r *ISOMessageRenderer) RenderMessage(msg *iso8583.Message) {
-	utils.Describe(msg, r.output, iso8583.DoNotFilterFields()...)
+	_ = utils.Describe(msg, r.output, iso8583.DoNotFilterFields()...)
 }
 
 // RenderRequestResponse renders a request-response pair with timing

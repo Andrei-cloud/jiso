@@ -99,7 +99,7 @@ func InsertTransaction(
 	})
 	if err != nil {
 		// Rollback on error
-		sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
+		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
 		return fmt.Errorf("failed to insert transaction: %w", err)
 	}
 
@@ -188,7 +188,9 @@ func GetTransactionStats(sessionID string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin read transaction: %w", err)
 	}
-	defer sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil) // Rollback if not committed
+	defer func() {
+		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
+	}()
 
 	// Get total count
 	var totalCount int

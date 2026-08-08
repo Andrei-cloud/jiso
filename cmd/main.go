@@ -32,9 +32,12 @@ func main() {
 		defer cliTool.Close()
 
 		cliTool.ClearTerminal()
-		err := cliTool.Run()
+		if err := cliTool.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running REPL: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
-		return err
+		return nil
 	})
 
 	// Execute Cobra root command structure
