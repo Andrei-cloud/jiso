@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/moov-io/iso8583"
@@ -300,8 +301,20 @@ func (sr *ScenarioRunner) injectVariables(val string, datasetName string) string
 		match := contextRegex.FindStringSubmatch(m)
 		if len(match) > 1 {
 			key := match[1]
-			if v, ok := sr.sessionState[key]; ok {
+			if v, ok := sr.sessionState[key]; ok && strings.TrimSpace(v) != "" {
 				return v
+			}
+			switch key {
+			case "AuthId", "auth_code":
+				return "000000"
+			case "OrigMTI":
+				return "0100"
+			case "OrigSTAN":
+				return "000001"
+			case "OrigDateTime":
+				return time.Now().Format("0102150405")
+			case "OrigAcquirer", "OrigForwarder":
+				return "000000"
 			}
 		}
 		return m

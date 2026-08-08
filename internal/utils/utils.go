@@ -152,14 +152,46 @@ func ResponseMTI(mti string) string {
 	if len(mti) < 4 {
 		return ""
 	}
-	return mti[:2] + "1" + mti[3:]
+	c := mti[2]
+	if c == '1' || c == '3' || c == '5' || c == '8' || c == '9' {
+		return mti
+	}
+	switch c {
+	case '0':
+		return mti[:2] + "1" + mti[3:]
+	case '2':
+		return mti[:2] + "3" + mti[3:]
+	case '4':
+		return mti[:2] + "5" + mti[3:]
+	default:
+		if c >= '0' && c <= '8' && (c-'0')%2 == 0 {
+			return mti[:2] + string(c+1) + mti[3:]
+		}
+		return mti[:2] + "1" + mti[3:]
+	}
 }
 
 func RequestMTI(mti string) string {
 	if len(mti) < 4 {
 		return ""
 	}
-	return mti[:2] + "0" + mti[3:]
+	c := mti[2]
+	if c == '0' || c == '2' || c == '4' || c == '8' || c == '9' {
+		return mti
+	}
+	switch c {
+	case '1':
+		return mti[:2] + "0" + mti[3:]
+	case '3':
+		return mti[:2] + "2" + mti[3:]
+	case '5':
+		return mti[:2] + "4" + mti[3:]
+	default:
+		if c >= '1' && c <= '9' && (c-'0')%2 == 1 {
+			return mti[:2] + string(c-1) + mti[3:]
+		}
+		return mti[:2] + "0" + mti[3:]
+	}
 }
 
 func IsResponseMTI(mti string) bool {
@@ -167,7 +199,7 @@ func IsResponseMTI(mti string) bool {
 		return false
 	}
 	c := mti[2]
-	return c == '1' || c == '3' || c == '5'
+	return c == '1' || c == '3' || c == '5' || c == '8' || c == '9'
 }
 
 func GetTrxnDateTime() string {

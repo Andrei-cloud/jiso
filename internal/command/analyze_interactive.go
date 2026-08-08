@@ -31,6 +31,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		Options: []string{
 			"1. Generate Transactions & Datasets (Client scenarios / sending)",
 			"2. Generate Mock Server Routes (Mock server response routing)",
+			"3. Generate Test Scenarios (Request/Response pair scaffolding)",
 		},
 		Default: "1. Generate Transactions & Datasets (Client scenarios / sending)",
 	}
@@ -38,6 +39,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		return err
 	}
 	isMockRouteGoal := strings.HasPrefix(analysisGoal, "2.")
+	isScenarioGoal := strings.HasPrefix(analysisGoal, "3.")
 
 	// 2. Select ISO8583 Specification File
 	specFiles := utils.FindAvailableSpecFiles()
@@ -176,6 +178,10 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 		return err
 	}
 	outputTxFile = strings.TrimSpace(outputTxFile)
+
+	if isScenarioGoal {
+		return ac.runScenarioAnalysis(streamFile, spec, headerType, outputTxFile, unsecure)
+	}
 
 	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, selectedDir, unsecure, isMockRouteGoal)
 }
