@@ -2,8 +2,6 @@ package analyzer
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 
 	json "github.com/goccy/go-json"
 
@@ -74,49 +72,7 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 		reqDE3 := getFieldString(reqMsg, 3)
 
 		// 1. Build base transaction template for request
-		txFields := make(map[string]interface{})
-		var fIDs []int
-		for i, f := range reqMsg.GetFields() {
-			if f == nil || i == 1 { // Skip DE 1 (Bitmap)
-				continue
-			}
-			val, ok := extractFieldValueForTemplate(f)
-			if !ok {
-				continue
-			}
-			fIDs = append(fIDs, i)
-			_ = val
-		}
-		sort.Ints(fIDs)
-
-		for _, i := range fIDs {
-			f := reqMsg.GetField(i)
-			if f == nil {
-				continue
-			}
-			extracted, ok := extractFieldValueForTemplate(f)
-			if !ok {
-				continue
-			}
-			extracted = AnonymizeFieldValue(i, extracted, opts.Unsecure)
-			fieldKey := fmt.Sprintf("%d", i)
-
-			if i == 7 || i == 11 || i == 37 || i == 38 {
-				txFields[fieldKey] = "auto"
-			} else if isNumericField(sb.spec, i) && i != 0 {
-				if strVal, isStr := extracted.(string); isStr {
-					if num, err := strconv.ParseInt(strVal, 10, 64); err == nil {
-						txFields[fieldKey] = num
-					} else {
-						txFields[fieldKey] = strVal
-					}
-				} else {
-					txFields[fieldKey] = extracted
-				}
-			} else {
-				txFields[fieldKey] = extracted
-			}
-		}
+		txFields := buildMessageTemplateFields(reqMsg, sb.spec, opts.Unsecure)
 
 		txName := fmt.Sprintf("Tx %s DE3=%s #%d", reqMTI, reqDE3, idx+1)
 		txFieldsBytes, err := json.Marshal(txFields)

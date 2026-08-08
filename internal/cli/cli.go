@@ -202,141 +202,143 @@ func (cli *CLI) Close() {
 }
 
 func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
-	if subcommand == "version" || subcommand == "v" || subcommand == "-v" || subcommand == "--version" {
+	switch subcommand {
+	case "version", "v", "-v", "--version":
 		cli.PrintVersion()
 		return nil
-	}
-	if subcommand == "init-spec" {
+	case "init-spec":
 		var path string
 		if len(args) > 0 {
 			path = args[0]
 		}
-		cmdObj := &cmd.InitSpecCommand{OutputPath: path}
-
-		return cmdObj.Execute()
-	}
-	if subcommand == "init-tx" {
+		return (&cmd.InitSpecCommand{OutputPath: path}).Execute()
+	case "init-tx":
 		var path string
 		if len(args) > 0 {
 			path = args[0]
 		}
-		cmdObj := &cmd.InitTxCommand{OutputPath: path}
+		return (&cmd.InitTxCommand{OutputPath: path}).Execute()
+	case "analyze", "pcap":
+		return cli.handleAnalyzeCommand(args)
+	case "scenarios", "scenario":
+		return cli.handleScenarioCommand(args)
+	case "serve", "server":
+		return cli.handleServeCommand(args)
+	case "run-scenario":
+		return cli.handleRunScenarioCommand(args)
+	default:
+		return fmt.Errorf("unknown subcommand: %s", subcommand)
+	}
+}
 
-		return cmdObj.Execute()
+func (cli *CLI) handleAnalyzeCommand(args []string) error {
+	specPath := cfg.GetConfig().GetSpec()
+	var spec *iso8583.MessageSpec
+	if specPath != "" {
+		if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+			spec = s
+		}
+	}
+	var tcRepo transactions.Repository
+	txPath := cfg.GetConfig().GetFile()
+	if txPath != "" && spec != nil {
+		if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
+			tcRepo = tc
+		}
+	}
+	cmdObj := cmd.NewAnalyzeCommand(spec, tcRepo)
+	cmdObj.SetArgs(args)
+	return cmdObj.Execute()
+}
+
+func (cli *CLI) handleScenarioCommand(args []string) error {
+	specPath := cfg.GetConfig().GetSpec()
+	txPath := cfg.GetConfig().GetFile()
+	if specPath == "" {
+		return errors.New("spec file is required (use -spec-file)")
+	}
+	if txPath == "" {
+		return errors.New("transaction file is required (use -file)")
+	}
+	spec, err := utils.CreateSpecFromFile(specPath)
+	if err != nil {
+		return fmt.Errorf("failed to load spec: %w", err)
+	}
+	tc, err := transactions.NewTransactionCollection(txPath, spec)
+	if err != nil {
+		return err
+	}
+	return (&cmd.ScenarioCommand{Tc: tc}).Execute()
+}
+
+func (cli *CLI) handleServeCommand(args []string) error {
+	specPath := cfg.GetConfig().GetSpec()
+	txPath := cfg.GetConfig().GetFile()
+	var spec *iso8583.MessageSpec
+	var routes []cfg.MockRouteConfig
+	if specPath != "" {
+		if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+			spec = s
+		}
+	}
+	if spec == nil {
+		spec = utils.GetDefaultSpec()
+	}
+	var tcRepo transactions.Repository
+	if txPath != "" && spec != nil {
+		if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
+			routes = tc.GetMockRoutes()
+			tcRepo = tc
+		}
+	}
+	cmdObj := cmd.NewServerCommand(spec, routes, tcRepo)
+
+	subCmd := "start"
+	port := "9999"
+	headerType := "binary2"
+
+	if len(args) > 0 {
+		subCmd = strings.ToLower(args[0])
+	}
+	if subCmd == "stop" {
+		return errors.New("'serve stop' is only applicable in interactive REPL mode. In standalone mode, stop the server with Ctrl+C")
 	}
 
-	if subcommand == "analyze" || subcommand == "pcap" {
-		specPath := cfg.GetConfig().GetSpec()
-		var spec *iso8583.MessageSpec
-		if specPath != "" {
-			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+	if subCmd == "routes" || subCmd == "list" {
+		cmdObj.ListRoutes()
+		return nil
+	}
+
+	if subCmd == "start" {
+		if len(args) > 1 {
+			port = args[1]
+		}
+		if len(args) > 2 {
+			headerType = args[2]
+		}
+		if len(args) > 3 {
+			if s, err := utils.CreateSpecFromFile(args[3]); err == nil {
 				spec = s
+				cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
 			}
 		}
-		var tcRepo transactions.Repository
-		txPath := cfg.GetConfig().GetFile()
-		if txPath != "" && spec != nil {
-			if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
-				tcRepo = tc
-			}
+	} else {
+		port = args[0]
+		if len(args) > 1 {
+			headerType = args[1]
 		}
-		cmdObj := cmd.NewAnalyzeCommand(spec, tcRepo)
-		cmdObj.SetArgs(args)
-
-		return cmdObj.Execute()
-	}
-
-	if subcommand == "scenarios" || subcommand == "scenario" {
-		specPath := cfg.GetConfig().GetSpec()
-		txPath := cfg.GetConfig().GetFile()
-		if specPath == "" {
-			return errors.New("spec file is required (use -spec-file)")
-		}
-		if txPath == "" {
-			return errors.New("transaction file is required (use -file)")
-		}
-		spec, err := utils.CreateSpecFromFile(specPath)
-		if err != nil {
-			return fmt.Errorf("failed to load spec: %w", err)
-		}
-		tc, err := transactions.NewTransactionCollection(txPath, spec)
-		if err != nil {
-			return err
-		}
-		cmdObj := &cmd.ScenarioCommand{Tc: tc}
-
-		return cmdObj.Execute()
-	}
-
-	if subcommand == "serve" || subcommand == "server" {
-		specPath := cfg.GetConfig().GetSpec()
-		txPath := cfg.GetConfig().GetFile()
-		var spec *iso8583.MessageSpec
-		var routes []cfg.MockRouteConfig
-		if specPath != "" {
-			if s, err := utils.CreateSpecFromFile(specPath); err == nil {
+		if len(args) > 2 {
+			if s, err := utils.CreateSpecFromFile(args[2]); err == nil {
 				spec = s
+				cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
 			}
 		}
-		if spec == nil {
-			spec = utils.GetDefaultSpec()
-		}
-		var tcRepo transactions.Repository
-		if txPath != "" && spec != nil {
-			if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
-				routes = tc.GetMockRoutes()
-				tcRepo = tc
-			}
-		}
-		cmdObj := cmd.NewServerCommand(spec, routes, tcRepo)
-
-		subCmd := "start"
-		port := "9999"
-		headerType := "binary2"
-
-		if len(args) > 0 {
-			subCmd = strings.ToLower(args[0])
-		}
-		if subCmd == "stop" {
-			return errors.New("'serve stop' is only applicable in interactive REPL mode. In standalone mode, stop the server with Ctrl+C")
-		}
-
-		if subCmd == "routes" || subCmd == "list" {
-			cmdObj.ListRoutes()
-			return nil
-		}
-
-		if subCmd == "start" {
-			if len(args) > 1 {
-				port = args[1]
-			}
-			if len(args) > 2 {
-				headerType = args[2]
-			}
-			if len(args) > 3 {
-				if s, err := utils.CreateSpecFromFile(args[3]); err == nil {
-					spec = s
-					cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
-				}
-			}
-		} else {
-			// If first argument is numeric port or header type
-			port = args[0]
-			if len(args) > 1 {
-				headerType = args[1]
-			}
-			if len(args) > 2 {
-				if s, err := utils.CreateSpecFromFile(args[2]); err == nil {
-					spec = s
-					cmdObj = cmd.NewServerCommand(spec, routes, tcRepo)
-				}
-			}
-		}
-
-		return cmdObj.RunDirectServer(port, headerType)
 	}
 
-	// For other commands (run-scenario), we must initialize the service
+	return cmdObj.RunDirectServer(port, headerType)
+}
+
+func (cli *CLI) handleRunScenarioCommand(args []string) error {
 	if err := cli.InitService(); err != nil {
 		return err
 	}
@@ -344,47 +346,42 @@ func (cli *CLI) RunDirectCommand(subcommand string, args []string) error {
 	cli.factory = cmd.NewFactory(cli.svc, cli.tc, cli.networkStats, cli)
 	cli.registerAllCommands()
 
-	if subcommand == "run-scenario" {
-		fs := flag.NewFlagSet("run-scenario", flag.ContinueOnError)
-		reportPath := fs.String("report", "", "Path to export the test report JSON")
-		lengthType := fs.String("length", "ascii4", "Connection length type (ascii4, binary2, bcd2, NAPS, visa)")
-		if err := fs.Parse(args); err != nil {
-			return err
-		}
-
-		scenarioName := ""
-		if len(fs.Args()) > 0 {
-			scenarioName = fs.Arg(0)
-		}
-
-		if scenarioName == "" {
-			return errors.New("scenario name is required")
-		}
-
-		// Connect first
-		header, err := utils.SelectLength(*lengthType)
-		if err != nil {
-			return fmt.Errorf("invalid length type '%s': %w", *lengthType, err)
-		}
-		naps := (*lengthType == "NAPS")
-		fmt.Printf("Connecting to server at %s...\n", cli.svc.Address)
-		if err := cli.svc.Connect(naps, header); err != nil {
-			return fmt.Errorf("failed to connect to server: %w", err)
-		}
-		defer func() {
-			if err := cli.svc.Disconnect(); err != nil {
-				fmt.Printf("Warning: Disconnect error: %v\n", err)
-			}
-		}()
-
-		cmdObj := cli.factory.CreateRunScenarioCommand()
-		if runScenarioCmd, ok := cmdObj.(*cmd.RunScenarioCommand); ok {
-			runScenarioCmd.ScenarioName = scenarioName
-			runScenarioCmd.ReportPath = *reportPath
-		}
-
-		return cmdObj.Execute()
+	fs := flag.NewFlagSet("run-scenario", flag.ContinueOnError)
+	reportPath := fs.String("report", "", "Path to export the test report JSON")
+	lengthType := fs.String("length", "ascii4", "Connection length type (ascii4, binary2, bcd2, NAPS, visa)")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
 
-	return fmt.Errorf("unknown subcommand: %s", subcommand)
+	scenarioName := ""
+	if len(fs.Args()) > 0 {
+		scenarioName = fs.Arg(0)
+	}
+
+	if scenarioName == "" {
+		return errors.New("scenario name is required")
+	}
+
+	header, err := utils.SelectLength(*lengthType)
+	if err != nil {
+		return fmt.Errorf("invalid length type '%s': %w", *lengthType, err)
+	}
+	naps := (*lengthType == "NAPS")
+	fmt.Printf("Connecting to server at %s...\n", cli.svc.Address)
+	if err := cli.svc.Connect(naps, header); err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer func() {
+		if err := cli.svc.Disconnect(); err != nil {
+			fmt.Printf("Warning: Disconnect error: %v\n", err)
+		}
+	}()
+
+	cmdObj := cli.factory.CreateRunScenarioCommand()
+	if runScenarioCmd, ok := cmdObj.(*cmd.RunScenarioCommand); ok {
+		runScenarioCmd.ScenarioName = scenarioName
+		runScenarioCmd.ReportPath = *reportPath
+	}
+
+	return cmdObj.Execute()
 }

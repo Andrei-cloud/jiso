@@ -5,8 +5,60 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
 )
+
+func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool) map[string]interface{} {
+	txFields := make(map[string]interface{})
+	if msg == nil {
+		return txFields
+	}
+
+	var fIDs []int
+	for i, f := range msg.GetFields() {
+		if f == nil || i == 1 { // Skip DE 1 (Bitmap)
+			continue
+		}
+		_, ok := extractFieldValueForTemplate(f)
+		if !ok {
+			continue
+		}
+		fIDs = append(fIDs, i)
+	}
+	sort.Ints(fIDs)
+
+	for _, i := range fIDs {
+		f := msg.GetField(i)
+		if f == nil {
+			continue
+		}
+		extracted, ok := extractFieldValueForTemplate(f)
+		if !ok {
+			continue
+		}
+		extracted = AnonymizeFieldValue(i, extracted, unsecure)
+		fieldKey := fmt.Sprintf("%d", i)
+
+		if i == 7 || i == 11 || i == 37 || i == 38 {
+			txFields[fieldKey] = "auto"
+		} else if isNumericField(spec, i) && i != 0 {
+			if strVal, isStr := extracted.(string); isStr {
+				if num, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+					txFields[fieldKey] = num
+				} else {
+					txFields[fieldKey] = strVal
+				}
+			} else {
+				txFields[fieldKey] = extracted
+			}
+		} else {
+			txFields[fieldKey] = extracted
+		}
+	}
+
+	return txFields
+}
 
 // extractFieldValueForTemplate converts field values into JSON-friendly values.
 // Composite fields are expanded into nested maps of subfield values.
@@ -34,19 +86,7 @@ func extractFieldValueForTemplate(f field.Field) (interface{}, bool) {
 	}
 
 	result := make(map[string]interface{})
-	keys := make([]string, 0, len(subfields))
-	for key := range subfields {
-		keys = append(keys, key)
-	}
-
-	sort.Slice(keys, func(i, j int) bool {
-		ai, errI := strconv.Atoi(keys[i])
-		aj, errJ := strconv.Atoi(keys[j])
-		if errI == nil && errJ == nil {
-			return ai < aj
-		}
-		return keys[i] < keys[j]
-	})
+	keys := sortedNumericOrStringKeys(subfields)
 
 	for _, key := range keys {
 		if key == "0" {
@@ -77,18 +117,7 @@ func buildPlaceholderValue(prefix string, value interface{}) interface{} {
 	}
 
 	result := make(map[string]interface{}, len(nested))
-	keys := make([]string, 0, len(nested))
-	for key := range nested {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		ai, errI := strconv.Atoi(keys[i])
-		aj, errJ := strconv.Atoi(keys[j])
-		if errI == nil && errJ == nil {
-			return ai < aj
-		}
-		return keys[i] < keys[j]
-	})
+	keys := sortedNumericOrStringKeys(nested)
 
 	for _, key := range keys {
 		result[key] = buildPlaceholderValue(prefix+"_"+key, nested[key])
@@ -104,9 +133,17 @@ func flattenValueForDataset(prefix string, value interface{}, row map[string]str
 		return
 	}
 
-	keys := make([]string, 0, len(nested))
-	for key := range nested {
-		keys = append(keys, key)
+	keys := sortedNumericOrStringKeys(nested)
+
+	for _, key := range keys {
+		flattenValueForDataset(prefix+"_"+key, nested[key], row)
+	}
+}
+
+func sortedNumericOrStringKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
 	sort.Slice(keys, func(i, j int) bool {
 		ai, errI := strconv.Atoi(keys[i])
@@ -116,10 +153,7 @@ func flattenValueForDataset(prefix string, value interface{}, row map[string]str
 		}
 		return keys[i] < keys[j]
 	})
-
-	for _, key := range keys {
-		flattenValueForDataset(prefix+"_"+key, nested[key], row)
-	}
+	return keys
 }
 
 func mergeStructuredValues(dst, src map[string]interface{}) map[string]interface{} {

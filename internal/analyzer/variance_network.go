@@ -11,8 +11,6 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// VarianceResult holds the generated base transaction template and extracted dataset rows
-
 func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*VarianceResult, error) {
 	// Deduplicate unique 08XX messages based on field content
 	type uniqueMsg struct {

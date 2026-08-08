@@ -126,8 +126,14 @@ func (a *StreamAnalyzer) ExtractAnnotatedMessagesFromFile(
 		_ = parsePCAPPackets(f, collector)
 	}
 
-	reqMsgs, _ := a.ExtractMessagesFromStream(reqBuf.Bytes(), headerType)
-	respMsgs, _ := a.ExtractMessagesFromStream(respBuf.Bytes(), headerType)
+	reqMsgs, reqErr := a.ExtractMessagesFromStream(reqBuf.Bytes(), headerType)
+	respMsgs, respErr := a.ExtractMessagesFromStream(respBuf.Bytes(), headerType)
+	if reqErr != nil && len(reqMsgs) == 0 && respErr != nil && len(respMsgs) == 0 {
+		if reqErr != nil {
+			return nil, fmt.Errorf("extracting request messages: %w", reqErr)
+		}
+		return nil, fmt.Errorf("extracting response messages: %w", respErr)
+	}
 
 	var result []*AnnotatedMessage
 	order := 0

@@ -118,28 +118,7 @@ func (c *SendCommand) Execute() error {
 	elapsed := time.Since(startTime)
 
 	// Store transaction in database if configured
-	if config.GetConfig().GetDbPath() != "" {
-		requestJSON, _ := db.MessageToJSON(msg)
-		var responseJSON *string
-		var processingTimeMs int
-
-		if success && response != nil {
-			respJSON, _ := db.MessageToJSON(response)
-			responseJSON = &respJSON
-			processingTimeMs = int(elapsed.Milliseconds())
-		} else {
-			processingTimeMs = 0 // Timeout or error
-		}
-
-		db.LogTransaction(
-			config.GetConfig().GetSessionId(),
-			trxnName,
-			requestJSON,
-			responseJSON,
-			processingTimeMs,
-			success,
-		)
-	}
+	logToDB(config.GetConfig().GetSessionId(), trxnName, msg, response, int(elapsed.Milliseconds()), err == nil)
 
 	if err != nil {
 		return err
@@ -284,17 +263,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, se
 		c.Tc.LogTransaction(trxnName, false)
 
 		// Store failed transaction in database
-		if config.GetConfig().GetDbPath() != "" {
-			requestJSON, _ := db.MessageToJSON(msg)
-			db.LogTransaction(
-				logSessionID,
-				trxnName,
-				requestJSON,
-				nil, // No response
-				0,   // No processing time
-				false,
-			)
-		}
+		logToDB(logSessionID, trxnName, msg, nil, 0, false)
 
 		// Record error
 		if c.networkStats != nil {
@@ -312,17 +281,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, se
 		c.Tc.LogTransaction(trxnName, false)
 
 		// Store timeout transaction in database
-		if config.GetConfig().GetDbPath() != "" {
-			requestJSON, _ := db.MessageToJSON(msg)
-			db.LogTransaction(
-				logSessionID,
-				trxnName,
-				requestJSON,
-				nil, // No response
-				int(execTime.Milliseconds()),
-				false,
-			)
-		}
+		logToDB(logSessionID, trxnName, msg, nil, int(execTime.Milliseconds()), false)
 
 		return "TIMEOUT", execTime, fmt.Errorf("response timeout for transaction %s", trxnName)
 	}
@@ -357,19 +316,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, se
 		c.Tc.LogTransaction(trxnName, false)
 
 		// Store mismatch in database as failure
-		if config.GetConfig().GetDbPath() != "" {
-			requestJSON, _ := db.MessageToJSON(msg)
-			responseJSON, _ := db.MessageToJSON(resp)
-			mappedResponseJSON := &responseJSON
-			db.LogTransaction(
-				logSessionID,
-				trxnName,
-				requestJSON,
-				mappedResponseJSON,
-				int(execTime.Milliseconds()),
-				false, // Mark as failure due to mismatch
-			)
-		}
+		logToDB(logSessionID, trxnName, msg, resp, int(execTime.Milliseconds()), false)
 
 		return "STAN_MISMATCH", execTime, fmt.Errorf("STAN mismatch: request=%s, response=%s", requestStan, responseStan)
 	}
@@ -384,17 +331,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, se
 		c.Tc.LogTransaction(trxnName, false)
 
 		// Store transaction with error in database
-		if config.GetConfig().GetDbPath() != "" {
-			requestJSON, _ := db.MessageToJSON(msg)
-			db.LogTransaction(
-				logSessionID,
-				trxnName,
-				requestJSON,
-				nil, // No valid response
-				0,   // No processing time
-				false,
-			)
-		}
+		logToDB(logSessionID, trxnName, msg, nil, 0, false)
 
 		return "RC_PARSE_ERR", execTime, err
 	}
@@ -403,19 +340,7 @@ func (c *SendCommand) ExecuteBackground(trxnName string, skipValidation bool, se
 	c.Tc.LogTransaction(trxnName, true)
 
 	// Store successful transaction in database
-	if config.GetConfig().GetDbPath() != "" {
-		requestJSON, _ := db.MessageToJSON(msg)
-		responseJSON, _ := db.MessageToJSON(resp)
-		mappedResponseJSON := &responseJSON
-		db.LogTransaction(
-			logSessionID,
-			trxnName,
-			requestJSON,
-			mappedResponseJSON,
-			int(execTime.Milliseconds()),
-			true,
-		)
-	}
+	logToDB(logSessionID, trxnName, msg, resp, int(execTime.Milliseconds()), true)
 
 	// Record metrics - Removed to prevent race condition on shared state
 	// Worker controller tracks success/failure counts independently
@@ -467,4 +392,20 @@ func (c *SendCommand) ResponseCodes() map[string]uint64 {
 		return make(map[string]uint64)
 	}
 	return c.stats.ResponseCodes()
+}
+
+func logToDB(sessionID, trxnName string, req, resp *iso8583.Message, processingTimeMs int, success bool) {
+	if config.GetConfig().GetDbPath() == "" {
+		return
+	}
+	var reqJSON string
+	if req != nil {
+		reqJSON, _ = db.MessageToJSON(req)
+	}
+	var respJSON *string
+	if resp != nil {
+		rJSON, _ := db.MessageToJSON(resp)
+		respJSON = &rJSON
+	}
+	db.LogTransaction(sessionID, trxnName, reqJSON, respJSON, processingTimeMs, success)
 }

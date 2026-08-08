@@ -43,14 +43,6 @@ func NewTransactionCollection(
 		}, nil
 	}
 
-	if filename == "" {
-		return &TransactionCollection{
-			spec:      specs,
-			cache:     make(map[string]*Transaction),
-			datasets:  make(map[string]*Dataset),
-			scenarios: make(map[string]*Scenario),
-		}, nil
-	}
 
 	if isInvalidFilename(filename) {
 		return nil, errors.New("invalid filename")
@@ -117,11 +109,15 @@ func NewTransactionCollection(
 			}
 			tc.datasets[item.Name] = &d
 		case "scenario":
+			var steps []ScenarioStep
+			if len(item.Steps) > 0 {
+				_ = json.Unmarshal(item.Steps, &steps)
+			}
 			s := Scenario{
 				Name:        item.Name,
 				Description: item.Description,
 				DatasetName: item.DatasetName,
-				Steps:       item.Steps,
+				Steps:       steps,
 			}
 			tc.scenarios[item.Name] = &s
 		case "mock_route":

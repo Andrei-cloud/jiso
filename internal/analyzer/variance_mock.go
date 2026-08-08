@@ -12,8 +12,6 @@ import (
 	"jiso/internal/utils"
 )
 
-// VarianceResult holds the generated base transaction template and extracted dataset rows
-
 func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceResult, error) {
 	fieldValues := make(map[int][]string)
 	fieldStructuredValues := make(map[int][]interface{})

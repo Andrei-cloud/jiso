@@ -41,6 +41,8 @@ type ConfigItem struct {
 	Type           ConfigDiscriminator    `json:"type,omitempty"`
 	Name           string                 `json:"name"`
 	Description    string                 `json:"description,omitempty"`
+	Spec           string                 `json:"spec,omitempty"`
+	SpecFile       string                 `json:"spec_file,omitempty"`
 	Fields         json.RawMessage        `json:"fields,omitempty"`
 	Dataset        []map[int]string       `json:"dataset,omitempty"`
 	Data           []map[string]string    `json:"data,omitempty"`
@@ -185,31 +187,7 @@ func SortStringMapKeys(m map[string]interface{}) interface{} {
 	if m == nil {
 		return nil
 	}
-	type keyVal struct {
-		key string
-		num int
-		val interface{}
-	}
-	var kvs []keyVal
-	for k, v := range m {
-		n, err := strconv.Atoi(k)
-		if err != nil {
-			n = 999999
-		}
-		kvs = append(kvs, keyVal{key: k, num: n, val: v})
-	}
-	sort.Slice(kvs, func(i, j int) bool {
-		if kvs[i].num != kvs[j].num {
-			return kvs[i].num < kvs[j].num
-		}
-		return kvs[i].key < kvs[j].key
-	})
-
-	ordered := NewOrderedMap()
-	for _, kv := range kvs {
-		ordered.Set(kv.key, kv.val)
-	}
-	return ordered
+	return SortMapKeysRecursively(m)
 }
 
 // SortInterfaceMapKeys sorts a map[string]interface{} into an OrderedMap for numeric ascending JSON output
@@ -217,31 +195,7 @@ func SortInterfaceMapKeys(m map[string]interface{}) interface{} {
 	if m == nil {
 		return nil
 	}
-	type keyVal struct {
-		key string
-		num int
-		val interface{}
-	}
-	var kvs []keyVal
-	for k, v := range m {
-		n, err := strconv.Atoi(k)
-		if err != nil {
-			n = 999999
-		}
-		kvs = append(kvs, keyVal{key: k, num: n, val: SortMapKeysRecursively(v)})
-	}
-	sort.Slice(kvs, func(i, j int) bool {
-		if kvs[i].num != kvs[j].num {
-			return kvs[i].num < kvs[j].num
-		}
-		return kvs[i].key < kvs[j].key
-	})
-
-	ordered := NewOrderedMap()
-	for _, kv := range kvs {
-		ordered.Set(kv.key, kv.val)
-	}
-	return ordered
+	return SortMapKeysRecursively(m)
 }
 
 // GetTotalDelay calculates base latency + random jitter range in milliseconds

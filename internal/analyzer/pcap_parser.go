@@ -13,29 +13,15 @@ func ExtractTCPPayloadsFromPCAP(r io.Reader) ([]byte, error) {
 
 // ExtractTCPPayloadsFromPCAPFiltered extracts TCP payloads matching the given directional filter
 func ExtractTCPPayloadsFromPCAPFiltered(r io.Reader, dir TrafficDirection) ([]byte, error) {
-	var payloadBuffer bytes.Buffer
-	collector := func(srcPort, dstPort uint16, payload []byte) {
-		if len(payload) == 0 {
-			return
-		}
-		if dir.Mode == "dst" && dstPort != dir.TargetPort {
-			return
-		}
-		if dir.Mode == "src" && srcPort != dir.TargetPort {
-			return
-		}
-		payloadBuffer.Write(payload)
-	}
-
-	err := parsePCAPPackets(r, collector)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return nil, err
-	}
-	return payloadBuffer.Bytes(), nil
+	return extractTCPPayloadsFiltered(r, dir, parsePCAPPackets)
 }
 
 // ExtractTCPPayloadsFromPCAPNGFiltered extracts TCP payloads from PCAPNG with directional filtering
 func ExtractTCPPayloadsFromPCAPNGFiltered(r io.Reader, dir TrafficDirection) ([]byte, error) {
+	return extractTCPPayloadsFiltered(r, dir, parsePCAPNGPackets)
+}
+
+func extractTCPPayloadsFiltered(r io.Reader, dir TrafficDirection, parser func(io.Reader, func(uint16, uint16, []byte)) error) ([]byte, error) {
 	var payloadBuffer bytes.Buffer
 	collector := func(srcPort, dstPort uint16, payload []byte) {
 		if len(payload) == 0 {
@@ -50,7 +36,7 @@ func ExtractTCPPayloadsFromPCAPNGFiltered(r io.Reader, dir TrafficDirection) ([]
 		payloadBuffer.Write(payload)
 	}
 
-	err := parsePCAPNGPackets(r, collector)
+	err := parser(r, collector)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		return nil, err
 	}

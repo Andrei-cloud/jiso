@@ -58,27 +58,8 @@ type Assertion struct {
 	Exists *bool  `json:"exists,omitempty"`
 }
 
-type ConfigItem struct {
-	Type           string                 `json:"type"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description"`
-	Spec           string                 `json:"spec,omitempty"`
-	SpecFile       string                 `json:"spec_file,omitempty"`
-	Fields         json.RawMessage        `json:"fields,omitempty"`
-	Dataset        []map[int]string       `json:"dataset,omitempty"`
-	Data           []map[string]string    `json:"data,omitempty"`
-	DatasetName    string                 `json:"dataset_name,omitempty"`
-	Steps          []ScenarioStep         `json:"steps,omitempty"`
-	MatchFields    map[string]interface{} `json:"match_fields,omitempty"`
-	RequiredFields []string               `json:"required_fields,omitempty"`
-	EchoFields     []int                  `json:"echo_fields,omitempty"`
-	ResponseMTI    string                 `json:"response_mti,omitempty"`
-	ResponseFields map[string]interface{} `json:"response_fields,omitempty"`
-	DelayMs        int                    `json:"delay_ms,omitempty"`
-	LatencyMs      int                    `json:"latency_ms,omitempty"`
-	JitterMs       int                    `json:"jitter_ms,omitempty"`
-	DropConnection bool                   `json:"drop_connection,omitempty"`
-}
+type ConfigItem = cfg.ConfigItem
+
 
 // TransactionState stores information about transaction state
 type TransactionState struct {

@@ -481,9 +481,7 @@ func (tc *TransactionCollection) applyRandomValues(msg *iso8583.Message, dataset
 		return
 	}
 
-	// Pick a random entry from the dataset using a better RNG
-	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
-	randIndex := randSource.Intn(len(dataset))
+	randIndex := rand.Intn(len(dataset))
 	randomValues := dataset[randIndex]
 
 	// Apply values
@@ -492,17 +490,8 @@ func (tc *TransactionCollection) applyRandomValues(msg *iso8583.Message, dataset
 			continue
 		}
 
-		// Try to determine correct field type and set accordingly
 		if fieldID >= 2 && fieldID <= 128 {
-			// Get field definition from spec
-			fieldDef := tc.spec.Fields[fieldID]
-			if fieldDef != nil {
-				// Default case or fallback
-				_ = msg.Field(fieldID, value)
-			} else {
-				// Field not in spec, use default handling
-				_ = msg.Field(fieldID, value)
-			}
+			_ = msg.Field(fieldID, value)
 		}
 	}
 }
