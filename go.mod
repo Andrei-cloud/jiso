@@ -11,6 +11,7 @@ require (
 	github.com/moov-io/iso8583 v0.26.0
 	github.com/moov-io/iso8583-connection v0.9.0
 	github.com/olekukonko/tablewriter v1.1.4
+	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	zombiezen.com/go/sqlite v1.4.2
 )
@@ -34,7 +35,6 @@ require (
 	github.com/olekukonko/ll v0.1.8 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/yerden/go-util v1.1.4 // indirect
 	golang.org/x/sys v0.47.0 // indirect

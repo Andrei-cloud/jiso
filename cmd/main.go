@@ -23,6 +23,7 @@ func main() {
 		<-sigCh
 		fmt.Println("\nShutdown signal received")
 		cancel()
+		os.Exit(0)
 	}()
 
 	// Configure REPL runner callback for interactive mode
@@ -31,17 +32,9 @@ func main() {
 		defer cliTool.Close()
 
 		cliTool.ClearTerminal()
-		errCh := make(chan error, 1)
-		go func() {
-			errCh <- cliTool.Run()
-		}()
-
-		select {
-		case err := <-errCh:
-			return err
-		case <-replCtx.Done():
-			return nil
-		}
+		err := cliTool.Run()
+		os.Exit(0)
+		return err
 	})
 
 	// Execute Cobra root command structure
@@ -49,4 +42,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+
+	os.Exit(0)
 }
