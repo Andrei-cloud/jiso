@@ -39,9 +39,13 @@ func (ac *AnalyzeCommand) SetArgs(args []string) {
 func (ac *AnalyzeCommand) Execute() error {
 	var cleanArgs []string
 	unsecure := false
+	isScenario := false
+
 	for _, arg := range ac.args {
 		if arg == "--unsecure" || arg == "-u" || arg == "unsecure" {
 			unsecure = true
+		} else if arg == "--scenario" || arg == "-s" || arg == "scenario" {
+			isScenario = true
 		} else {
 			cleanArgs = append(cleanArgs, arg)
 		}
@@ -51,7 +55,7 @@ func (ac *AnalyzeCommand) Execute() error {
 		return ac.promptAnalyze()
 	}
 
-	// Non-interactive command format: analyze [--unsecure] <streamFile> [specFile] [headerType] [outputTxFile]
+	// Non-interactive command format: analyze [--unsecure] [--scenario] <streamFile> [specFile] [headerType] [outputTxFile]
 	streamFile := cleanArgs[0]
 	specPath := config.GetConfig().GetSpec()
 	headerType := "binary2"
@@ -78,6 +82,10 @@ func (ac *AnalyzeCommand) Execute() error {
 		spec = ac.spec
 	} else {
 		spec = utils.GetDefaultSpec()
+	}
+
+	if isScenario {
+		return ac.runScenarioAnalysis(streamFile, spec, headerType, outputTxFile, unsecure)
 	}
 
 	return ac.runAnalysis(streamFile, spec, headerType, outputTxFile, analyzer.TrafficDirection{Mode: "all"}, unsecure)
