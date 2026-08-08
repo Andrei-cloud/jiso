@@ -36,7 +36,7 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 		return nil, fmt.Errorf("reading file %s: %w", path, err)
 	}
 
-	return specs.Builder.ImportJSON(raw)
+	return specs.ImportJSON(raw)
 }
 
 func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.MessageSpec {
@@ -57,7 +57,7 @@ func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.Messag
 
 func GetDefaultSpec() *iso8583.MessageSpec {
 	if len(templates.DefaultSpecJSON) > 0 {
-		if spec, err := specs.Builder.ImportJSON(templates.DefaultSpecJSON); err == nil && spec != nil {
+		if spec, err := specs.ImportJSON(templates.DefaultSpecJSON); err == nil && spec != nil {
 			return spec
 		}
 	}

@@ -391,22 +391,22 @@ func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583
 	cleanKey := strings.TrimSpace(strings.ToLower(keyword))
 	switch cleanKey {
 	case "stan", "$stan":
-		msg.Field(i, utils.GetCounter().GetStan())
+		_ = msg.Field(i, utils.GetCounter().GetStan())
 		return
 	case "rrn", "$rrn":
-		msg.Field(i, utils.GetRRNInstance().GetRRN())
+		_ = msg.Field(i, utils.GetRRNInstance().GetRRN())
 		return
 	case "auth_code", "$auth_code":
-		msg.Field(i, utils.RandString(6))
+		_ = msg.Field(i, utils.RandString(6))
 		return
 	case "datetime", "$datetime":
-		msg.Field(i, utils.GetTrxnDateTime())
+		_ = msg.Field(i, utils.GetTrxnDateTime())
 		return
 	case "date":
-		msg.Field(i, time.Now().Format("0102"))
+		_ = msg.Field(i, time.Now().Format("0102"))
 		return
 	case "time":
-		msg.Field(i, time.Now().Format("150405"))
+		_ = msg.Field(i, time.Now().Format("150405"))
 		return
 	}
 
@@ -428,44 +428,44 @@ func (tc *TransactionCollection) handleAutoFields(i int, msg *iso8583.Message) {
 	switch i {
 	case 7:
 		// Field 7: Transmission Date & Time (MMDDhhmmss format)
-		msg.Field(i, utils.GetTrxnDateTime())
+		_ = msg.Field(i, utils.GetTrxnDateTime())
 	case 11:
 		// Field 11: Systems Trace Audit Number (STAN)
-		msg.Field(i, utils.GetCounter().GetStan())
+		_ = msg.Field(i, utils.GetCounter().GetStan())
 	case 12:
 		// Field 12: Local Transaction Time (hhmmss format)
 		currentTime := time.Now().Format("150405") // hour, minute, second
-		msg.Field(i, currentTime)
+		_ = msg.Field(i, currentTime)
 	case 13:
 		// Field 13: Local Transaction Date (MMDD format)
 		currentDate := time.Now().Format("0102") // month, day
-		msg.Field(i, currentDate)
+		_ = msg.Field(i, currentDate)
 	case 15:
 		// Field 15: Settlement Date (MMDD format)
 		currentDate := time.Now().Format("0102") // month, day
-		msg.Field(i, currentDate)
+		_ = msg.Field(i, currentDate)
 	case 17:
 		// Field 17: Capture Date (MMDD format)
 		currentDate := time.Now().Format("0102") // month, day
-		msg.Field(i, currentDate)
+		_ = msg.Field(i, currentDate)
 	case 37:
 		// Field 37: Retrieval Reference Number
-		msg.Field(i, utils.GetRRNInstance().GetRRN())
+		_ = msg.Field(i, utils.GetRRNInstance().GetRRN())
 	case 38:
 		// Field 38: Authorization Identification Response / Auth Code
-		msg.Field(i, utils.RandString(6))
+		_ = msg.Field(i, utils.RandString(6))
 	default:
 		// For any other field marked as "auto", try to make an intelligent decision
 		if strings.Contains(description, "Date") {
 			// If it's a date field, use current date in MMDD format
-			msg.Field(i, time.Now().Format("0102"))
+			_ = msg.Field(i, time.Now().Format("0102"))
 		} else if strings.Contains(description, "Time") {
 			// If it's a time field, use current time in hhmmss format
-			msg.Field(i, time.Now().Format("150405"))
+			_ = msg.Field(i, time.Now().Format("150405"))
 		} else {
 			// Default to using a random numeric string matching the field's length
 			fieldLength := fieldSpec.Spec().Length
-			msg.Field(i, utils.RandString(fieldLength))
+			_ = msg.Field(i, utils.RandString(fieldLength))
 		}
 	}
 }
@@ -498,10 +498,10 @@ func (tc *TransactionCollection) applyRandomValues(msg *iso8583.Message, dataset
 			fieldDef := tc.spec.Fields[fieldID]
 			if fieldDef != nil {
 				// Default case or fallback
-				msg.Field(fieldID, value)
+				_ = msg.Field(fieldID, value)
 			} else {
 				// Field not in spec, use default handling
-				msg.Field(fieldID, value)
+				_ = msg.Field(fieldID, value)
 			}
 		}
 	}

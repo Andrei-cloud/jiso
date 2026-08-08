@@ -156,7 +156,7 @@ func NewTransactionCollection(
 	}
 
 	// Set the persistence directory to the same as used by the STAN counter
-	tc.SetPersistenceDirectory(utils.GetPersistenceDirectory())
+	_ = tc.SetPersistenceDirectory(utils.GetPersistenceDirectory())
 
 	// Load saved state
 	err = tc.loadState()

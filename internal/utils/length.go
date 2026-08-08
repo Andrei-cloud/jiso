@@ -11,8 +11,6 @@ import (
 	"github.com/moov-io/iso8583/network"
 )
 
-var header network.Header
-
 const (
 	NAPSPREFIXATM = "ISO016000070"
 	NAPSPREFIXPOS = "ISO026000070"

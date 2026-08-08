@@ -105,14 +105,14 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 				sr.tc.handleAutoFieldsWithKeyword(fieldID, reqMsg, val)
 			} else {
 				interpolated := sr.injectVariables(val, datasetName)
-				reqMsg.Field(fieldID, interpolated)
+				_ = reqMsg.Field(fieldID, interpolated)
 			}
 		case float64:
-			reqMsg.Field(fieldID, fmt.Sprintf("%.0f", val))
+			_ = reqMsg.Field(fieldID, fmt.Sprintf("%.0f", val))
 		case int:
-			reqMsg.Field(fieldID, fmt.Sprintf("%d", val))
+			_ = reqMsg.Field(fieldID, fmt.Sprintf("%d", val))
 		default:
-			reqMsg.Field(fieldID, fmt.Sprintf("%v", val))
+			_ = reqMsg.Field(fieldID, fmt.Sprintf("%v", val))
 		}
 	}
 

@@ -34,9 +34,31 @@ var (
 
 func GetConfig() *Config {
 	configOnce.Do(func() {
-		config = &Config{}
+		config = &Config{
+			reconnectAttempts:   3,
+			connectTimeout:      5 * time.Second,
+			totalConnectTimeout: 10 * time.Second,
+			responseTimeout:     5 * time.Second,
+		}
 	})
 	return config
+}
+
+func (c *Config) EnsureDefaults() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.reconnectAttempts <= 0 {
+		c.reconnectAttempts = 3
+	}
+	if c.connectTimeout <= 0 {
+		c.connectTimeout = 5 * time.Second
+	}
+	if c.totalConnectTimeout <= 0 {
+		c.totalConnectTimeout = 10 * time.Second
+	}
+	if c.responseTimeout <= 0 {
+		c.responseTimeout = 5 * time.Second
+	}
 }
 
 func (c *Config) Parse() error {
@@ -106,13 +128,42 @@ func (c *Config) Reset() {
 	c.port = ""
 	c.specFileName = ""
 	c.file = ""
+	c.hex = false
+	c.dbPath = ""
+	c.visaStationId = ""
+	c.reconnectAttempts = 3
+	c.connectTimeout = 5 * time.Second
+	c.totalConnectTimeout = 10 * time.Second
+	c.responseTimeout = 5 * time.Second
 }
 
 func (c *Config) SetSpec(specFileName string) {
 	if specFileName == "" {
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.specFileName = specFileName
+}
+
+func (c *Config) SetHex(hex bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hex = hex
+}
+
+func (c *Config) SetDbPath(dbPath string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.dbPath = dbPath
+}
+
+func (c *Config) EnsureSessionId() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.sessionId == "" {
+		c.sessionId = generateSessionId()
+	}
 }
 
 func (c *Config) SetFile(file string) {

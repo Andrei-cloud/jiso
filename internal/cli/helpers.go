@@ -111,7 +111,7 @@ func (cli *CLI) processCommand(line string) bool {
 	}
 
 	execErr := command.Execute()
-	if errors.Is(execErr, cmd.ErrExit) {
+	if errors.Is(execErr, cmd.ErrExit) || errors.Is(execErr, ErrExitProgram) || cmdName == "exit" || cmdName == "quit" {
 		return true // Exit REPL loop
 	}
 	if execErr != nil {

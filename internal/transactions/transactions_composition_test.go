@@ -356,7 +356,7 @@ func (suite *TransactionCollectionSuite) TestSpecWithCompositeField() {
 		}
 	}`)
 
-	spec, err := specs.Builder.ImportJSON(specJSON)
+	spec, err := specs.ImportJSON(specJSON)
 	suite.NoError(err)
 
 	data := struct {

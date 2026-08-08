@@ -138,7 +138,7 @@ func (s *ServerStats) PrintSummary(port string, headerType string, activeConns i
 			if total > 0 {
 				pct = float64(count) / float64(total) * 100.0
 			}
-			label := code
+			var label string
 			if code == "00" {
 				label = `"00" (Approved)`
 			} else {
