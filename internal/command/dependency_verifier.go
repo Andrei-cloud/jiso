@@ -53,16 +53,17 @@ func VerifyTx(tx transactions.Repository) error {
 	return nil
 }
 
-// VerifyConnection checks if service is connected to target host.
+// VerifyConnection checks if service is connected.
 func VerifyConnection(svc *service.Service) error {
+	if svc != nil && svc.IsConnected() {
+		return nil
+	}
+
 	if err := VerifyTarget(); err != nil {
 		return err
 	}
-	if svc == nil || !svc.IsConnected() {
-		host, port := cfg.GetConfig().GetHost(), cfg.GetConfig().GetPort()
 
-		return fmt.Errorf("not connected to target host %s:%s. Please connect first using 'connect'", host, port)
-	}
+	host, port := cfg.GetConfig().GetHost(), cfg.GetConfig().GetPort()
 
-	return nil
+	return fmt.Errorf("not connected to target host %s:%s. Please connect first using 'connect'", host, port)
 }

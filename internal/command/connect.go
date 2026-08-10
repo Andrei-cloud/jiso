@@ -26,19 +26,33 @@ func (c *ConnectCommand) Name() string {
 }
 
 func (c *ConnectCommand) Synopsis() string {
-	return "Establishes connection to server."
+	return "Establishes connection to server (caller) or waits for remote host connection (listener)."
 }
 
 func (c *ConnectCommand) Execute() error {
-	if err := VerifyTarget(); err != nil {
+	// Prompt for connection mode first
+	var connMode string
+	modePrompt := &survey.Select{
+		Message: "Select connection mode:",
+		Options: []string{"Caller (Dial out)", "Listener (Wait for incoming)"},
+		Default: "Caller (Dial out)",
+	}
+	if err := survey.AskOne(modePrompt, &connMode); err != nil {
 		return err
 	}
 
-	if c.Svc != nil {
-		host := config.GetConfig().GetHost()
-		port := config.GetConfig().GetPort()
-		if host != "" && port != "" {
-			c.Svc.SetTarget(host, port)
+	// Target host and port are required only for Caller mode
+	if connMode == "Caller (Dial out)" {
+		if err := VerifyTarget(); err != nil {
+			return err
+		}
+
+		if c.Svc != nil {
+			host := config.GetConfig().GetHost()
+			port := config.GetConfig().GetPort()
+			if host != "" && port != "" {
+				c.Svc.SetTarget(host, port)
+			}
 		}
 	}
 
@@ -192,31 +206,55 @@ func (c *ConnectCommand) Execute() error {
 		return err
 	}
 
-	port := config.GetConfig().GetPort()
-	if port == "" {
-		port = "9999"
+	naps := (answers.Length == "NAPS")
+
+	if connMode == "Listener (Wait for incoming)" {
+		defaultPort := config.GetConfig().GetPort()
+		if defaultPort == "" {
+			defaultPort = "9999"
+		}
+		var listenPort string
+		portPrompt := &survey.Input{
+			Message: "Enter port to listen on:",
+			Default: defaultPort,
+		}
+		if err := survey.AskOne(portPrompt, &listenPort); err != nil {
+			return err
+		}
+
+		timeout := c.Svc.GetListenTimeout()
+		fmt.Printf("Listening on port %s (timeout: %v)... Waiting for remote host to connect...\n", listenPort, timeout)
+
+		err = c.Svc.Listen(listenPort, naps, header)
+		if err != nil {
+			return fmt.Errorf("listener failed on port %s: %w", listenPort, err)
+		}
+
+		if c.Svc.Connection == nil || !c.Svc.IsConnected() {
+			return fmt.Errorf("listener connection accepted on port %s but not online", listenPort)
+		}
+
+		fmt.Printf("Successfully accepted connection on port %s! Client is now connected in listener mode.\n", listenPort)
+		return nil
 	}
 
-	timeout := c.Svc.GetListenTimeout()
-	fmt.Printf("Listening on port %s (timeout: %v)... Waiting for remote host to connect...\n", port, timeout)
-
-	naps := (answers.Length == "NAPS")
-	err = c.Svc.Listen(port, naps, header)
+	fmt.Println("Connecting to server...")
+	err = c.Svc.Connect(naps, header)
 	if err != nil {
-		return fmt.Errorf("listener failed on port %s: %w", port, err)
+		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
 	}
 
 	// Double-check connection status after connecting
 	if c.Svc.Connection == nil {
-		return fmt.Errorf("connection object is nil after accepting on port %s", port)
+		return fmt.Errorf("connection object is nil after connecting to %s", c.Svc.Address)
 	}
 
 	// Verify the connection status one more time
 	if !c.Svc.IsConnected() {
-		return fmt.Errorf("accepted connection on port %s is not online", port)
+		return fmt.Errorf("connection to %s is not online", c.Svc.Address)
 	}
 
-	fmt.Printf("Successfully accepted connection on port %s! Client is now connected in listener mode.\n", port)
+	fmt.Printf("Successfully connected to server: %s\n", c.Svc.Address)
 
 	return nil
 }
