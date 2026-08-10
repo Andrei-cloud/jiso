@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/tls"
 	"fmt"
 	"time"
 
@@ -131,6 +132,21 @@ func (s *Service) SetTarget(host, port string) {
 	if s.connManager != nil {
 		s.connManager.SetAddress(host, port)
 	}
+}
+
+// SetTLSConfig configures the *tls.Config on the connection manager
+func (s *Service) SetTLSConfig(cfg *tls.Config) {
+	if s.connManager != nil {
+		s.connManager.SetTLSConfig(cfg)
+	}
+}
+
+// GetTLSConfig returns the active *tls.Config from the connection manager
+func (s *Service) GetTLSConfig() *tls.Config {
+	if s.connManager != nil {
+		return s.connManager.GetTLSConfig()
+	}
+	return nil
 }
 
 // SetMockMatcher configures a mock matcher for processing unsolicited incoming messages

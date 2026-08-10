@@ -32,8 +32,12 @@ func (cli *CLI) InitService() error {
 		cfg.GetConfig().GetTotalConnectTimeout(),
 		cfg.GetConfig().GetResponseTimeout(),
 	)
-	if err != nil {
-		return err
+	if tlsFileCfg := cfg.GetConfig().GetTLSConfig(); tlsFileCfg != nil && tlsFileCfg.Enabled {
+		cryptoTLS, err := tlsFileCfg.BuildCryptoTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to build TLS configuration: %w", err)
+		}
+		svc.SetTLSConfig(cryptoTLS)
 	}
 
 	cli.setService(svc)
