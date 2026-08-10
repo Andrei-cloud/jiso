@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	cmdpkg "jiso/internal/command"
-
 	"github.com/spf13/cobra"
+
+	cmdpkg "jiso/internal/command"
 )
 
 func newTxCmd() *cobra.Command {

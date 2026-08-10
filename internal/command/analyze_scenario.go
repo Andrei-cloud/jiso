@@ -1,14 +1,15 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
-	"jiso/internal/analyzer"
-	"jiso/internal/config"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/moov-io/iso8583"
+
+	"jiso/internal/analyzer"
+	"jiso/internal/config"
 )
 
 func (ac *AnalyzeCommand) runScenarioAnalysis(
@@ -42,7 +43,7 @@ func (ac *AnalyzeCommand) runScenarioAnalysis(
 
 	fmt.Printf("✓ Successfully correlated %d transaction pair(s) from traffic:\n", len(pairs))
 
-	var options []string
+	options := make([]string, 0, len(pairs))
 	pairMap := make(map[string]int)
 
 	for i, pair := range pairs {
@@ -58,10 +59,10 @@ func (ac *AnalyzeCommand) runScenarioAnalysis(
 		Default: options,
 	}
 	if err := survey.AskOne(pairPrompt, &selectedOptions); err != nil || len(selectedOptions) == 0 {
-		return fmt.Errorf("no pairs selected for scenario scaffold")
+		return errors.New("no pairs selected for scenario scaffold")
 	}
 
-	var selectedPairs []*analyzer.CorrelatedPair
+	selectedPairs := make([]*analyzer.CorrelatedPair, 0, len(selectedOptions))
 	includeReversals := make(map[int]bool)
 
 	for newIdx, optLabel := range selectedOptions {

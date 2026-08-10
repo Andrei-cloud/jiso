@@ -8,17 +8,16 @@ import (
 	"strings"
 	"testing"
 
-	"jiso/internal/config"
-	"jiso/internal/utils"
-
 	json "github.com/goccy/go-json"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/encoding"
 	"github.com/moov-io/iso8583/field"
 	"github.com/moov-io/iso8583/prefix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"jiso/internal/config"
+	"jiso/internal/utils"
 )
 
 func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
@@ -495,4 +494,3 @@ func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
 	assert.Equal(t, "11223344", f55Map["9F26"])
 	assert.Equal(t, "8", f55Map["9F27"])
 }
-

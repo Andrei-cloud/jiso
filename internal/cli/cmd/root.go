@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	cfg "jiso/internal/config"
-
 	"github.com/spf13/cobra"
+
+	cfg "jiso/internal/config"
 )
+
+var defaultREPLRunner REPLRunner
 
 // REPLRunner defines the function signature to launch the interactive REPL.
 type REPLRunner func(ctx context.Context) error
-
-var defaultREPLRunner REPLRunner
 
 // SetREPLRunner sets the function used to start interactive REPL mode.
 func SetREPLRunner(runner REPLRunner) {
@@ -22,18 +22,20 @@ func SetREPLRunner(runner REPLRunner) {
 // NewRootCmd creates and configures the root Cobra command for jiso.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:           "jiso [command]",
-		Short:         "jiso ISO8583 message tool and simulator",
-		Long:          `jiso is a powerful CLI tool and interactive REPL for inspecting, generating, and simulating ISO8583 messages and test scenarios.`,
+		Use:   "jiso [command]",
+		Short: "jiso ISO8583 message tool and simulator",
+		Long: `jiso is a powerful CLI tool and interactive REPL for inspecting, ` +
+			`generating, and simulating ISO8583 messages and test scenarios.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if defaultREPLRunner != nil {
 				return defaultREPLRunner(cmd.Context())
 			}
+
 			return nil
 		},
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			c := cfg.GetConfig()
 			c.EnsureSessionId()
 			c.EnsureDefaults()
@@ -64,11 +66,15 @@ func NewRootCmd() *cobra.Command {
 			if timeout, err := cmd.Flags().GetDuration("connect-timeout"); err == nil && cmd.Flags().Changed("connect-timeout") {
 				c.SetConnectTimeout(timeout)
 			}
-			if timeout, err := cmd.Flags().GetDuration("total-connect-timeout"); err == nil && cmd.Flags().Changed("total-connect-timeout") {
+			if timeout, err := cmd.Flags().GetDuration("total-connect-timeout"); err == nil &&
+				cmd.Flags().Changed("total-connect-timeout") {
 				c.SetTotalConnectTimeout(timeout)
 			}
 			if timeout, err := cmd.Flags().GetDuration("response-timeout"); err == nil && cmd.Flags().Changed("response-timeout") {
 				c.SetResponseTimeout(timeout)
+			}
+			if timeout, err := cmd.Flags().GetDuration("listen-timeout"); err == nil && cmd.Flags().Changed("listen-timeout") {
+				c.SetListenTimeout(timeout)
 			}
 			if visaID, _ := cmd.Flags().GetString("visa-station-id"); visaID != "" {
 				c.SetVisaStationId(visaID)
@@ -97,6 +103,7 @@ func NewRootCmd() *cobra.Command {
 	pflags.Duration("connect-timeout", 5*time.Second, "Timeout for individual connection attempts")
 	pflags.Duration("total-connect-timeout", 10*time.Second, "Total timeout for connection establishment")
 	pflags.Duration("response-timeout", 5*time.Second, "Timeout waiting for async message responses")
+	pflags.Duration("listen-timeout", 5*time.Minute, "Timeout for waiting for incoming client connections in listener mode")
 	pflags.String("visa-station-id", "", "VISA Local Station ID (6-digit hex or decimal)")
 	pflags.String("tls-config", "", "Path to consolidated TLS/mTLS configuration file (JSON)")
 
@@ -115,6 +122,7 @@ func NewRootCmd() *cobra.Command {
 // ExecuteContext runs the root Cobra command with the given context.
 func ExecuteContext(ctx context.Context) error {
 	rootCmd := NewRootCmd()
+
 	return rootCmd.ExecuteContext(ctx)
 }
 
@@ -123,7 +131,7 @@ func newVersionCmd() *cobra.Command {
 		Use:     "version",
 		Aliases: []string{"v"},
 		Short:   "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			cmd.Printf("jiso version v1.5.0\n")
 		},
 	}

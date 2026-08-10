@@ -94,5 +94,6 @@ func hexDump(data []byte) string {
 		}
 		buf.WriteString("|\n")
 	}
+
 	return buf.String()
 }

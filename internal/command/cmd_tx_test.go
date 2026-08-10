@@ -25,7 +25,7 @@ func TestTxCommand_SetArgsAndExecute(t *testing.T) {
 			"fields": {}
 		}
 	]`
-	if err := os.WriteFile(txPath, []byte(dummyTxContent), 0644); err != nil {
+	if err := os.WriteFile(txPath, []byte(dummyTxContent), 0o644); err != nil {
 		t.Fatalf("Failed to create dummy transaction file: %v", err)
 	}
 

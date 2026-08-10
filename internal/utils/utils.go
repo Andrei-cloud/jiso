@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"jiso/internal/command/templates"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/specs"
+
+	"jiso/internal/command/templates"
 )
 
 const letterBytes = "1234567890"

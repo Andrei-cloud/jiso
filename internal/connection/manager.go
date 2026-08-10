@@ -7,17 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
-
-	"jiso/internal/metrics"
-	"jiso/internal/utils"
 
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
 	iso8583errors "github.com/moov-io/iso8583/errors"
 	"github.com/moov-io/iso8583/network"
 	isoutl "github.com/moov-io/iso8583/utils"
+
+	"jiso/internal/metrics"
+	"jiso/internal/utils"
 )
 
 type Manager struct {
@@ -38,6 +39,12 @@ type Manager struct {
 	naps      bool
 	header    network.Header
 	tlsConfig *tls.Config
+
+	// Listener mode parameters
+	listenMode    bool
+	listenPort    string
+	listener      net.Listener
+	listenTimeout time.Duration
 
 	// Visa SMC Heartbeat Daemon (active ONLY when header is VisaHeader)
 	smcDaemon *SMCHeartbeatDaemon
@@ -101,61 +108,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	}
 
 	// Add connection options with proper reconnection settings
-	options := []moovconnection.Option{
-		moovconnection.ConnectTimeout(m.connectTimeout),
-	}
-
-	if m.tlsConfig != nil {
-		options = append(options, func(opts *moovconnection.Options) error {
-			opts.TLSConfig = m.tlsConfig
-			return nil
-		})
-	}
-
-	options = append(options,
-		moovconnection.ErrorHandler(func(err error) {
-			if m.debugMode {
-				fmt.Printf("Error encountered: %s\n", err)
-			}
-
-			var unpackErr *iso8583errors.UnpackError
-			if errors.As(err, &unpackErr) {
-				fmt.Printf("Unpack error: %s\n", unpackErr)
-				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
-				return
-			}
-
-			var safeErr *isoutl.SafeError
-			if errors.As(err, &safeErr) {
-				fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
-			}
-
-			if errors.Is(err, io.EOF) || errors.Is(err, moovconnection.ErrConnectionClosed) {
-				fmt.Println("Connection closed")
-				// Attempt to reconnect
-				if m.reconnectAttempts > 0 {
-					go m.attemptReconnect()
-				}
-			}
-		}),
-		moovconnection.InboundMessageHandler(
-			func(c *moovconnection.Connection, message *iso8583.Message) {
-				// Handle incoming messages asynchronously
-				m.handleInboundMessage(message)
-			},
-		),
-		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
-			if m.debugMode {
-				fmt.Printf("Connection established to %s\n", m.address)
-			}
-			return nil
-		}),
-		moovconnection.ConnectionClosedHandler(func(c *moovconnection.Connection) {
-			if m.debugMode {
-				fmt.Printf("Connection closed to %s\n", m.address)
-			}
-		}),
-	)
+	options := m.buildConnectionOptions()
 
 	// Attempt to connect with retries and exponential backoff
 	maxBackoff := 30 * time.Second
@@ -343,36 +296,102 @@ func (m *Manager) SetAddress(host, port string) {
 	m.address = fmt.Sprintf("%s:%s", host, port)
 }
 
-// Close closes the connection
-func (m *Manager) Close() error {
-	// First, acquire locks in consistent order to prevent deadlocks
-	m.statusMu.Lock()
-	m.pendingMu.Lock()
+func (m *Manager) buildConnectionOptions() []moovconnection.Option {
+	options := []moovconnection.Option{
+		moovconnection.ConnectTimeout(m.connectTimeout),
+	}
+
+	if m.tlsConfig != nil {
+		options = append(options, func(opts *moovconnection.Options) error {
+			opts.TLSConfig = m.tlsConfig
+			return nil
+		})
+	}
+
+	options = append(options,
+		moovconnection.ErrorHandler(func(err error) {
+			if m.debugMode {
+				fmt.Printf("Error encountered: %s\n", err)
+			}
+
+			var unpackErr *iso8583errors.UnpackError
+			if errors.As(err, &unpackErr) {
+				fmt.Printf("Unpack error: %s\n", unpackErr)
+				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
+				return
+			}
+
+			var safeErr *isoutl.SafeError
+			if errors.As(err, &safeErr) {
+				fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
+			}
+
+			if errors.Is(err, io.EOF) || errors.Is(err, moovconnection.ErrConnectionClosed) {
+				fmt.Println("Connection closed")
+				m.statusMu.RLock()
+				listenMode := m.listenMode
+				m.statusMu.RUnlock()
+				if listenMode {
+					go m.attemptReListen()
+				} else if m.reconnectAttempts > 0 {
+					go m.attemptReconnect()
+				}
+			}
+		}),
+		moovconnection.InboundMessageHandler(
+			func(c *moovconnection.Connection, message *iso8583.Message) {
+				m.handleInboundMessage(message)
+			},
+		),
+		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
+			if m.debugMode {
+				fmt.Printf("Connection established to %s\n", m.address)
+			}
+			return nil
+		}),
+		moovconnection.ConnectionClosedHandler(func(c *moovconnection.Connection) {
+			if m.debugMode {
+				fmt.Printf("Connection closed to %s\n", m.address)
+			}
+		}),
+	)
+	return options
+}
+
+func (m *Manager) closeUnlocked() error {
+	m.listenMode = false
+	if m.listener != nil {
+		_ = m.listener.Close()
+		m.listener = nil
+	}
 
 	if m.smcDaemon != nil {
 		m.smcDaemon.Stop()
 		m.smcDaemon = nil
 	}
 
-	// Clear pending requests
+	m.pendingMu.Lock()
 	for stan, req := range m.pendingRequests {
 		close(req.responseChan)
 		delete(m.pendingRequests, stan)
 	}
+	m.pendingMu.Unlock()
 
 	var closeErr error
 	if m.Connection != nil {
-		// Explicitly set status to offline before closing
-		// This ensures status is updated even if ConnectionClosedHandler isn't called
 		m.Connection.SetStatus(moovconnection.StatusOffline)
 		closeErr = m.Connection.Close()
 		m.Connection = nil
 	}
 
-	m.pendingMu.Unlock()
-	m.statusMu.Unlock()
-
 	return closeErr
+}
+
+// Close closes the connection and listener if active
+func (m *Manager) Close() error {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	return m.closeUnlocked()
 }
 
 // SetNetworkingStats sets the networking stats instance

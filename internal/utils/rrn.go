@@ -2,12 +2,13 @@ package utils
 
 import (
 	"fmt"
-	json "github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	json "github.com/goccy/go-json"
 )
 
 const (

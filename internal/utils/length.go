@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"jiso/internal/config"
-
 	connection "github.com/moov-io/iso8583-connection"
 	"github.com/moov-io/iso8583/network"
+
+	"jiso/internal/config"
 )
 
 const (

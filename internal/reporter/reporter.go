@@ -2,8 +2,9 @@ package reporter
 
 import (
 	"fmt"
-	json "github.com/goccy/go-json"
 	"os"
+
+	json "github.com/goccy/go-json"
 
 	"jiso/internal/transactions"
 )
@@ -60,7 +61,7 @@ func ExportJSONReport(report *transactions.TestReport, filePath string) error {
 		return fmt.Errorf("failed to marshal test report: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write test report to %s: %w", filePath, err)
 	}
 

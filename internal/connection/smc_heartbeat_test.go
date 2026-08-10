@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/stretchr/testify/assert"
+
+	"jiso/internal/utils"
 )
 
 func TestIsVisaHeader(t *testing.T) {

@@ -4,14 +4,13 @@ import (
 	"errors"
 	"strings"
 
-	cfg "jiso/internal/config"
-
-	cmdpkg "jiso/internal/command"
-	"jiso/internal/transactions"
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/spf13/cobra"
+
+	cmdpkg "jiso/internal/command"
+	cfg "jiso/internal/config"
+	"jiso/internal/transactions"
+	"jiso/internal/utils"
 )
 
 func newServerCmd() *cobra.Command {
@@ -86,8 +85,6 @@ func newServerRoutesCmd() *cobra.Command {
 		},
 	}
 }
-
-
 
 func executeServerStart(port, headerType string) error {
 	specPath := cfg.GetConfig().GetSpec()

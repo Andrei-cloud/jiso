@@ -4,10 +4,9 @@ import (
 	"os"
 
 	json "github.com/goccy/go-json"
+	"github.com/moov-io/iso8583"
 
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
 func (suite *TransactionCollectionSuite) TestValidate() {

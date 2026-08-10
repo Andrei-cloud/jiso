@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
+
+	"jiso/internal/utils"
 )
 
 type pendingRequest struct {

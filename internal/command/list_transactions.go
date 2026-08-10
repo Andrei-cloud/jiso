@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"jiso/internal/transactions"
-
 	"github.com/olekukonko/tablewriter"
+
+	"jiso/internal/transactions"
 )
 
 type ListCommand struct {
@@ -32,12 +32,12 @@ func (c *ListCommand) Execute() error {
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	// table.SetHeader([]string{"Transaction Name", "Description"})
 	for _, name := range names {
-		table.Append([]string{name})
+		_ = table.Append([]string{name})
 	}
 
 	fmt.Println("Available transactions:")
-	table.Render()
+	_ = table.Render()
+
 	return nil
 }

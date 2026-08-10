@@ -6,6 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/moov-io/iso8583"
+	connection "github.com/moov-io/iso8583-connection"
+
 	"jiso/internal/config"
 	iconn "jiso/internal/connection"
 	"jiso/internal/db"
@@ -13,10 +17,6 @@ import (
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/view"
-
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/moov-io/iso8583"
-	connection "github.com/moov-io/iso8583-connection"
 )
 
 var ErrConnectionOffline = fmt.Errorf("connection is offline")

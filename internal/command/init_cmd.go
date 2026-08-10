@@ -12,6 +12,10 @@ type InitSpecCommand struct {
 	OutputPath string
 }
 
+type InitTxCommand struct {
+	OutputPath string
+}
+
 func (c *InitSpecCommand) Name() string {
 	return "init-spec"
 }
@@ -28,20 +32,17 @@ func (c *InitSpecCommand) Execute() error {
 
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, templates.DefaultSpecJSON, 0644); err != nil {
+	if err := os.WriteFile(path, templates.DefaultSpecJSON, 0o644); err != nil {
 		return fmt.Errorf("failed to write spec file to %s: %w", path, err)
 	}
 
 	fmt.Printf("Default specification file generated at: %s\n", path)
-	return nil
-}
 
-type InitTxCommand struct {
-	OutputPath string
+	return nil
 }
 
 func (c *InitTxCommand) Name() string {
@@ -60,14 +61,15 @@ func (c *InitTxCommand) Execute() error {
 
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, templates.DefaultTransactionJSON, 0644); err != nil {
+	if err := os.WriteFile(path, templates.DefaultTransactionJSON, 0o644); err != nil {
 		return fmt.Errorf("failed to write transaction file to %s: %w", path, err)
 	}
 
 	fmt.Printf("Comprehensive sample transaction configuration file generated at: %s\n", path)
+
 	return nil
 }

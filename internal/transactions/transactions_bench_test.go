@@ -1,10 +1,10 @@
 package transactions
 
 import (
-	json "github.com/goccy/go-json"
 	"os"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
 )
 

@@ -30,15 +30,17 @@ type FilterFunc = iso8583.FilterFunc
 
 type FieldFilter = iso8583.FieldFilter
 
-var DefaultFilters = iso8583.DefaultFilters
-var DoNotFilterFields = iso8583.DoNotFilterFields
-var NoOpFilter = iso8583.NoOpFilter
-var EMVFilter = iso8583.EMVFilter
-var PINFilter = iso8583.PINFilter
-var PANFilter = iso8583.PANFilter
-var Track1Filter = iso8583.Track1Filter
-var Track2Filter = iso8583.Track2Filter
-var Track3Filter = iso8583.Track3Filter
+var (
+	DefaultFilters    = iso8583.DefaultFilters
+	DoNotFilterFields = iso8583.DoNotFilterFields
+	NoOpFilter        = iso8583.NoOpFilter
+	EMVFilter         = iso8583.EMVFilter
+	PINFilter         = iso8583.PINFilter
+	PANFilter         = iso8583.PANFilter
+	Track1Filter      = iso8583.Track1Filter
+	Track2Filter      = iso8583.Track2Filter
+	Track3Filter      = iso8583.Track3Filter
+)
 
 var FilterField = iso8583.FilterField
 

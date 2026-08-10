@@ -3,22 +3,22 @@ package command
 import (
 	"fmt"
 
+	"github.com/moov-io/iso8583"
+
 	"jiso/internal/analyzer"
 	"jiso/internal/config"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
-// AnalyzeCommand provides interactive or direct reverse-engineering of PCAP / stream captures
+// AnalyzeCommand provides interactive or direct reverse-engineering of PCAP / stream captures.
 type AnalyzeCommand struct {
 	spec *iso8583.MessageSpec
 	tc   transactions.Repository
 	args []string
 }
 
-// NewAnalyzeCommand creates a new AnalyzeCommand instance
+// NewAnalyzeCommand creates a new AnalyzeCommand instance.
 func NewAnalyzeCommand(spec *iso8583.MessageSpec, tc transactions.Repository) *AnalyzeCommand {
 	return &AnalyzeCommand{
 		spec: spec,
@@ -38,15 +38,17 @@ func (ac *AnalyzeCommand) SetArgs(args []string) {
 
 func (ac *AnalyzeCommand) Execute() error {
 	var cleanArgs []string
+	var spec *iso8583.MessageSpec
 	unsecure := false
 	isScenario := false
 
 	for _, arg := range ac.args {
-		if arg == "--unsecure" || arg == "-u" || arg == "unsecure" {
+		switch arg {
+		case "--unsecure", "-u", "unsecure":
 			unsecure = true
-		} else if arg == "--scenario" || arg == "-s" || arg == "scenario" {
+		case "--scenario", "-s", "scenario":
 			isScenario = true
-		} else {
+		default:
 			cleanArgs = append(cleanArgs, arg)
 		}
 	}
@@ -71,16 +73,16 @@ func (ac *AnalyzeCommand) Execute() error {
 		outputTxFile = cleanArgs[3]
 	}
 
-	var spec *iso8583.MessageSpec
-	var err error
-	if specPath != "" {
+	switch {
+	case specPath != "":
+		var err error
 		spec, err = utils.CreateSpecFromFile(specPath)
 		if err != nil {
 			return fmt.Errorf("failed to load spec from '%s': %w", specPath, err)
 		}
-	} else if ac.spec != nil {
+	case ac.spec != nil:
 		spec = ac.spec
-	} else {
+	default:
 		spec = utils.GetDefaultSpec()
 	}
 

@@ -48,6 +48,7 @@ func (fs *FileSelector) SelectFile() (string, error) {
 			if !entries[i].IsDir() && entries[j].IsDir() {
 				return false
 			}
+
 			return entries[i].Name() < entries[j].Name()
 		})
 
@@ -57,11 +58,8 @@ func (fs *FileSelector) SelectFile() (string, error) {
 		for _, entry := range entries {
 			if entry.IsDir() {
 				options = append(options, entry.Name()+"/")
-			} else {
-				// Filter files based on type
-				if fs.shouldIncludeFile(entry.Name()) {
-					options = append(options, entry.Name())
-				}
+			} else if fs.shouldIncludeFile(entry.Name()) {
+				options = append(options, entry.Name())
 			}
 		}
 
@@ -80,18 +78,19 @@ func (fs *FileSelector) SelectFile() (string, error) {
 			return "", err
 		}
 
-		if selected == ".. (go up)" {
+		switch {
+		case selected == ".. (go up)":
 			parent := filepath.Dir(fs.currentDir)
 			if parent == fs.currentDir {
 				// Already at root
 				continue
 			}
 			fs.currentDir = parent
-		} else if strings.HasSuffix(selected, "/") {
+		case strings.HasSuffix(selected, "/"):
 			// Directory selected
 			dirName := strings.TrimSuffix(selected, "/")
 			fs.currentDir = filepath.Join(fs.currentDir, dirName)
-		} else {
+		default:
 			// File selected
 			return filepath.Join(fs.currentDir, selected), nil
 		}

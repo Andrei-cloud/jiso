@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	cmd "jiso/internal/command"
-
 	"github.com/chzyer/readline"
 	"github.com/olekukonko/tablewriter"
+
+	cmd "jiso/internal/command"
 )
 
 // runWithHistory runs the CLI with command history support.

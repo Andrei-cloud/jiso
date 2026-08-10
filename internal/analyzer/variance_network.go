@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"jiso/internal/config"
-
 	json "github.com/goccy/go-json"
+
+	"jiso/internal/config"
 )
 
 func (ve *VarianceEngine) analyzeNetworkManagementFlow(flow *CapturedFlow) ([]*VarianceResult, error) {

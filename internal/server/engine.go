@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/moov-io/iso8583"
+
 	"jiso/internal/config"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
 // Server represents an embedded ISO8583 Mock Server

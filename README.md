@@ -214,6 +214,7 @@ jiso analyze
 | `-connect-timeout <duration>` | `5s` | Timeout for individual connection attempts |
 | `-total-connect-timeout <duration>` | `10s` | Total timeout for connection establishment |
 | `-response-timeout <duration>` | `5s` | Timeout for waiting responses to async messages |
+| `-listen-timeout <duration>` | `5m` | Timeout for waiting for incoming client connections in listener mode |
 | `-hex` | `false` | Enable hex dump output for request/response messages |
 | `-db-path <path>` | `""` | Path to SQLite database file for session logging |
 | `-visa-station-id <id>` | `""` | VISA Local Station ID (6-digit hex or decimal) |
@@ -236,7 +237,7 @@ After launching `jiso`, type `help` (or `h` / `?`) to see all available commands
 
 | Command | Aliases | Description |
 |---|---|---|
-| `connect` | — | Connect to the configured target server. Prompts for TCP length header type (`ascii4`, `binary2`, `binary4`, `bcd2`, `NAPS`, `visa`) and optional unsolicited message handling via `mock_routes`. |
+| `connect` | — | Connect to the target server as a Caller or wait for remote host connection as a Listener. Prompts for connection mode (`Caller` vs `Listener`), TCP length header type (`ascii4`, `binary2`, `binary4`, `bcd2`, `NAPS`, `visa`), and optional unsolicited message handling via `mock_routes`. See [Listener Mode Guide](docs/listener-mode.md). |
 | `disconnect` | — | Disconnect from the current server. |
 | `target <host:port>` | `set` | Set or display the network target address. Without arguments, shows current target and connection status. |
 | `spec [<path>]` | `use-spec` | Load an ISO8583 specification file. Without a path, opens an interactive file browser scanning `./specs/` for `.json` files. |
@@ -686,7 +687,8 @@ Full Statistics (JSON):
 
 JISO includes production-grade networking features:
 
-- **Automatic Reconnection** — Configurable retry attempts with exponential backoff
+- **Client Listener Mode** — Option to act as a TCP/mTLS listener waiting for a remote switch to connect while remaining an active client (see [Listener Mode Guide](docs/listener-mode.md))
+- **Automatic Reconnection** — Configurable retry attempts with exponential backoff (Caller Mode) and Auto Re-Listen (Listener Mode)
 - **Connection Health Checks** — Background workers verify connection status before sending
 - **Retry Mechanisms** — Failed send operations are retried with exponential backoff, distinguishing temporary from permanent errors
 - **Circuit Breakers** — Background workers auto-stop after 10 consecutive failures

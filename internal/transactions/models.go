@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	cfg "jiso/internal/config"
-
 	"github.com/moov-io/iso8583"
+
+	cfg "jiso/internal/config"
 )
 
 const (
@@ -59,7 +59,6 @@ type Assertion struct {
 }
 
 type ConfigItem = cfg.ConfigItem
-
 
 // TransactionState stores information about transaction state
 type TransactionState struct {

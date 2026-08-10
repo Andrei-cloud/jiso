@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
+
+	"jiso/internal/utils"
 )
 
 // CapturedFlow represents an aggregated transaction flow captured from network traffic

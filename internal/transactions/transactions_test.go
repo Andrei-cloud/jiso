@@ -1,11 +1,11 @@
 package transactions
 
 import (
-	json "github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/suite"
 )

@@ -4,15 +4,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/core"
+	"github.com/moov-io/iso8583"
+
 	"jiso/internal/config"
 	"jiso/internal/server"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/core"
-	"github.com/moov-io/iso8583"
 )
 
 type ConnectCommand struct {
@@ -70,6 +70,7 @@ func (c *ConnectCommand) Execute() error {
 					if _, valid := validTypes[str]; !valid {
 						return errors.New("invalid length type selected")
 					}
+
 					return nil
 				}
 
@@ -77,6 +78,7 @@ func (c *ConnectCommand) Execute() error {
 				if _, valid := validTypes[option.Value]; !valid {
 					return errors.New("invalid length type selected")
 				}
+
 				return nil
 			},
 		},
@@ -116,6 +118,7 @@ func (c *ConnectCommand) Execute() error {
 				if err != nil {
 					return err
 				}
+
 				return nil
 			}))
 			if err != nil {
@@ -180,10 +183,8 @@ func (c *ConnectCommand) Execute() error {
 				c.Svc.SetMockMatcher(server.NewMatcher(routes))
 			}
 		}
-	} else {
-		if c.Svc != nil {
-			c.Svc.SetMockMatcher(nil)
-		}
+	} else if c.Svc != nil {
+		c.Svc.SetMockMatcher(nil)
 	}
 
 	header, err := utils.SelectLength(answers.Length)
@@ -191,23 +192,31 @@ func (c *ConnectCommand) Execute() error {
 		return err
 	}
 
-	fmt.Println("Connecting to server...")
+	port := config.GetConfig().GetPort()
+	if port == "" {
+		port = "9999"
+	}
+
+	timeout := c.Svc.GetListenTimeout()
+	fmt.Printf("Listening on port %s (timeout: %v)... Waiting for remote host to connect...\n", port, timeout)
+
 	naps := (answers.Length == "NAPS")
-	err = c.Svc.Connect(naps, header)
+	err = c.Svc.Listen(port, naps, header)
 	if err != nil {
-		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
+		return fmt.Errorf("listener failed on port %s: %w", port, err)
 	}
 
 	// Double-check connection status after connecting
 	if c.Svc.Connection == nil {
-		return fmt.Errorf("connection object is nil after connecting to %s", c.Svc.Address)
+		return fmt.Errorf("connection object is nil after accepting on port %s", port)
 	}
 
 	// Verify the connection status one more time
 	if !c.Svc.IsConnected() {
-		return fmt.Errorf("connection to %s is not online", c.Svc.Address)
+		return fmt.Errorf("accepted connection on port %s is not online", port)
 	}
 
-	fmt.Printf("Successfully connected to server: %s\n", c.Svc.Address)
+	fmt.Printf("Successfully accepted connection on port %s! Client is now connected in listener mode.\n", port)
+
 	return nil
 }

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/network"
+
+	"jiso/internal/utils"
 )
 
 func createTempSpecFile(t *testing.T) string {

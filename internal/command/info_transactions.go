@@ -6,13 +6,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	json "github.com/goccy/go-json"
+	"github.com/moov-io/iso8583"
 
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/moov-io/iso8583"
 )
 
 type InfoCommand struct {
@@ -60,7 +59,7 @@ func (c *InfoCommand) Execute() error {
 	}
 
 	// Parse the fields JSON to extract MTI and Processing Code
-	var fields map[string]interface{}
+	var fields map[string]any
 	if err := json.Unmarshal([]byte(fieldsJSON), &fields); err != nil {
 		return fmt.Errorf("failed to parse transaction fields: %w", err)
 	}
@@ -77,7 +76,7 @@ func (c *InfoCommand) Execute() error {
 		switch v := pcVal.(type) {
 		case string:
 			procCode = v
-		case map[string]interface{}:
+		case map[string]any:
 			// For composite processing codes, try to combine the values
 			parts := []string{}
 			for _, val := range v {
@@ -127,12 +126,13 @@ func (c *InfoCommand) Execute() error {
 
 func renderParsedMessage(msg *iso8583.Message) string {
 	var buf bytes.Buffer
-	utils.Describe(msg, &buf, iso8583.DoNotFilterFields()...)
+	_ = utils.Describe(msg, &buf, iso8583.DoNotFilterFields()...)
+
 	return buf.String()
 }
 
-// formatFieldsJSON formats the fields JSON in a clean, readable format
-func formatFieldsJSON(fields map[string]interface{}) string {
+// formatFieldsJSON formats the fields JSON in a clean, readable format.
+func formatFieldsJSON(fields map[string]any) string {
 	// Get keys and sort them numerically
 	keys := make([]string, 0, len(fields))
 	for k := range fields {
@@ -148,6 +148,7 @@ func formatFieldsJSON(fields map[string]interface{}) string {
 		if errI == nil && errJ == nil {
 			return numI < numJ
 		}
+
 		return keys[i] < keys[j]
 	})
 
@@ -155,25 +156,26 @@ func formatFieldsJSON(fields map[string]interface{}) string {
 	var sb strings.Builder
 	for _, k := range keys {
 		value := fields[k]
-		sb.WriteString(fmt.Sprintf("\"%s\": %v", k, formatValue(value)))
+		sb.WriteString(fmt.Sprintf("%q: %v", k, formatValue(value)))
 		sb.WriteString("\n")
 	}
 
 	return sb.String()
 }
 
-// parseFieldNumber attempts to convert a field key to an integer
+// parseFieldNumber attempts to convert a field key to an integer.
 func parseFieldNumber(key string) (int, error) {
 	var num int
 	_, err := fmt.Sscanf(key, "%d", &num)
+
 	return num, err
 }
 
-// formatValue formats a value properly for display
-func formatValue(value interface{}) string {
+// formatValue formats a value properly for display.
+func formatValue(value any) string {
 	switch v := value.(type) {
 	case string:
-		return fmt.Sprintf("\"%s\"", v)
+		return fmt.Sprintf("%q", v)
 	default:
 		return fmt.Sprintf("%v", v)
 	}
