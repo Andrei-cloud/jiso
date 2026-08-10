@@ -223,6 +223,15 @@ func (sc *ServerCommand) StartServer(port string, headerType string) error {
 	}
 
 	sc.srv = server.NewServer(sc.spec, sc.routes, headerType)
+	if tlsFileCfg := config.GetConfig().GetTLSConfig(); tlsFileCfg != nil && tlsFileCfg.Enabled {
+		cryptoTLS, err := tlsFileCfg.BuildCryptoTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to build server TLS configuration: %w", err)
+		}
+		sc.srv.SetTLSConfig(cryptoTLS)
+		fmt.Printf("   ✓ TLS/mTLS server security enabled (ServerName: %s)\n", tlsFileCfg.ServerName)
+	}
+
 	if err := sc.srv.Start(port); err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package connection
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -34,8 +35,12 @@ type Manager struct {
 	mockMatcher         RouteMatcher
 
 	// Connection parameters for reconnection
-	naps   bool
-	header network.Header
+	naps      bool
+	header    network.Header
+	tlsConfig *tls.Config
+
+	// Visa SMC Heartbeat Daemon (active ONLY when header is VisaHeader)
+	smcDaemon *SMCHeartbeatDaemon
 
 	// Async processing fields
 	pendingRequests    map[string]*pendingRequest
@@ -98,6 +103,16 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	// Add connection options with proper reconnection settings
 	options := []moovconnection.Option{
 		moovconnection.ConnectTimeout(m.connectTimeout),
+	}
+
+	if m.tlsConfig != nil {
+		options = append(options, func(opts *moovconnection.Options) error {
+			opts.TLSConfig = m.tlsConfig
+			return nil
+		})
+	}
+
+	options = append(options,
 		moovconnection.ErrorHandler(func(err error) {
 			if m.debugMode {
 				fmt.Printf("Error encountered: %s\n", err)
@@ -123,7 +138,6 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 				}
 			}
 		}),
-
 		moovconnection.InboundMessageHandler(
 			func(c *moovconnection.Connection, message *iso8583.Message) {
 				// Handle incoming messages asynchronously
@@ -141,7 +155,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 				fmt.Printf("Connection closed to %s\n", m.address)
 			}
 		}),
-	}
+	)
 
 	// Attempt to connect with retries and exponential backoff
 	maxBackoff := 30 * time.Second
@@ -248,7 +262,39 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		break
 	}
 
+	// Enable Visa SMC Heartbeat keep-alive ONLY if Visa header format is selected
+	if IsVisaHeader(header) {
+		m.statusMu.Lock()
+		if m.smcDaemon != nil {
+			m.smcDaemon.Stop()
+		}
+		m.smcDaemon = NewSMCHeartbeatDaemon(m, 30*time.Second)
+		m.smcDaemon.Start()
+		m.statusMu.Unlock()
+	} else {
+		m.statusMu.Lock()
+		if m.smcDaemon != nil {
+			m.smcDaemon.Stop()
+			m.smcDaemon = nil
+		}
+		m.statusMu.Unlock()
+	}
+
 	return nil
+}
+
+// SetTLSConfig configures the *tls.Config for secure connections
+func (m *Manager) SetTLSConfig(cfg *tls.Config) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	m.tlsConfig = cfg
+}
+
+// GetTLSConfig returns the active *tls.Config
+func (m *Manager) GetTLSConfig() *tls.Config {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
+	return m.tlsConfig
 }
 
 // GetSpec returns the current ISO8583 message specification
@@ -302,6 +348,11 @@ func (m *Manager) Close() error {
 	// First, acquire locks in consistent order to prevent deadlocks
 	m.statusMu.Lock()
 	m.pendingMu.Lock()
+
+	if m.smcDaemon != nil {
+		m.smcDaemon.Stop()
+		m.smcDaemon = nil
+	}
 
 	// Clear pending requests
 	for stan, req := range m.pendingRequests {

@@ -19,11 +19,54 @@ JISO is a feature-rich command-line tool for simulating, testing, and debugging 
 - **Boilerplate generators** (`init-spec`, `init-tx`) compiled into the binary via `//go:embed`
 - **SQLite session logging** for transaction history and analytics (`--db-path`, `dbstats`)
 - **VISA Base I header support** with station-ID management and session control
+- **Mutual TLS (mTLS) Zero-Trust Security & Visa SMC Support** — consolidated JSON TLS configuration (`--tls-config`), strict PEM certificate validation, client/server mTLS authentication, interactive test certificate generator (`scripts/gen-test-certs.sh`), and automated Visa 0800 echo keep-alive heartbeat (see [TLS Guide](docs/tls.md))
 - **Hex dump mode** (`-hex`) for byte-level message inspection
 - **Structured test reports** — ANSI-colored terminal trees and JSON export (`--report`) for CI/CD pipelines
 - **Automatic field generation** — STAN, RRN, Auth Code, date/time fields populated at runtime
 - **Per-transaction specification override** (`"spec"` key) for multi-network testing
 - **Composite field support** — positional, TLV, BER-TLV/EMV, and bitmap-governed composites
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Documentation Index](#documentation-index)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Building from Source](#building-from-source)
+  - [Running without Building](#running-without-building)
+- [Quick Start](#quick-start)
+- [Command-Line Interface](#command-line-interface)
+  - [Command-Line Flags](#command-line-flags)
+- [Interactive REPL Command Reference](#interactive-repl-command-reference)
+- [Transaction & Payload Configuration](#transaction-configuration)
+- [Traffic Analyzer (`analyze` / `pcap`)](#traffic-analyzer-analyze--pcap)
+- [Stress Testing](#stress-testing)
+- [Mutual TLS (mTLS) & Visa SMC Security](#mutual-tls-mtls--visa-smc-security)
+- [Connection Types](#connection-types)
+- [Unsolicited Message Handling](#unsolicited-message-handling)
+- [Session Database](#session-database)
+- [Robust Networking](#robust-networking)
+- [ISO8583 Specification Files](#iso8583-specification-files)
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Documentation Index
+
+The [`docs/`](docs/) directory contains detailed technical guides and specifications:
+
+| Document | Description |
+| :--- | :--- |
+| 🛡️ [**Mutual TLS & Visa SMC Guide**](docs/tls.md) | Zero-trust mTLS setup, consolidated `tls_config.json`, interactive certificate generator script (`scripts/gen-test-certs.sh`), client/server mTLS usage, and Visa 0800 echo keep-alive daemon. |
+| 📋 [**Polymorphic JSON Schema**](docs/SCHEMA.md) | Complete schema specification for unified `transaction`, `dataset`, `scenario`, and `mock_route` definitions. |
+| 🔄 [**Scenario Engine Specification**](docs/scenarios.md) | Multi-step transaction workflow definition, context memory extraction (`{{context.X}}`), and response assertion rules. |
+| ⚙️ [**ISO8583 Specification Format**](docs/specifications.md) | ISO8583 message layout encoding guide (ASCII, BCD, Hex, Binary, EBCDIC) and composite field definitions. |
+
+---
 
 ## Installation
 
@@ -174,6 +217,7 @@ jiso analyze
 | `-hex` | `false` | Enable hex dump output for request/response messages |
 | `-db-path <path>` | `""` | Path to SQLite database file for session logging |
 | `-visa-station-id <id>` | `""` | VISA Local Station ID (6-digit hex or decimal) |
+| `--tls-config <path>` | `""` | Path to consolidated TLS/mTLS configuration JSON file (see [TLS Guide](docs/tls.md)) |
 
 **Example with custom timeouts and database logging:**
 
@@ -559,6 +603,19 @@ Transaction: Sign On
 ```
 
 The `stats` command monitors active stress tests and workers in real-time during execution.
+
+---
+
+## Mutual TLS (mTLS) & Visa SMC Security
+
+JISO supports zero-trust Mutual TLS (mTLS) client connections and embedded mock server hosting to comply with scheme security standards such as Visa Secure Messaging Controller (SMC).
+
+- **Consolidated Configuration File**: Pass all TLS options via `--tls-config <path>` (pointing to a `tls_config.json` file).
+- **Strict PEM Certificate Validation**: Validates PEM-encoded client certificates, private keys, and Root/Intermediate CA bundles.
+- **Automated Visa SMC Heartbeat**: Automatically sends periodic Visa `0800` Network Connection Status keep-alive messages (DE 70 = `0301`, DE 63 = `0002`). Active **ONLY** when connecting with the `visa` header format.
+- **Test Certificate Generator**: Includes an interactive tool ([`scripts/gen-test-certs.sh`](scripts/gen-test-certs.sh)) to generate X.509 Root CA, Server, and Client test certificates in PEM format.
+
+For complete setup instructions, JSON schema parameters, and CLI examples, see the [Mutual TLS & Visa SMC Guide](docs/tls.md).
 
 ---
 

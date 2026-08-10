@@ -1,10 +1,12 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/binary"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,6 +19,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestServer_mTLS(t *testing.T) {
+	certsDir := filepath.Join("..", "..", "testdata", "certs")
+	configFile := filepath.Join(certsDir, "tls_config.json")
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		t.Skip("testdata/certs/tls_config.json not found; skipping server mTLS test")
+	}
+
+	tlsCfg, err := config.LoadTLSConfig(configFile)
+	require.NoError(t, err)
+
+	cryptoTLS, err := tlsCfg.BuildCryptoTLSConfig()
+	require.NoError(t, err)
+
+	spec := utils.GetDefaultSpec()
+	server := NewServer(spec, nil, "binary2")
+	server.SetTLSConfig(cryptoTLS)
+
+	require.NoError(t, server.Start("19895"))
+	defer server.Stop()
+
+	clientTLS := cryptoTLS.Clone()
+	clientTLS.InsecureSkipVerify = true
+
+	// Dial with mTLS client config
+	conn, err := tls.Dial("tcp", "127.0.0.1:19895", clientTLS)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	assert.Equal(t, 1, server.ActiveConnections())
+}
 
 func TestMockServerLifecycleAndMatching(t *testing.T) {
 	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")

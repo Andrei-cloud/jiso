@@ -73,6 +73,11 @@ func NewRootCmd() *cobra.Command {
 			if visaID, _ := cmd.Flags().GetString("visa-station-id"); visaID != "" {
 				c.SetVisaStationId(visaID)
 			}
+			if tlsPath, _ := cmd.Flags().GetString("tls-config"); tlsPath != "" {
+				if err := c.SetTLSConfigPath(tlsPath); err != nil {
+					return err
+				}
+			}
 
 			return c.Validate()
 		},
@@ -93,6 +98,7 @@ func NewRootCmd() *cobra.Command {
 	pflags.Duration("total-connect-timeout", 10*time.Second, "Total timeout for connection establishment")
 	pflags.Duration("response-timeout", 5*time.Second, "Timeout waiting for async message responses")
 	pflags.String("visa-station-id", "", "VISA Local Station ID (6-digit hex or decimal)")
+	pflags.String("tls-config", "", "Path to consolidated TLS/mTLS configuration file (JSON)")
 
 	// Register subcommands
 	rootCmd.AddCommand(newSpecCmd())

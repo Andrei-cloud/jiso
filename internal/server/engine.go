@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -27,6 +28,7 @@ type Server struct {
 	conns      map[net.Conn]struct{}
 	connsMu    sync.Mutex
 	stats      *ServerStats
+	tlsConfig  *tls.Config
 }
 
 // NewServer creates a new Server instance
@@ -69,7 +71,21 @@ func (s *Server) GetStats() *ServerStats {
 	return s.stats
 }
 
-// Start launches the TCP listener on the specified port
+// SetTLSConfig configures the *tls.Config for mTLS mock server operation
+func (s *Server) SetTLSConfig(cfg *tls.Config) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tlsConfig = cfg
+}
+
+// GetTLSConfig returns the active *tls.Config for the mock server
+func (s *Server) GetTLSConfig() *tls.Config {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tlsConfig
+}
+
+// Start launches the TCP listener (or TLS listener if configured) on the specified port
 func (s *Server) Start(port string) error {
 	s.mu.Lock()
 	if s.running {
@@ -82,6 +98,14 @@ func (s *Server) Start(port string) error {
 	if err != nil {
 		s.mu.Unlock()
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+	}
+
+	if s.tlsConfig != nil {
+		tlsCfg := s.tlsConfig.Clone()
+		if tlsCfg.ClientCAs != nil && tlsCfg.ClientAuth == tls.NoClientCert {
+			tlsCfg.ClientAuth = tls.RequireAndVerifyClientCert
+		}
+		l = tls.NewListener(l, tlsCfg)
 	}
 
 	s.listener = l

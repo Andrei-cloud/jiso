@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,8 @@ type Config struct {
 	dbPath              string
 	sessionId           string
 	visaStationId       string
+	tlsConfigPath       string
+	tlsConfig           *TLSFileConfig
 	mu                  sync.RWMutex
 }
 
@@ -131,6 +134,8 @@ func (c *Config) Reset() {
 	c.hex = false
 	c.dbPath = ""
 	c.visaStationId = ""
+	c.tlsConfigPath = ""
+	c.tlsConfig = nil
 	c.reconnectAttempts = 3
 	c.connectTimeout = 5 * time.Second
 	c.totalConnectTimeout = 10 * time.Second
@@ -274,6 +279,40 @@ func (c *Config) SetVisaStationId(stationId string) {
 	c.visaStationId = stationId
 }
 
+func (c *Config) SetTLSConfigPath(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	tlsCfg, err := LoadTLSConfig(path)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tlsConfigPath = path
+	c.tlsConfig = tlsCfg
+	return nil
+}
+
+func (c *Config) GetTLSConfigPath() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.tlsConfigPath
+}
+
+func (c *Config) GetTLSConfig() *TLSFileConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.tlsConfig
+}
+
+func (c *Config) SetTLSConfig(cfg *TLSFileConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tlsConfig = cfg
+}
+
 func (c *Config) Validate() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -339,6 +378,13 @@ func (c *Config) Validate() error {
 			if _, err := os.Stat(parentDir); os.IsNotExist(err) {
 				return fmt.Errorf("database parent directory does not exist: %s", parentDir)
 			}
+		}
+	}
+
+	// Validate TLS config path if provided
+	if c.tlsConfigPath != "" {
+		if _, err := os.Stat(c.tlsConfigPath); os.IsNotExist(err) {
+			return fmt.Errorf("TLS config file does not exist: %s", c.tlsConfigPath)
 		}
 	}
 
