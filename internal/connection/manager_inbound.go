@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"jiso/internal/config"
-
 	"github.com/moov-io/iso8583"
+
+	"jiso/internal/config"
 )
 
 type RouteMatcher interface {

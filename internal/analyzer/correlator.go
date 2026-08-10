@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/utils"
 )
 
 // CorrelatedPair represents a matched request-response transaction and optional reversal

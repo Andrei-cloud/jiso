@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"jiso/internal/utils"
-
 	isofield "github.com/moov-io/iso8583/field"
+
+	"jiso/internal/utils"
 )
 
 func (tc *TransactionCollection) Validate() error {

@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
 	"github.com/moov-io/iso8583/network"
 	"github.com/stretchr/testify/assert"
+
+	"jiso/internal/utils"
 )
 
 func TestManagerSendWithNoConnection(t *testing.T) {

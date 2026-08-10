@@ -11,6 +11,8 @@ import (
 )
 
 func TestSpecCommand_SetArgsAndExecute(t *testing.T) {
+	t.Parallel()
+
 	specPath := filepath.Join("..", "..", "specs", "spec_bcp.json")
 
 	svc, err := service.NewService("localhost", "9999", specPath, false, 1, 0, 0, 0)
@@ -36,6 +38,8 @@ func TestSpecCommand_SetArgsAndExecute(t *testing.T) {
 }
 
 func TestSpecCommand_InvalidPath(t *testing.T) {
+	t.Parallel()
+
 	cmd := &SpecCommand{SpecPath: "non_existent_spec.json"}
 	err := cmd.Execute()
 	if err == nil {

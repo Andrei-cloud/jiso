@@ -9,7 +9,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// SpecCommand handles interactive specification selection and switching
+// SpecCommand handles interactive specification selection and switching.
 type SpecCommand struct {
 	SpecPath string
 	Svc      *service.Service
@@ -60,5 +60,6 @@ func (c *SpecCommand) Execute() error {
 	}
 
 	fmt.Printf("Specification updated successfully to: %s (Spec: %s)\n", specPath, spec.Name)
+
 	return nil
 }

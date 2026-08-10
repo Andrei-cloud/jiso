@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	cfg "jiso/internal/config"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cfg "jiso/internal/config"
 )
 
 func TestVersionCommand(t *testing.T) {

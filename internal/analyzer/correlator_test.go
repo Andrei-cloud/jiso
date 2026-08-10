@@ -3,11 +3,11 @@ package analyzer
 import (
 	"testing"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"jiso/internal/utils"
 )
 
 func TestCorrelator_BasicPairing(t *testing.T) {

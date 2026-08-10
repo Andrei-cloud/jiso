@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,7 +10,7 @@ import (
 	"jiso/internal/service"
 )
 
-// TargetCommand handles dynamic target switching REPL commands
+// TargetCommand handles dynamic target switching REPL commands.
 type TargetCommand struct {
 	ClientCfg *client.ClientConfig
 	Svc       *service.Service
@@ -20,10 +21,11 @@ func (tc *TargetCommand) Synopsis() string { return "Set network target address 
 
 func (tc *TargetCommand) Execute() error {
 	fmt.Println(tc.GetStatus())
+
 	return nil
 }
 
-// NewTargetCommand creates a new TargetCommand instance
+// NewTargetCommand creates a new TargetCommand instance.
 func NewTargetCommand(cfg *client.ClientConfig, svc *service.Service) *TargetCommand {
 	return &TargetCommand{
 		ClientCfg: cfg,
@@ -31,10 +33,10 @@ func NewTargetCommand(cfg *client.ClientConfig, svc *service.Service) *TargetCom
 	}
 }
 
-// SetTarget updates the target endpoint dynamically and reconnects if active
+// SetTarget updates the target endpoint dynamically and reconnects if active.
 func (tc *TargetCommand) SetTarget(targetAddr string) error {
 	if tc.ClientCfg == nil {
-		return fmt.Errorf("client configuration unavailable")
+		return errors.New("client configuration unavailable")
 	}
 
 	if err := tc.ClientCfg.SetTarget(targetAddr); err != nil {
@@ -54,30 +56,33 @@ func (tc *TargetCommand) SetTarget(targetAddr string) error {
 	}
 
 	fmt.Printf("Target updated successfully to: %s:%s\n", host, port)
+
 	return nil
 }
 
-// SetIP updates only the host IP address
+// SetIP updates only the host IP address.
 func (tc *TargetCommand) SetIP(ip string) error {
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
-		return fmt.Errorf("ip address cannot be empty")
+		return errors.New("ip address cannot be empty")
 	}
 	_, currentPort := tc.ClientCfg.GetTarget()
+
 	return tc.SetTarget(fmt.Sprintf("%s:%s", ip, currentPort))
 }
 
-// SetPort updates only the port
+// SetPort updates only the port.
 func (tc *TargetCommand) SetPort(port string) error {
 	port = strings.TrimSpace(port)
 	if port == "" {
-		return fmt.Errorf("port cannot be empty")
+		return errors.New("port cannot be empty")
 	}
 	currentHost, _ := tc.ClientCfg.GetTarget()
+
 	return tc.SetTarget(fmt.Sprintf("%s:%s", currentHost, port))
 }
 
-// GetStatus prints current network target and connection status
+// GetStatus prints current network target and connection status.
 func (tc *TargetCommand) GetStatus() string {
 	host, port := "unknown", "unknown"
 	if tc.ClientCfg != nil {

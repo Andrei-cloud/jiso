@@ -1,9 +1,9 @@
 package connection
 
 import (
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583/network"
+
+	"jiso/internal/utils"
 )
 
 // cloneHeader creates a copy of the header to prevent race conditions

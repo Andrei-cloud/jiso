@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"jiso/internal/command"
 	"jiso/internal/metrics"
-
-	"github.com/google/uuid"
 )
 
 // workerInfo holds the state of a background worker

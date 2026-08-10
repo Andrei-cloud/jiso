@@ -9,8 +9,9 @@ import (
 )
 
 func TestVerifyTarget(t *testing.T) {
-	cfg.GetConfig().Reset()
+	t.Parallel()
 
+	cfg.GetConfig().Reset()
 	err := VerifyTarget()
 	if err == nil {
 		t.Error("Expected error when target host/port are empty, got nil")
@@ -26,6 +27,8 @@ func TestVerifyTarget(t *testing.T) {
 }
 
 func TestVerifySpec(t *testing.T) {
+	t.Parallel()
+
 	cfg.GetConfig().Reset()
 	err := VerifySpec(nil)
 	if err == nil {
@@ -45,6 +48,8 @@ func TestVerifySpec(t *testing.T) {
 }
 
 func TestVerifyTx(t *testing.T) {
+	t.Parallel()
+
 	cfg.GetConfig().Reset()
 	err := VerifyTx(nil)
 	if err == nil {
@@ -53,6 +58,7 @@ func TestVerifyTx(t *testing.T) {
 }
 
 func TestVerifyConnection(t *testing.T) {
+	t.Parallel()
 	cfg.GetConfig().SetHost("127.0.0.1")
 	cfg.GetConfig().SetPort("9999")
 

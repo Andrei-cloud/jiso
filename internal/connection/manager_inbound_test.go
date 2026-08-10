@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
+
+	"jiso/internal/utils"
 )
 
 func TestCloseCleansUpPendingRequests(t *testing.T) {

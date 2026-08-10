@@ -7,13 +7,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/moov-io/iso8583"
+
 	"jiso/internal/config"
 	"jiso/internal/server"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/moov-io/iso8583"
 )
 
 // ServerCommand manages the embedded ISO8583 mock server from REPL or CLI
@@ -55,16 +55,20 @@ func (sc *ServerCommand) Execute() error {
 			if sc.srv != nil && sc.srv.IsRunning() {
 				_ = sc.StopServer()
 			}
+
 			return sc.promptStartServer()
 		case "Stop Server":
 			return sc.StopServer()
 		case "Server Statistics":
 			sc.PrintStats()
+
 			return nil
 		case "List Routes":
 			sc.ListRoutes()
+
 			return nil
 		}
+
 		return nil
 	}
 
@@ -88,6 +92,7 @@ func (sc *ServerCommand) Execute() error {
 		if port == "" || headerType == "" {
 			return sc.promptStartServer()
 		}
+
 		return sc.StartServer(port, headerType)
 
 	case "stop":
@@ -182,8 +187,8 @@ func (sc *ServerCommand) promptStartServer() error {
 	return sc.StartServer(port, headerType)
 }
 
-// RunDirectServer blocks in direct CLI mode until Ctrl+C (SIGINT/SIGTERM)
-func (sc *ServerCommand) RunDirectServer(port string, headerType string) error {
+// RunDirectServer blocks in direct CLI mode until Ctrl+C (SIGINT/SIGTERM).
+func (sc *ServerCommand) RunDirectServer(port, headerType string) error {
 	if err := sc.StartServer(port, headerType); err != nil {
 		return err
 	}
@@ -195,10 +200,11 @@ func (sc *ServerCommand) RunDirectServer(port string, headerType string) error {
 
 	fmt.Println("\nStopping mock server...")
 	sc.PrintStats()
+
 	return sc.StopServer()
 }
 
-// NewServerCommand creates a new ServerCommand instance
+// NewServerCommand creates a new ServerCommand instance.
 func NewServerCommand(spec *iso8583.MessageSpec, routes []config.MockRouteConfig, tc transactions.Repository) *ServerCommand {
 	return &ServerCommand{
 		spec:   spec,
@@ -207,8 +213,8 @@ func NewServerCommand(spec *iso8583.MessageSpec, routes []config.MockRouteConfig
 	}
 }
 
-// StartServer starts the embedded mock server on the requested port with chosen header format
-func (sc *ServerCommand) StartServer(port string, headerType string) error {
+// StartServer starts the embedded mock server on the requested port with chosen header format.
+func (sc *ServerCommand) StartServer(port, headerType string) error {
 	port = strings.TrimSpace(port)
 	if port == "" {
 		port = "9999"
@@ -237,13 +243,15 @@ func (sc *ServerCommand) StartServer(port string, headerType string) error {
 	}
 
 	fmt.Printf("Embedded ISO8583 Mock Server started on port %s (Header: %s) 🟢\n", port, headerType)
+
 	return nil
 }
 
-// StopServer stops the embedded mock server
+// StopServer stops the embedded mock server.
 func (sc *ServerCommand) StopServer() error {
 	if sc.srv == nil || !sc.srv.IsRunning() {
 		fmt.Println("Mock server is not running")
+
 		return nil
 	}
 
@@ -253,10 +261,11 @@ func (sc *ServerCommand) StopServer() error {
 	}
 
 	fmt.Printf("Embedded ISO8583 Mock Server on port %s stopped 🔴\n", port)
+
 	return nil
 }
 
-// ListRoutes displays all active mock routes
+// ListRoutes displays all active mock routes.
 func (sc *ServerCommand) ListRoutes() {
 	if len(sc.routes) == 0 {
 		fmt.Println("No mock routes configured")

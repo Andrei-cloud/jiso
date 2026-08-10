@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/moov-io/iso8583"
+
 	cfg "jiso/internal/config"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
 func (tc *TransactionCollection) GetMockRoutes() []cfg.MockRouteConfig {
@@ -42,7 +42,6 @@ func NewTransactionCollection(
 			scenarios: make(map[string]*Scenario),
 		}, nil
 	}
-
 
 	if isInvalidFilename(filename) {
 		return nil, errors.New("invalid filename")

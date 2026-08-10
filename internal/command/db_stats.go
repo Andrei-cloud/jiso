@@ -1,7 +1,9 @@
 package command
 
 import (
+	"errors"
 	"fmt"
+
 	json "github.com/goccy/go-json"
 
 	"jiso/internal/config"
@@ -23,7 +25,7 @@ func (c *DbStatsCommand) Synopsis() string {
 func (c *DbStatsCommand) Execute() error {
 	dbPath := config.GetConfig().GetDbPath()
 	if dbPath == "" {
-		return fmt.Errorf("database not configured (use --db-path flag)")
+		return errors.New("database not configured (use --db-path flag)")
 	}
 
 	sessionID := c.SessionID
@@ -31,7 +33,7 @@ func (c *DbStatsCommand) Execute() error {
 		sessionID = config.GetConfig().GetSessionId()
 	}
 	if sessionID == "" {
-		return fmt.Errorf("session ID not available")
+		return errors.New("session ID not available")
 	}
 
 	stats, err := db.GetTransactionStats(sessionID)

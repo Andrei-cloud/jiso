@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
+	cmdpkg "jiso/internal/command"
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	cmdpkg "jiso/internal/command"
-
-	"github.com/spf13/cobra"
 )
 
 func newScenarioCmd() *cobra.Command {

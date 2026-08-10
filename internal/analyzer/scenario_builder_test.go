@@ -3,15 +3,14 @@ package analyzer
 import (
 	"testing"
 
-	"jiso/internal/config"
-	"jiso/internal/transactions"
-	"jiso/internal/utils"
-
 	json "github.com/goccy/go-json"
-
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"jiso/internal/config"
+	"jiso/internal/transactions"
+	"jiso/internal/utils"
 )
 
 func TestScenarioBuilder_BasicScaffold(t *testing.T) {

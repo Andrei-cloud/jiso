@@ -1,23 +1,23 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	json "github.com/goccy/go-json"
+	"github.com/moov-io/iso8583"
 
 	"jiso/internal/analyzer"
 	"jiso/internal/config"
 	"jiso/internal/utils"
-
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/moov-io/iso8583"
 )
 
-// AnalyzeCommand provides interactive or direct reverse-engineering of PCAP / stream captures
+// AnalyzeCommand provides interactive or direct reverse-engineering of PCAP / stream captures.
 
 func (ac *AnalyzeCommand) promptAnalyze() error {
 	fmt.Println("================================================================================")
@@ -109,7 +109,7 @@ func (ac *AnalyzeCommand) promptAnalyze() error {
 	}
 	streamFile = strings.TrimSpace(streamFile)
 	if streamFile == "" {
-		return fmt.Errorf("stream capture file path cannot be empty")
+		return errors.New("stream capture file path cannot be empty")
 	}
 
 	// 5. Inspect PCAP for directional traffic options if applicable
@@ -218,7 +218,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	// Sort flow keys deterministically
 	flowKeys := make([]string, 0, len(flows))
 	flowMap := make(map[string]string) // option label -> flow key
-	var multiOptions []string
+	multiOptions := make([]string, 0, len(flows))
 
 	for key, flow := range flows {
 		label := fmt.Sprintf("Flow [%s]: MTI=%s, DE3=%s, DE22=%s (%d messages)", key, flow.MTI, flow.DE3, flow.DE22, flow.Count)
@@ -284,7 +284,7 @@ func (ac *AnalyzeCommand) runAnalysis(
 	}
 
 	if len(newItems) == 0 {
-		return fmt.Errorf("no transaction templates, mock routes, or datasets could be generated")
+		return errors.New("no transaction templates, mock routes, or datasets could be generated")
 	}
 
 	// Save to target transaction file
@@ -316,7 +316,7 @@ func saveConfigItemsToFile(filename string, newItems []config.ConfigItem) error 
 	// Create directory if needed
 	dir := filepath.Dir(filename)
 	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
 		}
 	}
@@ -340,16 +340,16 @@ func saveConfigItemsToFile(filename string, newItems []config.ConfigItem) error 
 		Type           config.ConfigDiscriminator `json:"type,omitempty"`
 		Name           string                     `json:"name"`
 		Description    string                     `json:"description,omitempty"`
-		Fields         interface{}                `json:"fields,omitempty"`
-		Dataset        interface{}                `json:"dataset,omitempty"`
-		Data           interface{}                `json:"data,omitempty"`
+		Fields         any                        `json:"fields,omitempty"`
+		Dataset        any                        `json:"dataset,omitempty"`
+		Data           any                        `json:"data,omitempty"`
 		DatasetName    string                     `json:"dataset_name,omitempty"`
 		Steps          json.RawMessage            `json:"steps,omitempty"`
-		MatchFields    interface{}                `json:"match_fields,omitempty"`
+		MatchFields    any                        `json:"match_fields,omitempty"`
 		RequiredFields []string                   `json:"required_fields,omitempty"`
 		EchoFields     []int                      `json:"echo_fields,omitempty"`
 		ResponseMTI    string                     `json:"response_mti,omitempty"`
-		ResponseFields interface{}                `json:"response_fields,omitempty"`
+		ResponseFields any                        `json:"response_fields,omitempty"`
 		DelayMs        int                        `json:"delay_ms,omitempty"`
 		LatencyMs      int                        `json:"latency_ms,omitempty"`
 		JitterMs       int                        `json:"jitter_ms,omitempty"`
@@ -374,7 +374,7 @@ func saveConfigItemsToFile(filename string, newItems []config.ConfigItem) error 
 		}
 
 		if len(item.Fields) > 0 {
-			var parsed interface{}
+			var parsed any
 			if err := json.Unmarshal(item.Fields, &parsed); err == nil {
 				sorted := config.SortMapKeysRecursively(parsed)
 				if sortedBytes, sErr := json.Marshal(sorted); sErr == nil {
@@ -422,5 +422,5 @@ func saveConfigItemsToFile(filename string, newItems []config.ConfigItem) error 
 		return fmt.Errorf("failed to marshal merged config items: %w", err)
 	}
 
-	return os.WriteFile(filename, outputBytes, 0644)
+	return os.WriteFile(filename, outputBytes, 0o644)
 }

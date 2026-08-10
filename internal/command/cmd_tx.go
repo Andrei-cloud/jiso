@@ -1,18 +1,19 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/moov-io/iso8583"
 
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
-// TxCommand handles interactive transaction file selection and switching
+// TxCommand handles interactive transaction file selection and switching.
 type TxCommand struct {
 	TxPath string
 	Svc    *service.Service
@@ -31,7 +32,7 @@ func (c *TxCommand) SetArgs(args []string) {
 func (c *TxCommand) Execute() error {
 	specPath := strings.TrimSpace(cfg.GetConfig().GetSpec())
 	if specPath == "" {
-		return fmt.Errorf("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+		return errors.New("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
 	}
 
 	selectedSpec, err := utils.CreateSpecFromFile(specPath)
@@ -74,5 +75,6 @@ func (c *TxCommand) Execute() error {
 	}
 
 	fmt.Printf("Transaction file updated successfully to: %s (Count: %d)\n", txPath, count)
+
 	return nil
 }

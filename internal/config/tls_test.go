@@ -18,9 +18,9 @@ func TestLoadTLSConfig_Success(t *testing.T) {
 	caFile := filepath.Join(tmpDir, "ca.crt")
 	configFile := filepath.Join(tmpDir, "tls_config.json")
 
-	require.NoError(t, os.WriteFile(certFile, []byte("dummy cert"), 0644))
-	require.NoError(t, os.WriteFile(keyFile, []byte("dummy key"), 0600))
-	require.NoError(t, os.WriteFile(caFile, []byte("dummy ca"), 0644))
+	require.NoError(t, os.WriteFile(certFile, []byte("dummy cert"), 0o644))
+	require.NoError(t, os.WriteFile(keyFile, []byte("dummy key"), 0o600))
+	require.NoError(t, os.WriteFile(caFile, []byte("dummy ca"), 0o644))
 
 	jsonContent := `{
 		"enabled": true,
@@ -31,7 +31,7 @@ func TestLoadTLSConfig_Success(t *testing.T) {
 		"min_version": "1.3",
 		"insecure_skip_verify": true
 	}`
-	require.NoError(t, os.WriteFile(configFile, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(configFile, []byte(jsonContent), 0o644))
 
 	cfg, err := LoadTLSConfig(configFile)
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestLoadTLSConfig_Disabled(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "tls_disabled.json")
 	jsonContent := `{"enabled": false}`
-	require.NoError(t, os.WriteFile(configFile, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(configFile, []byte(jsonContent), 0o644))
 
 	cfg, err := LoadTLSConfig(configFile)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestLoadTLSConfig_MissingCertFile(t *testing.T) {
 		"client_key": "./nonexistent.key",
 		"ca_cert": "./nonexistent.ca"
 	}`
-	require.NoError(t, os.WriteFile(configFile, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(configFile, []byte(jsonContent), 0o644))
 
 	_, err := LoadTLSConfig(configFile)
 	require.Error(t, err)

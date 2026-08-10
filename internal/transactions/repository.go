@@ -1,9 +1,9 @@
 package transactions
 
 import (
-	cfg "jiso/internal/config"
-
 	"github.com/moov-io/iso8583"
+
+	cfg "jiso/internal/config"
 )
 
 // Repository defines the interface for transaction storage and retrieval

@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
+
 	"jiso/internal/service"
 	"jiso/internal/transactions"
-
-	"github.com/AlecAivazis/survey/v2"
 )
 
 type BackgroundCommand struct {
@@ -51,11 +51,11 @@ func (c *BackgroundCommand) Execute() error {
 				Default: "1",
 				Message: "Enter number of workers:",
 			},
-			Validate: func(ans interface{}) error {
-				_, err := strconv.Atoi(ans.(string))
-				if err != nil {
+			Validate: func(ans any) error {
+				if _, err := strconv.Atoi(ans.(string)); err != nil {
 					return errors.New("please enter a valid number")
 				}
+
 				return nil
 			},
 		},

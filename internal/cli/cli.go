@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/moov-io/iso8583"
+
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
 	"jiso/internal/db"
@@ -16,11 +18,9 @@ import (
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
-var Version = "v1.6.0"
+var Version = "v1.6.1"
 
 type CLI struct {
 	commands map[string]cmd.Command

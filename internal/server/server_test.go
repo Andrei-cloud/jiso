@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"jiso/internal/config"
-	"jiso/internal/transactions"
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"jiso/internal/config"
+	"jiso/internal/transactions"
+	"jiso/internal/utils"
 )
 
 func TestServer_mTLS(t *testing.T) {
@@ -406,4 +406,3 @@ func TestMatchAndComposeWithCompositeFields(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "8", str9f27)
 }
-

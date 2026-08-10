@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Command interface defines methods required for all CLI commands
+// Command interface defines methods required for all CLI commands.
 type Command interface {
 	// Name returns the command name used to run it
 	Name() string
@@ -16,7 +16,7 @@ type Command interface {
 	Execute() error
 }
 
-// BgCommand interface defines methods required for background commands
+// BgCommand interface defines methods required for background commands.
 type BgCommand interface {
 	Command
 

@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/moov-io/iso8583"
+
 	cmd "jiso/internal/command"
 	cfg "jiso/internal/config"
 	"jiso/internal/db"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
 func (cli *CLI) InitService() error {
@@ -32,6 +32,9 @@ func (cli *CLI) InitService() error {
 		cfg.GetConfig().GetTotalConnectTimeout(),
 		cfg.GetConfig().GetResponseTimeout(),
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create service: %w", err)
+	}
 	if tlsFileCfg := cfg.GetConfig().GetTLSConfig(); tlsFileCfg != nil && tlsFileCfg.Enabled {
 		cryptoTLS, err := tlsFileCfg.BuildCryptoTLSConfig()
 		if err != nil {
@@ -44,7 +47,10 @@ func (cli *CLI) InitService() error {
 
 	txPath := cfg.GetConfig().GetFile()
 	if strings.TrimSpace(txPath) != "" && strings.TrimSpace(cfg.GetConfig().GetSpec()) == "" {
-		return errors.New("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+		return errors.New(
+			"specification must be defined before loading transaction file. " +
+				"Please select a specification using 'spec <path>' first",
+		)
 	}
 
 	// Create transaction collection through the repository interface
@@ -92,7 +98,20 @@ func (cli *CLI) Connect(lengthType string) error {
 	}
 
 	naps := (lengthType == "NAPS")
+
 	return cli.svc.Connect(naps, header)
+}
+
+// Listen starts listener mode on specified port and length type (non-interactive).
+func (cli *CLI) Listen(port, lengthType string) error {
+	header, err := utils.SelectLength(lengthType)
+	if err != nil {
+		return err
+	}
+
+	naps := (lengthType == "NAPS")
+
+	return cli.svc.Listen(port, naps, header)
 }
 
 // Reload reloads the service and transaction specifications.
@@ -108,8 +127,8 @@ func (cli *CLI) Reload() error {
 	// Step 2: Close existing service if it exists
 	if cli.svc != nil {
 		fmt.Println("Closing existing service...")
-		if err := cli.svc.Close(); err != nil {
-			fmt.Printf("Warning: Failed to close service: %v\n", err)
+		if err := cli.svc.Disconnect(); err != nil {
+			fmt.Printf("Warning: Failed to disconnect existing service: %v\n", err)
 		}
 		cli.svc = nil
 	}
@@ -140,7 +159,10 @@ func (cli *CLI) Reload() error {
 func (cli *CLI) ReloadTransactions(txPath string) (int, error) {
 	specPath := strings.TrimSpace(cfg.GetConfig().GetSpec())
 	if specPath == "" {
-		return 0, errors.New("specification must be defined before loading transaction file. Please select a specification using 'spec <path>' first")
+		return 0, errors.New(
+			"specification must be defined before loading transaction file. " +
+				"Please select a specification using 'spec <path>' first",
+		)
 	}
 
 	selectedSpec, err := utils.CreateSpecFromFile(specPath)

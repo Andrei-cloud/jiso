@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
+
+	"jiso/internal/utils"
 )
 
 // SMCHeartbeatDaemon manages automated Visa 0800 echo keep-alive messages
@@ -96,19 +96,19 @@ func (h *SMCHeartbeatDaemon) sendVisaEcho() error {
 	msg.MTI("0800")
 
 	// DE 70: Network Management Information Code (0301 = Visa Echo)
-	msg.Field(70, "0301")
+	_ = msg.Field(70, "0301")
 
 	// DE 7: Transmission Date & Time (MMDDhhmmss)
 	now := time.Now().UTC()
 	dtStr := now.Format("0102150405")
-	msg.Field(7, dtStr)
+	_ = msg.Field(7, dtStr)
 
 	// DE 11: Systems Trace Audit Number (STAN)
 	stanStr := fmt.Sprintf("%06d", now.UnixNano()%1000000)
-	msg.Field(11, stanStr)
+	_ = msg.Field(11, stanStr)
 
 	// DE 63: Network Data
-	msg.Field(63, "0002")
+	_ = msg.Field(63, "0002")
 
 	// Set session control indicator on header if VisaHeader
 	h.manager.statusMu.RLock()

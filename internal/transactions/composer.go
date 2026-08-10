@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/utils"
 )
 
 func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
@@ -385,7 +385,6 @@ func (tc *TransactionCollection) setCompositeFieldValue(
 ) error {
 	return utils.SetCompositeFieldValue(msg, spec, fieldID, value)
 }
-
 
 func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583.Message, keyword string) {
 	cleanKey := strings.TrimSpace(strings.ToLower(keyword))

@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"jiso/internal/config"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/config"
 )
 
 // VarianceResult holds the generated base transaction template and extracted dataset rows

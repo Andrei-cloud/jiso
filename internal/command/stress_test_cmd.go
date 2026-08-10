@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
+
 	"jiso/internal/service"
 	"jiso/internal/transactions"
-
-	"github.com/AlecAivazis/survey/v2"
 )
 
 type StressTestCommand struct {
@@ -100,6 +100,7 @@ func (c *StressTestCommand) Execute() error {
 				if workers > 50 {
 					return errors.New("workers cannot exceed 50")
 				}
+
 				return nil
 			},
 		},

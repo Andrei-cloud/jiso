@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
+
+	"jiso/internal/utils"
 )
 
 // ISOMessageRenderer handles displaying ISO8583 messages

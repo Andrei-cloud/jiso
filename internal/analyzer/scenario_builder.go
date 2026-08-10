@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	json "github.com/goccy/go-json"
+	"github.com/moov-io/iso8583"
 
 	"jiso/internal/config"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
 // ScenarioScaffoldOptions specifies parameters for scenario scaffolding
@@ -112,11 +111,11 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 
 		if includeRev {
 			reqStep.Extract = map[string]string{
-				"AuthId":       "38",
-				"OrigMTI":      "0",
-				"OrigSTAN":     "11",
-				"OrigDateTime": "7",
-				"OrigAcquirer": "32",
+				"AuthId":        "38",
+				"OrigMTI":       "0",
+				"OrigSTAN":      "11",
+				"OrigDateTime":  "7",
+				"OrigAcquirer":  "32",
 				"OrigForwarder": "33",
 			}
 		}

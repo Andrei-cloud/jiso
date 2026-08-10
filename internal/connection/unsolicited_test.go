@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"jiso/internal/config"
-
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
+
+	"jiso/internal/config"
 )
 
 type mockMatcherImpl struct{}

@@ -101,6 +101,8 @@ func createTestTransactionFile(t *testing.T) string {
 }
 
 func TestExecuteBackground(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTestSpecFile(t)
 	defer os.Remove(specFile)
 

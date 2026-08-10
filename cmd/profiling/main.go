@@ -9,11 +9,11 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/moov-io/iso8583"
+
 	"jiso/internal/cli"
 	cfg "jiso/internal/config"
 	"jiso/internal/utils"
-
-	"github.com/moov-io/iso8583"
 )
 
 func main() {

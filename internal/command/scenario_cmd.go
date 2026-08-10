@@ -1,19 +1,27 @@
 package command
 
 import (
+	"errors"
 	"fmt"
-	json "github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 
+	"github.com/AlecAivazis/survey/v2"
+	json "github.com/goccy/go-json"
+
 	"jiso/internal/service"
 	"jiso/internal/transactions"
-
-	"github.com/AlecAivazis/survey/v2"
 )
 
 type ScenarioCommand struct {
 	Tc transactions.Repository
+}
+
+type RunScenarioCommand struct {
+	Tc           transactions.Repository
+	Svc          *service.Service
+	ScenarioName string
+	ReportPath   string
 }
 
 func (c *ScenarioCommand) Name() string {
@@ -30,12 +38,13 @@ func (c *ScenarioCommand) Execute() error {
 	}
 	tcImpl, ok := c.Tc.(*transactions.TransactionCollection)
 	if !ok {
-		return fmt.Errorf("invalid transaction repository type")
+		return errors.New("invalid transaction repository type")
 	}
 
 	scenarios := tcImpl.ListScenarios()
 	if len(scenarios) == 0 {
 		fmt.Println("No scenarios defined in the configuration file")
+
 		return nil
 	}
 
@@ -46,14 +55,8 @@ func (c *ScenarioCommand) Execute() error {
 			fmt.Printf("  %-30s - %s\n", scenario.Name, scenario.Description)
 		}
 	}
-	return nil
-}
 
-type RunScenarioCommand struct {
-	Tc           transactions.Repository
-	Svc          *service.Service
-	ScenarioName string
-	ReportPath   string
+	return nil
 }
 
 func (c *RunScenarioCommand) Name() string {
@@ -77,14 +80,14 @@ func (c *RunScenarioCommand) Execute() error {
 
 	tcImpl, ok := c.Tc.(*transactions.TransactionCollection)
 	if !ok {
-		return fmt.Errorf("invalid transaction repository type")
+		return errors.New("invalid transaction repository type")
 	}
 
 	name := c.ScenarioName
 	if name == "" {
 		scenarios := tcImpl.ListScenarios()
 		if len(scenarios) == 0 {
-			return fmt.Errorf("no scenarios defined in configuration")
+			return errors.New("no scenarios defined in configuration")
 		}
 
 		prompt := &survey.Select{
@@ -114,7 +117,7 @@ func (c *RunScenarioCommand) Execute() error {
 	}
 
 	if !report.Success {
-		return fmt.Errorf("scenario failed")
+		return errors.New("scenario failed")
 	}
 
 	return nil
@@ -145,7 +148,10 @@ func (c *RunScenarioCommand) printReport(report *transactions.TestReport) {
 		if len(step.ValidationErrors) > 0 {
 			fmt.Printf("     \x1b[33mValidation Failures:\x1b[0m\n")
 			for _, valErr := range step.ValidationErrors {
-				fmt.Printf("       - Field %s: expected '%s', got '%s' (Detail: %s)\n", valErr.Field, valErr.Expected, valErr.Actual, valErr.Message)
+				fmt.Printf(
+					"       - Field %s: expected '%s', got '%s' (Detail: %s)\n",
+					valErr.Field, valErr.Expected, valErr.Actual, valErr.Message,
+				)
 			}
 		}
 	}
@@ -154,7 +160,7 @@ func (c *RunScenarioCommand) printReport(report *transactions.TestReport) {
 
 func (c *RunScenarioCommand) saveReport(report *transactions.TestReport) error {
 	dir := filepath.Dir(c.ReportPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 
@@ -163,10 +169,11 @@ func (c *RunScenarioCommand) saveReport(report *transactions.TestReport) error {
 		return err
 	}
 
-	if err := os.WriteFile(c.ReportPath, data, 0644); err != nil {
+	if err := os.WriteFile(c.ReportPath, data, 0o644); err != nil {
 		return err
 	}
 
 	fmt.Printf("Test report exported to: %s\n", c.ReportPath)
+
 	return nil
 }

@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewFactory(t *testing.T) {
+	t.Parallel()
+
 	// Create mock dependencies
 	svc := &service.Service{}
 	tx := &transactions.TransactionCollection{}
@@ -39,6 +41,8 @@ func TestNewFactory(t *testing.T) {
 }
 
 func TestCreateCommands(t *testing.T) {
+	t.Parallel()
+
 	// Create mock dependencies
 	svc := &service.Service{}
 	tx := &transactions.TransactionCollection{}

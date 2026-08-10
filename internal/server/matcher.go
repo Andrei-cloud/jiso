@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"jiso/internal/config"
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/config"
+	"jiso/internal/utils"
 )
 
 // Matcher evaluates incoming ISO8583 messages against mock routes
@@ -244,4 +244,3 @@ func setResponseFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fiel
 		return msg.Field(fieldID, fmt.Sprintf("%v", v))
 	}
 }
-

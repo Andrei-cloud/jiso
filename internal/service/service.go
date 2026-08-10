@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"jiso/internal/connection"
-	"jiso/internal/metrics"
-	"jiso/internal/utils"
-
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
 	"github.com/moov-io/iso8583/network"
+
+	"jiso/internal/connection"
+	"jiso/internal/metrics"
+	"jiso/internal/utils"
 )
 
 type Service struct {
@@ -94,6 +94,46 @@ func (s *Service) Connect(naps bool, header network.Header) error {
 	}
 
 	return nil
+}
+
+// Listen starts a TCP listener on the specified port and waits for an incoming connection
+func (s *Service) Listen(port string, naps bool, header network.Header) error {
+	err := s.connManager.Listen(port, naps, header)
+	if err != nil {
+		return err
+	}
+
+	s.Connection = s.connManager.Connection
+	s.Address = fmt.Sprintf("0.0.0.0:%s", port)
+
+	if !s.IsConnected() {
+		return fmt.Errorf("listener connection accepted but not ready")
+	}
+
+	return nil
+}
+
+// IsListening returns whether the service is in listener mode
+func (s *Service) IsListening() bool {
+	if s.connManager == nil {
+		return false
+	}
+	return s.connManager.IsListening()
+}
+
+// SetListenTimeout configures listener timeout
+func (s *Service) SetListenTimeout(timeout time.Duration) {
+	if s.connManager != nil {
+		s.connManager.SetListenTimeout(timeout)
+	}
+}
+
+// GetListenTimeout returns listener timeout
+func (s *Service) GetListenTimeout() time.Duration {
+	if s.connManager != nil {
+		return s.connManager.GetListenTimeout()
+	}
+	return 5 * time.Minute
 }
 
 // Disconnect closes the connection to the server

@@ -1,14 +1,13 @@
 package cmd
 
 import (
+	"github.com/moov-io/iso8583"
+	"github.com/spf13/cobra"
+
+	cmdpkg "jiso/internal/command"
 	cfg "jiso/internal/config"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
-
-	cmdpkg "jiso/internal/command"
-
-	"github.com/moov-io/iso8583"
-	"github.com/spf13/cobra"
 )
 
 func newAnalyzeCmd() *cobra.Command {
@@ -37,8 +36,6 @@ func newAnalyzeCmd() *cobra.Command {
 	cmd.Flags().BoolP("scenario", "S", false, "Analyze capture into scenario flow")
 	return cmd
 }
-
-
 
 func executeAnalyze(args []string) error {
 	specPath := cfg.GetConfig().GetSpec()

@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 
 	"jiso/internal/service"
@@ -20,13 +21,11 @@ func (c *DisconnectCommand) Synopsis() string {
 	return "Closes connection to server."
 }
 
-// disconnect.go
-
-// Improved error handling and clarity in the Execute() method.
+// Execute closes active connection to server.
 func (c *DisconnectCommand) Execute() error {
 	fmt.Println("Disconnecting...")
 	if c.Svc.Connection == nil {
-		return fmt.Errorf("no active connection")
+		return errors.New("no active connection")
 	}
 
 	// Allow disconnecting even if connection is in a non-online state
@@ -37,5 +36,6 @@ func (c *DisconnectCommand) Execute() error {
 	}
 
 	fmt.Println("Disconnected from server")
+
 	return nil
 }

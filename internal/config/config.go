@@ -21,6 +21,7 @@ type Config struct {
 	connectTimeout      time.Duration
 	totalConnectTimeout time.Duration
 	responseTimeout     time.Duration
+	listenTimeout       time.Duration
 	hex                 bool
 	dbPath              string
 	sessionId           string
@@ -42,6 +43,7 @@ func GetConfig() *Config {
 			connectTimeout:      5 * time.Second,
 			totalConnectTimeout: 10 * time.Second,
 			responseTimeout:     5 * time.Second,
+			listenTimeout:       5 * time.Minute,
 		}
 	})
 	return config
@@ -61,6 +63,9 @@ func (c *Config) EnsureDefaults() {
 	}
 	if c.responseTimeout <= 0 {
 		c.responseTimeout = 5 * time.Second
+	}
+	if c.listenTimeout <= 0 {
+		c.listenTimeout = 5 * time.Minute
 	}
 }
 
@@ -201,6 +206,12 @@ func (c *Config) SetResponseTimeout(timeout time.Duration) {
 	c.responseTimeout = timeout
 }
 
+func (c *Config) SetListenTimeout(timeout time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.listenTimeout = timeout
+}
+
 func (c *Config) GetHost() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -247,6 +258,12 @@ func (c *Config) GetResponseTimeout() time.Duration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.responseTimeout
+}
+
+func (c *Config) GetListenTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.listenTimeout
 }
 
 func (c *Config) GetHex() bool {
