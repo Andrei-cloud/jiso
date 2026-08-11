@@ -208,3 +208,35 @@ func GetTrxnDateTime() string {
 	// MMDDhhmmss format (month, day, hour, minute, second) - exactly 10 characters
 	return currentTime.Format("0102150405")
 }
+
+func HexDump(data []byte) string {
+	var buf strings.Builder
+	for i := 0; i < len(data); i += 16 {
+		// offset
+		fmt.Fprintf(&buf, "%08x  ", i)
+		// hex bytes
+		for j := 0; j < 16; j++ {
+			if i+j < len(data) {
+				fmt.Fprintf(&buf, "%02x ", data[i+j])
+			} else {
+				buf.WriteString("   ")
+			}
+			if j == 7 {
+				buf.WriteString(" ")
+			}
+		}
+		buf.WriteString(" |")
+		// ASCII
+		for j := 0; j < 16 && i+j < len(data); j++ {
+			b := data[i+j]
+			if b >= 32 && b <= 126 {
+				buf.WriteByte(b)
+			} else {
+				buf.WriteByte('.')
+			}
+		}
+		buf.WriteString("|\n")
+	}
+	return buf.String()
+}
+

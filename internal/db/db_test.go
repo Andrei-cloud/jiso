@@ -251,6 +251,64 @@ func TestGetTransactionStats(t *testing.T) {
 	}
 }
 
+func TestEnrichedSessionsAndTransactions(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_enriched.db")
+
+	if err := InitDB(dbPath); err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer Close()
+
+	sessionID := "sess-enrich-123"
+	specPath := "specs/spec.json"
+	specName := "spec.json"
+	txPath := "transactions/transactions.json"
+	txName := "transactions.json"
+
+	if err := UpsertSession(sessionID, specPath, specName, txPath, txName, "active"); err != nil {
+		t.Fatalf("UpsertSession failed: %v", err)
+	}
+
+	sessions, err := GetSessionsList()
+	if err != nil || len(sessions) == 0 {
+		t.Fatalf("GetSessionsList failed: %v, len: %d", err, len(sessions))
+	}
+	if sessions[0].SessionID != sessionID {
+		t.Errorf("Expected session ID %s, got %s", sessionID, sessions[0].SessionID)
+	}
+
+	rec := &EnrichedTransactionRecord{
+		SessionID:        sessionID,
+		TxName:           "Purchase Test",
+		TxFilePath:       txPath,
+		TxFileName:       txName,
+		SpecPath:         specPath,
+		SpecName:         specName,
+		RequestJSON:      `{"mti":"0200","fields":{"3":"000000"}}`,
+		ResponseJSON:     stringPtr(`{"mti":"0210","fields":{"39":"00"}}`),
+		ProcessingTimeMs: 120,
+		Success:          true,
+	}
+
+	if err := InsertTransactionEnriched(rec); err != nil {
+		t.Fatalf("InsertTransactionEnriched failed: %v", err)
+	}
+
+	txs, err := GetSessionTransactions(sessionID)
+	if err != nil || len(txs) != 1 {
+		t.Fatalf("GetSessionTransactions failed: %v, count: %d", err, len(txs))
+	}
+
+	fetched, err := GetTransactionByID(txs[0].ID)
+	if err != nil {
+		t.Fatalf("GetTransactionByID failed: %v", err)
+	}
+	if fetched.TxName != "Purchase Test" {
+		t.Errorf("Expected TxName 'Purchase Test', got %s", fetched.TxName)
+	}
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

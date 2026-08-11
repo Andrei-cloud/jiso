@@ -95,10 +95,9 @@ func (cli *CLI) processCommand(line string) bool {
 		}
 	case *cmd.DbStatsCommand:
 		if len(args) > 1 {
-			c.SessionID = args[1]
-		} else {
-			c.SessionID = ""
+			c.SetArgs(args[1:])
 		}
+
 	case *cmd.TargetCommand:
 		if len(args) > 1 {
 			if err := c.SetTarget(args[1]); err != nil {

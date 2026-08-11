@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"time"
 
 	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
@@ -10,6 +11,38 @@ import (
 )
 
 var dbConn *sqlite.Conn
+
+type SessionRecord struct {
+	SessionID        string    `json:"session_id"`
+	StartTime        time.Time `json:"start_time"`
+	LastActiveTime   time.Time `json:"last_active_time"`
+	SpecPath         string    `json:"spec_path"`
+	SpecName         string    `json:"spec_name"`
+	TxFilePath       string    `json:"tx_file_path"`
+	TxFileName       string    `json:"tx_file_name"`
+	Status           string    `json:"status"`
+	TransactionCount int       `json:"transaction_count,omitempty"`
+	SuccessCount     int       `json:"success_count,omitempty"`
+	FailedCount      int       `json:"failed_count,omitempty"`
+}
+
+type EnrichedTransactionRecord struct {
+	ID               int64     `json:"id"`
+	SessionID        string    `json:"session_id"`
+	Timestamp        time.Time `json:"timestamp"`
+	TxName           string    `json:"transaction_name"`
+	TxFilePath       string    `json:"tx_file_path"`
+	TxFileName       string    `json:"tx_file_name"`
+	SpecPath         string    `json:"spec_path"`
+	SpecName         string    `json:"spec_name"`
+	RequestJSON      string    `json:"request_json"`
+	ResponseJSON     *string   `json:"response_json"`
+	RequestRawHEX    string    `json:"request_raw_hex,omitempty"`
+	ResponseRawHEX   *string   `json:"response_raw_hex,omitempty"`
+	ProcessingTimeMs int       `json:"processing_time_ms"`
+	Success          bool      `json:"success"`
+	ResponseCode     string    `json:"response_code"`
+}
 
 // InitDB initializes the database connection and creates tables
 func InitDB(dbPath string) error {
@@ -48,11 +81,55 @@ func Close() error {
 
 // createTables creates the necessary database tables
 func createTables() error {
+	// Create sessions table
+	createSessionsSQL := `CREATE TABLE IF NOT EXISTS sessions (
+		session_id TEXT PRIMARY KEY,
+		start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+		last_active_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+		spec_path TEXT,
+		spec_name TEXT,
+		tx_file_path TEXT,
+		tx_file_name TEXT,
+		status TEXT
+	)`
+	if err := sqlitex.ExecuteTransient(dbConn, createSessionsSQL, nil); err != nil {
+		return fmt.Errorf("failed to create sessions table: %w", err)
+	}
+
 	// Create transactions table
-	createTableSQL := `CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, transaction_name TEXT, request_json TEXT, response_json TEXT, processing_time_ms INTEGER, success BOOLEAN, response_code TEXT)`
+	createTableSQL := `CREATE TABLE IF NOT EXISTS transactions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT NOT NULL,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		transaction_name TEXT,
+		request_json TEXT,
+		response_json TEXT,
+		processing_time_ms INTEGER,
+		success BOOLEAN,
+		response_code TEXT,
+		tx_file_path TEXT,
+		tx_file_name TEXT,
+		spec_path TEXT,
+		spec_name TEXT,
+		request_raw_hex TEXT,
+		response_raw_hex TEXT
+	)`
 
 	if err := sqlitex.ExecuteTransient(dbConn, createTableSQL, nil); err != nil {
 		return err
+	}
+
+	// Ensure missing columns exist in pre-existing transactions table
+	columns := []struct{ name, def string }{
+		{"tx_file_path", "TEXT"},
+		{"tx_file_name", "TEXT"},
+		{"spec_path", "TEXT"},
+		{"spec_name", "TEXT"},
+		{"request_raw_hex", "TEXT"},
+		{"response_raw_hex", "TEXT"},
+	}
+	for _, c := range columns {
+		_ = sqlitex.ExecuteTransient(dbConn, fmt.Sprintf("ALTER TABLE transactions ADD COLUMN %s %s", c.name, c.def), nil)
 	}
 
 	// Create indexes
@@ -65,21 +142,76 @@ func createTables() error {
 	return sqlitex.ExecuteTransient(dbConn, indexSQL2, nil)
 }
 
-// InsertTransaction inserts a new transaction record with proper transaction handling
+// UpsertSession creates or updates a session record in SQLite
+func UpsertSession(sessionID, specPath, specName, txFilePath, txFileName, status string) error {
+	if dbConn == nil {
+		return fmt.Errorf("database not initialized")
+	}
+
+	sql := `INSERT INTO sessions (session_id, spec_path, spec_name, tx_file_path, tx_file_name, status, start_time, last_active_time)
+		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(session_id) DO UPDATE SET
+			spec_path=excluded.spec_path,
+			spec_name=excluded.spec_name,
+			tx_file_path=excluded.tx_file_path,
+			tx_file_name=excluded.tx_file_name,
+			status=excluded.status,
+			last_active_time=CURRENT_TIMESTAMP`
+
+	err := sqlitex.ExecuteTransient(dbConn, "BEGIN IMMEDIATE", nil)
+	if err != nil {
+		return err
+	}
+	err = sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID, specPath, specName, txFilePath, txFileName, status},
+	})
+	if err != nil {
+		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
+		return err
+	}
+	return sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
+}
+
+// TouchSession updates the last active timestamp of a session
+func TouchSession(sessionID string) error {
+	if dbConn == nil {
+		return nil
+	}
+	sql := `UPDATE sessions SET last_active_time = CURRENT_TIMESTAMP WHERE session_id = ?`
+	return sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+	})
+}
+
+// InsertTransaction inserts a transaction with basic parameters
 func InsertTransaction(
 	sessionID, txName, requestJSON string,
 	responseJSON *string,
 	processingTimeMs int,
 	success bool,
 ) error {
+	return InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:        sessionID,
+		TxName:           txName,
+		RequestJSON:      requestJSON,
+		ResponseJSON:     responseJSON,
+		ProcessingTimeMs: processingTimeMs,
+		Success:          success,
+	})
+}
+
+// InsertTransactionEnriched inserts a full enriched transaction record
+func InsertTransactionEnriched(rec *EnrichedTransactionRecord) error {
 	if dbConn == nil {
 		return fmt.Errorf("database not initialized")
 	}
 
-	// Derive response code from response JSON
-	responseCode := deriveResponseCode(responseJSON)
+	if rec.ResponseCode == "" {
+		rec.ResponseCode = deriveResponseCode(rec.ResponseJSON)
+	}
 
-	// Use a transaction for atomicity
+	_ = TouchSession(rec.SessionID)
+
 	err := sqlitex.ExecuteTransient(dbConn, "BEGIN IMMEDIATE", nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -88,27 +220,205 @@ func InsertTransaction(
 	insertSQL := `
 		INSERT INTO transactions (
 			session_id, transaction_name, request_json, response_json, 
-			processing_time_ms, success, response_code
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
+			processing_time_ms, success, response_code,
+			tx_file_path, tx_file_name, spec_path, spec_name,
+			request_raw_hex, response_raw_hex
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	err = sqlitex.ExecuteTransient(dbConn, insertSQL, &sqlitex.ExecOptions{
 		Args: []interface{}{
-			sessionID, txName, requestJSON, derefOrNil(responseJSON), processingTimeMs, success, responseCode,
+			rec.SessionID, rec.TxName, rec.RequestJSON, derefOrNil(rec.ResponseJSON),
+			rec.ProcessingTimeMs, rec.Success, rec.ResponseCode,
+			rec.TxFilePath, rec.TxFileName, rec.SpecPath, rec.SpecName,
+			rec.RequestRawHEX, derefOrNil(rec.ResponseRawHEX),
 		},
 	})
 	if err != nil {
-		// Rollback on error
 		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
 		return fmt.Errorf("failed to insert transaction: %w", err)
 	}
 
-	err = sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	return sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
+}
+
+// GetSessionsList fetches all recorded sessions from SQLite
+func GetSessionsList() ([]*SessionRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
 	}
 
-	return nil
+	sql := `
+		SELECT s.session_id, s.start_time, s.last_active_time, s.spec_path, s.spec_name, s.tx_file_path, s.tx_file_name, s.status,
+		       COUNT(t.id) as total_tx,
+		       SUM(CASE WHEN t.success = 1 THEN 1 ELSE 0 END) as success_tx,
+		       SUM(CASE WHEN t.success = 0 THEN 1 ELSE 0 END) as failed_tx
+		FROM sessions s
+		LEFT JOIN transactions t ON s.session_id = t.session_id
+		GROUP BY s.session_id
+		ORDER BY s.start_time DESC
+	`
+
+	var results []*SessionRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rec := &SessionRecord{
+				SessionID:        stmt.ColumnText(0),
+				SpecPath:         stmt.ColumnText(3),
+				SpecName:         stmt.ColumnText(4),
+				TxFilePath:       stmt.ColumnText(5),
+				TxFileName:       stmt.ColumnText(6),
+				Status:           stmt.ColumnText(7),
+				TransactionCount: int(stmt.ColumnInt64(8)),
+				SuccessCount:     int(stmt.ColumnInt64(9)),
+				FailedCount:      int(stmt.ColumnInt64(10)),
+			}
+			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(1))
+			rec.LastActiveTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
+			results = append(results, rec)
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// GetSessionByID returns a specific session record
+func GetSessionByID(sessionID string) (*SessionRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	sql := `
+		SELECT s.session_id, s.start_time, s.last_active_time, s.spec_path, s.spec_name, s.tx_file_path, s.tx_file_name, s.status,
+		       COUNT(t.id) as total_tx,
+		       SUM(CASE WHEN t.success = 1 THEN 1 ELSE 0 END) as success_tx,
+		       SUM(CASE WHEN t.success = 0 THEN 1 ELSE 0 END) as failed_tx
+		FROM sessions s
+		LEFT JOIN transactions t ON s.session_id = t.session_id
+		WHERE s.session_id = ?
+		GROUP BY s.session_id
+	`
+
+	var rec *SessionRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rec = &SessionRecord{
+				SessionID:        stmt.ColumnText(0),
+				SpecPath:         stmt.ColumnText(3),
+				SpecName:         stmt.ColumnText(4),
+				TxFilePath:       stmt.ColumnText(5),
+				TxFileName:       stmt.ColumnText(6),
+				Status:           stmt.ColumnText(7),
+				TransactionCount: int(stmt.ColumnInt64(8)),
+				SuccessCount:     int(stmt.ColumnInt64(9)),
+				FailedCount:      int(stmt.ColumnInt64(10)),
+			}
+			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(1))
+			rec.LastActiveTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if rec == nil {
+		rec = &SessionRecord{
+			SessionID: sessionID,
+			Status:    "active",
+		}
+	}
+	return rec, nil
+}
+
+// GetSessionTransactions returns all transactions executed within a session
+func GetSessionTransactions(sessionID string) ([]*EnrichedTransactionRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	sql := `
+		SELECT id, session_id, timestamp, transaction_name, request_json, response_json,
+		       processing_time_ms, success, response_code, tx_file_path, tx_file_name,
+		       spec_path, spec_name, request_raw_hex, response_raw_hex
+		FROM transactions
+		WHERE session_id = ?
+		ORDER BY id ASC
+	`
+
+	var results []*EnrichedTransactionRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			results = append(results, scanTransactionRecord(stmt))
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// GetTransactionByID returns a single transaction by ID
+func GetTransactionByID(txID int64) (*EnrichedTransactionRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	sql := `
+		SELECT id, session_id, timestamp, transaction_name, request_json, response_json,
+		       processing_time_ms, success, response_code, tx_file_path, tx_file_name,
+		       spec_path, spec_name, request_raw_hex, response_raw_hex
+		FROM transactions
+		WHERE id = ?
+	`
+
+	var rec *EnrichedTransactionRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{txID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rec = scanTransactionRecord(stmt)
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if rec == nil {
+		return nil, fmt.Errorf("transaction ID %d not found", txID)
+	}
+	return rec, nil
+}
+
+func scanTransactionRecord(stmt *sqlite.Stmt) *EnrichedTransactionRecord {
+	rec := &EnrichedTransactionRecord{
+		ID:               stmt.ColumnInt64(0),
+		SessionID:        stmt.ColumnText(1),
+		TxName:           stmt.ColumnText(3),
+		RequestJSON:      stmt.ColumnText(4),
+		ProcessingTimeMs: int(stmt.ColumnInt64(6)),
+		Success:          stmt.ColumnBool(7),
+		ResponseCode:     stmt.ColumnText(8),
+		TxFilePath:       stmt.ColumnText(9),
+		TxFileName:       stmt.ColumnText(10),
+		SpecPath:         stmt.ColumnText(11),
+		SpecName:         stmt.ColumnText(12),
+		RequestRawHEX:    stmt.ColumnText(13),
+	}
+	rec.Timestamp, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
+	if !stmt.ColumnIsNull(5) {
+		respJSON := stmt.ColumnText(5)
+		rec.ResponseJSON = &respJSON
+	}
+	if !stmt.ColumnIsNull(14) {
+		respHex := stmt.ColumnText(14)
+		rec.ResponseRawHEX = &respHex
+	}
+	return rec
 }
 
 // derefOrNil dereferences a string pointer or returns nil if it's nil
@@ -276,3 +586,4 @@ func GetTransactionStats(sessionID string) (map[string]interface{}, error) {
 
 	return stats, nil
 }
+

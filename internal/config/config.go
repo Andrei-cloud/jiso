@@ -176,6 +176,19 @@ func (c *Config) EnsureSessionId() {
 	}
 }
 
+func (c *Config) SetSessionId(id string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sessionId = id
+}
+
+func (c *Config) RotateSessionId() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sessionId = generateSessionId()
+	return c.sessionId
+}
+
 func (c *Config) SetFile(file string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
