@@ -34,7 +34,30 @@ func TestDbStatsCommandExecution(t *testing.T) {
 		Success:          true,
 	})
 
+	_ = db.InsertStressTestSummary(&db.StressTestSummaryRecord{
+		SessionID:              sessionID,
+		WorkerID:               "stress-w1",
+		TargetTPS:              10,
+		Concurrency:            1,
+		TotalDurationMs:        5000,
+		TotalTransactions:      50,
+		SuccessfulTransactions: 50,
+		FailedTransactions:     0,
+		AverageTPS:             10.0,
+		PeakTPS:                11.0,
+		MinLatencyMs:           5.0,
+		MaxLatencyMs:           15.0,
+		MeanLatencyMs:          8.0,
+		P50LatencyMs:           7.5,
+		P90LatencyMs:           12.0,
+		P95LatencyMs:           14.0,
+		P99LatencyMs:           15.0,
+		TransactionsJSON:       `["Purchase"]`,
+		ResponseCodesJSON:      `{"00":50}`,
+	})
+
 	cmd := &DbStatsCommand{}
+
 	cmd.SetArgs([]string{"list"})
 	if err := cmd.Execute(); err != nil {
 		t.Errorf("dbstats list failed: %v", err)

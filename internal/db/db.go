@@ -29,6 +29,32 @@ type SessionRecord struct {
 	TransactionCount int       `json:"transaction_count,omitempty"`
 	SuccessCount     int       `json:"success_count,omitempty"`
 	FailedCount      int       `json:"failed_count,omitempty"`
+	StressTestCount  int       `json:"stress_test_count,omitempty"`
+}
+
+type StressTestSummaryRecord struct {
+	ID                     int64     `json:"id"`
+	SessionID              string    `json:"session_id"`
+	WorkerID               string    `json:"worker_id"`
+	StartTime              time.Time `json:"start_time"`
+	EndTime                time.Time `json:"end_time"`
+	TargetTPS              int       `json:"target_tps"`
+	Concurrency            int       `json:"concurrency"`
+	TotalDurationMs        int64     `json:"total_duration_ms"`
+	TotalTransactions      int       `json:"total_transactions"`
+	SuccessfulTransactions int       `json:"successful_transactions"`
+	FailedTransactions     int       `json:"failed_transactions"`
+	AverageTPS             float64   `json:"average_tps"`
+	PeakTPS                float64   `json:"peak_tps"`
+	MinLatencyMs           float64   `json:"min_latency_ms"`
+	MaxLatencyMs           float64   `json:"max_latency_ms"`
+	MeanLatencyMs          float64   `json:"mean_latency_ms"`
+	P50LatencyMs           float64   `json:"p50_latency_ms"`
+	P90LatencyMs           float64   `json:"p90_latency_ms"`
+	P95LatencyMs           float64   `json:"p95_latency_ms"`
+	P99LatencyMs           float64   `json:"p99_latency_ms"`
+	TransactionsJSON       string    `json:"transactions_json"`
+	ResponseCodesJSON      string    `json:"response_codes_json"`
 }
 
 type EnrichedTransactionRecord struct {
@@ -116,6 +142,37 @@ func createTables() error {
 	for _, c := range sessColumns {
 		_ = sqlitex.ExecuteTransient(dbConn, fmt.Sprintf("ALTER TABLE sessions ADD COLUMN %s %s", c.name, c.def), nil)
 	}
+
+	// Create stress_tests table
+	createStressSQL := `CREATE TABLE IF NOT EXISTS stress_tests (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT NOT NULL,
+		worker_id TEXT,
+		start_time DATETIME,
+		end_time DATETIME,
+		target_tps INTEGER,
+		concurrency INTEGER,
+		total_duration_ms INTEGER,
+		total_transactions INTEGER,
+		successful_transactions INTEGER,
+		failed_transactions INTEGER,
+		avg_tps REAL,
+		peak_tps REAL,
+		min_latency_ms REAL,
+		max_latency_ms REAL,
+		mean_latency_ms REAL,
+		p50_latency_ms REAL,
+		p90_latency_ms REAL,
+		p95_latency_ms REAL,
+		p99_latency_ms REAL,
+		transactions_json TEXT,
+		response_codes_json TEXT
+	)`
+	if err := sqlitex.ExecuteTransient(dbConn, createStressSQL, nil); err != nil {
+		return fmt.Errorf("failed to create stress_tests table: %w", err)
+	}
+
+	_ = sqlitex.ExecuteTransient(dbConn, `CREATE INDEX IF NOT EXISTS idx_stress_session ON stress_tests(session_id)`, nil)
 
 	// Create transactions table
 	createTableSQL := `CREATE TABLE IF NOT EXISTS transactions (
@@ -230,6 +287,97 @@ func TouchSession(sessionID string) error {
 	})
 }
 
+// InsertStressTestSummary records a stress test summary in SQLite
+func InsertStressTestSummary(rec *StressTestSummaryRecord) error {
+	if dbConn == nil {
+		return fmt.Errorf("database not initialized")
+	}
+
+	_ = TouchSession(rec.SessionID)
+
+	err := sqlitex.ExecuteTransient(dbConn, "BEGIN IMMEDIATE", nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	sql := `INSERT INTO stress_tests (
+		session_id, worker_id, start_time, end_time, target_tps, concurrency,
+		total_duration_ms, total_transactions, successful_transactions, failed_transactions,
+		avg_tps, peak_tps, min_latency_ms, max_latency_ms, mean_latency_ms,
+		p50_latency_ms, p90_latency_ms, p95_latency_ms, p99_latency_ms,
+		transactions_json, response_codes_json
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	err = sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			rec.SessionID, rec.WorkerID, rec.StartTime.Format("2006-01-02 15:04:05"), rec.EndTime.Format("2006-01-02 15:04:05"),
+			rec.TargetTPS, rec.Concurrency, rec.TotalDurationMs, rec.TotalTransactions, rec.SuccessfulTransactions, rec.FailedTransactions,
+			rec.AverageTPS, rec.PeakTPS, rec.MinLatencyMs, rec.MaxLatencyMs, rec.MeanLatencyMs,
+			rec.P50LatencyMs, rec.P90LatencyMs, rec.P95LatencyMs, rec.P99LatencyMs,
+			rec.TransactionsJSON, rec.ResponseCodesJSON,
+		},
+	})
+	if err != nil {
+		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
+		return fmt.Errorf("failed to insert stress test summary: %w", err)
+	}
+
+	return sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
+}
+
+// GetSessionStressTestSummaries returns all stress test summaries recorded for a session
+func GetSessionStressTestSummaries(sessionID string) ([]*StressTestSummaryRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	sql := `SELECT id, session_id, worker_id, start_time, end_time, target_tps, concurrency,
+	               total_duration_ms, total_transactions, successful_transactions, failed_transactions,
+	               avg_tps, peak_tps, min_latency_ms, max_latency_ms, mean_latency_ms,
+	               p50_latency_ms, p90_latency_ms, p95_latency_ms, p99_latency_ms,
+	               transactions_json, response_codes_json
+	        FROM stress_tests
+	        WHERE session_id = ?
+	        ORDER BY id ASC`
+
+	var results []*StressTestSummaryRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rec := &StressTestSummaryRecord{
+				ID:                     stmt.ColumnInt64(0),
+				SessionID:              stmt.ColumnText(1),
+				WorkerID:               stmt.ColumnText(2),
+				TargetTPS:              int(stmt.ColumnInt64(5)),
+				Concurrency:            int(stmt.ColumnInt64(6)),
+				TotalDurationMs:        stmt.ColumnInt64(7),
+				TotalTransactions:      int(stmt.ColumnInt64(8)),
+				SuccessfulTransactions: int(stmt.ColumnInt64(9)),
+				FailedTransactions:     int(stmt.ColumnInt64(10)),
+				AverageTPS:             stmt.ColumnFloat(11),
+				PeakTPS:                stmt.ColumnFloat(12),
+				MinLatencyMs:           stmt.ColumnFloat(13),
+				MaxLatencyMs:           stmt.ColumnFloat(14),
+				MeanLatencyMs:          stmt.ColumnFloat(15),
+				P50LatencyMs:           stmt.ColumnFloat(16),
+				P90LatencyMs:           stmt.ColumnFloat(17),
+				P95LatencyMs:           stmt.ColumnFloat(18),
+				P99LatencyMs:           stmt.ColumnFloat(19),
+				TransactionsJSON:       stmt.ColumnText(20),
+				ResponseCodesJSON:      stmt.ColumnText(21),
+			}
+			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(3))
+			rec.EndTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(4))
+			results = append(results, rec)
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 // InsertTransaction inserts a transaction with basic parameters
 func InsertTransaction(
 	sessionID, txName, requestJSON string,
@@ -300,9 +448,11 @@ func GetSessionsList() ([]*SessionRecord, error) {
 		       s.host, s.port, s.connection_type, s.header_type, s.tls_enabled,
 		       COUNT(t.id) as total_tx,
 		       SUM(CASE WHEN t.success = 1 THEN 1 ELSE 0 END) as success_tx,
-		       SUM(CASE WHEN t.success = 0 THEN 1 ELSE 0 END) as failed_tx
+		       SUM(CASE WHEN t.success = 0 THEN 1 ELSE 0 END) as failed_tx,
+		       COUNT(DISTINCT st.id) as stress_count
 		FROM sessions s
 		LEFT JOIN transactions t ON s.session_id = t.session_id
+		LEFT JOIN stress_tests st ON s.session_id = st.session_id
 		GROUP BY s.session_id
 		ORDER BY s.start_time DESC
 	`
@@ -325,6 +475,7 @@ func GetSessionsList() ([]*SessionRecord, error) {
 				TransactionCount: int(stmt.ColumnInt64(13)),
 				SuccessCount:     int(stmt.ColumnInt64(14)),
 				FailedCount:      int(stmt.ColumnInt64(15)),
+				StressTestCount:  int(stmt.ColumnInt64(16)),
 			}
 			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(1))
 			rec.LastActiveTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
@@ -337,6 +488,7 @@ func GetSessionsList() ([]*SessionRecord, error) {
 	}
 	return results, nil
 }
+
 
 // GetSessionByID returns a specific session record
 func GetSessionByID(sessionID string) (*SessionRecord, error) {

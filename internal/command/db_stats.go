@@ -1,6 +1,7 @@
 package command
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -23,30 +24,32 @@ func (c *DbStatsCommand) Name() string {
 }
 
 func (c *DbStatsCommand) Synopsis() string {
-	return "Show database statistics, list sessions, and inspect transaction details (HEX & Parsed ISO)"
+	return "View session transaction statistics and retrospective ISO 8583 message logs."
 }
 
 func (c *DbStatsCommand) SetArgs(args []string) {
 	if len(args) == 0 {
 		return
 	}
-	switch args[0] {
-	case "list", "-l", "--list":
+
+	if args[0] == "list" {
 		c.SubCommand = "list"
-	case "tx", "-t", "--tx":
-		c.SubCommand = "tx"
-		if len(args) >= 2 {
-			c.TxID, _ = strconv.ParseInt(args[1], 10, 64)
-		}
-	default:
-		// Check if first arg is an integer (tx ID)
-		if txID, err := strconv.ParseInt(args[0], 10, 64); err == nil && txID > 0 {
-			c.SubCommand = "tx"
-			c.TxID = txID
-		} else {
-			c.SessionID = args[0]
-		}
+		return
 	}
+
+	if args[0] == "tx" {
+		c.SubCommand = "tx"
+		if len(args) > 1 {
+			id, err := strconv.ParseInt(args[1], 10, 64)
+			if err == nil {
+				c.TxID = id
+			}
+		}
+		return
+	}
+
+	// Assume first arg is Session ID
+	c.SessionID = args[0]
 }
 
 func (c *DbStatsCommand) Execute() error {
@@ -85,8 +88,8 @@ func printSessionsList() error {
 		return nil
 	}
 
-	fmt.Printf("\n%-36s | %-19s | %-12s | %-6s | %-16s | %-8s | %-6s\n", "Session ID", "Start Time", "Spec Name", "Mode", "Host:Port", "Total Tx", "Status")
-	fmt.Println(strings.Repeat("-", 115))
+	fmt.Printf("\n%-36s | %-19s | %-12s | %-6s | %-16s | %-8s | %-14s\n", "Session ID", "Start Time", "Spec Name", "Mode", "Host:Port", "Total Tx", "Status")
+	fmt.Println(strings.Repeat("-", 123))
 
 	for _, s := range sessions {
 		spec := s.SpecName
@@ -105,7 +108,10 @@ func printSessionsList() error {
 		if status == "" {
 			status = "active"
 		}
-		fmt.Printf("%-36s | %-19s | %-12s | %-6s | %-16s | %-8d | %-6s\n",
+		if s.StressTestCount > 0 {
+			status = fmt.Sprintf("%s [STRESS]", status)
+		}
+		fmt.Printf("%-36s | %-19s | %-12s | %-6s | %-16s | %-8d | %-14s\n",
 			s.SessionID,
 			s.StartTime.Format("2006-01-02 15:04:05"),
 			truncateString(spec, 12),
@@ -162,11 +168,50 @@ func printSessionOverview(sessionID string) error {
 		fmt.Printf("Status:                 %s\n", rec.Status)
 	}
 
-
 	fmt.Printf("\nTotal Transactions:     %v\n", stats["total_transactions"])
 	fmt.Printf("Successful Transactions: %v\n", stats["successful_transactions"])
 	fmt.Printf("Failed Transactions:     %v\n", stats["failed_transactions"])
 	fmt.Printf("Average Processing Time: %.2f ms\n", stats["average_processing_time_ms"])
+
+	stressSummaries, err := db.GetSessionStressTestSummaries(sessionID)
+	if err == nil && len(stressSummaries) > 0 {
+		fmt.Println("\n-------------------------------------------------------------------------")
+		fmt.Printf("STRESS TEST SUMMARY DETAILS (%d Run(s))\n", len(stressSummaries))
+		fmt.Println("-------------------------------------------------------------------------")
+		for i, st := range stressSummaries {
+			fmt.Printf("Run #%d (Worker %s):\n", i+1, st.WorkerID)
+			if !st.StartTime.IsZero() && !st.EndTime.IsZero() {
+				fmt.Printf("  Time Window:          %s to %s\n", st.StartTime.Format("2006-01-02 15:04:05"), st.EndTime.Format("15:04:05"))
+			}
+			fmt.Printf("  Target / Concurrency: %d TPS (Workers: %d)\n", st.TargetTPS, st.Concurrency)
+			fmt.Printf("  Duration:             %.2f s\n", float64(st.TotalDurationMs)/1000.0)
+			fmt.Printf("  Total Executed:       %d (Passed: %d, Failed: %d)\n", st.TotalTransactions, st.SuccessfulTransactions, st.FailedTransactions)
+			fmt.Printf("  TPS Performance:      Avg: %.1f TPS | Peak: %.1f TPS\n", st.AverageTPS, st.PeakTPS)
+			fmt.Printf("  Latency Profile:      Min: %.2f ms | Mean: %.2f ms | Max: %.2f ms\n", st.MinLatencyMs, st.MeanLatencyMs, st.MaxLatencyMs)
+			fmt.Printf("  Percentiles:          P50: %.2f ms | P90: %.2f ms | P95: %.2f ms | P99: %.2f ms\n", st.P50LatencyMs, st.P90LatencyMs, st.P95LatencyMs, st.P99LatencyMs)
+			if st.TransactionsJSON != "" {
+				var txList []string
+				_ = json.Unmarshal([]byte(st.TransactionsJSON), &txList)
+				if len(txList) > 0 {
+					fmt.Printf("  Tested Templates:     %s\n", strings.Join(txList, ", "))
+				}
+			}
+			if st.ResponseCodesJSON != "" {
+				var respMap map[string]int
+				_ = json.Unmarshal([]byte(st.ResponseCodesJSON), &respMap)
+				if len(respMap) > 0 {
+					var rcPairs []string
+					for code, count := range respMap {
+						rcPairs = append(rcPairs, fmt.Sprintf("%s: %d", code, count))
+					}
+					fmt.Printf("  Response Codes:       %s\n", strings.Join(rcPairs, ", "))
+				}
+			}
+			if i < len(stressSummaries)-1 {
+				fmt.Println()
+			}
+		}
+	}
 
 	if responseCodes, ok := stats["response_code_distribution"].(map[string]int); ok && len(responseCodes) > 0 {
 		fmt.Printf("\nResponse Code Distribution:\n")

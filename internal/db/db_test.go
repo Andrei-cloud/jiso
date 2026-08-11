@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -312,6 +313,56 @@ func TestEnrichedSessionsAndTransactions(t *testing.T) {
 		t.Errorf("Expected TxName 'Purchase Test', got %s", fetched.TxName)
 	}
 }
+
+func TestStressTestSummaryLogging(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_stress.db")
+
+	if err := InitDB(dbPath); err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer Close()
+
+	sessionID := "sess-stress-999"
+	_ = UpsertSession(sessionID, "specs/spec.json", "spec.json", "tx.json", "tx.json", "127.0.0.1", "8080", "CLIENT", "2-byte", "active", false)
+
+	stRec := &StressTestSummaryRecord{
+		SessionID:              sessionID,
+		WorkerID:               "wrk-1",
+		StartTime:              time.Now(),
+		EndTime:                time.Now().Add(10 * time.Second),
+		TargetTPS:              50,
+		Concurrency:            2,
+		TotalDurationMs:        10000,
+		TotalTransactions:      500,
+		SuccessfulTransactions: 490,
+		FailedTransactions:     10,
+		AverageTPS:             49.0,
+		PeakTPS:                52.5,
+		MinLatencyMs:           2.5,
+		MaxLatencyMs:           45.0,
+		MeanLatencyMs:          8.5,
+		P50LatencyMs:           7.0,
+		P90LatencyMs:           15.0,
+		P95LatencyMs:           20.0,
+		P99LatencyMs:           35.0,
+		TransactionsJSON:       `["Purchase","Balance"]`,
+		ResponseCodesJSON:      `{"00":490,"05":10}`,
+	}
+
+	if err := InsertStressTestSummary(stRec); err != nil {
+		t.Fatalf("InsertStressTestSummary failed: %v", err)
+	}
+
+	summaries, err := GetSessionStressTestSummaries(sessionID)
+	if err != nil || len(summaries) != 1 {
+		t.Fatalf("GetSessionStressTestSummaries failed: %v, len: %d", err, len(summaries))
+	}
+	if summaries[0].TargetTPS != 50 || summaries[0].TotalTransactions != 500 {
+		t.Errorf("Unexpected summary record: %+v", summaries[0])
+	}
+}
+
 
 func stringPtr(s string) *string {
 	return &s
