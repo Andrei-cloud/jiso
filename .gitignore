@@ -6,6 +6,7 @@ jiso
 .gitignore
 .github/copilot-instructions.md
 ./main
+testdata/   
 *.db
 *.prof
 *.pcap

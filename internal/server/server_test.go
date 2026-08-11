@@ -30,18 +30,18 @@ func TestServer_mTLS(t *testing.T) {
 	tlsCfg, err := config.LoadTLSConfig(configFile)
 	require.NoError(t, err)
 
-	cryptoTLS, err := tlsCfg.BuildCryptoTLSConfig()
+	serverTLS, err := tlsCfg.BuildServerTLSConfig()
 	require.NoError(t, err)
 
 	spec := utils.GetDefaultSpec()
 	server := NewServer(spec, nil, "binary2")
-	server.SetTLSConfig(cryptoTLS)
+	server.SetTLSConfig(serverTLS)
 
 	require.NoError(t, server.Start("19895"))
 	defer server.Stop()
 
-	clientTLS := cryptoTLS.Clone()
-	clientTLS.InsecureSkipVerify = true
+	clientTLS, err := tlsCfg.BuildCryptoTLSConfig()
+	require.NoError(t, err)
 
 	// Dial with mTLS client config
 	conn, err := tls.Dial("tcp", "127.0.0.1:19895", clientTLS)

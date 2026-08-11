@@ -24,6 +24,8 @@ All TLS parameters are defined in a single, consolidated JSON file:
   "enabled": true,
   "client_cert": "./client.crt",
   "client_key": "./client.key",
+  "server_cert": "./server.crt",
+  "server_key": "./server.key",
   "ca_cert": "./ca.crt",
   "server_name": "smc.visa.com",
   "min_version": "1.2",
@@ -33,17 +35,21 @@ All TLS parameters are defined in a single, consolidated JSON file:
 
 ### Configuration Attributes
 
-| Attribute | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `enabled` | `bool` | Yes | Master toggle — set to `true` to enable TLS/mTLS; `false` uses plain TCP. |
-| `client_cert` | `string` | Optional* | Path to PEM-encoded client certificate file (`.crt` / `.pem`). |
-| `client_key` | `string` | Optional* | Path to PEM-encoded client private key file (`.key` / `.pem`). |
-| `ca_cert` | `string` | Optional | Path to PEM-encoded Root/Intermediate CA bundle file (`.crt` / `.pem`) for server verification. |
-| `server_name` | `string` | Optional | SNI hostname override for TLS verification. |
-| `min_version` | `string` | Optional | Minimum TLS version: `"1.2"` or `"1.3"` (default: `"1.2"`). |
-| `insecure_skip_verify` | `bool` | Optional | Set to `true` to skip server certificate verification (testing only, default: `false`). |
+| Attribute              | Type     | Required     | Description                                                                                     |
+| :--------------------- | :------- | :----------- | :---------------------------------------------------------------------------------------------- |
+| `enabled`              | `bool`   | Yes          | Master toggle — set to `true` to enable TLS/mTLS; `false` uses plain TCP.                       |
+| `client_cert`          | `string` | Optional\*   | Path to PEM-encoded client certificate file (`.crt` / `.pem`).                                  |
+| `client_key`           | `string` | Optional\*   | Path to PEM-encoded client private key file (`.key` / `.pem`).                                  |
+| `server_cert`          | `string` | Optional\*\* | Path to PEM-encoded server certificate file (`.crt` / `.pem`) used by mock server mode.         |
+| `server_key`           | `string` | Optional\*\* | Path to PEM-encoded server private key file (`.key` / `.pem`) used by mock server mode.         |
+| `ca_cert`              | `string` | Optional     | Path to PEM-encoded Root/Intermediate CA bundle file (`.crt` / `.pem`) for server verification. |
+| `server_name`          | `string` | Optional     | SNI hostname override for TLS verification.                                                     |
+| `min_version`          | `string` | Optional     | Minimum TLS version: `"1.2"` or `"1.3"` (default: `"1.2"`).                                     |
+| `insecure_skip_verify` | `bool`   | Optional     | Set to `true` to skip server certificate verification (testing only, default: `false`).         |
 
-*\*Required when client authentication (mTLS) is expected by the remote endpoint or mock server.*
+_Required when client authentication (mTLS) is expected by the remote endpoint or mock server._
+
+\*_Required when starting JISO's embedded TLS/mTLS mock server._
 
 ---
 
@@ -105,6 +111,7 @@ jiso server start 9999 visa \
 ```
 
 Console Output:
+
 ```
    ✓ TLS/mTLS server security enabled (ServerName: localhost)
 Embedded ISO8583 Mock Server started on port 9999 (Header: visa) 🟢

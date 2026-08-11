@@ -15,6 +15,8 @@ type TLSFileConfig struct {
 	Enabled            bool   `json:"enabled"`
 	ClientCert         string `json:"client_cert"`
 	ClientKey          string `json:"client_key"`
+	ServerCert         string `json:"server_cert,omitempty"`
+	ServerKey          string `json:"server_key,omitempty"`
 	CACert             string `json:"ca_cert"`
 	ServerName         string `json:"server_name,omitempty"`
 	MinVersion         string `json:"min_version,omitempty"`
@@ -47,6 +49,8 @@ func LoadTLSConfig(configPath string) (*TLSFileConfig, error) {
 		// Resolve relative certificate file paths relative to the config file directory
 		cfg.ClientCert = resolvePath(cfg.baseDir, cfg.ClientCert)
 		cfg.ClientKey = resolvePath(cfg.baseDir, cfg.ClientKey)
+		cfg.ServerCert = resolvePath(cfg.baseDir, cfg.ServerCert)
+		cfg.ServerKey = resolvePath(cfg.baseDir, cfg.ServerKey)
 		cfg.CACert = resolvePath(cfg.baseDir, cfg.CACert)
 
 		// Validate file existence for all specified certificate files
@@ -60,6 +64,16 @@ func LoadTLSConfig(configPath string) (*TLSFileConfig, error) {
 				return nil, fmt.Errorf("client private key file does not exist: %s", cfg.ClientKey)
 			}
 		}
+		if cfg.ServerCert != "" {
+			if _, err := os.Stat(cfg.ServerCert); os.IsNotExist(err) {
+				return nil, fmt.Errorf("server certificate file does not exist: %s", cfg.ServerCert)
+			}
+		}
+		if cfg.ServerKey != "" {
+			if _, err := os.Stat(cfg.ServerKey); os.IsNotExist(err) {
+				return nil, fmt.Errorf("server private key file does not exist: %s", cfg.ServerKey)
+			}
+		}
 		if cfg.CACert != "" {
 			if _, err := os.Stat(cfg.CACert); os.IsNotExist(err) {
 				return nil, fmt.Errorf("CA certificate file does not exist: %s", cfg.CACert)
@@ -70,8 +84,51 @@ func LoadTLSConfig(configPath string) (*TLSFileConfig, error) {
 	return &cfg, nil
 }
 
-// BuildCryptoTLSConfig generates a standard Go *tls.Config instance from the loaded TLSFileConfig
+// BuildCryptoTLSConfig generates a standard Go *tls.Config instance for client connections.
 func (t *TLSFileConfig) BuildCryptoTLSConfig() (*tls.Config, error) {
+	tlsCfg, err := t.buildBaseTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	if tlsCfg == nil {
+		return nil, nil
+	}
+
+	if t.ClientCert != "" && t.ClientKey != "" {
+		cert, err := tls.LoadX509KeyPair(t.ClientCert, t.ClientKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate key pair (PEM): %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	return tlsCfg, nil
+}
+
+// BuildServerTLSConfig generates a standard Go *tls.Config instance for TLS server listeners.
+func (t *TLSFileConfig) BuildServerTLSConfig() (*tls.Config, error) {
+	tlsCfg, err := t.buildBaseTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	if tlsCfg == nil {
+		return nil, nil
+	}
+
+	if t.ServerCert == "" || t.ServerKey == "" {
+		return nil, fmt.Errorf("server_cert and server_key are required when TLS is enabled for server mode")
+	}
+
+	cert, err := tls.LoadX509KeyPair(t.ServerCert, t.ServerKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load server certificate key pair (PEM): %w", err)
+	}
+	tlsCfg.Certificates = []tls.Certificate{cert}
+
+	return tlsCfg, nil
+}
+
+func (t *TLSFileConfig) buildBaseTLSConfig() (*tls.Config, error) {
 	if t == nil || !t.Enabled {
 		return nil, nil
 	}
@@ -89,15 +146,6 @@ func (t *TLSFileConfig) BuildCryptoTLSConfig() (*tls.Config, error) {
 		tlsCfg.MinVersion = tls.VersionTLS12
 	default:
 		return nil, fmt.Errorf("unsupported TLS min_version '%s' (must be '1.2' or '1.3')", t.MinVersion)
-	}
-
-	// Load client certificate & key pair in PEM format
-	if t.ClientCert != "" && t.ClientKey != "" {
-		cert, err := tls.LoadX509KeyPair(t.ClientCert, t.ClientKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load client certificate key pair (PEM): %w", err)
-		}
-		tlsCfg.Certificates = []tls.Certificate{cert}
 	}
 
 	// Load Root/Intermediate CA pool in PEM format

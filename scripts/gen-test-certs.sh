@@ -101,6 +101,8 @@ cat <<EOF > "$OUTPUT_DIR/tls_config.json"
   "enabled": true,
   "client_cert": "./client.crt",
   "client_key": "./client.key",
+    "server_cert": "./server.crt",
+    "server_key": "./server.key",
   "ca_cert": "./ca.crt",
   "server_name": "$SERVER_CN",
   "min_version": "1.2",

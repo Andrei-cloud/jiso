@@ -15,17 +15,23 @@ func TestLoadTLSConfig_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 	certFile := filepath.Join(tmpDir, "client.crt")
 	keyFile := filepath.Join(tmpDir, "client.key")
+	serverCertFile := filepath.Join(tmpDir, "server.crt")
+	serverKeyFile := filepath.Join(tmpDir, "server.key")
 	caFile := filepath.Join(tmpDir, "ca.crt")
 	configFile := filepath.Join(tmpDir, "tls_config.json")
 
 	require.NoError(t, os.WriteFile(certFile, []byte("dummy cert"), 0o644))
 	require.NoError(t, os.WriteFile(keyFile, []byte("dummy key"), 0o600))
+	require.NoError(t, os.WriteFile(serverCertFile, []byte("dummy server cert"), 0o644))
+	require.NoError(t, os.WriteFile(serverKeyFile, []byte("dummy server key"), 0o600))
 	require.NoError(t, os.WriteFile(caFile, []byte("dummy ca"), 0o644))
 
 	jsonContent := `{
 		"enabled": true,
 		"client_cert": "./client.crt",
 		"client_key": "./client.key",
+		"server_cert": "./server.crt",
+		"server_key": "./server.key",
 		"ca_cert": "./ca.crt",
 		"server_name": "smc.visa.com",
 		"min_version": "1.3",
@@ -39,6 +45,8 @@ func TestLoadTLSConfig_Success(t *testing.T) {
 	assert.True(t, cfg.Enabled)
 	assert.Equal(t, certFile, cfg.ClientCert)
 	assert.Equal(t, keyFile, cfg.ClientKey)
+	assert.Equal(t, serverCertFile, cfg.ServerCert)
+	assert.Equal(t, serverKeyFile, cfg.ServerKey)
 	assert.Equal(t, caFile, cfg.CACert)
 	assert.Equal(t, "smc.visa.com", cfg.ServerName)
 	assert.Equal(t, "1.3", cfg.MinVersion)
@@ -96,4 +104,25 @@ func TestBuildCryptoTLSConfig_WithGeneratedCerts(t *testing.T) {
 	assert.Equal(t, uint16(tls.VersionTLS12), cryptoCfg.MinVersion)
 	assert.Len(t, cryptoCfg.Certificates, 1)
 	assert.NotNil(t, cryptoCfg.RootCAs)
+}
+
+func TestBuildServerTLSConfig_WithGeneratedCerts(t *testing.T) {
+	certsDir := filepath.Join("..", "..", "testdata", "certs")
+	configFile := filepath.Join(certsDir, "tls_config.json")
+
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		t.Skip("testdata/certs/tls_config.json not found; skipping real cert test")
+	}
+
+	cfg, err := LoadTLSConfig(configFile)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	cryptoCfg, err := cfg.BuildServerTLSConfig()
+	require.NoError(t, err)
+	require.NotNil(t, cryptoCfg)
+
+	assert.Equal(t, uint16(tls.VersionTLS12), cryptoCfg.MinVersion)
+	assert.Len(t, cryptoCfg.Certificates, 1)
+	assert.NotNil(t, cryptoCfg.ClientCAs)
 }
