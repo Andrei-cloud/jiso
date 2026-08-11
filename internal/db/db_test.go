@@ -266,7 +266,7 @@ func TestEnrichedSessionsAndTransactions(t *testing.T) {
 	txPath := "transactions/transactions.json"
 	txName := "transactions.json"
 
-	if err := UpsertSession(sessionID, specPath, specName, txPath, txName, "active"); err != nil {
+	if err := UpsertSession(sessionID, specPath, specName, txPath, txName, "127.0.0.1", "8080", "CLIENT", "2-byte", "active", true); err != nil {
 		t.Fatalf("UpsertSession failed: %v", err)
 	}
 
@@ -277,6 +277,10 @@ func TestEnrichedSessionsAndTransactions(t *testing.T) {
 	if sessions[0].SessionID != sessionID {
 		t.Errorf("Expected session ID %s, got %s", sessionID, sessions[0].SessionID)
 	}
+	if sessions[0].Host != "127.0.0.1" || sessions[0].Port != "8080" || sessions[0].ConnectionType != "CLIENT" || !sessions[0].TLSEnabled {
+		t.Errorf("Unexpected session connection details: %+v", sessions[0])
+	}
+
 
 	rec := &EnrichedTransactionRecord{
 		SessionID:        sessionID,

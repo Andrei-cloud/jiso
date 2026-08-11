@@ -23,7 +23,8 @@ func TestDbStatsCommandExecution(t *testing.T) {
 	sessionID := "test-dbstats-sess"
 	config.GetConfig().SetSessionId(sessionID)
 
-	_ = db.UpsertSession(sessionID, "specs/spec.json", "spec.json", "transactions/tx.json", "tx.json", "active")
+	_ = db.UpsertSession(sessionID, "specs/spec.json", "spec.json", "transactions/tx.json", "tx.json", "localhost", "9999", "CLIENT", "2-byte", "active", false)
+
 	_ = db.InsertTransactionEnriched(&db.EnrichedTransactionRecord{
 		SessionID:        sessionID,
 		TxName:           "Purchase",

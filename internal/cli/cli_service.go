@@ -102,6 +102,9 @@ func (cli *CLI) Connect(lengthType string) error {
 
 	naps := (lengthType == "NAPS")
 
+	tlsEnabled := cfg.GetConfig().GetTLSConfigPath() != "" || (cfg.GetConfig().GetTLSConfig() != nil && cfg.GetConfig().GetTLSConfig().Enabled)
+	_ = session.GetManager().UpdateConnectionDetails("CLIENT", cfg.GetConfig().GetHost(), cfg.GetConfig().GetPort(), lengthType, tlsEnabled)
+
 	return cli.svc.Connect(naps, header)
 }
 
@@ -114,8 +117,12 @@ func (cli *CLI) Listen(port, lengthType string) error {
 
 	naps := (lengthType == "NAPS")
 
+	tlsEnabled := cfg.GetConfig().GetTLSConfigPath() != "" || (cfg.GetConfig().GetTLSConfig() != nil && cfg.GetConfig().GetTLSConfig().Enabled)
+	_ = session.GetManager().UpdateConnectionDetails("SERVER", cfg.GetConfig().GetHost(), port, lengthType, tlsEnabled)
+
 	return cli.svc.Listen(port, naps, header)
 }
+
 
 // Reload reloads the service and transaction specifications.
 func (cli *CLI) Reload() error {

@@ -20,6 +20,11 @@ type SessionRecord struct {
 	SpecName         string    `json:"spec_name"`
 	TxFilePath       string    `json:"tx_file_path"`
 	TxFileName       string    `json:"tx_file_name"`
+	Host             string    `json:"host,omitempty"`
+	Port             string    `json:"port,omitempty"`
+	ConnectionType   string    `json:"connection_type,omitempty"`
+	HeaderType       string    `json:"header_type,omitempty"`
+	TLSEnabled       bool      `json:"tls_enabled,omitempty"`
 	Status           string    `json:"status"`
 	TransactionCount int       `json:"transaction_count,omitempty"`
 	SuccessCount     int       `json:"success_count,omitempty"`
@@ -90,10 +95,26 @@ func createTables() error {
 		spec_name TEXT,
 		tx_file_path TEXT,
 		tx_file_name TEXT,
+		host TEXT,
+		port TEXT,
+		connection_type TEXT,
+		header_type TEXT,
+		tls_enabled BOOLEAN,
 		status TEXT
 	)`
 	if err := sqlitex.ExecuteTransient(dbConn, createSessionsSQL, nil); err != nil {
 		return fmt.Errorf("failed to create sessions table: %w", err)
+	}
+
+	sessColumns := []struct{ name, def string }{
+		{"host", "TEXT"},
+		{"port", "TEXT"},
+		{"connection_type", "TEXT"},
+		{"header_type", "TEXT"},
+		{"tls_enabled", "BOOLEAN"},
+	}
+	for _, c := range sessColumns {
+		_ = sqlitex.ExecuteTransient(dbConn, fmt.Sprintf("ALTER TABLE sessions ADD COLUMN %s %s", c.name, c.def), nil)
 	}
 
 	// Create transactions table
@@ -143,33 +164,59 @@ func createTables() error {
 }
 
 // UpsertSession creates or updates a session record in SQLite
-func UpsertSession(sessionID, specPath, specName, txFilePath, txFileName, status string) error {
+func UpsertSession(sessionID, specPath, specName, txFilePath, txFileName, host, port, connType, headerType, status string, tlsEnabled bool) error {
 	if dbConn == nil {
 		return fmt.Errorf("database not initialized")
 	}
 
-	sql := `INSERT INTO sessions (session_id, spec_path, spec_name, tx_file_path, tx_file_name, status, start_time, last_active_time)
-		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		ON CONFLICT(session_id) DO UPDATE SET
-			spec_path=excluded.spec_path,
-			spec_name=excluded.spec_name,
-			tx_file_path=excluded.tx_file_path,
-			tx_file_name=excluded.tx_file_name,
-			status=excluded.status,
-			last_active_time=CURRENT_TIMESTAMP`
+	sql := `INSERT INTO sessions (
+		session_id, spec_path, spec_name, tx_file_path, tx_file_name,
+		host, port, connection_type, header_type, tls_enabled, status,
+		start_time, last_active_time
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	ON CONFLICT(session_id) DO UPDATE SET
+		spec_path=CASE WHEN excluded.spec_path != '' THEN excluded.spec_path ELSE sessions.spec_path END,
+		spec_name=CASE WHEN excluded.spec_name != '' THEN excluded.spec_name ELSE sessions.spec_name END,
+		tx_file_path=CASE WHEN excluded.tx_file_path != '' THEN excluded.tx_file_path ELSE sessions.tx_file_path END,
+		tx_file_name=CASE WHEN excluded.tx_file_name != '' THEN excluded.tx_file_name ELSE sessions.tx_file_name END,
+		host=CASE WHEN excluded.host != '' THEN excluded.host ELSE sessions.host END,
+		port=CASE WHEN excluded.port != '' THEN excluded.port ELSE sessions.port END,
+		connection_type=CASE WHEN excluded.connection_type != '' THEN excluded.connection_type ELSE sessions.connection_type END,
+		header_type=CASE WHEN excluded.header_type != '' THEN excluded.header_type ELSE sessions.header_type END,
+		tls_enabled=excluded.tls_enabled,
+		status=CASE WHEN excluded.status != '' THEN excluded.status ELSE sessions.status END,
+		last_active_time=CURRENT_TIMESTAMP`
 
 	err := sqlitex.ExecuteTransient(dbConn, "BEGIN IMMEDIATE", nil)
 	if err != nil {
 		return err
 	}
 	err = sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
-		Args: []interface{}{sessionID, specPath, specName, txFilePath, txFileName, status},
+		Args: []interface{}{sessionID, specPath, specName, txFilePath, txFileName, host, port, connType, headerType, tlsEnabled, status},
 	})
 	if err != nil {
 		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil)
 		return err
 	}
 	return sqlitex.ExecuteTransient(dbConn, "COMMIT", nil)
+}
+
+// UpdateSessionConnection updates connection details for an active session
+func UpdateSessionConnection(sessionID, connType, host, port, headerType string, tlsEnabled bool) error {
+	if dbConn == nil {
+		return nil
+	}
+	sql := `UPDATE sessions SET
+		connection_type = CASE WHEN ? != '' THEN ? ELSE connection_type END,
+		host = CASE WHEN ? != '' THEN ? ELSE host END,
+		port = CASE WHEN ? != '' THEN ? ELSE port END,
+		header_type = CASE WHEN ? != '' THEN ? ELSE header_type END,
+		tls_enabled = ?,
+		last_active_time = CURRENT_TIMESTAMP
+		WHERE session_id = ?`
+	return sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{connType, connType, host, host, port, port, headerType, headerType, tlsEnabled, sessionID},
+	})
 }
 
 // TouchSession updates the last active timestamp of a session
@@ -250,6 +297,7 @@ func GetSessionsList() ([]*SessionRecord, error) {
 
 	sql := `
 		SELECT s.session_id, s.start_time, s.last_active_time, s.spec_path, s.spec_name, s.tx_file_path, s.tx_file_name, s.status,
+		       s.host, s.port, s.connection_type, s.header_type, s.tls_enabled,
 		       COUNT(t.id) as total_tx,
 		       SUM(CASE WHEN t.success = 1 THEN 1 ELSE 0 END) as success_tx,
 		       SUM(CASE WHEN t.success = 0 THEN 1 ELSE 0 END) as failed_tx
@@ -269,9 +317,14 @@ func GetSessionsList() ([]*SessionRecord, error) {
 				TxFilePath:       stmt.ColumnText(5),
 				TxFileName:       stmt.ColumnText(6),
 				Status:           stmt.ColumnText(7),
-				TransactionCount: int(stmt.ColumnInt64(8)),
-				SuccessCount:     int(stmt.ColumnInt64(9)),
-				FailedCount:      int(stmt.ColumnInt64(10)),
+				Host:             stmt.ColumnText(8),
+				Port:             stmt.ColumnText(9),
+				ConnectionType:   stmt.ColumnText(10),
+				HeaderType:       stmt.ColumnText(11),
+				TLSEnabled:       stmt.ColumnBool(12),
+				TransactionCount: int(stmt.ColumnInt64(13)),
+				SuccessCount:     int(stmt.ColumnInt64(14)),
+				FailedCount:      int(stmt.ColumnInt64(15)),
 			}
 			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(1))
 			rec.LastActiveTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
@@ -293,6 +346,7 @@ func GetSessionByID(sessionID string) (*SessionRecord, error) {
 
 	sql := `
 		SELECT s.session_id, s.start_time, s.last_active_time, s.spec_path, s.spec_name, s.tx_file_path, s.tx_file_name, s.status,
+		       s.host, s.port, s.connection_type, s.header_type, s.tls_enabled,
 		       COUNT(t.id) as total_tx,
 		       SUM(CASE WHEN t.success = 1 THEN 1 ELSE 0 END) as success_tx,
 		       SUM(CASE WHEN t.success = 0 THEN 1 ELSE 0 END) as failed_tx
@@ -313,9 +367,14 @@ func GetSessionByID(sessionID string) (*SessionRecord, error) {
 				TxFilePath:       stmt.ColumnText(5),
 				TxFileName:       stmt.ColumnText(6),
 				Status:           stmt.ColumnText(7),
-				TransactionCount: int(stmt.ColumnInt64(8)),
-				SuccessCount:     int(stmt.ColumnInt64(9)),
-				FailedCount:      int(stmt.ColumnInt64(10)),
+				Host:             stmt.ColumnText(8),
+				Port:             stmt.ColumnText(9),
+				ConnectionType:   stmt.ColumnText(10),
+				HeaderType:       stmt.ColumnText(11),
+				TLSEnabled:       stmt.ColumnBool(12),
+				TransactionCount: int(stmt.ColumnInt64(13)),
+				SuccessCount:     int(stmt.ColumnInt64(14)),
+				FailedCount:      int(stmt.ColumnInt64(15)),
 			}
 			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(1))
 			rec.LastActiveTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
@@ -333,6 +392,7 @@ func GetSessionByID(sessionID string) (*SessionRecord, error) {
 	}
 	return rec, nil
 }
+
 
 // GetSessionTransactions returns all transactions executed within a session
 func GetSessionTransactions(sessionID string) ([]*EnrichedTransactionRecord, error) {

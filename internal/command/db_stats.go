@@ -85,27 +85,32 @@ func printSessionsList() error {
 		return nil
 	}
 
-	fmt.Printf("\n%-36s | %-19s | %-16s | %-16s | %-8s | %-6s\n", "Session ID", "Start Time", "Spec Name", "Tx File", "Total Tx", "Status")
-	fmt.Println(strings.Repeat("-", 112))
+	fmt.Printf("\n%-36s | %-19s | %-12s | %-6s | %-16s | %-8s | %-6s\n", "Session ID", "Start Time", "Spec Name", "Mode", "Host:Port", "Total Tx", "Status")
+	fmt.Println(strings.Repeat("-", 115))
 
 	for _, s := range sessions {
 		spec := s.SpecName
 		if spec == "" {
 			spec = "-"
 		}
-		txFile := s.TxFileName
-		if txFile == "" {
-			txFile = "-"
+		mode := s.ConnectionType
+		if mode == "" {
+			mode = "-"
+		}
+		hostPort := "-"
+		if s.Host != "" || s.Port != "" {
+			hostPort = fmt.Sprintf("%s:%s", s.Host, s.Port)
 		}
 		status := s.Status
 		if status == "" {
 			status = "active"
 		}
-		fmt.Printf("%-36s | %-19s | %-16s | %-16s | %-8d | %-6s\n",
+		fmt.Printf("%-36s | %-19s | %-12s | %-6s | %-16s | %-8d | %-6s\n",
 			s.SessionID,
 			s.StartTime.Format("2006-01-02 15:04:05"),
-			truncateString(spec, 16),
-			truncateString(txFile, 16),
+			truncateString(spec, 12),
+			mode,
+			truncateString(hostPort, 16),
 			s.TransactionCount,
 			status,
 		)
@@ -139,9 +144,24 @@ func printSessionOverview(sessionID string) error {
 	if rec.TxFileName != "" {
 		fmt.Printf("Transaction File:       %s (%s)\n", rec.TxFileName, rec.TxFilePath)
 	}
+	if rec.ConnectionType != "" {
+		fmt.Printf("Connection Mode:        %s\n", rec.ConnectionType)
+	}
+	if rec.Host != "" || rec.Port != "" {
+		fmt.Printf("Target Host / Port:     %s:%s\n", rec.Host, rec.Port)
+	}
+	if rec.HeaderType != "" {
+		fmt.Printf("Header Format:          %s\n", rec.HeaderType)
+	}
+	tlsStr := "Disabled"
+	if rec.TLSEnabled {
+		tlsStr = "Enabled"
+	}
+	fmt.Printf("TLS:                    %s\n", tlsStr)
 	if rec.Status != "" {
 		fmt.Printf("Status:                 %s\n", rec.Status)
 	}
+
 
 	fmt.Printf("\nTotal Transactions:     %v\n", stats["total_transactions"])
 	fmt.Printf("Successful Transactions: %v\n", stats["successful_transactions"])
