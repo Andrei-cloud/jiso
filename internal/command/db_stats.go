@@ -27,7 +27,14 @@ func (c *DbStatsCommand) Synopsis() string {
 	return "View session transaction statistics and retrospective ISO 8583 message logs."
 }
 
+func (c *DbStatsCommand) Reset() {
+	c.SessionID = ""
+	c.SubCommand = ""
+	c.TxID = 0
+}
+
 func (c *DbStatsCommand) SetArgs(args []string) {
+	c.Reset()
 	if len(args) == 0 {
 		return
 	}
@@ -53,10 +60,13 @@ func (c *DbStatsCommand) SetArgs(args []string) {
 }
 
 func (c *DbStatsCommand) Execute() error {
+	defer c.Reset()
+
 	dbPath := config.GetConfig().GetDbPath()
 	if dbPath == "" {
 		return errors.New("database not configured (use --db-path flag)")
 	}
+
 
 	if c.SubCommand == "list" {
 		return printSessionsList()

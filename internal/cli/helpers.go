@@ -94,9 +94,8 @@ func (cli *CLI) processCommand(line string) bool {
 			c.OutputPath = ""
 		}
 	case *cmd.DbStatsCommand:
-		if len(args) > 1 {
-			c.SetArgs(args[1:])
-		}
+		c.SetArgs(args[1:])
+
 
 	case *cmd.TargetCommand:
 		if len(args) > 1 {

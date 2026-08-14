@@ -77,6 +77,23 @@ func TestDbStatsCommandExecution(t *testing.T) {
 	}
 }
 
+func TestDbStatsCommandResetBetweenExecutions(t *testing.T) {
+	cmd := &DbStatsCommand{}
+
+	// First execution: dbstats tx 1
+	cmd.SetArgs([]string{"tx", "1"})
+	if cmd.SubCommand != "tx" || cmd.TxID != 1 {
+		t.Errorf("Expected SubCommand='tx' and TxID=1, got SubCommand='%s', TxID=%d", cmd.SubCommand, cmd.TxID)
+	}
+
+	// Subsequent execution: dbstats (no args)
+	cmd.SetArgs([]string{})
+	if cmd.SubCommand != "" || cmd.TxID != 0 || cmd.SessionID != "" {
+		t.Errorf("Expected state to be reset, got SubCommand='%s', TxID=%d, SessionID='%s'", cmd.SubCommand, cmd.TxID, cmd.SessionID)
+	}
+}
+
 func stringPtrResp(s string) *string {
 	return &s
 }
+
