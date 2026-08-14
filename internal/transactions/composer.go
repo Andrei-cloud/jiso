@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/moov-io/iso8583"
-	"github.com/moov-io/iso8583/field"
 
 	"jiso/internal/utils"
 )
@@ -115,47 +114,6 @@ func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, erro
 	return msg, nil
 }
 
-func (tc *TransactionCollection) interpolateMessageFieldsWithData(msg *iso8583.Message, datasetName string) {
-	var selectedRow map[string]string
-	var ok bool
-	ensureSelectedRow := func() {
-		if ok || datasetName == "" {
-			return
-		}
-		if ds, exist := tc.datasets[datasetName]; exist && len(ds.Data) > 0 {
-			randomIndex := rand.Intn(len(ds.Data))
-			selectedRow = ds.Data[randomIndex]
-			ok = true
-		}
-	}
-
-	for i, f := range msg.GetFields() {
-		if f == nil {
-			continue
-		}
-
-		if composite, isComposite := f.(*field.Composite); isComposite {
-			ensureSelectedRow()
-			if ok {
-				_ = tc.interpolateCompositeFieldWithData(composite, "", selectedRow)
-			}
-			continue
-		}
-
-		val, err := f.String()
-		if err != nil || val == "" {
-			continue
-		}
-
-		if strings.Contains(val, "{{") && strings.Contains(val, "}}") {
-			ensureSelectedRow()
-			val = interpolateStringWithData(val, selectedRow)
-
-			msg.Field(i, val)
-		}
-	}
-}
-
 func (tc *TransactionCollection) selectDatasetRow(datasetName string) map[string]string {
 	if datasetName == "" {
 		return nil
@@ -194,71 +152,6 @@ func resolveFieldValueWithData(value interface{}, selectedRow map[string]string)
 	default:
 		return value, true
 	}
-}
-
-func interpolateStringWithData(val string, selectedRow map[string]string) string {
-	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
-		match := dataRegex.FindStringSubmatch(m)
-		if len(match) > 1 && selectedRow != nil {
-			if v, exist := selectedRow[match[1]]; exist {
-				return v
-			}
-		}
-		return m
-	})
-
-	val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
-		match := contextRegex.FindStringSubmatch(m)
-		if len(match) > 1 {
-			return ""
-		}
-		return m
-	})
-
-	return val
-}
-
-func (tc *TransactionCollection) interpolateCompositeFieldWithData(
-	composite *field.Composite,
-	prefix string,
-	selectedRow map[string]string,
-) error {
-	for key, subField := range composite.GetSubfields() {
-		if subField == nil {
-			continue
-		}
-
-		path := key
-		if prefix != "" {
-			path = prefix + "." + key
-		}
-
-		if nestedComposite, ok := subField.(*field.Composite); ok {
-			if err := tc.interpolateCompositeFieldWithData(nestedComposite, path, selectedRow); err != nil {
-				return err
-			}
-			continue
-		}
-
-		val, err := subField.String()
-		if err != nil || val == "" || !strings.Contains(val, "{{") || !strings.Contains(val, "}}") {
-			continue
-		}
-
-		resolved, missingData := interpolateCompositePlaceholderString(val, selectedRow)
-		if missingData {
-			if err := composite.UnsetPath(path); err != nil {
-				return err
-			}
-			continue
-		}
-
-		if err := composite.MarshalPath(path, resolved); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func interpolateCompositePlaceholderString(val string, selectedRow map[string]string) (string, bool) {
@@ -315,10 +208,6 @@ func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transac
 	tc.applyRandomValues(msg, t.Dataset)
 
 	return nil
-}
-
-func isReservedAutoKeyword(v []byte) bool {
-	return isReservedAutoKeywordString(string(v))
 }
 
 func isReservedAutoKeywordString(s string) bool {

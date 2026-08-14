@@ -17,7 +17,9 @@ func TestEndToEndIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer Close()
+	defer func() {
+		_ = Close()
+	}()
 
 	sessionID := "test-integration-session"
 

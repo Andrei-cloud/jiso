@@ -73,7 +73,7 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 		for _, fNum := range matchedRoute.EchoFields {
 			if reqField := req.GetField(fNum); reqField != nil {
 				if val, err := reqField.String(); err == nil {
-					resp.Field(fNum, val)
+					_ = resp.Field(fNum, val)
 				}
 			}
 		}
@@ -87,7 +87,7 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 
 		if missingRequired {
 			// ISO Response Code "30" = Format Error / Missing Mandatory Field (Visa Standard)
-			resp.Field(39, "30")
+			_ = resp.Field(39, "30")
 		}
 
 		return matchedRoute, resp, nil
@@ -101,11 +101,11 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 	for _, fNum := range []int{7, 11, 25, 32, 37, 41, 42, 63, 115} {
 		if reqField := req.GetField(fNum); reqField != nil {
 			if val, err := reqField.String(); err == nil {
-				resp.Field(fNum, val)
+				_ = resp.Field(fNum, val)
 			}
 		}
 	}
-	resp.Field(39, "12") // Default response code: "12" (Invalid Transaction / Fallback)
+	_ = resp.Field(39, "12") // Default response code: "12" (Invalid Transaction / Fallback)
 
 	return nil, resp, nil
 }

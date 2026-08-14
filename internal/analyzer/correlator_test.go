@@ -15,15 +15,15 @@ func TestCorrelator_BasicPairing(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(11, "000001")
-	reqMsg.Field(2, "4111111111111111")
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
+	require.NoError(t, reqMsg.Field(2, "4111111111111111"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	annotated := []*AnnotatedMessage{
 		{Message: reqMsg, Direction: DirectionRequest, Order: 0},
@@ -50,14 +50,14 @@ func TestCorrelator_RRNFallback(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(37, "987654321012")
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(37, "987654321012"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(37, "987654321012")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(37, "987654321012"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	annotated := []*AnnotatedMessage{
 		{Message: reqMsg, Direction: DirectionRequest, Order: 0},
@@ -76,22 +76,22 @@ func TestCorrelator_ReversalDetection(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(11, "000001")
-	reqMsg.Field(7, "0412232900")
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
+	require.NoError(t, reqMsg.Field(7, "0412232900"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	revMsg := iso8583.NewMessage(spec)
 	revMsg.MTI("0400")
-	revMsg.Field(3, "000000")
-	revMsg.Field(11, "000002")
+	require.NoError(t, revMsg.Field(3, "000000"))
+	require.NoError(t, revMsg.Field(11, "000002"))
 	// DE 90 contains original MTI 0200 + STAN 000001 + DateTime 0412232900
-	revMsg.Field(90, "02000000010412232900000000000000000000000")
+	require.NoError(t, revMsg.Field(90, "02000000010412232900000000000000000000000"))
 
 	annotated := []*AnnotatedMessage{
 		{Message: reqMsg, Direction: DirectionRequest, Order: 0},

@@ -16,7 +16,7 @@ func NewBinary2BytesAdapter() *Binary2BytesAdapter {
 }
 
 func (a *Binary2BytesAdapter) SetLength(length int) {
-	a.binary2Bytes.SetLength(length)
+	_ = a.binary2Bytes.SetLength(length)
 }
 
 func (a *Binary2BytesAdapter) Length() int {

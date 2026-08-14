@@ -20,7 +20,9 @@ func TestInitDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer Close()
+	defer func() {
+		_ = Close()
+	}()
 
 	// Verify database file was created
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
@@ -65,7 +67,9 @@ func TestInsertTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer Close()
+	defer func() {
+		_ = Close()
+	}()
 
 	sessionID := "test-session-123"
 	txName := "Test Transaction"
@@ -179,7 +183,9 @@ func TestGetTransactionStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer Close()
+	defer func() {
+		_ = Close()
+	}()
 
 	sessionID := "test-session-stats"
 
@@ -259,7 +265,9 @@ func TestEnrichedSessionsAndTransactions(t *testing.T) {
 	if err := InitDB(dbPath); err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
-	defer Close()
+	defer func() {
+		_ = Close()
+	}()
 
 	sessionID := "sess-enrich-123"
 	specPath := "specs/spec.json"
@@ -321,7 +329,9 @@ func TestStressTestSummaryLogging(t *testing.T) {
 	if err := InitDB(dbPath); err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
-	defer Close()
+	defer func() {
+		_ = Close()
+	}()
 
 	sessionID := "sess-stress-999"
 	_ = UpsertSession(sessionID, "specs/spec.json", "spec.json", "tx.json", "tx.json", "127.0.0.1", "8080", "CLIENT", "2-byte", "active", false)

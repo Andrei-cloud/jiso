@@ -54,7 +54,7 @@ func (m *Manager) Listen(port string, naps bool, header network.Header) error {
 		if m.debugMode {
 			fmt.Printf("Cleaning up existing connection/listener on port %s\n", port)
 		}
-		m.closeUnlocked()
+		_ = m.closeUnlocked()
 	}
 	m.listenMode = true
 	m.listenPort = port

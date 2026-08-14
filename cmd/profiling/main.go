@@ -160,10 +160,14 @@ func handleConnection(conn net.Conn, spec *iso8583.MessageSpec) {
 
 		// Copy STAN
 		if stan, err := message.GetString(11); err == nil {
-			response.Field(11, stan)
+			if err := response.Field(11, stan); err != nil {
+				log.Printf("Server set field 11 error: %v", err)
+			}
 		}
 		// Success code
-		response.Field(39, "00")
+		if err := response.Field(39, "00"); err != nil {
+			log.Printf("Server set field 39 error: %v", err)
+		}
 
 		responsePacked, err := response.Pack()
 		if err != nil {

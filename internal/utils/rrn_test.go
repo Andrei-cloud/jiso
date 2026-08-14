@@ -2,12 +2,14 @@ package utils
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetRRNInstance(t *testing.T) {
 	// Create temp directory
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	rrn := GetRRNInstance()
 	if rrn == nil {
@@ -179,7 +181,7 @@ func TestRRNGetRRNZeroHandling(t *testing.T) {
 func TestRRNPersistence(t *testing.T) {
 	// Create temp directory
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	// Test persistence
 	testData := RRNPersistentData{RRNValue: 12345}

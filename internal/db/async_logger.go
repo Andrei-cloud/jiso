@@ -166,7 +166,9 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil) // Rollback if not committed
+	defer func() {
+		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil) // Rollback if not committed
+	}()
 
 	insertSQL := `
 		INSERT INTO transactions (
