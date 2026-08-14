@@ -19,17 +19,17 @@ func TestScenarioBuilder_BasicScaffold(t *testing.T) {
 	rawPAN := "4532012345678912" // 16 digit PAN
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(2, rawPAN)
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(4, "1000")
-	reqMsg.Field(11, "000001")
+	require.NoError(t, reqMsg.Field(2, rawPAN))
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(4, "1000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(38, "AUTH01")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(38, "AUTH01"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	pair := &CorrelatedPair{
 		Request:  &AnnotatedMessage{Message: reqMsg, Direction: DirectionRequest},
@@ -87,16 +87,16 @@ func TestScenarioBuilder_ReversalStep(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(2, "4111111111111111")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(11, "000001")
+	require.NoError(t, reqMsg.Field(2, "4111111111111111"))
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(38, "AUTH01")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(38, "AUTH01"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	pair := &CorrelatedPair{
 		Request:  &AnnotatedMessage{Message: reqMsg, Direction: DirectionRequest},
@@ -148,15 +148,15 @@ func TestScenarioBuilder_MockRoutes(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(11, "000001")
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(38, "AUTH01")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(38, "AUTH01"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	pair := &CorrelatedPair{
 		Request:  &AnnotatedMessage{Message: reqMsg, Direction: DirectionRequest},
@@ -185,15 +185,15 @@ func TestScenarioBuilder_MockRoutesWithReversal(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0100")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(11, "000001")
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0110")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(38, "AUTH01")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(38, "AUTH01"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	pair := &CorrelatedPair{
 		Request:  &AnnotatedMessage{Message: reqMsg, Direction: DirectionRequest},

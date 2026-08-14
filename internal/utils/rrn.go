@@ -73,7 +73,7 @@ func rrnPersistWorker() {
 			}
 		case <-rrnQuitChan:
 			if lastValue > 0 {
-				persistRRNData(RRNPersistentData{RRNValue: lastValue})
+				_ = persistRRNData(RRNPersistentData{RRNValue: lastValue})
 			}
 			return
 		}

@@ -1,15 +1,9 @@
 package service
 
 import (
-	"net"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/moov-io/iso8583"
-	"github.com/moov-io/iso8583/network"
-
-	"jiso/internal/utils"
 )
 
 func createTempSpecFile(t *testing.T) string {
@@ -220,118 +214,4 @@ func TestServiceDisconnect(t *testing.T) {
 	}
 }
 
-type testServer struct {
-	listener net.Listener
-	spec     *iso8583.MessageSpec
-	header   network.Header
-	respond  bool
-	done     chan struct{}
-}
 
-func startTestServer(spec *iso8583.MessageSpec, respond bool) (*testServer, error) {
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return nil, err
-	}
-
-	server := &testServer{
-		listener: listener,
-		spec:     spec,
-		header:   utils.NewBinary2BytesAdapter(),
-		respond:  respond,
-		done:     make(chan struct{}),
-	}
-
-	go server.run()
-
-	return server, nil
-}
-
-func (s *testServer) run() {
-	for {
-		select {
-		case <-s.done:
-			return
-		default:
-		}
-
-		conn, err := s.listener.Accept()
-		if err != nil {
-			select {
-			case <-s.done:
-				return
-			default:
-			}
-			continue
-		}
-
-		go s.handle(conn)
-	}
-}
-
-func (s *testServer) handle(conn net.Conn) {
-	defer conn.Close()
-
-	// Read length
-	_, err := s.header.ReadFrom(conn)
-	if err != nil {
-		return
-	}
-
-	messageLength := s.header.Length()
-
-	// Read message
-	buf := make([]byte, messageLength)
-	_, err = conn.Read(buf)
-	if err != nil {
-		return
-	}
-
-	if !s.respond {
-		// For timeout test, don't respond
-		return
-	}
-
-	// Unpack
-	msg := iso8583.NewMessage(s.spec)
-	err = msg.Unpack(buf)
-	if err != nil {
-		return
-	}
-
-	// Create response
-	resp := iso8583.NewMessage(s.spec)
-	resp.MTI("0810")
-	if stan, err := msg.GetString(11); err == nil {
-		resp.Field(11, stan)
-	}
-	resp.Field(39, "00")
-
-	// Pack response
-	respPacked, err := resp.Pack()
-	if err != nil {
-		return
-	}
-
-	// Write length
-	s.header.SetLength(len(respPacked))
-	_, err = s.header.WriteTo(conn)
-	if err != nil {
-		return
-	}
-
-	// Write response
-	_, err = conn.Write(respPacked)
-	if err != nil {
-		return
-	}
-}
-
-func (s *testServer) port() int {
-	return s.listener.Addr().(*net.TCPAddr).Port
-}
-
-func (s *testServer) Close() {
-	close(s.done)
-	s.listener.Close()
-}

@@ -38,7 +38,9 @@ func TestServer_mTLS(t *testing.T) {
 	server.SetTLSConfig(serverTLS)
 
 	require.NoError(t, server.Start("19895"))
-	defer server.Stop()
+	defer func() {
+		_ = server.Stop()
+	}()
 
 	clientTLS, err := tlsCfg.BuildCryptoTLSConfig()
 	require.NoError(t, err)
@@ -76,7 +78,9 @@ func TestMockServerLifecycleAndMatching(t *testing.T) {
 
 	err = server.Start("19890")
 	require.NoError(t, err)
-	defer server.Stop()
+	defer func() {
+		_ = server.Stop()
+	}()
 	assert.True(t, server.IsRunning())
 	assert.Equal(t, "19890", server.GetPort())
 
@@ -88,10 +92,10 @@ func TestMockServerLifecycleAndMatching(t *testing.T) {
 	// Build 0800 Sign On request
 	req := iso8583.NewMessage(spec)
 	req.MTI("0800")
-	req.Field(7, "0412232900")
-	req.Field(11, "000151")
-	req.Field(37, "251020000150")
-	req.Field(70, "1")
+	require.NoError(t, req.Field(7, "0412232900"))
+	require.NoError(t, req.Field(11, "000151"))
+	require.NoError(t, req.Field(37, "251020000150"))
+	require.NoError(t, req.Field(70, "1"))
 
 	reqPacked, err := req.Pack()
 	require.NoError(t, err)
@@ -179,7 +183,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 	// Test case 1: Matches SignOn route
 	msg1 := iso8583.NewMessage(spec)
 	msg1.MTI("0800")
-	msg1.Field(70, "1")
+	require.NoError(t, msg1.Field(70, "1"))
 	matched1, resp1, err := matcher.MatchAndCompose(msg1, spec)
 	require.NoError(t, err)
 	require.NotNil(t, matched1)
@@ -190,7 +194,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 	// Test case 2: Regex match on DE 25
 	msg2 := iso8583.NewMessage(spec)
 	msg2.MTI("0200")
-	msg2.Field(25, "02")
+	require.NoError(t, msg2.Field(25, "02"))
 	matched2, resp2, err := matcher.MatchAndCompose(msg2, spec)
 	require.NoError(t, err)
 	require.NotNil(t, matched2)
@@ -201,7 +205,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 	// Test case 3: Field existence check on DE 38
 	msg3 := iso8583.NewMessage(spec)
 	msg3.MTI("0400")
-	msg3.Field(38, "AUTH12")
+	require.NoError(t, msg3.Field(38, "AUTH12"))
 	matched3, resp3, err := matcher.MatchAndCompose(msg3, spec)
 	require.NoError(t, err)
 	require.NotNil(t, matched3)
@@ -242,9 +246,9 @@ func TestRequiredFieldsMissingResponse30(t *testing.T) {
 	// Subtest 1: All required fields present -> Approved ("00")
 	msgValid := iso8583.NewMessage(spec)
 	msgValid.MTI("0200")
-	msgValid.Field(4, "1000")
-	msgValid.Field(11, "000001")
-	msgValid.Field(41, "77973588")
+	require.NoError(t, msgValid.Field(4, "1000"))
+	require.NoError(t, msgValid.Field(11, "000001"))
+	require.NoError(t, msgValid.Field(41, "77973588"))
 
 	matched, resp, err := matcher.MatchAndCompose(msgValid, spec)
 	require.NoError(t, err)
@@ -255,8 +259,8 @@ func TestRequiredFieldsMissingResponse30(t *testing.T) {
 	// Subtest 2: Missing mandatory field 41 -> Format Error / Missing Field ("30")
 	msgMissing := iso8583.NewMessage(spec)
 	msgMissing.MTI("0200")
-	msgMissing.Field(4, "1000")
-	msgMissing.Field(11, "000001")
+	require.NoError(t, msgMissing.Field(4, "1000"))
+	require.NoError(t, msgMissing.Field(11, "000001"))
 	// Field 41 omitted
 
 	matchedMissing, respMissing, err := matcher.MatchAndCompose(msgMissing, spec)
@@ -273,7 +277,9 @@ func TestNilSpecServerFallback(t *testing.T) {
 
 	err := srv.Start("19891")
 	require.NoError(t, err)
-	defer srv.Stop()
+	defer func() {
+		_ = srv.Stop()
+	}()
 
 	conn, err := net.Dial("tcp", "localhost:19891")
 	require.NoError(t, err)
@@ -281,9 +287,9 @@ func TestNilSpecServerFallback(t *testing.T) {
 
 	req := iso8583.NewMessage(srv.spec)
 	req.MTI("0800")
-	req.Field(7, "0412232900")
-	req.Field(11, "000151")
-	req.Field(70, "1")
+	require.NoError(t, req.Field(7, "0412232900"))
+	require.NoError(t, req.Field(11, "000151"))
+	require.NoError(t, req.Field(70, "1"))
 
 	reqPacked, err := req.Pack()
 	require.NoError(t, err)
@@ -326,9 +332,9 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 	// Test Network 0800 F70=1
 	msg0800_1 := iso8583.NewMessage(spec)
 	msg0800_1.MTI("0800")
-	msg0800_1.Field(7, "0725213831")
-	msg0800_1.Field(11, "008008")
-	msg0800_1.Field(70, "1")
+	require.NoError(t, msg0800_1.Field(7, "0725213831"))
+	require.NoError(t, msg0800_1.Field(11, "008008"))
+	require.NoError(t, msg0800_1.Field(70, "1"))
 
 	matched1, resp1, err := matcher.MatchAndCompose(msg0800_1, spec)
 	require.NoError(t, err)
@@ -339,14 +345,14 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 	// Test Financial 0200 matching & echoing card/track/fields
 	msg0200 := iso8583.NewMessage(spec)
 	msg0200.MTI("0200")
-	msg0200.Field(2, "9876543210987654")
-	msg0200.Field(3, "000000")
-	msg0200.Field(4, "2500")
-	msg0200.Field(7, "0725213835")
-	msg0200.Field(11, "008009")
-	msg0200.Field(14, "2601")
-	msg0200.Field(41, "77973588")
-	msg0200.Field(49, "634")
+	require.NoError(t, msg0200.Field(2, "9876543210987654"))
+	require.NoError(t, msg0200.Field(3, "000000"))
+	require.NoError(t, msg0200.Field(4, "2500"))
+	require.NoError(t, msg0200.Field(7, "0725213835"))
+	require.NoError(t, msg0200.Field(11, "008009"))
+	require.NoError(t, msg0200.Field(14, "2601"))
+	require.NoError(t, msg0200.Field(41, "77973588"))
+	require.NoError(t, msg0200.Field(49, "634"))
 
 	matched2, resp2, err := matcher.MatchAndCompose(msg0200, spec)
 	require.NoError(t, err)

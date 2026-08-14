@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"jiso/internal/metrics"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
+	"jiso/internal/utils"
 	"jiso/internal/view"
 )
 
@@ -367,14 +369,56 @@ func logToDB(sessionID, trxnName string, req, resp *iso8583.Message, processingT
 	if config.GetConfig().GetDbPath() == "" {
 		return
 	}
+	specPath := config.GetConfig().GetSpec()
+	specName := filepath.Base(specPath)
+	if specPath == "" {
+		specName = ""
+	}
+	txFilePath := config.GetConfig().GetFile()
+	txFileName := filepath.Base(txFilePath)
+	if txFilePath == "" {
+		txFileName = ""
+	}
+
 	var reqJSON string
+	var reqRawHex string
 	if req != nil {
-		reqJSON, _ = db.MessageToJSON(req)
+		jsonStr, err := db.MessageToJSON(req)
+		if err == nil && jsonStr != "" {
+			reqJSON = jsonStr
+		} else {
+			if packed, pErr := req.Pack(); pErr == nil {
+				reqRawHex = utils.HexDump(packed)
+			}
+		}
 	}
+
 	var respJSON *string
+	var respRawHex *string
 	if resp != nil {
-		rJSON, _ := db.MessageToJSON(resp)
-		respJSON = &rJSON
+		jsonStr, err := db.MessageToJSON(resp)
+		if err == nil && jsonStr != "" {
+			respJSON = &jsonStr
+		} else {
+			if packed, pErr := resp.Pack(); pErr == nil {
+				rHex := utils.HexDump(packed)
+				respRawHex = &rHex
+			}
+		}
 	}
-	db.LogTransaction(sessionID, trxnName, reqJSON, respJSON, processingTimeMs, success)
+
+	db.LogTransactionEnriched(&db.TransactionRecord{
+		SessionID:        sessionID,
+		TxName:           trxnName,
+		TxFilePath:       txFilePath,
+		TxFileName:       txFileName,
+		SpecPath:         specPath,
+		SpecName:         specName,
+		RequestJSON:      reqJSON,
+		ResponseJSON:     respJSON,
+		RequestRawHEX:    reqRawHex,
+		ResponseRawHEX:   respRawHex,
+		ProcessingTimeMs: processingTimeMs,
+		Success:          success,
+	})
 }

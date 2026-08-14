@@ -121,9 +121,9 @@ func (s *testServer) handle(conn net.Conn) {
 		resp := iso8583.NewMessage(s.spec)
 		resp.MTI("0810")
 		if stan, err := msg.GetString(11); err == nil {
-			resp.Field(11, stan)
+			_ = resp.Field(11, stan)
 		}
-		resp.Field(39, "00")
+		_ = resp.Field(39, "00")
 
 		// Pack response
 		respPacked, err := resp.Pack()

@@ -1,17 +1,22 @@
 package command
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
-	json "github.com/goccy/go-json"
+	"github.com/AlecAivazis/survey/v2"
 
 	"jiso/internal/config"
 	"jiso/internal/db"
 )
 
 type DbStatsCommand struct {
-	SessionID string
+	SessionID  string
+	SubCommand string
+	TxID       int64
 }
 
 func (c *DbStatsCommand) Name() string {
@@ -19,21 +24,121 @@ func (c *DbStatsCommand) Name() string {
 }
 
 func (c *DbStatsCommand) Synopsis() string {
-	return "Show database statistics for the current session"
+	return "View session transaction statistics and retrospective ISO 8583 message logs."
+}
+
+func (c *DbStatsCommand) Reset() {
+	c.SessionID = ""
+	c.SubCommand = ""
+	c.TxID = 0
+}
+
+func (c *DbStatsCommand) SetArgs(args []string) {
+	c.Reset()
+	if len(args) == 0 {
+		return
+	}
+
+	if args[0] == "list" {
+		c.SubCommand = "list"
+		return
+	}
+
+	if args[0] == "tx" {
+		c.SubCommand = "tx"
+		if len(args) > 1 {
+			id, err := strconv.ParseInt(args[1], 10, 64)
+			if err == nil {
+				c.TxID = id
+			}
+		}
+		return
+	}
+
+	// Assume first arg is Session ID
+	c.SessionID = args[0]
 }
 
 func (c *DbStatsCommand) Execute() error {
+	defer c.Reset()
+
 	dbPath := config.GetConfig().GetDbPath()
 	if dbPath == "" {
 		return errors.New("database not configured (use --db-path flag)")
 	}
 
-	sessionID := c.SessionID
-	if sessionID == "" {
-		sessionID = config.GetConfig().GetSessionId()
+
+	if c.SubCommand == "list" {
+		return printSessionsList()
 	}
-	if sessionID == "" {
-		return errors.New("session ID not available")
+
+	if c.SubCommand == "tx" {
+		if c.TxID <= 0 {
+			return errors.New("please specify a valid transaction ID: dbstats tx <id>")
+		}
+		return printTransactionDetail(c.TxID)
+	}
+
+	if c.SessionID != "" {
+		return printSessionOverview(c.SessionID)
+	}
+
+	// Interactive Mode
+	return runInteractiveMenu()
+}
+
+func printSessionsList() error {
+	sessions, err := db.GetSessionsList()
+	if err != nil {
+		return fmt.Errorf("failed to fetch sessions: %w", err)
+	}
+
+	if len(sessions) == 0 {
+		fmt.Println("No sessions recorded in database.")
+		return nil
+	}
+
+	fmt.Printf("\n%-36s | %-19s | %-12s | %-6s | %-16s | %-8s | %-14s\n", "Session ID", "Start Time", "Spec Name", "Mode", "Host:Port", "Total Tx", "Status")
+	fmt.Println(strings.Repeat("-", 123))
+
+	for _, s := range sessions {
+		spec := s.SpecName
+		if spec == "" {
+			spec = "-"
+		}
+		mode := s.ConnectionType
+		if mode == "" {
+			mode = "-"
+		}
+		hostPort := "-"
+		if s.Host != "" || s.Port != "" {
+			hostPort = fmt.Sprintf("%s:%s", s.Host, s.Port)
+		}
+		status := s.Status
+		if status == "" {
+			status = "active"
+		}
+		if s.StressTestCount > 0 {
+			status = fmt.Sprintf("%s [STRESS]", status)
+		}
+		fmt.Printf("%-36s | %-19s | %-12s | %-6s | %-16s | %-8d | %-14s\n",
+			s.SessionID,
+			s.StartTime.Format("2006-01-02 15:04:05"),
+			truncateString(spec, 12),
+			mode,
+			truncateString(hostPort, 16),
+			s.TransactionCount,
+			status,
+		)
+	}
+	fmt.Println()
+	return nil
+}
+
+func printSessionOverview(sessionID string) error {
+	rec, err := db.GetSessionByID(sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get session info: %w", err)
 	}
 
 	stats, err := db.GetTransactionStats(sessionID)
@@ -41,28 +146,246 @@ func (c *DbStatsCommand) Execute() error {
 		return fmt.Errorf("failed to get database stats: %w", err)
 	}
 
-	fmt.Printf("Database Statistics for Session: %s\n", sessionID)
-	fmt.Printf("=====================================\n")
-	fmt.Printf("Total Transactions: %v\n", stats["total_transactions"])
+	fmt.Printf("\nDatabase Statistics for Session: %s\n", sessionID)
+	fmt.Println("=========================================================================")
+	if !rec.StartTime.IsZero() {
+		fmt.Printf("Start Time:             %s\n", rec.StartTime.Format("2006-01-02 15:04:05"))
+	}
+	if !rec.LastActiveTime.IsZero() {
+		fmt.Printf("Last Active Time:       %s\n", rec.LastActiveTime.Format("2006-01-02 15:04:05"))
+	}
+	if rec.SpecName != "" {
+		fmt.Printf("Specification:          %s (%s)\n", rec.SpecName, rec.SpecPath)
+	}
+	if rec.TxFileName != "" {
+		fmt.Printf("Transaction File:       %s (%s)\n", rec.TxFileName, rec.TxFilePath)
+	}
+	if rec.ConnectionType != "" {
+		fmt.Printf("Connection Mode:        %s\n", rec.ConnectionType)
+	}
+	if rec.Host != "" || rec.Port != "" {
+		fmt.Printf("Target Host / Port:     %s:%s\n", rec.Host, rec.Port)
+	}
+	if rec.HeaderType != "" {
+		fmt.Printf("Header Format:          %s\n", rec.HeaderType)
+	}
+	tlsStr := "Disabled"
+	if rec.TLSEnabled {
+		tlsStr = "Enabled"
+	}
+	fmt.Printf("TLS:                    %s\n", tlsStr)
+	if rec.Status != "" {
+		fmt.Printf("Status:                 %s\n", rec.Status)
+	}
+
+	fmt.Printf("\nTotal Transactions:     %v\n", stats["total_transactions"])
 	fmt.Printf("Successful Transactions: %v\n", stats["successful_transactions"])
-	fmt.Printf("Failed Transactions: %v\n", stats["failed_transactions"])
+	fmt.Printf("Failed Transactions:     %v\n", stats["failed_transactions"])
 	fmt.Printf("Average Processing Time: %.2f ms\n", stats["average_processing_time_ms"])
 
-	if responseCodes, ok := stats["response_code_distribution"].(map[string]int); ok &&
-		len(responseCodes) > 0 {
+	stressSummaries, err := db.GetSessionStressTestSummaries(sessionID)
+	if err == nil && len(stressSummaries) > 0 {
+		fmt.Println("\n-------------------------------------------------------------------------")
+		fmt.Printf("STRESS TEST SUMMARY DETAILS (%d Run(s))\n", len(stressSummaries))
+		fmt.Println("-------------------------------------------------------------------------")
+		for i, st := range stressSummaries {
+			fmt.Printf("Run #%d (Worker %s):\n", i+1, st.WorkerID)
+			if !st.StartTime.IsZero() && !st.EndTime.IsZero() {
+				fmt.Printf("  Time Window:          %s to %s\n", st.StartTime.Format("2006-01-02 15:04:05"), st.EndTime.Format("15:04:05"))
+			}
+			fmt.Printf("  Target / Concurrency: %d TPS (Workers: %d)\n", st.TargetTPS, st.Concurrency)
+			fmt.Printf("  Duration:             %.2f s\n", float64(st.TotalDurationMs)/1000.0)
+			fmt.Printf("  Total Executed:       %d (Passed: %d, Failed: %d)\n", st.TotalTransactions, st.SuccessfulTransactions, st.FailedTransactions)
+			fmt.Printf("  TPS Performance:      Avg: %.1f TPS | Peak: %.1f TPS\n", st.AverageTPS, st.PeakTPS)
+			fmt.Printf("  Latency Profile:      Min: %.2f ms | Mean: %.2f ms | Max: %.2f ms\n", st.MinLatencyMs, st.MeanLatencyMs, st.MaxLatencyMs)
+			fmt.Printf("  Percentiles:          P50: %.2f ms | P90: %.2f ms | P95: %.2f ms | P99: %.2f ms\n", st.P50LatencyMs, st.P90LatencyMs, st.P95LatencyMs, st.P99LatencyMs)
+			if st.TransactionsJSON != "" {
+				var txList []string
+				_ = json.Unmarshal([]byte(st.TransactionsJSON), &txList)
+				if len(txList) > 0 {
+					fmt.Printf("  Tested Templates:     %s\n", strings.Join(txList, ", "))
+				}
+			}
+			if st.ResponseCodesJSON != "" {
+				var respMap map[string]int
+				_ = json.Unmarshal([]byte(st.ResponseCodesJSON), &respMap)
+				if len(respMap) > 0 {
+					var rcPairs []string
+					for code, count := range respMap {
+						rcPairs = append(rcPairs, fmt.Sprintf("%s: %d", code, count))
+					}
+					fmt.Printf("  Response Codes:       %s\n", strings.Join(rcPairs, ", "))
+				}
+			}
+			if i < len(stressSummaries)-1 {
+				fmt.Println()
+			}
+		}
+	}
+
+	if responseCodes, ok := stats["response_code_distribution"].(map[string]int); ok && len(responseCodes) > 0 {
 		fmt.Printf("\nResponse Code Distribution:\n")
 		for code, count := range responseCodes {
 			fmt.Printf("  %s: %d\n", code, count)
 		}
 	}
 
-	// Pretty print the full stats as JSON
-	fmt.Printf("\nFull Statistics (JSON):\n")
-	statsJSON, err := json.MarshalIndent(stats, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal stats to JSON: %w", err)
+	// List transactions in this session
+	txs, err := db.GetSessionTransactions(sessionID)
+	if err == nil && len(txs) > 0 {
+		fmt.Printf("\nTransactions in Session (%d):\n", len(txs))
+		fmt.Printf("%-6s | %-19s | %-24s | %-10s | %-6s | %-4s\n", "ID", "Timestamp", "Name", "Proc Time", "Result", "Code")
+		fmt.Println(strings.Repeat("-", 82))
+		for _, t := range txs {
+			resStr := "SUCCESS"
+			if !t.Success {
+				resStr = "FAIL"
+			}
+			fmt.Printf("%-6d | %-19s | %-24s | %-7d ms | %-6s | %-4s\n",
+				t.ID,
+				t.Timestamp.Format("2006-01-02 15:04:05"),
+				truncateString(t.TxName, 24),
+				t.ProcessingTimeMs,
+				resStr,
+				t.ResponseCode,
+			)
+		}
+		fmt.Println("\nTo inspect a transaction: dbstats tx <id>")
 	}
-	fmt.Println(string(statsJSON))
 
 	return nil
+}
+
+func printTransactionDetail(txID int64) error {
+	tx, err := db.GetTransactionByID(txID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch transaction: %w", err)
+	}
+
+	fmt.Printf("\n=========================================================================\n")
+	fmt.Printf("TRANSACTION RETROSPECTIVE REVIEW [ID: %d]\n", tx.ID)
+	fmt.Printf("=========================================================================\n")
+	fmt.Printf("Session ID:        %s\n", tx.SessionID)
+	fmt.Printf("Transaction Name:  %s\n", tx.TxName)
+	fmt.Printf("Timestamp:         %s\n", tx.Timestamp.Format("2006-01-02 15:04:05"))
+	fmt.Printf("Processing Time:   %d ms\n", tx.ProcessingTimeMs)
+	resultStr := "SUCCESS"
+	if !tx.Success {
+		resultStr = "FAILED"
+	}
+	fmt.Printf("Result:            %s (Response Code: %s)\n", resultStr, tx.ResponseCode)
+	if tx.SpecName != "" {
+		fmt.Printf("Specification:     %s (%s)\n", tx.SpecName, tx.SpecPath)
+	}
+	if tx.TxFileName != "" {
+		fmt.Printf("Template File:     %s (%s)\n", tx.TxFileName, tx.TxFilePath)
+	}
+
+	// 1. Request Reconstruction
+	fmt.Printf("\n--- REQUEST MESSAGE ---\n")
+	reqReconstructed, err := db.Reconstruct(tx.RequestJSON, tx.RequestRawHEX, tx.SpecPath)
+	if err != nil {
+		fmt.Printf("Error reconstructing request: %v\n", err)
+	} else {
+		if reqReconstructed.HEX != "" {
+			fmt.Printf("\nRequest HEX:\n%s\n", reqReconstructed.HEX)
+		}
+		if reqReconstructed.DescribeText != "" {
+			fmt.Printf("Request Parsed ISO8583 Message:\n%s\n", reqReconstructed.DescribeText)
+		}
+	}
+
+	// 2. Response Reconstruction
+	fmt.Printf("\n--- RESPONSE MESSAGE ---\n")
+	if tx.ResponseJSON != nil || tx.ResponseRawHEX != nil {
+		respJSONStr := ""
+		if tx.ResponseJSON != nil {
+			respJSONStr = *tx.ResponseJSON
+		}
+		respHexStr := ""
+		if tx.ResponseRawHEX != nil {
+			respHexStr = *tx.ResponseRawHEX
+		}
+		respReconstructed, err := db.Reconstruct(respJSONStr, respHexStr, tx.SpecPath)
+		if err != nil {
+			fmt.Printf("Error reconstructing response: %v\n", err)
+		} else {
+			if respReconstructed.HEX != "" {
+				fmt.Printf("\nResponse HEX:\n%s\n", respReconstructed.HEX)
+			}
+			if respReconstructed.DescribeText != "" {
+				fmt.Printf("Response Parsed ISO8583 Message:\n%s\n", respReconstructed.DescribeText)
+			}
+		}
+	} else {
+		fmt.Println("(No response message recorded for this transaction)")
+	}
+
+	return nil
+}
+
+func runInteractiveMenu() error {
+	currentSessionID := config.GetConfig().GetSessionId()
+
+	options := []string{
+		"1. Current Session Overview",
+		"2. List Recorded Sessions",
+		"3. Select Session to Inspect",
+		"4. Review Transaction Detail (by ID)",
+		"5. Exit",
+	}
+
+	var choice string
+	prompt := &survey.Select{
+		Message: "Database Statistics & History Review:",
+		Options: options,
+	}
+	if err := survey.AskOne(prompt, &choice); err != nil {
+		return printSessionOverview(currentSessionID)
+	}
+
+	switch {
+	case strings.HasPrefix(choice, "1"):
+		return printSessionOverview(currentSessionID)
+	case strings.HasPrefix(choice, "2"):
+		return printSessionsList()
+	case strings.HasPrefix(choice, "3"):
+		sessions, err := db.GetSessionsList()
+		if err != nil || len(sessions) == 0 {
+			fmt.Println("No sessions available.")
+			return nil
+		}
+		sessOptions := make([]string, len(sessions))
+		for i, s := range sessions {
+			sessOptions[i] = fmt.Sprintf("%s | %s | Tx: %d", s.SessionID, s.StartTime.Format("2006-01-02 15:04:05"), s.TransactionCount)
+		}
+		var selectedSess string
+		if err := survey.AskOne(&survey.Select{Message: "Select session:", Options: sessOptions}, &selectedSess); err != nil {
+			return nil
+		}
+		parts := strings.Split(selectedSess, " | ")
+		return printSessionOverview(parts[0])
+	case strings.HasPrefix(choice, "4"):
+		var txIDStr string
+		if err := survey.AskOne(&survey.Input{Message: "Enter Transaction ID to review:"}, &txIDStr); err != nil {
+			return nil
+		}
+		txID, err := strconv.ParseInt(strings.TrimSpace(txIDStr), 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid transaction ID: %s", txIDStr)
+		}
+		return printTransactionDetail(txID)
+	default:
+		return nil
+	}
+}
+
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }

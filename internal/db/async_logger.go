@@ -22,8 +22,14 @@ type AsyncLogger struct {
 type TransactionRecord struct {
 	SessionID        string
 	TxName           string
+	TxFilePath       string
+	TxFileName       string
+	SpecPath         string
+	SpecName         string
 	RequestJSON      string
 	ResponseJSON     *string
+	RequestRawHEX    string
+	ResponseRawHEX   *string
 	ProcessingTimeMs int
 	Success          bool
 }
@@ -59,23 +65,42 @@ func StopAsyncLogger() {
 	}
 }
 
-// LogTransaction queues a transaction for logging
+// LogTransaction queues a basic transaction for logging
 func LogTransaction(sessionID, txName, requestJSON string, responseJSON *string, processingTimeMs int, success bool) {
-	if logger == nil {
-		// Fallback to synchronous if async logger isn't initialized
-		if err := InsertTransaction(sessionID, txName, requestJSON, responseJSON, processingTimeMs, success); err != nil {
-			log.Printf("Failed to insert transaction synchronously: %v", err)
-		}
-		return
-	}
-
-	record := &TransactionRecord{
+	LogTransactionEnriched(&TransactionRecord{
 		SessionID:        sessionID,
 		TxName:           txName,
 		RequestJSON:      requestJSON,
 		ResponseJSON:     responseJSON,
 		ProcessingTimeMs: processingTimeMs,
 		Success:          success,
+	})
+}
+
+// LogTransactionEnriched queues an enriched transaction for logging
+func LogTransactionEnriched(record *TransactionRecord) {
+	if record == nil {
+		return
+	}
+	if logger == nil {
+		// Fallback to synchronous if async logger isn't initialized
+		if err := InsertTransactionEnriched(&EnrichedTransactionRecord{
+			SessionID:        record.SessionID,
+			TxName:           record.TxName,
+			TxFilePath:       record.TxFilePath,
+			TxFileName:       record.TxFileName,
+			SpecPath:         record.SpecPath,
+			SpecName:         record.SpecName,
+			RequestJSON:      record.RequestJSON,
+			ResponseJSON:     record.ResponseJSON,
+			RequestRawHEX:    record.RequestRawHEX,
+			ResponseRawHEX:   record.ResponseRawHEX,
+			ProcessingTimeMs: record.ProcessingTimeMs,
+			Success:          record.Success,
+		}); err != nil {
+			log.Printf("Failed to insert transaction synchronously: %v", err)
+		}
+		return
 	}
 
 	select {
@@ -83,7 +108,7 @@ func LogTransaction(sessionID, txName, requestJSON string, responseJSON *string,
 		// Queued successfully
 	default:
 		// Channel full, drop or log error to prevent blocking
-		log.Printf("AsyncLogger channel full, dropping transaction log for %s", txName)
+		log.Printf("AsyncLogger channel full, dropping transaction log for %s", record.TxName)
 	}
 }
 
@@ -141,17 +166,22 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil) // Rollback if not committed
+	defer func() {
+		_ = sqlitex.ExecuteTransient(dbConn, "ROLLBACK", nil) // Rollback if not committed
+	}()
 
 	insertSQL := `
 		INSERT INTO transactions (
 			session_id, transaction_name, request_json, response_json, 
-			processing_time_ms, success, response_code
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
+			processing_time_ms, success, response_code,
+			tx_file_path, tx_file_name, spec_path, spec_name,
+			request_raw_hex, response_raw_hex
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	for _, record := range batch {
 		responseCode := deriveResponseCode(record.ResponseJSON)
+		_ = TouchSession(record.SessionID)
 
 		err = sqlitex.ExecuteTransient(dbConn, insertSQL, &sqlitex.ExecOptions{
 			Args: []interface{}{
@@ -162,6 +192,12 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 				record.ProcessingTimeMs,
 				record.Success,
 				responseCode,
+				record.TxFilePath,
+				record.TxFileName,
+				record.SpecPath,
+				record.SpecName,
+				record.RequestRawHEX,
+				derefOrNil(record.ResponseRawHEX),
 			},
 		})
 		if err != nil {

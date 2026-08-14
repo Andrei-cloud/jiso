@@ -11,6 +11,7 @@ import (
 	"jiso/internal/config"
 	"jiso/internal/server"
 	"jiso/internal/service"
+	"jiso/internal/session"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
@@ -163,6 +164,10 @@ func (c *ConnectCommand) Execute() error {
 			}
 			txPath = selected
 			config.GetConfig().SetFile(txPath)
+			if newSessID, err := session.GetManager().RotateSession(config.GetConfig().GetSpec(), txPath); err == nil && newSessID != "" {
+				fmt.Printf("New session initiated: %s\n", newSessID)
+			}
+
 
 			if c.Ctrl != nil {
 				if _, err := c.Ctrl.ReloadTransactions(txPath); err != nil {
@@ -225,6 +230,8 @@ func (c *ConnectCommand) Execute() error {
 		timeout := c.Svc.GetListenTimeout()
 		fmt.Printf("Listening on port %s (timeout: %v)... Waiting for remote host to connect...\n", listenPort, timeout)
 
+		_ = session.GetManager().UpdateConnectionDetails("SERVER", config.GetConfig().GetHost(), listenPort, answers.Length, config.GetConfig().GetTLSConfigPath() != "")
+
 		err = c.Svc.Listen(listenPort, naps, header)
 		if err != nil {
 			return fmt.Errorf("listener failed on port %s: %w", listenPort, err)
@@ -239,10 +246,13 @@ func (c *ConnectCommand) Execute() error {
 	}
 
 	fmt.Println("Connecting to server...")
+	_ = session.GetManager().UpdateConnectionDetails("CLIENT", config.GetConfig().GetHost(), config.GetConfig().GetPort(), answers.Length, config.GetConfig().GetTLSConfigPath() != "")
+
 	err = c.Svc.Connect(naps, header)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
 	}
+
 
 	// Double-check connection status after connecting
 	if c.Svc.Connection == nil {

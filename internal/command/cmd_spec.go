@@ -5,6 +5,7 @@ import (
 
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
+	"jiso/internal/session"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
@@ -59,7 +60,14 @@ func (c *SpecCommand) Execute() error {
 		}
 	}
 
+	txPath := cfg.GetConfig().GetFile()
+	newSessID, err := session.GetManager().RotateSession(specPath, txPath)
+	if err == nil && newSessID != "" {
+		fmt.Printf("New session initiated: %s\n", newSessID)
+	}
+
 	fmt.Printf("Specification updated successfully to: %s (Spec: %s)\n", specPath, spec.Name)
 
 	return nil
 }
+

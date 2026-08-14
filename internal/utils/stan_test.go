@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetPersistenceDirectory(t *testing.T) {
@@ -48,7 +50,7 @@ func TestGetPersistenceDirectory(t *testing.T) {
 func TestLoadPersistedData(t *testing.T) {
 	// Create a temporary directory
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	// Test loading non-existent file
 	data, err := loadPersistedData()
@@ -80,7 +82,7 @@ func TestLoadPersistedData(t *testing.T) {
 
 func TestLoadPersistedData_EmptyFile(t *testing.T) {
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	filePath := getPersistencePath()
 	err := os.WriteFile(filePath, []byte(""), 0o644)
@@ -101,7 +103,7 @@ func TestLoadPersistedData_EmptyFile(t *testing.T) {
 func TestPersistData(t *testing.T) {
 	// Create a temporary directory
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	testData := PersistentData{StanValue: 67890}
 
@@ -131,7 +133,7 @@ func TestPersistData(t *testing.T) {
 func TestGetCounter(t *testing.T) {
 	// Create temp directory and set initial value
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	counter := GetCounter()
 	if counter == nil {
@@ -327,7 +329,7 @@ func TestPersistWorker(t *testing.T) {
 	// We'll test that the channel and persistence work
 
 	tempDir := t.TempDir()
-	SetPersistenceDirectory(tempDir)
+	require.NoError(t, SetPersistenceDirectory(tempDir))
 
 	// Create a channel like the real implementation
 	testChan := make(chan uint32, 1)
@@ -339,7 +341,7 @@ func TestPersistWorker(t *testing.T) {
 
 		select {
 		case val := <-testChan:
-			persistData(PersistentData{StanValue: val})
+			_ = persistData(PersistentData{StanValue: val})
 		case <-ticker.C:
 			// Timeout
 		}

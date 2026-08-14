@@ -8,6 +8,7 @@ import (
 
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInjectVariables(t *testing.T) {
@@ -137,8 +138,8 @@ func TestValidationAssertions(t *testing.T) {
 	// Create mock response message
 	spec := iso8583.Spec87
 	msg := iso8583.NewMessage(spec)
-	msg.Field(39, "00")
-	msg.Field(38, "123456")
+	require.NoError(t, msg.Field(39, "00"))
+	require.NoError(t, msg.Field(38, "123456"))
 
 	runner := NewScenarioRunner(nil, nil)
 
@@ -210,7 +211,7 @@ func (sr *ScenarioRunner) runAssertionsOnMessage(respMsg *iso8583.Message, asser
 
 	for _, assertion := range assertions {
 		var fieldID int
-		fmt.Sscanf(assertion.Field, "%d", &fieldID)
+		_, _ = fmt.Sscanf(assertion.Field, "%d", &fieldID)
 		fieldObj := respMsg.GetField(fieldID)
 
 		if assertion.Exists != nil {

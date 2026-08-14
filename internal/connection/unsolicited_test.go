@@ -15,7 +15,7 @@ type mockMatcherImpl struct{}
 func (m *mockMatcherImpl) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpec) (*config.MockRouteConfig, *iso8583.Message, error) {
 	resp := iso8583.NewMessage(spec)
 	resp.MTI("0810")
-	resp.Field(39, "00")
+	_ = resp.Field(39, "00")
 	route := &config.MockRouteConfig{Name: "Mock Matcher Route"}
 	return route, resp, nil
 }

@@ -12,6 +12,7 @@ import (
 	cfg "jiso/internal/config"
 	"jiso/internal/db"
 	"jiso/internal/service"
+	"jiso/internal/session"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
@@ -74,6 +75,8 @@ func (cli *CLI) InitService() error {
 		db.InitAsyncLogger(1000, 50, 100*time.Millisecond)
 	}
 
+	_, _ = session.GetManager().StartSession(cfg.GetConfig().GetSpec(), cfg.GetConfig().GetFile())
+
 	return nil
 }
 
@@ -99,6 +102,9 @@ func (cli *CLI) Connect(lengthType string) error {
 
 	naps := (lengthType == "NAPS")
 
+	tlsEnabled := cfg.GetConfig().GetTLSConfigPath() != "" || (cfg.GetConfig().GetTLSConfig() != nil && cfg.GetConfig().GetTLSConfig().Enabled)
+	_ = session.GetManager().UpdateConnectionDetails("CLIENT", cfg.GetConfig().GetHost(), cfg.GetConfig().GetPort(), lengthType, tlsEnabled)
+
 	return cli.svc.Connect(naps, header)
 }
 
@@ -111,8 +117,12 @@ func (cli *CLI) Listen(port, lengthType string) error {
 
 	naps := (lengthType == "NAPS")
 
+	tlsEnabled := cfg.GetConfig().GetTLSConfigPath() != "" || (cfg.GetConfig().GetTLSConfig() != nil && cfg.GetConfig().GetTLSConfig().Enabled)
+	_ = session.GetManager().UpdateConnectionDetails("SERVER", cfg.GetConfig().GetHost(), port, lengthType, tlsEnabled)
+
 	return cli.svc.Listen(port, naps, header)
 }
+
 
 // Reload reloads the service and transaction specifications.
 func (cli *CLI) Reload() error {
@@ -144,6 +154,10 @@ func (cli *CLI) Reload() error {
 	if err := cli.InitService(); err != nil {
 		return fmt.Errorf("failed to reinitialize service: %w", err)
 	}
+
+	// Rotate session on reload
+	newSessionID, _ := session.GetManager().RotateSession(cfg.GetConfig().GetSpec(), cfg.GetConfig().GetFile())
+	fmt.Printf("New session initiated: %s\n", newSessionID)
 
 	// Step 5: Recreate command factory with new service and register commands
 	fmt.Println("Updating command factory...")

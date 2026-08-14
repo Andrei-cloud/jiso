@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"jiso/internal/config"
+	"jiso/internal/db"
 )
 
 func (w *stressTestWorker) printSummary(finalTps float64) {
@@ -67,6 +69,34 @@ func (w *stressTestWorker) printSummary(finalTps float64) {
 		p95 = percentile(latenciesCopy, 0.95)
 		p99 = percentile(latenciesCopy, 0.99)
 	}
+
+	txJSON, _ := json.Marshal(namesCopy)
+	respJSON, _ := json.Marshal(respCodesCopy)
+
+	_ = db.InsertStressTestSummary(&db.StressTestSummaryRecord{
+		SessionID:              w.sessionID,
+		WorkerID:               w.id,
+		StartTime:              startTimeCopy,
+		EndTime:                endTimeCopy,
+		TargetTPS:              w.targetTps,
+		Concurrency:            w.numWorkers,
+		TotalDurationMs:        w.duration.Milliseconds(),
+		TotalTransactions:      total,
+		SuccessfulTransactions: w.successful,
+		FailedTransactions:     w.failed,
+		AverageTPS:             finalTps,
+		PeakTPS:                peakInstantTpsCopy,
+		MinLatencyMs:           float64(minLatency.Microseconds()) / 1000.0,
+		MaxLatencyMs:           float64(maxLatency.Microseconds()) / 1000.0,
+		MeanLatencyMs:          float64(meanLatency.Microseconds()) / 1000.0,
+		P50LatencyMs:           float64(p50.Microseconds()) / 1000.0,
+		P90LatencyMs:           float64(p90.Microseconds()) / 1000.0,
+		P95LatencyMs:           float64(p95.Microseconds()) / 1000.0,
+		P99LatencyMs:           float64(p99.Microseconds()) / 1000.0,
+		TransactionsJSON:       string(txJSON),
+		ResponseCodesJSON:      string(respJSON),
+	})
+
 
 	// Get response timeout budget
 	timeout := config.GetConfig().GetResponseTimeout()

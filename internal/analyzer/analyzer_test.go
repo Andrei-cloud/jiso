@@ -26,20 +26,20 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 
 	msg1 := iso8583.NewMessage(spec)
 	msg1.MTI("0200")
-	msg1.Field(3, "000000")
-	msg1.Field(7, "0412232900")
-	msg1.Field(11, "000001")
-	msg1.Field(2, "4111111111111111")
+	require.NoError(t, msg1.Field(3, "000000"))
+	require.NoError(t, msg1.Field(7, "0412232900"))
+	require.NoError(t, msg1.Field(11, "000001"))
+	require.NoError(t, msg1.Field(2, "4111111111111111"))
 
 	p1, err := msg1.Pack()
 	require.NoError(t, err)
 
 	msg2 := iso8583.NewMessage(spec)
 	msg2.MTI("0200")
-	msg2.Field(3, "000000")
-	msg2.Field(7, "0412233000")
-	msg2.Field(11, "000002")
-	msg2.Field(2, "4222222222222222")
+	require.NoError(t, msg2.Field(3, "000000"))
+	require.NoError(t, msg2.Field(7, "0412233000"))
+	require.NoError(t, msg2.Field(11, "000002"))
+	require.NoError(t, msg2.Field(2, "4222222222222222"))
 
 	p2, err := msg2.Pack()
 	require.NoError(t, err)
@@ -95,17 +95,17 @@ func TestNetworkManagement08XX(t *testing.T) {
 
 	msg1 := iso8583.NewMessage(spec)
 	msg1.MTI("0800")
-	msg1.Field(3, "990000")
-	msg1.Field(7, "0412232900")
-	msg1.Field(11, "000001")
-	msg1.Field(70, "301")
+	require.NoError(t, msg1.Field(3, "990000"))
+	require.NoError(t, msg1.Field(7, "0412232900"))
+	require.NoError(t, msg1.Field(11, "000001"))
+	require.NoError(t, msg1.Field(70, "301"))
 
 	msg2 := iso8583.NewMessage(spec)
 	msg2.MTI("0800")
-	msg2.Field(3, "990000")
-	msg2.Field(7, "0412233000")
-	msg2.Field(11, "000002")
-	msg2.Field(70, "301")
+	require.NoError(t, msg2.Field(3, "990000"))
+	require.NoError(t, msg2.Field(7, "0412233000"))
+	require.NoError(t, msg2.Field(11, "000002"))
+	require.NoError(t, msg2.Field(70, "301"))
 
 	flow := &CapturedFlow{
 		MTI:      "0800",
@@ -262,8 +262,8 @@ func TestExtractFromPCAPFile(t *testing.T) {
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0200")
-	msg.Field(3, "000000")
-	msg.Field(11, "000001")
+	require.NoError(t, msg.Field(3, "000000"))
+	require.NoError(t, msg.Field(11, "000001"))
 	packed, err := msg.Pack()
 	require.NoError(t, err)
 
@@ -310,16 +310,16 @@ func TestInspectAndFilterPCAPDirections(t *testing.T) {
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
-	reqMsg.Field(3, "000000")
-	reqMsg.Field(11, "000001")
+	require.NoError(t, reqMsg.Field(3, "000000"))
+	require.NoError(t, reqMsg.Field(11, "000001"))
 	reqPacked, err := reqMsg.Pack()
 	require.NoError(t, err)
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(11, "000001")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(11, "000001"))
+	require.NoError(t, respMsg.Field(39, "00"))
 	respPacked, err := respMsg.Pack()
 	require.NoError(t, err)
 
@@ -371,8 +371,8 @@ func TestStreamAnalyzerMultiHeader(t *testing.T) {
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0800")
-	msg.Field(3, "990000")
-	msg.Field(11, "123456")
+	require.NoError(t, msg.Field(3, "990000"))
+	require.NoError(t, msg.Field(11, "123456"))
 	packed, err := msg.Pack()
 	require.NoError(t, err)
 
@@ -410,12 +410,12 @@ func TestAnalyzeFlowToMockRoutes(t *testing.T) {
 
 	respMsg1 := iso8583.NewMessage(spec)
 	respMsg1.MTI("0210")
-	respMsg1.Field(3, "000000")
-	respMsg1.Field(7, "0412232900")
-	respMsg1.Field(11, "000001")
-	respMsg1.Field(22, "021")
-	respMsg1.Field(38, "824664")
-	respMsg1.Field(39, "00")
+	require.NoError(t, respMsg1.Field(3, "000000"))
+	require.NoError(t, respMsg1.Field(7, "0412232900"))
+	require.NoError(t, respMsg1.Field(11, "000001"))
+	require.NoError(t, respMsg1.Field(22, "021"))
+	require.NoError(t, respMsg1.Field(38, "824664"))
+	require.NoError(t, respMsg1.Field(39, "00"))
 
 	flow := &CapturedFlow{
 		MTI:      "0210",
@@ -454,8 +454,8 @@ func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
-	respMsg.Field(3, "000000")
-	respMsg.Field(39, "00")
+	require.NoError(t, respMsg.Field(3, "000000"))
+	require.NoError(t, respMsg.Field(39, "00"))
 
 	compField55 := spec.Fields[55]
 	require.NotNil(t, compField55)
@@ -471,7 +471,7 @@ func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
 
 	packed55, err := comp.Bytes()
 	require.NoError(t, err)
-	respMsg.BinaryField(55, packed55)
+	require.NoError(t, respMsg.BinaryField(55, packed55))
 
 	flow := &CapturedFlow{
 		MTI:      "0210",
