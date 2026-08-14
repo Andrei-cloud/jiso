@@ -66,6 +66,7 @@ func parsePCAPPackets(r io.Reader, fn func(srcPort, dstPort uint16, payload []by
 	}
 
 	linkType := byteOrder.Uint32(globalHdr[20:24])
+	packetBuf := make([]byte, 65536)
 
 	for {
 		var recordHdr [16]byte
@@ -78,12 +79,12 @@ func parsePCAPPackets(r io.Reader, fn func(srcPort, dstPort uint16, payload []by
 			break
 		}
 
-		packetBuf := make([]byte, inclLen)
-		if _, err := io.ReadFull(r, packetBuf); err != nil {
+		slice := packetBuf[:inclLen]
+		if _, err := io.ReadFull(r, slice); err != nil {
 			break
 		}
 
-		srcPort, dstPort, tcpPayload := extractTCPPayloadFromPacket(packetBuf, linkType)
+		srcPort, dstPort, tcpPayload := extractTCPPayloadFromPacket(slice, linkType)
 		if len(tcpPayload) > 0 {
 			fn(srcPort, dstPort, tcpPayload)
 		}
@@ -92,6 +93,8 @@ func parsePCAPPackets(r io.Reader, fn func(srcPort, dstPort uint16, payload []by
 }
 
 func parsePCAPNGPackets(r io.Reader, fn func(srcPort, dstPort uint16, payload []byte)) error {
+	dataBuf := make([]byte, 65536)
+
 	for {
 		var blockHdr [8]byte
 		if _, err := io.ReadFull(r, blockHdr[:]); err != nil {
@@ -104,8 +107,14 @@ func parsePCAPNGPackets(r io.Reader, fn func(srcPort, dstPort uint16, payload []
 		}
 
 		dataLen := int(blockLen) - 12
-		dataBuf := make([]byte, dataLen)
-		if _, err := io.ReadFull(r, dataBuf); err != nil {
+		var slice []byte
+		if dataLen <= cap(dataBuf) {
+			slice = dataBuf[:dataLen]
+		} else {
+			slice = make([]byte, dataLen)
+		}
+
+		if _, err := io.ReadFull(r, slice); err != nil {
 			break
 		}
 
@@ -116,10 +125,10 @@ func parsePCAPNGPackets(r io.Reader, fn func(srcPort, dstPort uint16, payload []
 		}
 
 		// EPB (Enhanced Packet Block) type = 0x00000006
-		if blockType == 0x00000006 && len(dataBuf) >= 20 {
-			capLen := binary.LittleEndian.Uint32(dataBuf[12:16])
-			if int(capLen)+20 <= len(dataBuf) {
-				packetData := dataBuf[20 : 20+capLen]
+		if blockType == 0x00000006 && len(slice) >= 20 {
+			capLen := binary.LittleEndian.Uint32(slice[12:16])
+			if int(capLen)+20 <= len(slice) {
+				packetData := slice[20 : 20+capLen]
 				srcPort, dstPort, tcpPayload := extractTCPPayloadFromPacket(packetData, 1)
 				if len(tcpPayload) == 0 {
 					srcPort, dstPort, tcpPayload = extractTCPPayloadFromPacket(packetData, 0)

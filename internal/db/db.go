@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	json "github.com/goccy/go-json"
@@ -641,21 +643,50 @@ func derefOrNil(s *string) interface{} {
 	return *s
 }
 
+var fieldKeyStrings = func() [129]string {
+	var keys [129]string
+	for i := 0; i <= 128; i++ {
+		keys[i] = strconv.Itoa(i)
+	}
+	return keys
+}()
+
 // deriveResponseCode derives the response code from response JSON
 func deriveResponseCode(responseJSON *string) string {
 	if responseJSON == nil {
 		return "91" // Timeout
 	}
 
-	var response map[string]interface{}
-	if err := json.Unmarshal([]byte(*responseJSON), &response); err != nil {
+	s := *responseJSON
+	if s == "" {
+		return "XX"
+	}
+
+	// Fast path: scan for `"39"` field in JSON
+	idx := strings.Index(s, `"39"`)
+	if idx != -1 {
+		sub := s[idx+4:]
+		colonIdx := strings.Index(sub, ":")
+		if colonIdx != -1 {
+			valStr := strings.TrimSpace(sub[colonIdx+1:])
+			if len(valStr) >= 2 && valStr[0] == '"' {
+				endQuote := strings.Index(valStr[1:], `"`)
+				if endQuote != -1 {
+					return valStr[1 : endQuote+1]
+				}
+			}
+		}
+	}
+
+	var response struct {
+		Fields map[string]interface{} `json:"fields"`
+	}
+	if err := json.Unmarshal([]byte(s), &response); err != nil || response.Fields == nil {
 		return "XX" // Unknown/error
 	}
 
-	if fields, ok := response["fields"].(map[string]interface{}); ok {
-		if code, ok := fields["39"].(string); ok {
-			return code
-		}
+	if code, ok := response.Fields["39"].(string); ok {
+		return code
 	}
 
 	return "XX" // Default unknown
@@ -678,7 +709,7 @@ func MessageToJSON(msg *iso8583.Message) (string, error) {
 	for i := 2; i <= 128; i++ { // Skip MTI (0) and bitmap (1)
 		if field := msg.GetField(i); field != nil {
 			if str, err := field.String(); err == nil && str != "" {
-				fields[fmt.Sprintf("%d", i)] = str
+				fields[fieldKeyStrings[i]] = str
 			}
 		}
 	}

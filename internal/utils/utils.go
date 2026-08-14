@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moov-io/iso8583"
@@ -22,9 +23,19 @@ const (
 	letterIdxMax  = 63 / letterIdxBits
 )
 
-var src = rand.NewSource(time.Now().UnixNano())
+var (
+	specCache   sync.Map
+	defaultSpec *iso8583.MessageSpec
+	defaultOnce sync.Once
+)
 
 func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
+	if cached, ok := specCache.Load(path); ok {
+		if spec, ok := cached.(*iso8583.MessageSpec); ok && spec != nil {
+			return spec, nil
+		}
+	}
+
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening file %s: %w", path, err)
@@ -36,7 +47,13 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 		return nil, fmt.Errorf("reading file %s: %w", path, err)
 	}
 
-	return specs.ImportJSON(raw)
+	spec, err := specs.ImportJSON(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	specCache.Store(path, spec)
+	return spec, nil
 }
 
 func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.MessageSpec {
@@ -56,12 +73,16 @@ func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.Messag
 }
 
 func GetDefaultSpec() *iso8583.MessageSpec {
-	if len(templates.DefaultSpecJSON) > 0 {
-		if spec, err := specs.ImportJSON(templates.DefaultSpecJSON); err == nil && spec != nil {
-			return spec
+	defaultOnce.Do(func() {
+		if len(templates.DefaultSpecJSON) > 0 {
+			if spec, err := specs.ImportJSON(templates.DefaultSpecJSON); err == nil && spec != nil {
+				defaultSpec = spec
+				return
+			}
 		}
-	}
-	return iso8583.Spec87
+		defaultSpec = iso8583.Spec87
+	})
+	return defaultSpec
 }
 
 func FindAvailableSpecFiles() []string {
@@ -126,26 +147,24 @@ func FindAvailablePCAPFiles() []string {
 }
 
 func RandString(n int) string {
-	if n < 0 {
+	if n <= 0 {
 		return ""
 	}
 
-	sb := strings.Builder{}
-	sb.Grow(n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+	b := make([]byte, n)
+	for i, cache, remain := n-1, rand.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
+			cache, remain = rand.Int63(), letterIdxMax
 		}
 		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			sb.WriteByte(letterBytes[idx])
+			b[i] = letterBytes[idx]
 			i--
 		}
 		cache >>= letterIdxBits
 		remain--
 	}
 
-	return sb.String()
+	return string(b)
 }
 
 func ResponseMTI(mti string) string {

@@ -63,16 +63,12 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 	}
 
 	if exists && pending != nil {
-		// Send response to waiting goroutine with timeout protection
 		select {
 		case pending.responseChan <- message:
-			// Successfully sent response
-		case <-time.After(100 * time.Millisecond):
+		default:
 			if m.debugMode {
-				fmt.Printf("Timeout sending inbound message to channel for STAN %s\n", stan)
+				fmt.Printf("Response channel full for STAN %s\n", stan)
 			}
-			// Close the channel to signal completion
-			close(pending.responseChan)
 		}
 		return
 	}
@@ -80,21 +76,6 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 	// If this is a response to a synchronous Send() call, iso8583-connection matches it internally.
 	// We don't want to log unsolicited warning or trigger mock route matchers for response messages.
 	if isResponse {
-		return
-	}
-
-	if exists && pending != nil {
-		// Send response to waiting goroutine with timeout protection
-		select {
-		case pending.responseChan <- message:
-			// Successfully sent response
-		case <-time.After(100 * time.Millisecond):
-			if m.debugMode {
-				fmt.Printf("Timeout sending inbound message to channel for STAN %s\n", stan)
-			}
-			// Close the channel to signal completion
-			close(pending.responseChan)
-		}
 		return
 	}
 

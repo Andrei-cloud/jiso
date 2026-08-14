@@ -17,6 +17,8 @@ func cloneHeader(h network.Header) network.Header {
 	switch h := h.(type) {
 	case *utils.Binary2BytesAdapter:
 		return utils.NewBinary2BytesAdapter()
+	case *utils.Binary4BytesAdapter:
+		return utils.NewBinary4BytesAdapter()
 	case *network.ASCII4BytesHeader:
 		return network.NewASCII4BytesHeader()
 	case *network.BCD2BytesHeader:

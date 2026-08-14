@@ -20,7 +20,7 @@ import (
 	"jiso/internal/utils"
 )
 
-var Version = "v1.7.0"
+var Version = cfg.Version
 
 
 type CLI struct {

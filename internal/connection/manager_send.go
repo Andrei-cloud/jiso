@@ -2,6 +2,7 @@ package connection
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -30,10 +31,27 @@ func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
 		return packedMsg, nil
 	}
 
+	// Fast paths for common headers avoiding cloneHeader and buffer growth
+	if !m.naps {
+		switch m.header.(type) {
+		case *utils.Binary2BytesAdapter:
+			fullPayload := make([]byte, 2+len(packedMsg))
+			binary.BigEndian.PutUint16(fullPayload[0:2], uint16(len(packedMsg)))
+			copy(fullPayload[2:], packedMsg)
+			return fullPayload, nil
+		case *utils.Binary4BytesAdapter:
+			fullPayload := make([]byte, 4+len(packedMsg))
+			binary.BigEndian.PutUint32(fullPayload[0:4], uint32(len(packedMsg)))
+			copy(fullPayload[4:], packedMsg)
+			return fullPayload, nil
+		}
+	}
+
 	hdr := cloneHeader(m.header)
 	hdr.SetLength(len(packedMsg))
 
 	var buf bytes.Buffer
+	buf.Grow(32 + len(packedMsg))
 	if m.naps {
 		napsWrite := utils.NapsWriteLengthWrapper(utils.WriteMessageLengthWrapper(hdr))
 		if _, err := napsWrite(&buf, len(packedMsg)); err != nil {
@@ -45,8 +63,8 @@ func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
 		}
 	}
 
-	fullPayload := append(buf.Bytes(), packedMsg...)
-	return fullPayload, nil
+	buf.Write(packedMsg)
+	return buf.Bytes(), nil
 }
 
 func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
@@ -216,9 +234,8 @@ func (m *Manager) SendAsync(
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
-	// Start timeout handler
-	go func() {
-		time.Sleep(m.responseTimeout)
+	// Set timeout handler with time.AfterFunc to avoid dedicated goroutine allocation
+	time.AfterFunc(m.responseTimeout, func() {
 		m.pendingMu.Lock()
 		if pendingReq, exists := m.pendingRequests[stan]; exists && pendingReq == pending {
 			delete(m.pendingRequests, stan)
@@ -232,7 +249,7 @@ func (m *Manager) SendAsync(
 			}
 		}
 		m.pendingMu.Unlock()
-	}()
+	})
 
 	return responseChan, nil
 }

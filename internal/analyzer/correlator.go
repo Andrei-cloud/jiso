@@ -67,7 +67,25 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 	}
 
 	usedResps := make(map[*AnnotatedMessage]bool)
+	respByStan := make(map[string][]*AnnotatedMessage, len(resps))
+	respByRRN := make(map[string][]*AnnotatedMessage, len(resps))
+
+	for _, respAM := range resps {
+		respMTI, _ := respAM.Message.GetMTI()
+		stan := getFieldString(respAM.Message, 11)
+		if stan != "" {
+			k := respMTI + ":" + stan
+			respByStan[k] = append(respByStan[k], respAM)
+		}
+		rrn := getFieldString(respAM.Message, 37)
+		if rrn != "" {
+			k := respMTI + ":" + rrn
+			respByRRN[k] = append(respByRRN[k], respAM)
+		}
+	}
+
 	var pairs []*CorrelatedPair
+	pairsByStan := make(map[string]*CorrelatedPair, len(reqs))
 
 	// Pair primary requests with responses
 	for _, reqAM := range reqs {
@@ -80,15 +98,11 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 
 		var matchedResp *AnnotatedMessage
 
-		// 1. Match by STAN + Expected MTI
+		// 1. Match by STAN + Expected MTI via index
 		if reqSTAN != "" {
-			for _, respAM := range resps {
-				if usedResps[respAM] {
-					continue
-				}
-				respMTI, _ := respAM.Message.GetMTI()
-				if respMTI == expectedRespMTI && getFieldString(respAM.Message, 11) == reqSTAN {
-					matchedResp = respAM
+			for _, candidate := range respByStan[expectedRespMTI+":"+reqSTAN] {
+				if !usedResps[candidate] {
+					matchedResp = candidate
 					break
 				}
 			}
@@ -96,13 +110,9 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 
 		// 2. Fallback match by RRN if STAN match failed
 		if matchedResp == nil && reqRRN != "" {
-			for _, respAM := range resps {
-				if usedResps[respAM] {
-					continue
-				}
-				respMTI, _ := respAM.Message.GetMTI()
-				if respMTI == expectedRespMTI && getFieldString(respAM.Message, 37) == reqRRN {
-					matchedResp = respAM
+			for _, candidate := range respByRRN[expectedRespMTI+":"+reqRRN] {
+				if !usedResps[candidate] {
+					matchedResp = candidate
 					break
 				}
 			}
@@ -117,61 +127,61 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 			label += " (No Response Captured)"
 		}
 
-		pairs = append(pairs, &CorrelatedPair{
+		p := &CorrelatedPair{
 			Request:  reqAM,
 			Response: matchedResp,
 			Label:    label,
-		})
+		}
+		pairs = append(pairs, p)
+		if reqSTAN != "" {
+			pairsByStan[reqSTAN] = p
+		}
 	}
 
 	// Reversal correlation using DE90 (Original Data Elements)
 	usedRevResps := make(map[*AnnotatedMessage]bool)
+	revRespByStan := make(map[string][]*AnnotatedMessage, len(revResps))
+	for _, revRespAM := range revResps {
+		mti := getFieldMTI(revRespAM.Message)
+		stan := getFieldString(revRespAM.Message, 11)
+		if stan != "" {
+			k := mti + ":" + stan
+			revRespByStan[k] = append(revRespByStan[k], revRespAM)
+		}
+	}
+
 	for _, revReqAM := range revReqs {
 		origMTI, origSTAN, _ := extractDE90Originals(revReqAM.Message)
-
 		revSTAN := getFieldString(revReqAM.Message, 11)
 		var matchedPair *CorrelatedPair
 
 		// 1. Try matching against existing pairs using original STAN
 		if origSTAN != "" {
-			for _, pair := range pairs {
-				if pair.Request == nil {
-					continue
-				}
-				pairSTAN := getFieldString(pair.Request.Message, 11)
-				pairMTI, _ := pair.Request.Message.GetMTI()
-
-				if pairSTAN == origSTAN && (origMTI == "" || origMTI == pairMTI) {
-					matchedPair = pair
-					break
+			if p, ok := pairsByStan[origSTAN]; ok && p != nil && p.Request != nil {
+				pairMTI, _ := p.Request.Message.GetMTI()
+				if origMTI == "" || origMTI == pairMTI {
+					matchedPair = p
 				}
 			}
 		}
 
-		// 2. Fallback matching using reversal's own STAN or DE37
+		// 2. Fallback matching using reversal's own STAN
 		if matchedPair == nil && revSTAN != "" {
-			for _, pair := range pairs {
-				if pair.Request == nil {
-					continue
-				}
-				if getFieldString(pair.Request.Message, 11) == revSTAN {
-					matchedPair = pair
-					break
-				}
+			if p, ok := pairsByStan[revSTAN]; ok {
+				matchedPair = p
 			}
 		}
 
 		// Find matching reversal response
 		revRespMTI := utils.ResponseMTI(getFieldMTI(revReqAM.Message))
 		var matchedRevResp *AnnotatedMessage
-		for _, revRespAM := range revResps {
-			if usedRevResps[revRespAM] {
-				continue
-			}
-			if getFieldMTI(revRespAM.Message) == revRespMTI && getFieldString(revRespAM.Message, 11) == revSTAN {
-				matchedRevResp = revRespAM
-				usedRevResps[revRespAM] = true
-				break
+		if revSTAN != "" {
+			for _, candidate := range revRespByStan[revRespMTI+":"+revSTAN] {
+				if !usedRevResps[candidate] {
+					matchedRevResp = candidate
+					usedRevResps[candidate] = true
+					break
+				}
 			}
 		}
 

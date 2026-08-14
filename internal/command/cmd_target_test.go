@@ -12,8 +12,6 @@ import (
 )
 
 func TestTargetCommand(t *testing.T) {
-	t.Parallel()
-
 	clientCfg := client.NewClientConfig("localhost", "9999", nil)
 	cmd := NewTargetCommand(clientCfg, nil)
 
@@ -41,8 +39,6 @@ func TestTargetCommand(t *testing.T) {
 }
 
 func TestTargetCommand_UpdatesServiceAddress(t *testing.T) {
-	t.Parallel()
-
 	specPath := filepath.Join("..", "..", "specs", "spec_bcp.json")
 	svc, err := service.NewService("localhost", "9999", specPath, false, 1, 0, 0, 0)
 	require.NoError(t, err)
