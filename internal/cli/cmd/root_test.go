@@ -21,7 +21,7 @@ func TestVersionCommand(t *testing.T) {
 
 	err := rootCmd.Execute()
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "jiso version v1.5.0")
+	assert.Contains(t, buf.String(), "jiso version v1.8.0")
 }
 
 func TestVersionAliasCommand(t *testing.T) {
@@ -32,7 +32,7 @@ func TestVersionAliasCommand(t *testing.T) {
 
 	err := rootCmd.Execute()
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "jiso version v1.5.0")
+	assert.Contains(t, buf.String(), "jiso version v1.8.0")
 }
 
 func TestSpecInitCommand(t *testing.T) {

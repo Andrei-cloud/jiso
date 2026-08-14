@@ -30,6 +30,7 @@ type TransactionRecord struct {
 	ResponseJSON     *string
 	RequestRawHEX    string
 	ResponseRawHEX   *string
+	ResponseCode     string
 	ProcessingTimeMs int
 	Success          bool
 }
@@ -84,6 +85,10 @@ func LogTransactionEnriched(record *TransactionRecord) {
 	}
 	if logger == nil {
 		// Fallback to synchronous if async logger isn't initialized
+		responseCode := record.ResponseCode
+		if responseCode == "" {
+			responseCode = deriveResponseCode(record.ResponseJSON)
+		}
 		if err := InsertTransactionEnriched(&EnrichedTransactionRecord{
 			SessionID:        record.SessionID,
 			TxName:           record.TxName,
@@ -95,6 +100,7 @@ func LogTransactionEnriched(record *TransactionRecord) {
 			ResponseJSON:     record.ResponseJSON,
 			RequestRawHEX:    record.RequestRawHEX,
 			ResponseRawHEX:   record.ResponseRawHEX,
+			ResponseCode:     responseCode,
 			ProcessingTimeMs: record.ProcessingTimeMs,
 			Success:          record.Success,
 		}); err != nil {
@@ -140,13 +146,18 @@ func (l *AsyncLogger) start() {
 			case <-ticker.C:
 				flush()
 			case <-l.done:
-				// Flush remaining
 				flush()
-				// Drain channel
-				for record := range l.txChan {
-					batch = append(batch, record)
-					if len(batch) >= l.batchSize {
-						flush()
+				// Drain channel non-blockingly without hanging on unclosed channel
+				draining := true
+				for draining {
+					select {
+					case record := <-l.txChan:
+						batch = append(batch, record)
+						if len(batch) >= l.batchSize {
+							flush()
+						}
+					default:
+						draining = false
 					}
 				}
 				flush()
@@ -179,9 +190,17 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
+	touchedSessions := make(map[string]bool)
 	for _, record := range batch {
-		responseCode := deriveResponseCode(record.ResponseJSON)
-		_ = TouchSession(record.SessionID)
+		if record.SessionID != "" && !touchedSessions[record.SessionID] {
+			_ = TouchSession(record.SessionID)
+			touchedSessions[record.SessionID] = true
+		}
+
+		responseCode := record.ResponseCode
+		if responseCode == "" {
+			responseCode = deriveResponseCode(record.ResponseJSON)
+		}
 
 		err = sqlitex.ExecuteTransient(dbConn, insertSQL, &sqlitex.ExecOptions{
 			Args: []interface{}{

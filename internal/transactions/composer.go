@@ -158,9 +158,9 @@ func interpolateCompositePlaceholderString(val string, selectedRow map[string]st
 	missingData := false
 
 	val = dataRegex.ReplaceAllStringFunc(val, func(m string) string {
-		match := dataRegex.FindStringSubmatch(m)
-		if len(match) > 1 && selectedRow != nil {
-			if v, exist := selectedRow[match[1]]; exist {
+		key := extractPlaceholderKey(m, "data.")
+		if key != "" && selectedRow != nil {
+			if v, exist := selectedRow[key]; exist {
 				return v
 			}
 		}
@@ -169,14 +169,21 @@ func interpolateCompositePlaceholderString(val string, selectedRow map[string]st
 	})
 
 	val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
-		match := contextRegex.FindStringSubmatch(m)
-		if len(match) > 1 {
-			return ""
-		}
-		return m
+		return ""
 	})
 
 	return val, missingData
+}
+
+func extractPlaceholderKey(m string, prefix string) string {
+	m = strings.TrimSpace(m)
+	m = strings.TrimPrefix(m, "{{")
+	m = strings.TrimSuffix(m, "}}")
+	m = strings.TrimSpace(m)
+	if strings.HasPrefix(m, prefix) {
+		return strings.TrimSpace(strings.TrimPrefix(m, prefix))
+	}
+	return ""
 }
 
 func (tc *TransactionCollection) findTransaction(name string) (*Transaction, error) {
@@ -241,6 +248,12 @@ func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFie
 }
 
 func (tc *TransactionCollection) setFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value interface{}) error {
+	if fieldID == 0 {
+		if s, ok := value.(string); ok {
+			msg.MTI(s)
+			return nil
+		}
+	}
 	switch v := value.(type) {
 	case string:
 		if fieldID == 0 {
@@ -248,21 +261,21 @@ func (tc *TransactionCollection) setFieldValue(msg *iso8583.Message, spec *iso85
 			return nil
 		}
 		return msg.Field(fieldID, v)
-	case float64:
-		if math.Mod(v, 1) == 0 {
-			return tc.setFieldValue(msg, spec, fieldID, strconv.FormatInt(int64(v), 10))
-		}
-		return tc.setFieldValue(msg, spec, fieldID, strconv.FormatFloat(v, 'f', -1, 64))
 	case int:
-		return tc.setFieldValue(msg, spec, fieldID, strconv.Itoa(v))
+		return msg.Field(fieldID, strconv.Itoa(v))
 	case int64:
-		return tc.setFieldValue(msg, spec, fieldID, strconv.FormatInt(v, 10))
+		return msg.Field(fieldID, strconv.FormatInt(v, 10))
+	case float64:
+		if v == math.Trunc(v) {
+			return msg.Field(fieldID, strconv.FormatInt(int64(v), 10))
+		}
+		return msg.Field(fieldID, strconv.FormatFloat(v, 'f', -1, 64))
 	case bool:
-		return tc.setFieldValue(msg, spec, fieldID, strconv.FormatBool(v))
+		return msg.Field(fieldID, strconv.FormatBool(v))
 	case map[string]interface{}:
 		return tc.setCompositeFieldValue(msg, spec, fieldID, v)
 	default:
-		return tc.setFieldValue(msg, spec, fieldID, fmt.Sprintf("%v", v))
+		return msg.Field(fieldID, fmt.Sprintf("%v", v))
 	}
 }
 

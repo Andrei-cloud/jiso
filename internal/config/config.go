@@ -12,6 +12,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// Version defines the current application version.
+const Version = "v1.8.0"
+
 type Config struct {
 	file                string
 	host                string

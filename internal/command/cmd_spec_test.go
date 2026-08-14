@@ -11,8 +11,6 @@ import (
 )
 
 func TestSpecCommand_SetArgsAndExecute(t *testing.T) {
-	t.Parallel()
-
 	specPath := filepath.Join("..", "..", "specs", "spec_bcp.json")
 
 	svc, err := service.NewService("localhost", "9999", specPath, false, 1, 0, 0, 0)

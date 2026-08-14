@@ -33,10 +33,10 @@ func (a *Binary4BytesAdapter) WriteTo(w io.Writer) (int, error) {
 	length := a.length
 	a.mu.RUnlock()
 
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, uint32(length))
+	var buf [4]byte
+	binary.BigEndian.PutUint32(buf[:], uint32(length))
 
-	n, err := w.Write(buf)
+	n, err := w.Write(buf[:])
 	if err != nil {
 		return n, fmt.Errorf("writing binary4 header: %w", err)
 	}
@@ -45,13 +45,13 @@ func (a *Binary4BytesAdapter) WriteTo(w io.Writer) (int, error) {
 }
 
 func (a *Binary4BytesAdapter) ReadFrom(r io.Reader) (int, error) {
-	buf := make([]byte, 4)
-	n, err := io.ReadFull(r, buf)
+	var buf [4]byte
+	n, err := io.ReadFull(r, buf[:])
 	if err != nil {
 		return n, fmt.Errorf("reading binary4 header: %w", err)
 	}
 
-	length := int(binary.BigEndian.Uint32(buf))
+	length := int(binary.BigEndian.Uint32(buf[:]))
 
 	a.mu.Lock()
 	a.length = length

@@ -108,7 +108,7 @@ func (h *VisaHeader) WriteTo(w io.Writer) (int, error) {
 	}
 
 	// 4 bytes TCP Header + 22 bytes VisaNet Header
-	buf := make([]byte, 26)
+	var buf [26]byte
 
 	// TCP Header
 	binary.BigEndian.PutUint16(buf[0:2], uint16(payloadLen))
@@ -127,14 +127,14 @@ func (h *VisaHeader) WriteTo(w io.Writer) (int, error) {
 
 	copy(buf[12:15], stationID[:]) // Source Station
 
-	n, err := w.Write(buf)
+	n, err := w.Write(buf[:])
 	return n, err
 }
 
 func (h *VisaHeader) ReadFrom(r io.Reader) (int, error) {
 	// Read 4 bytes TCP Header
-	tcpHeader := make([]byte, 4)
-	n, err := io.ReadFull(r, tcpHeader)
+	var tcpHeader [4]byte
+	n, err := io.ReadFull(r, tcpHeader[:])
 	if err != nil {
 		return n, fmt.Errorf("reading TCP header: %w", err)
 	}
@@ -163,8 +163,8 @@ func (h *VisaHeader) ReadFrom(r io.Reader) (int, error) {
 	}
 
 	// Read VisaNet Header (22 bytes)
-	visaHeader := make([]byte, 22)
-	n2, err := io.ReadFull(r, visaHeader)
+	var visaHeader [22]byte
+	n2, err := io.ReadFull(r, visaHeader[:])
 	n += n2
 	if err != nil {
 		return n, fmt.Errorf("reading VISA message header: %w", err)

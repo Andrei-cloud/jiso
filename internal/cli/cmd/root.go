@@ -132,7 +132,7 @@ func newVersionCmd() *cobra.Command {
 		Aliases: []string{"v"},
 		Short:   "Print version information",
 		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Printf("jiso version v1.5.0\n")
+			cmd.Printf("jiso version %s\n", cfg.Version)
 		},
 	}
 }

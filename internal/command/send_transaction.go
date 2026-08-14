@@ -395,7 +395,13 @@ func logToDB(sessionID, trxnName string, req, resp *iso8583.Message, processingT
 
 	var respJSON *string
 	var respRawHex *string
+	var responseCode string
 	if resp != nil {
+		if f := resp.GetField(39); f != nil {
+			if str, err := f.String(); err == nil {
+				responseCode = str
+			}
+		}
 		jsonStr, err := db.MessageToJSON(resp)
 		if err == nil && jsonStr != "" {
 			respJSON = &jsonStr
@@ -418,6 +424,7 @@ func logToDB(sessionID, trxnName string, req, resp *iso8583.Message, processingT
 		ResponseJSON:     respJSON,
 		RequestRawHEX:    reqRawHex,
 		ResponseRawHEX:   respRawHex,
+		ResponseCode:     responseCode,
 		ProcessingTimeMs: processingTimeMs,
 		Success:          success,
 	})
