@@ -68,7 +68,20 @@ func NewService(
 	// Set the networking stats on the manager
 	connManager.SetNetworkingStats(service.networkStats)
 
+	// Keep Service.Connection synchronized whenever Manager reconnects, connects, or disconnects
+	connManager.SetConnectionChangeHandler(func(c *moovconnection.Connection) {
+		service.Connection = c
+	})
+
 	return service, nil
+}
+
+// GetConnection returns the active underlying moovconnection.Connection
+func (s *Service) GetConnection() *moovconnection.Connection {
+	if s.connManager == nil {
+		return nil
+	}
+	return s.connManager.GetConnection()
 }
 
 // Connect establishes a connection to the server
