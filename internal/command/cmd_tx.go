@@ -9,6 +9,7 @@ import (
 
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
+	"jiso/internal/session"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
@@ -74,7 +75,13 @@ func (c *TxCommand) Execute() error {
 		count = len(tc.ListNames())
 	}
 
+	newSessID, err := session.GetManager().RotateSession(specPath, txPath)
+	if err == nil && newSessID != "" {
+		fmt.Printf("New session initiated: %s\n", newSessID)
+	}
+
 	fmt.Printf("Transaction file updated successfully to: %s (Count: %d)\n", txPath, count)
 
 	return nil
 }
+

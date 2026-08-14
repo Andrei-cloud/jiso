@@ -20,7 +20,8 @@ import (
 	"jiso/internal/utils"
 )
 
-var Version = "v1.6.2"
+var Version = "v1.7.0"
+
 
 type CLI struct {
 	commands map[string]cmd.Command

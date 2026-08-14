@@ -38,10 +38,26 @@ func (m *SessionManager) RotateSession(specPath, txPath string) (string, error) 
 	cfg := config.GetConfig()
 	oldSessionID := cfg.GetSessionId()
 
+	var connType, headerType string
+	host := cfg.GetHost()
+	port := cfg.GetPort()
+	tlsEnabled := cfg.GetTLSConfigPath() != "" || (cfg.GetTLSConfig() != nil && cfg.GetTLSConfig().Enabled)
+
 	if cfg.GetDbPath() != "" && oldSessionID != "" {
 		// Update old session status
 		rec, err := db.GetSessionByID(oldSessionID)
 		if err == nil && rec != nil {
+			connType = rec.ConnectionType
+			headerType = rec.HeaderType
+			if rec.Host != "" {
+				host = rec.Host
+			}
+			if rec.Port != "" {
+				port = rec.Port
+			}
+			if rec.TLSEnabled {
+				tlsEnabled = true
+			}
 			_ = db.UpsertSession(oldSessionID, rec.SpecPath, rec.SpecName, rec.TxFilePath, rec.TxFileName, rec.Host, rec.Port, rec.ConnectionType, rec.HeaderType, "reloaded", rec.TLSEnabled)
 		}
 	}
@@ -49,12 +65,9 @@ func (m *SessionManager) RotateSession(specPath, txPath string) (string, error) 
 	newSessionID := cfg.RotateSessionId()
 	specName := extractFileName(specPath)
 	txFileName := extractFileName(txPath)
-	host := cfg.GetHost()
-	port := cfg.GetPort()
-	tlsEnabled := cfg.GetTLSConfigPath() != "" || (cfg.GetTLSConfig() != nil && cfg.GetTLSConfig().Enabled)
 
 	if cfg.GetDbPath() != "" {
-		_ = db.UpsertSession(newSessionID, specPath, specName, txPath, txFileName, host, port, "", "", "active", tlsEnabled)
+		_ = db.UpsertSession(newSessionID, specPath, specName, txPath, txFileName, host, port, connType, headerType, "active", tlsEnabled)
 	}
 
 	return newSessionID, nil

@@ -164,6 +164,10 @@ func (c *ConnectCommand) Execute() error {
 			}
 			txPath = selected
 			config.GetConfig().SetFile(txPath)
+			if newSessID, err := session.GetManager().RotateSession(config.GetConfig().GetSpec(), txPath); err == nil && newSessID != "" {
+				fmt.Printf("New session initiated: %s\n", newSessID)
+			}
+
 
 			if c.Ctrl != nil {
 				if _, err := c.Ctrl.ReloadTransactions(txPath); err != nil {
