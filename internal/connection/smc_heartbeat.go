@@ -107,8 +107,13 @@ func (h *SMCHeartbeatDaemon) sendVisaEcho() error {
 	stanStr := fmt.Sprintf("%06d", now.UnixNano()%1000000)
 	_ = msg.Field(11, stanStr)
 
-	// DE 63: Network Data
-	_ = msg.Field(63, "0002")
+	// DE 63: V.I.P. Private-Use Field (Composite)
+	// Per Visa spec, 63.1 must be a fixed 4-digit BCD Network ID value.
+	if err := utils.SetCompositeFieldValue(msg, spec, 63, map[string]interface{}{
+		"1": "0002",
+	}); err != nil {
+		return fmt.Errorf("failed to build field 63 payload: %w", err)
+	}
 
 	// Set session control indicator on header if VisaHeader
 	h.manager.statusMu.RLock()
