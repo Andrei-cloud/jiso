@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +21,20 @@ type Matcher struct {
 }
 
 func NewMatcher(routes []config.MockRouteConfig) *Matcher {
-	return &Matcher{routes: routes}
+	sortedRoutes := make([]config.MockRouteConfig, len(routes))
+	copy(sortedRoutes, routes)
+	sort.SliceStable(sortedRoutes, func(i, j int) bool {
+		return calculateRouteSpecificity(&sortedRoutes[i]) > calculateRouteSpecificity(&sortedRoutes[j])
+	})
+	return &Matcher{routes: sortedRoutes}
+}
+
+func calculateRouteSpecificity(r *config.MockRouteConfig) int {
+	score := len(r.MatchFields) * 10
+	if _, hasPAN := r.MatchFields["2"]; hasPAN {
+		score += 50 // Prioritize card-level routes over generic routes
+	}
+	return score
 }
 
 // MatchAndCompose matches request message against flexible mock route field criteria and composes response
@@ -183,15 +197,67 @@ func extractFieldValue(req *iso8583.Message, fieldKey string) (string, bool) {
 func matchFieldValue(val string, exists bool, condition interface{}) bool {
 	switch c := condition.(type) {
 	case string:
-		return exists && val == c
+		return exists && (val == c || strings.TrimSpace(val) == strings.TrimSpace(c))
 	case float64:
-		return exists && val == fmt.Sprintf("%.0f", c)
+		return exists && (val == fmt.Sprintf("%.0f", c) || val == strconv.FormatFloat(c, 'f', 0, 64))
 	case int:
 		return exists && val == strconv.Itoa(c)
+	case int64:
+		return exists && val == strconv.FormatInt(c, 10)
 	case bool:
 		return exists == c
+	case []interface{}:
+		if !exists {
+			return false
+		}
+		for _, item := range c {
+			if matchFieldValue(val, exists, item) {
+				return true
+			}
+		}
+		return false
+	case []string:
+		if !exists {
+			return false
+		}
+		for _, item := range c {
+			if val == item || strings.TrimSpace(val) == strings.TrimSpace(item) {
+				return true
+			}
+		}
+		return false
+	case []int:
+		if !exists {
+			return false
+		}
+		for _, item := range c {
+			if val == strconv.Itoa(item) {
+				return true
+			}
+		}
+		return false
+	case []int64:
+		if !exists {
+			return false
+		}
+		for _, item := range c {
+			if val == strconv.FormatInt(item, 10) {
+				return true
+			}
+		}
+		return false
+	case []float64:
+		if !exists {
+			return false
+		}
+		for _, item := range c {
+			if val == fmt.Sprintf("%.0f", item) || val == strconv.FormatFloat(item, 'f', 0, 64) {
+				return true
+			}
+		}
+		return false
 	case map[string]interface{}:
-		// Advanced matching object with rules like {"equals": "...", "regex": "...", "exists": true, "prefix": "..."}
+		// Advanced matching object with rules like {"equals": "...", "regex": "...", "exists": true, "prefix": "...", "in": [...], "not_in": [...]}
 		if existCond, ok := c["exists"].(bool); ok {
 			if exists != existCond {
 				return false
@@ -203,6 +269,21 @@ func matchFieldValue(val string, exists bool, condition interface{}) bool {
 
 		if eqCond, ok := c["equals"].(string); ok && val != eqCond {
 			return false
+		}
+		if inCond, ok := c["in"]; ok {
+			if !matchFieldValue(val, exists, inCond) {
+				return false
+			}
+		}
+		if oneOfCond, ok := c["one_of"]; ok {
+			if !matchFieldValue(val, exists, oneOfCond) {
+				return false
+			}
+		}
+		if notInCond, ok := c["not_in"]; ok {
+			if matchFieldValue(val, exists, notInCond) {
+				return false
+			}
 		}
 		if rxCond, ok := c["regex"].(string); ok {
 			matched, err := regexp.MatchString(rxCond, val)

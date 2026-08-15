@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"fmt"
 	"testing"
 
 	json "github.com/goccy/go-json"
@@ -218,3 +219,110 @@ func TestScenarioBuilder_MockRoutesWithReversal(t *testing.T) {
 	assert.Equal(t, "0410", result.MockRoutes[1].ResponseMTI)
 	assert.Equal(t, "0400", result.MockRoutes[1].MatchFields["0"])
 }
+
+func TestScenarioBuilder_MockRoutes_DifferentCardsAndResponseCodes(t *testing.T) {
+	spec := utils.GetDefaultSpec()
+
+	cards := []string{"4000111122223333", "4000222233334444", "4000333344445555"}
+	rcs := []string{"00", "51", "85"}
+
+	var pairs []*CorrelatedPair
+	for i := range cards {
+		req := iso8583.NewMessage(spec)
+		req.MTI("0100")
+		require.NoError(t, req.Field(2, cards[i]))
+		require.NoError(t, req.Field(3, "000000"))
+		require.NoError(t, req.Field(11, fmt.Sprintf("%06d", i+1)))
+
+		resp := iso8583.NewMessage(spec)
+		resp.MTI("0110")
+		require.NoError(t, resp.Field(2, cards[i]))
+		require.NoError(t, resp.Field(3, "000000"))
+		require.NoError(t, resp.Field(11, fmt.Sprintf("%06d", i+1)))
+		require.NoError(t, resp.Field(39, rcs[i]))
+
+		pairs = append(pairs, &CorrelatedPair{
+			Request:  &AnnotatedMessage{Message: req, Direction: DirectionRequest},
+			Response: &AnnotatedMessage{Message: resp, Direction: DirectionResponse},
+			Label:    fmt.Sprintf("Pair %d", i+1),
+		})
+	}
+
+	builder := NewScenarioBuilder(spec)
+	opts := ScenarioScaffoldOptions{
+		ScenarioName:       "Multi-Card Scenario",
+		GenerateMockRoutes: true,
+		Unsecure:           true,
+	}
+
+	result, err := builder.Build(pairs, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// 3 distinct mock routes should be generated, each mapped to its card and response code
+	require.Len(t, result.MockRoutes, 3)
+
+	for i, mr := range result.MockRoutes {
+		assert.Equal(t, config.TypeMockRoute, mr.Type)
+		assert.Equal(t, "0110", mr.ResponseMTI)
+		assert.Equal(t, cards[i], mr.MatchFields["2"])
+		assert.Equal(t, rcs[i], mr.ResponseFields["39"])
+	}
+}
+
+func TestScenarioBuilder_MockRoutes_GroupedCardsList(t *testing.T) {
+	spec := utils.GetDefaultSpec()
+
+	cards := []string{"4000111122223333", "4000222233334444", "4000333344445555", "4000444455556666"}
+	rcs := []string{"00", "51", "51", "51"}
+
+	var pairs []*CorrelatedPair
+	for i := range cards {
+		req := iso8583.NewMessage(spec)
+		req.MTI("0100")
+		require.NoError(t, req.Field(2, cards[i]))
+		require.NoError(t, req.Field(3, "000000"))
+		require.NoError(t, req.Field(11, fmt.Sprintf("%06d", i+1)))
+
+		resp := iso8583.NewMessage(spec)
+		resp.MTI("0110")
+		require.NoError(t, resp.Field(2, cards[i]))
+		require.NoError(t, resp.Field(3, "000000"))
+		require.NoError(t, resp.Field(11, fmt.Sprintf("%06d", i+1)))
+		require.NoError(t, resp.Field(39, rcs[i]))
+
+		pairs = append(pairs, &CorrelatedPair{
+			Request:  &AnnotatedMessage{Message: req, Direction: DirectionRequest},
+			Response: &AnnotatedMessage{Message: resp, Direction: DirectionResponse},
+			Label:    fmt.Sprintf("Pair %d", i+1),
+		})
+	}
+
+	builder := NewScenarioBuilder(spec)
+	opts := ScenarioScaffoldOptions{
+		ScenarioName:       "Grouped Card Scenario",
+		GenerateMockRoutes: true,
+		Unsecure:           true,
+	}
+
+	result, err := builder.Build(pairs, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Should generate 2 grouped mock routes: 1 for RC=00 (Card 1) and 1 for RC=51 (Cards 2, 3, 4)
+	require.Len(t, result.MockRoutes, 2)
+
+	// Route 1 (RC=00)
+	mr00 := result.MockRoutes[0]
+	assert.Equal(t, "0110", mr00.ResponseMTI)
+	assert.Equal(t, "00", mr00.ResponseFields["39"])
+	assert.Equal(t, "4000111122223333", mr00.MatchFields["2"])
+
+	// Route 2 (RC=51) with list of 3 cards
+	mr51 := result.MockRoutes[1]
+	assert.Equal(t, "0110", mr51.ResponseMTI)
+	assert.Equal(t, "51", mr51.ResponseFields["39"])
+	assert.Equal(t, []string{"4000222233334444", "4000333344445555", "4000444455556666"}, mr51.MatchFields["2"])
+}
+
+

@@ -3,12 +3,20 @@ package transactions
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"jiso/internal/config"
+	"jiso/internal/db"
+	"jiso/internal/server"
+	"jiso/internal/service"
+	"jiso/internal/utils"
 )
 
 func TestInjectVariables(t *testing.T) {
@@ -445,4 +453,119 @@ func TestRunScenario_DoesNotFailImmediately_ExecutesAllSteps(t *testing.T) {
 	assert.Equal(t, "Step 3", report.Steps[2].StepName)
 	assert.Equal(t, "Step 4", report.Steps[3].StepName)
 }
+
+func TestScenarioRunner_DatabaseLogging(t *testing.T) {
+	spec := utils.GetDefaultSpec()
+
+	// 1. Setup temp DB
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "scenario_db_test.db")
+
+	config.GetConfig().Reset()
+	config.GetConfig().SetDbPath(dbPath)
+	config.GetConfig().EnsureSessionId()
+	sessionID := config.GetConfig().GetSessionId()
+
+	require.NoError(t, db.InitDB(dbPath))
+	defer func() {
+		_ = db.Close()
+	}()
+	db.InitAsyncLogger(100, 10, 20*time.Millisecond)
+
+	// 2. Setup mock server
+	routes := []config.MockRouteConfig{
+		{
+			Name: "SignOn Approval",
+			MatchFields: map[string]interface{}{
+				"0": "0800",
+			},
+			ResponseMTI:    "0810",
+			EchoFields:     []int{7, 11, 37},
+			ResponseFields: map[string]interface{}{"39": "00"},
+		},
+	}
+	mockServer := server.NewServer(spec, routes, "binary2")
+	require.NoError(t, mockServer.Start("19899"))
+	defer func() {
+		_ = mockServer.Stop()
+	}()
+
+	// 3. Setup client service
+	svc, err := service.NewService(
+		"127.0.0.1", "19899", "", false, 1, 2*time.Second, 5*time.Second, 2*time.Second,
+	)
+	require.NoError(t, err)
+	svc.SetSpec(spec)
+
+	h, err := utils.SelectLength("binary2")
+	require.NoError(t, err)
+	require.NoError(t, svc.Connect(false, h))
+	defer func() {
+		_ = svc.Disconnect()
+	}()
+
+	// 4. Create Transaction Collection with a scenario
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "SignOn",
+			"fields": {
+				"0": "0800",
+				"7": "0412232900",
+				"11": "000151",
+				"37": "251020000150",
+				"70": "1"
+			}
+		},
+		{
+			"type": "scenario",
+			"name": "SignOn Scenario",
+			"steps": [
+				{
+					"name": "Step 1: Sign On",
+					"use_transaction_id": "SignOn",
+					"validate": [
+						{
+							"field": "39",
+							"expect": "00"
+						}
+					]
+				}
+			]
+		}
+	]`
+	tmpTx, err := os.CreateTemp("", "scenario_tx_*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpTx.Name())
+	_, err = tmpTx.WriteString(configData)
+	require.NoError(t, err)
+	tmpTx.Close()
+
+	tc, err := NewTransactionCollection(tmpTx.Name(), spec)
+	require.NoError(t, err)
+
+	// 5. Run scenario
+	runner := NewScenarioRunner(svc, tc)
+	report, err := runner.RunScenario("SignOn Scenario")
+	require.NoError(t, err)
+	require.NotNil(t, report)
+	assert.True(t, report.Success)
+
+	// 6. Flush async DB logger and verify transactions table in SQLite
+	db.FlushTransactions()
+
+	txs, err := db.GetSessionTransactions(sessionID)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+
+	assert.Equal(t, sessionID, txs[0].SessionID)
+	assert.Equal(t, "SignOn", txs[0].TxName)
+	assert.Equal(t, "00", txs[0].ResponseCode)
+	assert.True(t, txs[0].Success)
+	assert.NotEmpty(t, txs[0].RequestJSON)
+	assert.NotEmpty(t, txs[0].ResponseJSON)
+	assert.Contains(t, txs[0].RequestJSON, "0800")
+	assert.Contains(t, *txs[0].ResponseJSON, "0810")
+}
+
 

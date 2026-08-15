@@ -63,7 +63,14 @@ func StopAsyncLogger() {
 	if logger != nil {
 		close(logger.done)
 		logger.wg.Wait()
+		logger = nil
+		once = sync.Once{}
 	}
+}
+
+// FlushTransactions flushes all queued transactions to the database and waits for write completion
+func FlushTransactions() {
+	StopAsyncLogger()
 }
 
 // LogTransaction queues a basic transaction for logging

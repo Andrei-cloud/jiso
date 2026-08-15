@@ -668,6 +668,27 @@ func GetSessionTransactions(sessionID string) ([]*EnrichedTransactionRecord, err
 	return results, nil
 }
 
+// GetSessionTransactionCount returns the number of transactions recorded for a session
+func GetSessionTransactionCount(sessionID string) (int, error) {
+	if dbConn == nil {
+		return 0, nil
+	}
+
+	var count int
+	sql := `SELECT COUNT(*) FROM transactions WHERE session_id = ?`
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			count = int(stmt.ColumnInt64(0))
+			return nil
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // GetTransactionByID returns a single transaction by ID
 func GetTransactionByID(txID int64) (*EnrichedTransactionRecord, error) {
 	if dbConn == nil {

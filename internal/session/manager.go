@@ -73,6 +73,62 @@ func (m *SessionManager) RotateSession(specPath, txPath string) (string, error) 
 	return newSessionID, nil
 }
 
+// UpdateSession updates specification and transaction file metadata for the current session without changing the session ID.
+func (m *SessionManager) UpdateSession(specPath, txPath string) error {
+	cfg := config.GetConfig()
+	cfg.EnsureSessionId()
+	sessionID := cfg.GetSessionId()
+
+	specName := extractFileName(specPath)
+	txFileName := extractFileName(txPath)
+	host := cfg.GetHost()
+	port := cfg.GetPort()
+	tlsEnabled := cfg.GetTLSConfigPath() != "" || (cfg.GetTLSConfig() != nil && cfg.GetTLSConfig().Enabled)
+
+	if cfg.GetDbPath() != "" {
+		return db.UpsertSession(sessionID, specPath, specName, txPath, txFileName, host, port, "", "", "active", tlsEnabled)
+	}
+	return nil
+}
+
+// UpdateOrRotateSession updates the current session if it is empty (has no recorded transactions),
+// or rotates to a new session if the current session has already processed transactions.
+// Returns the session ID, whether a rotation occurred, and any error.
+func (m *SessionManager) UpdateOrRotateSession(specPath, txPath string) (string, bool, error) {
+	cfg := config.GetConfig()
+	currentSessionID := cfg.GetSessionId()
+
+	if currentSessionID == "" {
+		sID, err := m.StartSession(specPath, txPath)
+		return sID, false, err
+	}
+
+	// Check if current session has any recorded transactions or stress tests
+	hasActivity := false
+	if cfg.GetDbPath() != "" {
+		count, err := db.GetSessionTransactionCount(currentSessionID)
+		if err == nil && count > 0 {
+			hasActivity = true
+		}
+		if !hasActivity {
+			summaries, err := db.GetSessionStressTestSummaries(currentSessionID)
+			if err == nil && len(summaries) > 0 {
+				hasActivity = true
+			}
+		}
+	}
+
+	if !hasActivity {
+		// Session is empty/fresh: update existing session metadata without rotating session ID
+		err := m.UpdateSession(specPath, txPath)
+		return currentSessionID, false, err
+	}
+
+	// Session is non-empty: rotate to a new session
+	newSessionID, err := m.RotateSession(specPath, txPath)
+	return newSessionID, true, err
+}
+
 func (m *SessionManager) UpdateConnectionDetails(connType, host, port, headerType string, tlsEnabled bool) error {
 	cfg := config.GetConfig()
 	sessionID := cfg.GetSessionId()

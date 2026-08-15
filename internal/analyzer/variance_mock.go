@@ -333,12 +333,36 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 	}
 
 	// General response flow mock route generation
-	responseFields := make(map[string]interface{})
-	fieldValues := make(map[int][]interface{})
+	type uniqueRespGroup struct {
+		responseFields map[string]interface{}
+		cards          []string
+		seenCards      map[string]bool
+		key            string
+	}
+
+	seenGroupKeys := make(map[string]int)
+	var groups []*uniqueRespGroup
 
 	for _, msg := range flow.Messages {
+		rf := make(map[string]interface{})
+		var keyParts []string
+
+		var fIDs []int
 		for i, f := range msg.GetFields() {
 			if f == nil || i == 0 || i == 1 || echoSet[i] {
+				continue
+			}
+			_, ok := extractFieldValueForTemplate(f)
+			if !ok {
+				continue
+			}
+			fIDs = append(fIDs, i)
+		}
+		sort.Ints(fIDs)
+
+		for _, i := range fIDs {
+			f := msg.GetField(i)
+			if f == nil {
 				continue
 			}
 			extracted, ok := extractFieldValueForTemplate(f)
@@ -346,27 +370,50 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 				continue
 			}
 			extracted = AnonymizeFieldValue(i, extracted, ve.unsecure)
-			fieldValues[i] = append(fieldValues[i], extracted)
-		}
-	}
+			fieldKey := fmt.Sprintf("%d", i)
 
-	fieldIDs := make([]int, 0, len(fieldValues))
-	for fID := range fieldValues {
-		fieldIDs = append(fieldIDs, fID)
-	}
-	sort.Ints(fieldIDs)
-
-	for _, fieldID := range fieldIDs {
-		values := fieldValues[fieldID]
-		fieldKey := fmt.Sprintf("%d", fieldID)
-
-		if fieldID == 38 {
-			responseFields[fieldKey] = "auth_code"
-			continue
+			if i == 38 {
+				rf[fieldKey] = "auth_code"
+				keyParts = append(keyParts, "38=auth_code")
+			} else {
+				rf[fieldKey] = extracted
+				if strVal, isStr := extracted.(string); isStr {
+					keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, strVal))
+				} else {
+					jsonBytes, _ := json.Marshal(extracted)
+					keyParts = append(keyParts, fmt.Sprintf("%d=%s", i, string(jsonBytes)))
+				}
+			}
 		}
 
-		// Use actual first captured value (never use dataset {{data.DE_X}} template placeholders in mock routes)
-		responseFields[fieldKey] = values[0]
+		cardVal := ""
+		if f2 := msg.GetField(2); f2 != nil {
+			if s, err := f2.String(); err == nil && s != "" {
+				cardVal = fmt.Sprintf("%v", AnonymizeFieldValue(2, s, ve.unsecure))
+			}
+		}
+
+		groupKey := strings.Join(keyParts, "|")
+		if idx, found := seenGroupKeys[groupKey]; found {
+			grp := groups[idx]
+			if cardVal != "" && !grp.seenCards[cardVal] {
+				grp.seenCards[cardVal] = true
+				grp.cards = append(grp.cards, cardVal)
+			}
+		} else {
+			grp := &uniqueRespGroup{
+				responseFields: rf,
+				cards:          nil,
+				seenCards:      make(map[string]bool),
+				key:            groupKey,
+			}
+			if cardVal != "" {
+				grp.seenCards[cardVal] = true
+				grp.cards = append(grp.cards, cardVal)
+			}
+			seenGroupKeys[groupKey] = len(groups)
+			groups = append(groups, grp)
+		}
 	}
 
 	var flowKey string
@@ -376,23 +423,44 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		flowKey = fmt.Sprintf("%s_%s", flow.MTI, flow.DE3)
 	}
 
-	txName := fmt.Sprintf("Mock Route %s", flowKey)
-	txItem := config.ConfigItem{
-		Type:           config.TypeMockRoute,
-		Name:           txName,
-		Description:    fmt.Sprintf("Auto-generated mock route for response flow %s", flowKey),
-		MatchFields:    matchFields,
-		EchoFields:     echoFields,
-		ResponseMTI:    flow.MTI,
-		ResponseFields: responseFields,
-		LatencyMs:      10,
-		JitterMs:       5,
-	}
+	results := make([]*VarianceResult, 0, len(groups))
+	for idx, grp := range groups {
+		mf := make(map[string]interface{})
+		for k, v := range matchFields {
+			mf[k] = v
+		}
+		if len(grp.cards) == 1 && len(groups) > 1 {
+			mf["2"] = grp.cards[0]
+		} else if len(grp.cards) > 1 {
+			mf["2"] = grp.cards
+		}
 
-	return []*VarianceResult{
-		{
+		txName := fmt.Sprintf("Mock Route %s", flowKey)
+		if len(groups) > 1 {
+			if rc, ok := grp.responseFields["39"].(string); ok && rc != "" {
+				txName = fmt.Sprintf("Mock Route %s RC=%s #%d", flowKey, rc, idx+1)
+			} else {
+				txName = fmt.Sprintf("Mock Route %s #%d", flowKey, idx+1)
+			}
+		}
+
+		txItem := config.ConfigItem{
+			Type:           config.TypeMockRoute,
+			Name:           txName,
+			Description:    fmt.Sprintf("Auto-generated mock route for response flow %s", flowKey),
+			MatchFields:    mf,
+			EchoFields:     echoFields,
+			ResponseMTI:    flow.MTI,
+			ResponseFields: grp.responseFields,
+			LatencyMs:      10,
+			JitterMs:       5,
+		}
+
+		results = append(results, &VarianceResult{
 			Transaction: txItem,
 			Dataset:     config.ConfigItem{},
-		},
-	}, nil
+		})
+	}
+
+	return results, nil
 }

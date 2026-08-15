@@ -106,3 +106,86 @@ func TestSessionRotationOnSpecAndTxChange(t *testing.T) {
 	}
 }
 
+func TestUpdateOrRotateSession_EmptySessionUpdates_ActiveSessionRotates(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "session_update_rotate_test.db")
+
+	config.GetConfig().Reset()
+	config.GetConfig().SetDbPath(dbPath)
+
+	if err := db.InitDB(dbPath); err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	mgr := GetManager()
+
+	// 1. Initial Session start
+	s1, err := mgr.StartSession("specs/spec.json", "transactions/transaction.json")
+	if err != nil {
+		t.Fatalf("StartSession failed: %v", err)
+	}
+
+	// 2. Since s1 has 0 transactions, changing spec should NOT create new session (just updates s1)
+	sID, rotated, err := mgr.UpdateOrRotateSession("specs/visa.json", "transactions/transaction.json")
+	if err != nil {
+		t.Fatalf("UpdateOrRotateSession failed: %v", err)
+	}
+	if rotated || sID != s1 {
+		t.Fatalf("Expected empty session to be updated without rotation, got ID %s (rotated=%v)", sID, rotated)
+	}
+
+	rec1, err := db.GetSessionByID(s1)
+	if err != nil || rec1 == nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if rec1.SpecName != "visa.json" || rec1.Status != "active" {
+		t.Errorf("Expected updated spec name 'visa.json' and active status, got: %+v", rec1)
+	}
+
+	// 3. Changing transaction file on empty session should also just update s1
+	sID, rotated, err = mgr.UpdateOrRotateSession("specs/visa.json", "transactions/purchase.json")
+	if err != nil {
+		t.Fatalf("UpdateOrRotateSession failed: %v", err)
+	}
+	if rotated || sID != s1 {
+		t.Fatalf("Expected empty session to be updated without rotation, got ID %s (rotated=%v)", sID, rotated)
+	}
+
+	rec1, err = db.GetSessionByID(s1)
+	if err != nil || rec1 == nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if rec1.TxFileName != "purchase.json" || rec1.Status != "active" {
+		t.Errorf("Expected updated tx file name 'purchase.json' and active status, got: %+v", rec1)
+	}
+
+	// 4. Log a transaction into s1
+	db.LogTransaction(s1, "Tx 0100", `{"0":"0100"}`, nil, 10, true)
+	// Flush async logger if running or wait brief moment for SQLite write
+	db.FlushTransactions()
+
+	// 5. Now that s1 has transactions, changing spec should ROTATE to new session s2
+	s2, rotated, err := mgr.UpdateOrRotateSession("specs/mastercard.json", "transactions/purchase.json")
+	if err != nil {
+		t.Fatalf("UpdateOrRotateSession on active session failed: %v", err)
+	}
+	if !rotated || s2 == s1 {
+		t.Fatalf("Expected session rotation on active session, got s2=%s (rotated=%v)", s2, rotated)
+	}
+
+	// Old session s1 should be marked reloaded
+	rec1Updated, err := db.GetSessionByID(s1)
+	if err != nil || rec1Updated.Status != "reloaded" {
+		t.Errorf("Expected rec1 status 'reloaded', got: %+v", rec1Updated)
+	}
+
+	// New session s2 should be active with mastercard.json
+	rec2, err := db.GetSessionByID(s2)
+	if err != nil || rec2.SpecName != "mastercard.json" || rec2.Status != "active" {
+		t.Errorf("Expected rec2 state with mastercard.json, got: %+v", rec2)
+	}
+}
+
