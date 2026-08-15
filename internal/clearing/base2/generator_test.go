@@ -188,3 +188,98 @@ func TestGenerateCTF_BINFilter(t *testing.T) {
 	_, err = GenerateCTF(session, txs, optsNonExistent)
 	assert.Error(t, err)
 }
+
+func TestGenerateCTF_CompositeSubfieldsAndCleanTID(t *testing.T) {
+	session := &db.SessionRecord{
+		SessionID: "test-session-subfields",
+		SpecName:  "visa.json",
+	}
+
+	respStructuredJSON := `{"mti":"0110","fields":{"38":"930216","39":"00","62":{"2":"466215320236000"}}}`
+	respRawBinaryJSON := `{"mti":"0110","fields":{"38":"930216","39":"00","62":"@\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0003\ufffd!S't\u0000\u0000"}}`
+
+	txs := []*db.EnrichedTransactionRecord{
+		{
+			ID:           1,
+			SessionID:    session.SessionID,
+			Timestamp:    time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC),
+			TxName:       "Structured Subfields Tx",
+			Success:      true,
+			ResponseCode: "00",
+			RequestJSON: `{
+				"mti": "0100",
+				"fields": {
+					"2": "4085652009074000",
+					"3": "000000",
+					"4": "4598",
+					"34": {
+						"02": {
+							"C1": "APPLE.COM/BILL",
+							"C2": "ITUNES.COM",
+							"C3": "DUBAI",
+							"C6": "AE"
+						}
+					},
+					"41": "99999999",
+					"42": "212963000200925",
+					"49": "784"
+				}
+			}`,
+			ResponseJSON: &respStructuredJSON,
+		},
+		{
+			ID:           2,
+			SessionID:    session.SessionID,
+			Timestamp:    time.Date(2026, 11, 2, 10, 5, 0, 0, time.UTC),
+			TxName:       "Raw Binary Field 62 Fallback Tx",
+			Success:      true,
+			ResponseCode: "00",
+			RequestJSON: `{
+				"mti": "0100",
+				"fields": {
+					"2": "4085658930133000",
+					"3": "000000",
+					"4": "12996",
+					"41": "99999999",
+					"42": "212963000200925",
+					"43": "APPLE.COM/BILL           ITUNES.COM   IE",
+					"49": "784"
+				}
+			}`,
+			ResponseJSON: &respRawBinaryJSON,
+		},
+	}
+
+	opts := GeneratorOptions{
+		CIB:            "400129",
+		GenerationTime: time.Date(2026, 11, 2, 14, 23, 38, 0, time.UTC),
+	}
+
+	result, err := GenerateCTF(session, txs, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	lines := strings.Split(strings.TrimRight(string(result.RawContent), "\n"), "\n")
+	require.Equal(t, 8, len(lines))
+
+	// Validate that EVERY character across all 8 lines is strictly printable ASCII (32-126)
+	for lineIdx, line := range lines {
+		require.Equal(t, 168, len(line), "Line %d length mismatch", lineIdx+1)
+		for colIdx, b := range []byte(line) {
+			assert.True(t, b >= 32 && b <= 126, "Non-printable byte 0x%02x found at Line %d, Col %d", b, lineIdx+1, colIdx+1)
+		}
+	}
+
+	// Verify TCR 5 for tx 1 (TID extracted from structured subfield 62.2)
+	tcr5Tx1 := lines[2]
+	assert.Equal(t, "0505", tcr5Tx1[:4])
+	assert.Equal(t, "466215320236000", tcr5Tx1[4:19], "TID should match structured 62.2 subfield value")
+
+	// Verify TCR 5 for tx 2 (TID clean numeric from fallback)
+	tcr5Tx2 := lines[5]
+	assert.Equal(t, "0505", tcr5Tx2[:4])
+	for _, c := range tcr5Tx2[4:19] {
+		assert.True(t, c >= '0' && c <= '9', "TID in TCR 5 must be all digits, got %c", c)
+	}
+}
+

@@ -7,6 +7,8 @@ import (
 
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/utils"
 )
 
 func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool) map[string]interface{} {
@@ -62,52 +64,12 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 
 // extractFieldValueForTemplate converts field values into JSON-friendly values.
 // Composite fields are expanded into nested maps of subfield values.
-func extractFieldValueForTemplate(f field.Field) (interface{}, bool) {
-	if f == nil {
-		return nil, false
+func extractFieldValueForTemplate(f field.Field, specField ...*field.Spec) (interface{}, bool) {
+	var sf *field.Spec
+	if len(specField) > 0 {
+		sf = specField[0]
 	}
-
-	composite, ok := f.(*field.Composite)
-	if !ok {
-		v, err := f.String()
-		if err != nil || v == "" {
-			return nil, false
-		}
-		return v, true
-	}
-
-	subfields := composite.GetSubfields()
-	if len(subfields) == 0 {
-		v, err := f.String()
-		if err != nil || v == "" {
-			return nil, false
-		}
-		return v, true
-	}
-
-	result := make(map[string]interface{})
-	keys := sortedNumericOrStringKeys(subfields)
-
-	for _, key := range keys {
-		if key == "0" {
-			continue
-		}
-		v, ok := extractFieldValueForTemplate(subfields[key])
-		if !ok {
-			continue
-		}
-		result[key] = v
-	}
-
-	if len(result) == 0 {
-		v, err := f.String()
-		if err != nil || v == "" {
-			return nil, false
-		}
-		return v, true
-	}
-
-	return result, true
+	return utils.ExtractFieldData(f, sf)
 }
 
 func buildPlaceholderValue(prefix string, value interface{}) interface{} {

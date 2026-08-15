@@ -1,13 +1,22 @@
 package db
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/encoding"
+	"github.com/moov-io/iso8583/field"
+	"github.com/moov-io/iso8583/prefix"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
+
+	"jiso/internal/utils"
 )
 
 func TestInitDB(t *testing.T) {
@@ -444,4 +453,81 @@ func TestVisaSessionsAndApprovedTransactions(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
+
+func TestMessageToJSONWithSpec_CompositeFields(t *testing.T) {
+	// 1. Create a spec with composite field 62 (subfields 1 and 2)
+	spec := &iso8583.MessageSpec{
+		Fields: map[int]field.Field{
+			0: field.NewString(&field.Spec{
+				Length:      4,
+				Description: "MTI",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			1: field.NewBitmap(&field.Spec{
+				Length:      8,
+				Description: "Bitmap",
+				Enc:         encoding.Binary,
+				Pref:        prefix.Binary.Fixed,
+			}),
+			2: field.NewString(&field.Spec{
+				Length:      16,
+				Description: "PAN",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			62: field.NewComposite(&field.Spec{
+				Length:      255,
+				Description: "Custom Payment Service Fields",
+				Pref:        prefix.Binary.Fixed,
+				Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Field 62.0 Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+				Subfields: map[string]field.Field{
+					"1": field.NewString(&field.Spec{
+						Length:      1,
+						Description: "ACI",
+						Enc:         encoding.ASCII,
+						Pref:        prefix.ASCII.Fixed,
+					}),
+					"2": field.NewString(&field.Spec{
+						Length:      15,
+						Description: "Transaction Identifier",
+						Enc:         encoding.ASCII,
+						Pref:        prefix.ASCII.Fixed,
+					}),
+				},
+			}),
+		},
+	}
+
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0100")
+	require.NoError(t, msg.Field(2, "4085652009074000"))
+
+	// Pack composite field 62 using utils.SetCompositeFieldValue
+	compData := map[string]interface{}{
+		"1": "A",
+		"2": "466215320236000",
+	}
+	require.NoError(t, utils.SetCompositeFieldValue(msg, spec, 62, compData))
+
+	// 2. Call MessageToJSONWithSpec
+	jsonStr, err := MessageToJSONWithSpec(msg, spec)
+	require.NoError(t, err)
+	require.NotEmpty(t, jsonStr)
+
+	// 3. Verify JSON parses into structured map with subfields preserved
+	var parsed struct {
+		MTI    string                 `json:"mti"`
+		Fields map[string]interface{} `json:"fields"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(jsonStr), &parsed))
+	assert.Equal(t, "0100", parsed.MTI)
+	assert.Equal(t, "4085652009074000", parsed.Fields["2"])
+
+	f62, ok := parsed.Fields["62"].(map[string]interface{})
+	require.True(t, ok, "Field 62 in JSON should be a structured map of subfields, got: %T (%v)", parsed.Fields["62"], parsed.Fields["62"])
+	assert.Equal(t, "A", f62["1"])
+	assert.Equal(t, "466215320236000", f62["2"])
+}
+
 

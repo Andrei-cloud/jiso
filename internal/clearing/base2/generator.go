@@ -2,6 +2,7 @@ package base2
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -326,8 +327,8 @@ func extractISOFields(rec *db.EnrichedTransactionRecord) *isoFields {
 	fields.TerminalID = getStringField(reqMap, "41")
 	fields.CardAcceptorID = getStringField(reqMap, "42")
 
-	// Merchant Name / Location (Field 43)
-	fields.MerchantLocation = getStringField(reqMap, "43")
+	// Merchant Name / Location (Field 43 or Field 34 composite)
+	fields.MerchantLocation = extractMerchantLocation(reqMap)
 
 	// Currency (Field 49)
 	fields.CurrencyCode = getStringField(reqMap, "49")
@@ -343,13 +344,48 @@ func extractISOFields(rec *db.EnrichedTransactionRecord) *isoFields {
 	fields.RRN = getStringField(reqMap, "37")
 	fields.ARN = getStringField(reqMap, "31")
 
-	// Transaction Identifier (Field 62.1 or Field 62)
+	// Transaction Identifier (Field 62.2, 62.02 or Field 62 TID)
 	fields.TransactionID = extractTransactionID(reqMap, respMap)
 
-	// EMV Chip Data (Field 55)
-	fields.EMVData = getStringField(reqMap, "55")
+	// EMV Chip Data (Field 55, 104, 123)
+	fields.EMVData = extractEMVData(reqMap)
 
 	return fields
+}
+
+func extractMerchantLocation(reqMap map[string]interface{}) string {
+	if loc := getStringField(reqMap, "43"); loc != "" {
+		return loc
+	}
+	if f34, ok := reqMap["34"].(map[string]interface{}); ok {
+		var subMap map[string]interface{}
+		if s, ok := f34["02"].(map[string]interface{}); ok {
+			subMap = s
+		} else if s, ok := f34["2"].(map[string]interface{}); ok {
+			subMap = s
+		}
+		if subMap != nil {
+			name := getStringField(subMap, "C1")
+			city := getStringField(subMap, "C3")
+			country := getStringField(subMap, "C6")
+			if name != "" || city != "" {
+				return fmt.Sprintf("%-25s%-13s%2s", name, city, country)
+			}
+		}
+	}
+	return ""
+}
+
+func extractEMVData(reqMap map[string]interface{}) string {
+	if f55 := getStringField(reqMap, "55"); f55 != "" {
+		return f55
+	}
+	if f104, ok := reqMap["104"].(map[string]interface{}); ok {
+		if s, ok := f104["5F"].(string); ok && s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func parseFieldsMap(jsonStr string) map[string]interface{} {
@@ -410,17 +446,32 @@ func extractTransactionID(reqMap, respMap map[string]interface{}) string {
 		if f62, ok := m["62"]; ok && f62 != nil {
 			switch v := f62.(type) {
 			case map[string]interface{}:
-				if sub1, ok := v["1"]; ok {
-					return fmt.Sprintf("%v", sub1)
+				if sub2, ok := v["2"]; ok && sub2 != nil {
+					return SanitizeNumeric(fmt.Sprintf("%v", sub2), 15)
 				}
-				if sub01, ok := v["01"]; ok {
-					return fmt.Sprintf("%v", sub01)
+				if sub02, ok := v["02"]; ok && sub02 != nil {
+					return SanitizeNumeric(fmt.Sprintf("%v", sub02), 15)
+				}
+				if sub1, ok := v["1"]; ok && sub1 != nil {
+					str := SanitizeNumeric(fmt.Sprintf("%v", sub1), 15)
+					if str != strings.Repeat("0", 15) {
+						return str
+					}
 				}
 			case string:
-				if len(v) >= 15 {
-					return v[:15]
+				raw := []byte(v)
+				// Check for 8-byte bitmap with Bit 2 (0x40) set
+				if len(raw) >= 16 && (raw[0]&0x40) != 0 {
+					bcdHex := hex.EncodeToString(raw[8:16])
+					if len(bcdHex) >= 15 {
+						tid := bcdHex[len(bcdHex)-15:]
+						return SanitizeNumeric(tid, 15)
+					}
 				}
-				return v
+				cleaned := SanitizeNumeric(v, 15)
+				if cleaned != strings.Repeat("0", 15) {
+					return cleaned
+				}
 			}
 		}
 	}

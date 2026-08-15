@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -10,6 +9,8 @@ import (
 	"github.com/moov-io/iso8583"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
+
+	"jiso/internal/utils"
 )
 
 var dbConn *sqlite.Conn
@@ -755,13 +756,6 @@ func derefOrNil(s *string) interface{} {
 	return *s
 }
 
-var fieldKeyStrings = func() [129]string {
-	var keys [129]string
-	for i := 0; i <= 128; i++ {
-		keys[i] = strconv.Itoa(i)
-	}
-	return keys
-}()
 
 // deriveResponseCode derives the response code from response JSON
 func deriveResponseCode(responseJSON *string) string {
@@ -806,6 +800,11 @@ func deriveResponseCode(responseJSON *string) string {
 
 // MessageToJSON converts an ISO8583 message to JSON string
 func MessageToJSON(msg *iso8583.Message) (string, error) {
+	return MessageToJSONWithSpec(msg, nil)
+}
+
+// MessageToJSONWithSpec converts an ISO8583 message to JSON string using the provided spec for composite fields
+func MessageToJSONWithSpec(msg *iso8583.Message, spec *iso8583.MessageSpec) (string, error) {
 	if msg == nil {
 		return "", fmt.Errorf("message is nil")
 	}
@@ -816,15 +815,8 @@ func MessageToJSON(msg *iso8583.Message) (string, error) {
 		return "", fmt.Errorf("failed to get MTI: %w", err)
 	}
 
-	// Get all fields
-	fields := make(map[string]interface{})
-	for i := 2; i <= 128; i++ { // Skip MTI (0) and bitmap (1)
-		if field := msg.GetField(i); field != nil {
-			if str, err := field.String(); err == nil && str != "" {
-				fields[fieldKeyStrings[i]] = str
-			}
-		}
-	}
+	// Extract all fields and subfields based on spec
+	fields := utils.ExtractMessageFields(msg, spec)
 
 	// Create JSON structure
 	messageData := map[string]interface{}{

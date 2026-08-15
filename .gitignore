@@ -7,7 +7,7 @@ jiso
 .github/copilot-instructions.md
 ./main
 testdata/   
-*.db
+
 *.prof
 *.pcap
 *.tgz

@@ -65,7 +65,39 @@ func (r *Record) Set(start, end int, val string, padLeft bool, padChar byte) {
 		formatted = val
 	}
 
-	copy(r[start-1:end], []byte(formatted))
+	buf := []byte(formatted)
+	for i, b := range buf {
+		if b < 32 || b > 126 {
+			if padChar == '0' {
+				buf[i] = '0'
+			} else {
+				buf[i] = ' '
+			}
+		}
+	}
+
+	copy(r[start-1:end], buf)
+}
+
+// SanitizeNumeric extracts only digits '0'-'9' and ensures exact length padded with '0'.
+func SanitizeNumeric(s string, length int) string {
+	var digits strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			digits.WriteRune(r)
+		}
+	}
+	res := digits.String()
+	if len(res) == 0 {
+		return strings.Repeat("0", length)
+	}
+	if len(res) > length {
+		return res[len(res)-length:]
+	}
+	if len(res) < length {
+		return strings.Repeat("0", length-len(res)) + res
+	}
+	return res
 }
 
 // String returns the 168-character string representation of the record.
@@ -242,7 +274,7 @@ func (d *TCR5PaymentServiceData) Format() *Record {
 	r.Set(1, 2, defaultString(d.TC, TCSalesDraft), true, '0')
 	r.Set(3, 3, defaultString(d.TCQ, "0"), false, '0')
 	r.Set(4, 4, defaultString(d.TCRSequence, TCR5), false, '0')
-	r.Set(5, 19, d.TransactionID, true, '0')
+	r.Set(5, 19, SanitizeNumeric(d.TransactionID, 15), true, '0')
 	r.Set(20, 31, fmt.Sprintf("%012d", d.AuthorizedAmount), true, '0')
 	r.Set(32, 34, defaultString(d.AuthCurrencyCode, "840"), false, ' ')
 	r.Set(35, 36, defaultString(d.AuthResponseCode, "  "), false, ' ')
