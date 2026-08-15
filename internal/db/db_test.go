@@ -374,6 +374,74 @@ func TestStressTestSummaryLogging(t *testing.T) {
 }
 
 
+func TestVisaSessionsAndApprovedTransactions(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_visa.db")
+
+	if err := InitDB(dbPath); err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer func() {
+		_ = Close()
+	}()
+
+	visaSessionID := "sess-visa-001"
+	otherSessionID := "sess-other-002"
+
+	_ = UpsertSession(visaSessionID, "specs/visa.json", "visa.json", "tx.json", "tx.json", "127.0.0.1", "9000", "CLIENT", "Visa", "active", false)
+	_ = UpsertSession(otherSessionID, "specs/spec.json", "spec.json", "tx.json", "tx.json", "127.0.0.1", "8080", "CLIENT", "2-byte", "active", false)
+
+	resp00 := `{"mti":"0110","fields":{"38":"123456","39":"00"}}`
+	resp05 := `{"mti":"0110","fields":{"38":"000000","39":"05"}}`
+
+	_ = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:    visaSessionID,
+		TxName:       "Visa Auth Approved",
+		Success:      true,
+		ResponseCode: "00",
+		RequestJSON:  `{"mti":"0100","fields":{"2":"4000000000000002","4":"10000"}}`,
+		ResponseJSON: &resp00,
+	})
+
+	_ = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:    visaSessionID,
+		TxName:       "Visa Auth Declined",
+		Success:      false,
+		ResponseCode: "05",
+		RequestJSON:  `{"mti":"0100","fields":{"2":"4000000000000002","4":"20000"}}`,
+		ResponseJSON: &resp05,
+	})
+
+	_ = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:    otherSessionID,
+		TxName:       "Generic Tx",
+		Success:      true,
+		ResponseCode: "00",
+		RequestJSON:  `{"mti":"0200","fields":{"2":"5000000000000001","4":"10000"}}`,
+		ResponseJSON: &resp00,
+	})
+
+	visaSessions, err := GetVisaSessions()
+	if err != nil {
+		t.Fatalf("GetVisaSessions failed: %v", err)
+	}
+	if len(visaSessions) != 1 || visaSessions[0].SessionID != visaSessionID {
+		t.Fatalf("Expected 1 visa session (%s), got: %d", visaSessionID, len(visaSessions))
+	}
+	if visaSessions[0].SuccessCount != 1 || visaSessions[0].FailedCount != 1 {
+		t.Errorf("Unexpected visa session counts: success=%d, failed=%d", visaSessions[0].SuccessCount, visaSessions[0].FailedCount)
+	}
+
+	approvedTxs, err := GetApprovedVisaTransactions(visaSessionID)
+	if err != nil {
+		t.Fatalf("GetApprovedVisaTransactions failed: %v", err)
+	}
+	if len(approvedTxs) != 1 || approvedTxs[0].TxName != "Visa Auth Approved" {
+		t.Fatalf("Expected 1 approved tx, got: %d", len(approvedTxs))
+	}
+}
+
 func stringPtr(s string) *string {
 	return &s
 }
+

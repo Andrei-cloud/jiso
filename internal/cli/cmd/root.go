@@ -113,6 +113,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newScenarioCmd())
 	rootCmd.AddCommand(newServerCmd())
 	rootCmd.AddCommand(newAnalyzeCmd())
+	rootCmd.AddCommand(newCTFCmd())
 	rootCmd.AddCommand(newREPLCmd())
 	rootCmd.AddCommand(newVersionCmd())
 

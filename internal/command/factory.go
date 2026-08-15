@@ -215,3 +215,9 @@ func (f *Factory) CreateAnalyzeCommand() Command {
 
 	return NewAnalyzeCommand(spec, f.transactions)
 }
+
+// CreateCTFCommand creates a Base II CTF export command.
+func (f *Factory) CreateCTFCommand() Command {
+	return &CTFCommand{}
+}
+
