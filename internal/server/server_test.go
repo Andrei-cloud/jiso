@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/encoding"
 	"github.com/moov-io/iso8583/field"
+	"github.com/moov-io/iso8583/prefix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -37,7 +39,7 @@ func TestServer_mTLS(t *testing.T) {
 	server := NewServer(spec, nil, "binary2")
 	server.SetTLSConfig(serverTLS)
 
-	require.NoError(t, server.Start("19895"))
+	require.NoError(t, server.Start("19894"))
 	defer func() {
 		_ = server.Stop()
 	}()
@@ -46,7 +48,7 @@ func TestServer_mTLS(t *testing.T) {
 	require.NoError(t, err)
 
 	// Dial with mTLS client config
-	conn, err := tls.Dial("tcp", "127.0.0.1:19895", clientTLS)
+	conn, err := tls.Dial("tcp", "127.0.0.1:19894", clientTLS)
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -54,10 +56,7 @@ func TestServer_mTLS(t *testing.T) {
 }
 
 func TestMockServerLifecycleAndMatching(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
-	if err != nil || spec == nil {
-		spec = utils.GetDefaultSpec()
-	}
+	spec := utils.GetDefaultSpec()
 
 	routes := []config.MockRouteConfig{
 		{
@@ -76,8 +75,7 @@ func TestMockServerLifecycleAndMatching(t *testing.T) {
 	server := NewServer(spec, routes, "binary2")
 	require.False(t, server.IsRunning())
 
-	err = server.Start("19890")
-	require.NoError(t, err)
+	require.NoError(t, server.Start("19890"))
 	defer func() {
 		_ = server.Stop()
 	}()
@@ -140,9 +138,7 @@ func TestMockServerLifecycleAndMatching(t *testing.T) {
 }
 
 func TestFlexibleMatcherRules(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
-	require.NoError(t, err)
-	require.NotNil(t, spec)
+	spec := utils.GetDefaultSpec()
 
 	routes := []config.MockRouteConfig{
 		{
@@ -225,9 +221,7 @@ func TestFlexibleMatcherRules(t *testing.T) {
 }
 
 func TestRequiredFieldsMissingResponse30(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
-	require.NoError(t, err)
-	require.NotNil(t, spec)
+	spec := utils.GetDefaultSpec()
 
 	routes := []config.MockRouteConfig{
 		{
@@ -308,15 +302,41 @@ func TestNilSpecServerFallback(t *testing.T) {
 }
 
 func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
-	dataBytes, err := os.ReadFile("../../transactions/transaction.json")
-	require.NoError(t, err)
+	configData := `[
+		{
+			"type": "mock_route",
+			"name": "Network SignOn Route",
+			"match_fields": {
+				"0": "0800",
+				"70": "1"
+			},
+			"echo_fields": [7, 11, 70],
+			"response_mti": "0810",
+			"response_fields": {
+				"39": "00"
+			}
+		},
+		{
+			"type": "mock_route",
+			"name": "Financial Purchase Route",
+			"match_fields": {
+				"0": "0200",
+				"3": "000000"
+			},
+			"echo_fields": [2, 3, 4, 7, 11, 14, 41, 49],
+			"response_mti": "0210",
+			"response_fields": {
+				"38": "auth_code",
+				"39": "00"
+			}
+		}
+	]`
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "mock_routes_*.json")
 	require.NoError(t, err)
-	_, err = tmpFile.Write(dataBytes)
+	_, err = tmpFile.WriteString(configData)
 	require.NoError(t, err)
 	tmpFile.Close()
 
@@ -364,8 +384,27 @@ func TestMockRoutesCollectionLoadingAndMatching(t *testing.T) {
 }
 
 func TestMatchAndComposeWithCompositeFields(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/example_composed_emv.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
+	spec.Fields[55] = field.NewComposite(&field.Spec{
+		Length:      255,
+		Description: "EMV Data",
+		Pref:        prefix.Binary.Fixed,
+		Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+		Subfields: map[string]field.Field{
+			"1": field.NewString(&field.Spec{
+				Length:      8,
+				Description: "Application Cryptogram",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"2": field.NewString(&field.Spec{
+				Length:      1,
+				Description: "Cryptogram Information Data",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+		},
+	})
 
 	routes := []config.MockRouteConfig{
 		{
@@ -377,8 +416,8 @@ func TestMatchAndComposeWithCompositeFields(t *testing.T) {
 			ResponseFields: map[string]interface{}{
 				"39": "00",
 				"55": map[string]interface{}{
-					"9F26": "11223344",
-					"9F27": "8",
+					"1": "11223344",
+					"2": "8",
 				},
 			},
 		},
@@ -400,17 +439,17 @@ func TestMatchAndComposeWithCompositeFields(t *testing.T) {
 	comp55, ok := f55.(*field.Composite)
 	require.True(t, ok)
 
-	sub9f26 := comp55.GetSubfields()["9F26"]
-	require.NotNil(t, sub9f26)
-	str9f26, err := sub9f26.String()
+	sub1 := comp55.GetSubfields()["1"]
+	require.NotNil(t, sub1)
+	str1, err := sub1.String()
 	require.NoError(t, err)
-	assert.Equal(t, "11223344", str9f26)
+	assert.Equal(t, "11223344", str1)
 
-	sub9f27 := comp55.GetSubfields()["9F27"]
-	require.NotNil(t, sub9f27)
-	str9f27, err := sub9f27.String()
+	sub2 := comp55.GetSubfields()["2"]
+	require.NotNil(t, sub2)
+	str2, err := sub2.String()
 	require.NoError(t, err)
-	assert.Equal(t, "8", str9f27)
+	assert.Equal(t, "8", str2)
 }
 
 func TestMatcher_SpecificityOrder_CardRouteBeforeGenericRoute(t *testing.T) {
@@ -550,5 +589,51 @@ func TestMatcher_ListValueMatching(t *testing.T) {
 	rc4, _ := resp4.GetField(39).String()
 	assert.Equal(t, "12", rc4)
 }
+
+func TestMatcher_NumericEquivalenceAndLeadingZeros(t *testing.T) {
+	spec := utils.GetDefaultSpec()
+
+	routes := []config.MockRouteConfig{
+		{
+			Name: "Route with Integer 0 ProcCode",
+			MatchFields: map[string]interface{}{
+				"0":  "0100",
+				"3":  0,      // integer 0 in JSON
+				"22": "0100", // exact 4-digit string
+				"25": 59,     // integer 59 in JSON
+			},
+			EchoFields:     []int{2, 3, 22, 25},
+			ResponseMTI:    "0110",
+			ResponseFields: map[string]interface{}{"39": "00"},
+		},
+	}
+
+	matcher := NewMatcher(routes)
+
+	req := iso8583.NewMessage(spec)
+	req.MTI("0100")
+	require.NoError(t, req.Field(2, "4000123456789010"))
+	require.NoError(t, req.Field(3, "000000")) // exact ISO 6-zero string
+	require.NoError(t, req.Field(22, "0100"))
+	require.NoError(t, req.Field(25, "59"))
+
+	matched, resp, err := matcher.MatchAndCompose(req, spec)
+	require.NoError(t, err)
+	require.NotNil(t, matched)
+	assert.Equal(t, "Route with Integer 0 ProcCode", matched.Name)
+
+	rc, err := resp.GetField(39).String()
+	require.NoError(t, err)
+	assert.Equal(t, "00", rc)
+
+	// Verify echo fields in response
+	f3, _ := resp.GetField(3).String()
+	assert.Equal(t, "000000", f3)
+	f22, _ := resp.GetField(22).String()
+	assert.Equal(t, "0100", f22)
+	f25, _ := resp.GetField(25).String()
+	assert.Equal(t, "59", f25)
+}
+
 
 

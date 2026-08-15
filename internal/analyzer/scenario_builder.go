@@ -1,8 +1,10 @@
 package analyzer
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 
 	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
@@ -80,7 +82,7 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 	reversalRouteMap := make(map[string]*mockRouteAccumulator)
 
 	for idx, pair := range pairs {
-		if pair == nil || pair.Request == nil || pair.Request.Message == nil {
+		if pair == nil || pair.Request == nil || pair.Request.Message == nil || pair.Response == nil || pair.Response.Message == nil {
 			continue
 		}
 
@@ -223,20 +225,19 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 				"0": reqMTI,
 			}
 			if reqDE3 != "" {
-				baseMatch["3"] = sb.varianceEngine.formatFieldValue(3, reqDE3)
+				baseMatch["3"] = reqDE3
 			}
 			if reqDE70 := getFieldString(reqMsg, 70); reqDE70 != "" {
-				baseMatch["70"] = sb.varianceEngine.formatFieldValue(70, reqDE70)
+				baseMatch["70"] = reqDE70
 			}
 			if reqDE22 := getFieldString(reqMsg, 22); reqDE22 != "" {
-				baseMatch["22"] = sb.varianceEngine.formatFieldValue(22, reqDE22)
+				baseMatch["22"] = reqDE22
 			}
 			if reqDE25 := getFieldString(reqMsg, 25); reqDE25 != "" {
-				baseMatch["25"] = sb.varianceEngine.formatFieldValue(25, reqDE25)
+				baseMatch["25"] = reqDE25
 			}
 
-			echoFields, echoSet := extractEchoFields(reqMsg)
-			responseFields := extractResponseFields(pair.Response.Message, echoSet, respDE39, opts.Unsecure)
+			echoFields, responseFields := extractEchoAndResponseFields(reqMsg, pair.Response.Message, opts.Unsecure)
 
 			sigBytes, _ := json.Marshal([]interface{}{baseMatch, respMTI, responseFields, echoFields})
 			sig := string(sigBytes)
@@ -297,39 +298,31 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 				"0": revReqMTI,
 			}
 			if revDE3 != "" {
-				baseMatch["3"] = sb.varianceEngine.formatFieldValue(3, revDE3)
+				baseMatch["3"] = revDE3
 			}
 
-			echoFields := []int{2, 3, 4, 7, 11, 14, 22, 25, 32, 33, 37, 38, 41, 42, 49, 90}
-			echoSet := make(map[int]bool, len(echoFields))
-			for _, id := range echoFields {
-				echoSet[id] = true
-			}
-
-			responseFields := map[string]interface{}{
-				"39": "00",
-			}
-
+			var echoFields []int
+			var responseFields map[string]interface{}
 			respRC := "00"
+
 			if pair.ReversalResp != nil && pair.ReversalResp.Message != nil {
-				respMsg := pair.ReversalResp.Message
-				if mti, _ := respMsg.GetMTI(); mti != "" {
+				if mti, _ := pair.ReversalResp.Message.GetMTI(); mti != "" {
 					revRespMTI = mti
 				}
-				for i, f := range respMsg.GetFields() {
-					if f == nil || i == 0 || i == 1 || echoSet[i] {
-						continue
-					}
-					extracted, ok := extractFieldValueForTemplate(f)
-					if !ok {
-						continue
-					}
-					extracted = AnonymizeFieldValue(i, extracted, opts.Unsecure)
-					responseFields[fmt.Sprintf("%d", i)] = extracted
-				}
-				if rc := getFieldString(respMsg, 39); rc != "" {
-					responseFields["39"] = rc
+				if rc := getFieldString(pair.ReversalResp.Message, 39); rc != "" {
 					respRC = rc
+				}
+				var revReqMsg *iso8583.Message
+				if pair.Reversal != nil && pair.Reversal.Message != nil {
+					revReqMsg = pair.Reversal.Message
+				} else {
+					revReqMsg = pair.Request.Message
+				}
+				echoFields, responseFields = extractEchoAndResponseFields(revReqMsg, pair.ReversalResp.Message, opts.Unsecure)
+			} else {
+				echoFields = []int{2, 3, 4, 7, 11, 14, 22, 25, 32, 33, 37, 38, 41, 42, 49, 90}
+				responseFields = map[string]interface{}{
+					"39": "00",
 				}
 			}
 
@@ -439,34 +432,39 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 	return result, nil
 }
 
-func extractEchoFields(reqMsg *iso8583.Message) ([]int, map[int]bool) {
-	standardEchoIDs := []int{2, 3, 4, 7, 11, 14, 22, 23, 25, 32, 33, 35, 37, 41, 42, 43, 45, 49, 63, 70, 90, 115}
-	presentEchoMap := make(map[int]bool)
-	for _, fID := range standardEchoIDs {
-		if f := reqMsg.GetField(fID); f != nil {
-			if val, err := f.String(); err == nil && val != "" {
-				presentEchoMap[fID] = true
+func extractEchoAndResponseFields(reqMsg, respMsg *iso8583.Message, unsecure bool) ([]int, map[string]interface{}) {
+	responseFields := make(map[string]interface{})
+	if respMsg == nil {
+		return nil, responseFields
+	}
+
+	echoSet := make(map[int]bool)
+	var echoFields []int
+
+	if reqMsg != nil {
+		for i := 2; i <= 128; i++ {
+			reqF := reqMsg.GetField(i)
+			respF := respMsg.GetField(i)
+
+			if reqF == nil || respF == nil {
+				continue
+			}
+
+			reqVal, ok1 := extractFieldValueForTemplate(reqF)
+			respVal, ok2 := extractFieldValueForTemplate(respF)
+
+			if !ok1 || !ok2 {
+				continue
+			}
+
+			if valuesEqual(reqVal, respVal) {
+				echoFields = append(echoFields, i)
+				echoSet[i] = true
 			}
 		}
 	}
-	echoFields := make([]int, 0, len(presentEchoMap))
-	for fID := range presentEchoMap {
-		echoFields = append(echoFields, fID)
-	}
 	sort.Ints(echoFields)
-	if len(echoFields) == 0 {
-		echoFields = []int{7, 11, 25, 32, 37, 41, 42, 63, 115}
-	}
 
-	echoSet := make(map[int]bool, len(echoFields))
-	for _, id := range echoFields {
-		echoSet[id] = true
-	}
-	return echoFields, echoSet
-}
-
-func extractResponseFields(respMsg *iso8583.Message, echoSet map[int]bool, respDE39 string, unsecure bool) map[string]interface{} {
-	responseFields := make(map[string]interface{})
 	var respFIDs []int
 	for i, f := range respMsg.GetFields() {
 		if f == nil || i == 0 || i == 1 || echoSet[i] {
@@ -495,13 +493,36 @@ func extractResponseFields(respMsg *iso8583.Message, echoSet map[int]bool, respD
 		}
 	}
 
-	if _, has39 := responseFields["39"]; !has39 && respDE39 != "" {
-		responseFields["39"] = respDE39
+	if rc := getFieldString(respMsg, 39); rc != "" && !echoSet[39] {
+		responseFields["39"] = rc
 	}
-	if _, has38 := responseFields["38"]; !has38 {
-		responseFields["38"] = "auth_code"
+	if f38 := respMsg.GetField(38); f38 != nil && !echoSet[38] {
+		if _, has38 := responseFields["38"]; !has38 {
+			responseFields["38"] = "auth_code"
+		}
 	}
-	return responseFields
+
+	return echoFields, responseFields
+}
+
+func valuesEqual(v1, v2 interface{}) bool {
+	if v1 == nil && v2 == nil {
+		return true
+	}
+	if v1 == nil || v2 == nil {
+		return false
+	}
+	s1 := fmt.Sprintf("%v", v1)
+	s2 := fmt.Sprintf("%v", v2)
+	if s1 == s2 || strings.TrimSpace(s1) == strings.TrimSpace(s2) {
+		return true
+	}
+	b1, err1 := json.Marshal(v1)
+	b2, err2 := json.Marshal(v2)
+	if err1 == nil && err2 == nil && bytes.Equal(b1, b2) {
+		return true
+	}
+	return false
 }
 
 

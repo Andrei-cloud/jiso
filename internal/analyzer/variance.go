@@ -2,7 +2,6 @@ package analyzer
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/moov-io/iso8583"
@@ -70,11 +69,6 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) ([]*VarianceResult, er
 }
 
 func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) interface{} {
-	if isNumericField(ve.spec, fieldID) && fieldID != 0 {
-		if num, err := strconv.ParseInt(val, 10, 64); err == nil {
-			return num
-		}
-	}
 	return val
 }
 

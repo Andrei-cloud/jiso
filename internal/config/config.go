@@ -13,7 +13,7 @@ import (
 )
 
 // Version defines the current application version.
-const Version = "v1.9.5"
+const Version = "v1.9.6"
 
 type Config struct {
 	file                string

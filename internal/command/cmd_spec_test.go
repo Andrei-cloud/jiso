@@ -1,17 +1,44 @@
 package command
 
 import (
-	"path/filepath"
+	"os"
 	"testing"
 
+	"jiso/internal/command/templates"
 	cfg "jiso/internal/config"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
 
+func createTempSpec(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "spec_*.json")
+	if err != nil {
+		t.Fatalf("failed to create temp spec: %v", err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("failed to write temp spec: %v", err)
+	}
+	return f.Name()
+}
+
+func createTempTx(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "tx_*.json")
+	if err != nil {
+		t.Fatalf("failed to create temp tx: %v", err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("failed to write temp tx: %v", err)
+	}
+	return f.Name()
+}
+
 func TestSpecCommand_SetArgsAndExecute(t *testing.T) {
-	specPath := filepath.Join("..", "..", "specs", "spec_bcp.json")
+	specPath := createTempSpec(t, string(templates.DefaultSpecJSON))
 
 	svc, err := service.NewService("localhost", "9999", specPath, false, 1, 0, 0, 0)
 	if err != nil {
@@ -46,9 +73,72 @@ func TestSpecCommand_InvalidPath(t *testing.T) {
 }
 
 func TestSpecCommand_UpdatesTransactionCollectionSpec(t *testing.T) {
-	defaultSpecPath, _ := filepath.Abs(filepath.Join("..", "..", "specs", "spec.json"))
-	visaSpecPath, _ := filepath.Abs(filepath.Join("..", "..", "specs", "visa.json"))
-	txPath, _ := filepath.Abs(filepath.Join("..", "..", "transactions", "transaction.json"))
+	asciiSpecContent := `{
+		"fields": {
+			"0": {
+				"type": "String",
+				"length": 4,
+				"description": "Message Type Indicator",
+				"enc": "ASCII",
+				"prefix": "ASCII.Fixed"
+			},
+			"1": {
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Bitmap",
+				"enc": "Binary",
+				"prefix": "Hex.Fixed"
+			},
+			"70": {
+				"type": "String",
+				"length": 3,
+				"description": "NM Code",
+				"enc": "ASCII",
+				"prefix": "ASCII.Fixed"
+			}
+		}
+	}`
+
+	bcdSpecContent := `{
+		"fields": {
+			"0": {
+				"type": "String",
+				"length": 4,
+				"description": "Message Type Indicator",
+				"enc": "BCD",
+				"prefix": "BCD.Fixed"
+			},
+			"1": {
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Bitmap",
+				"enc": "Binary",
+				"prefix": "Hex.Fixed"
+			},
+			"70": {
+				"type": "String",
+				"length": 3,
+				"description": "NM Code",
+				"enc": "BCD",
+				"prefix": "BCD.Fixed"
+			}
+		}
+	}`
+
+	txContent := `[
+		{
+			"type": "transaction",
+			"name": "Echo",
+			"fields": {
+				"0": "0800",
+				"70": "301"
+			}
+		}
+	]`
+
+	defaultSpecPath := createTempSpec(t, asciiSpecContent)
+	bcdSpecPath := createTempSpec(t, bcdSpecContent)
+	txPath := createTempTx(t, txContent)
 
 	defaultSpec, err := utils.CreateSpecFromFile(defaultSpecPath)
 	if err != nil {
@@ -60,7 +150,7 @@ func TestSpecCommand_UpdatesTransactionCollectionSpec(t *testing.T) {
 		t.Fatalf("failed to load transaction collection: %v", err)
 	}
 
-	// Message before spec update (uses spec.json -> ASCII MTI '30383030')
+	// Message before spec update (uses asciiSpec -> ASCII MTI '30383030')
 	msg1, err := tc.Compose("Echo")
 	if err != nil {
 		t.Fatalf("failed to compose Echo: %v", err)
@@ -69,20 +159,20 @@ func TestSpecCommand_UpdatesTransactionCollectionSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to pack msg1: %v", err)
 	}
-	if string(packed1[:4]) != "0800" { // ASCII '0800' is 30 38 30 30 bytes, i.e. string "0800"
-		t.Errorf("expected ASCII 0800 for spec.json, got hex %x", packed1[:4])
+	if string(packed1[:4]) != "0800" {
+		t.Errorf("expected ASCII 0800 for asciiSpec, got hex %x", packed1[:4])
 	}
 
-	// Run SpecCommand for visa.json
+	// Run SpecCommand for bcdSpec
 	specCmd := &SpecCommand{
-		SpecPath: visaSpecPath,
+		SpecPath: bcdSpecPath,
 		Tc:       tc,
 	}
 	if err := specCmd.Execute(); err != nil {
 		t.Fatalf("SpecCommand.Execute failed: %v", err)
 	}
 
-	// Message after spec update (uses visa.json -> BCD MTI 0x08 0x00)
+	// Message after spec update (uses bcdSpec -> BCD MTI 0x08 0x00)
 	msg2, err := tc.Compose("Echo")
 	if err != nil {
 		t.Fatalf("failed to compose Echo after spec update: %v", err)
@@ -92,6 +182,6 @@ func TestSpecCommand_UpdatesTransactionCollectionSpec(t *testing.T) {
 		t.Fatalf("failed to pack msg2: %v", err)
 	}
 	if packed2[0] != 0x08 || packed2[1] != 0x00 {
-		t.Errorf("expected BCD 0x08 0x00 for visa.json, got hex %x", packed2[:2])
+		t.Errorf("expected BCD 0x08 0x00 for bcdSpec, got hex %x", packed2[:2])
 	}
 }

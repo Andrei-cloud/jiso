@@ -44,16 +44,6 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 
 		if i == 7 || i == 11 || i == 37 || i == 38 {
 			txFields[fieldKey] = "auto"
-		} else if isNumericField(spec, i) && i != 0 {
-			if strVal, isStr := extracted.(string); isStr {
-				if num, err := strconv.ParseInt(strVal, 10, 64); err == nil {
-					txFields[fieldKey] = num
-				} else {
-					txFields[fieldKey] = strVal
-				}
-			} else {
-				txFields[fieldKey] = extracted
-			}
 		} else {
 			txFields[fieldKey] = extracted
 		}

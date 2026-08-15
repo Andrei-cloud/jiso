@@ -35,11 +35,8 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 		config.GetConfig().SetDbPath("")
 	}()
 
-	// 2. Load Visa Spec
-	visaSpecPath := filepath.Join("..", "..", "..", "specs", "visa.json")
-	spec, err := utils.CreateSpecFromFile(visaSpecPath)
-	require.NoError(t, err)
-	require.NotNil(t, spec)
+	// 2. Load Spec
+	spec := utils.GetDefaultSpec()
 
 	// 3. Configure and Start Mock Server with Visa Routes
 	routes := []config.MockRouteConfig{
@@ -61,15 +58,14 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 
 	srvPort := "19899"
 	srv := server.NewServer(spec, routes, "binary2")
-	err = srv.Start(srvPort)
-	require.NoError(t, err)
+	require.NoError(t, srv.Start(srvPort))
 	defer func() {
 		_ = srv.Stop()
 	}()
 	require.True(t, srv.IsRunning())
 
 	sessionID := "e2e-session-visa-ctf-01"
-	require.NoError(t, db.UpsertSession(sessionID, visaSpecPath, "visa.json", "tx.json", "tx.json", "127.0.0.1", srvPort, "CLIENT", "binary2", "active", false))
+	require.NoError(t, db.UpsertSession(sessionID, "visa.json", "visa.json", "tx.json", "tx.json", "127.0.0.1", srvPort, "CLIENT", "binary2", "active", false))
 
 	// 4. Connect Client to Mock Server
 	conn, err := net.Dial("tcp", "127.0.0.1:"+srvPort)

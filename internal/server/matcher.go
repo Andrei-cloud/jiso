@@ -34,6 +34,21 @@ func calculateRouteSpecificity(r *config.MockRouteConfig) int {
 	if _, hasPAN := r.MatchFields["2"]; hasPAN {
 		score += 50 // Prioritize card-level routes over generic routes
 	}
+	if _, hasSTAN := r.MatchFields["11"]; hasSTAN {
+		score += 40
+	}
+	if _, hasRRN := r.MatchFields["37"]; hasRRN {
+		score += 40
+	}
+	if _, hasAmount := r.MatchFields["4"]; hasAmount {
+		score += 30
+	}
+	if _, hasProcCode := r.MatchFields["3"]; hasProcCode {
+		score += 20
+	}
+	if _, hasNM := r.MatchFields["70"]; hasNM {
+		score += 20
+	}
 	return score
 }
 
@@ -86,6 +101,18 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 		// Echo requested fields from request
 		for _, fNum := range matchedRoute.EchoFields {
 			if reqField := req.GetField(fNum); reqField != nil {
+				if composite, ok := reqField.(*field.Composite); ok && composite != nil {
+					var fieldSpec *field.Spec
+					if spec != nil && spec.Fields != nil && spec.Fields[fNum] != nil {
+						fieldSpec = spec.Fields[fNum].Spec()
+					}
+					if data, ok := utils.ExtractFieldData(composite, fieldSpec); ok {
+						if dataMap, isMap := data.(map[string]interface{}); isMap {
+							_ = utils.SetCompositeFieldValue(resp, spec, fNum, dataMap)
+							continue
+						}
+					}
+				}
 				if val, err := reqField.String(); err == nil {
 					_ = resp.Field(fNum, val)
 				}
@@ -114,6 +141,18 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 	// Echo standard ISO8583 fields if present
 	for _, fNum := range []int{7, 11, 25, 32, 37, 41, 42, 63, 115} {
 		if reqField := req.GetField(fNum); reqField != nil {
+			if composite, ok := reqField.(*field.Composite); ok && composite != nil {
+				var fieldSpec *field.Spec
+				if spec != nil && spec.Fields != nil && spec.Fields[fNum] != nil {
+					fieldSpec = spec.Fields[fNum].Spec()
+				}
+				if data, ok := utils.ExtractFieldData(composite, fieldSpec); ok {
+					if dataMap, isMap := data.(map[string]interface{}); isMap {
+						_ = utils.SetCompositeFieldValue(resp, spec, fNum, dataMap)
+						continue
+					}
+				}
+			}
 			if val, err := reqField.String(); err == nil {
 				_ = resp.Field(fNum, val)
 			}
@@ -197,13 +236,52 @@ func extractFieldValue(req *iso8583.Message, fieldKey string) (string, bool) {
 func matchFieldValue(val string, exists bool, condition interface{}) bool {
 	switch c := condition.(type) {
 	case string:
-		return exists && (val == c || strings.TrimSpace(val) == strings.TrimSpace(c))
+		if !exists {
+			return false
+		}
+		if val == c || strings.TrimSpace(val) == strings.TrimSpace(c) {
+			return true
+		}
+		// Match numeric values with leading zero differences (e.g. "0" vs "000000" or "100" vs "0100")
+		if numVal, err1 := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err1 == nil {
+			if numC, err2 := strconv.ParseInt(strings.TrimSpace(c), 10, 64); err2 == nil {
+				return numVal == numC
+			}
+		}
+		return false
 	case float64:
-		return exists && (val == fmt.Sprintf("%.0f", c) || val == strconv.FormatFloat(c, 'f', 0, 64))
+		if !exists {
+			return false
+		}
+		if val == fmt.Sprintf("%.0f", c) || val == strconv.FormatFloat(c, 'f', 0, 64) {
+			return true
+		}
+		if numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err == nil {
+			return numVal == int64(c)
+		}
+		return false
 	case int:
-		return exists && val == strconv.Itoa(c)
+		if !exists {
+			return false
+		}
+		if val == strconv.Itoa(c) {
+			return true
+		}
+		if numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err == nil {
+			return numVal == int64(c)
+		}
+		return false
 	case int64:
-		return exists && val == strconv.FormatInt(c, 10)
+		if !exists {
+			return false
+		}
+		if val == strconv.FormatInt(c, 10) {
+			return true
+		}
+		if numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err == nil {
+			return numVal == c
+		}
+		return false
 	case bool:
 		return exists == c
 	case []interface{}:
@@ -221,7 +299,7 @@ func matchFieldValue(val string, exists bool, condition interface{}) bool {
 			return false
 		}
 		for _, item := range c {
-			if val == item || strings.TrimSpace(val) == strings.TrimSpace(item) {
+			if matchFieldValue(val, exists, item) {
 				return true
 			}
 		}
@@ -231,7 +309,7 @@ func matchFieldValue(val string, exists bool, condition interface{}) bool {
 			return false
 		}
 		for _, item := range c {
-			if val == strconv.Itoa(item) {
+			if matchFieldValue(val, exists, item) {
 				return true
 			}
 		}
@@ -241,7 +319,7 @@ func matchFieldValue(val string, exists bool, condition interface{}) bool {
 			return false
 		}
 		for _, item := range c {
-			if val == strconv.FormatInt(item, 10) {
+			if matchFieldValue(val, exists, item) {
 				return true
 			}
 		}
@@ -251,7 +329,7 @@ func matchFieldValue(val string, exists bool, condition interface{}) bool {
 			return false
 		}
 		for _, item := range c {
-			if val == fmt.Sprintf("%.0f", item) || val == strconv.FormatFloat(item, 'f', 0, 64) {
+			if matchFieldValue(val, exists, item) {
 				return true
 			}
 		}
