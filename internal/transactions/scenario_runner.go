@@ -70,7 +70,6 @@ func (sr *ScenarioRunner) RunScenario(name string) (*TestReport, error) {
 
 		if !res.Success {
 			allSuccess = false
-			break // Fail-fast on scenario assertion errors
 		}
 	}
 

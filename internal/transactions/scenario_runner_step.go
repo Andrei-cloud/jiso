@@ -244,8 +244,8 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 		}
 	}
 
-	// 6. Extract fields if step succeeded
-	if result.Success {
+	// 6. Extract fields if response message is available
+	if respMsg != nil {
 		for varName, fieldStr := range step.Extract {
 			var fieldID int
 			if _, err := fmt.Sscanf(fieldStr, "%d", &fieldID); err != nil {

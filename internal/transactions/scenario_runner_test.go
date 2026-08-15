@@ -386,3 +386,63 @@ func TestComposeInterpolationRandom(t *testing.T) {
 	// Verify that we saw multiple different randomly-selected values
 	assert.Greater(t, len(seen), 1, "Should select different items randomly across 50 invocations")
 }
+
+func TestRunScenario_DoesNotFailImmediately_ExecutesAllSteps(t *testing.T) {
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "Step Tx",
+			"fields": {
+				"0": "0100"
+			}
+		},
+		{
+			"type": "scenario",
+			"name": "Full Run Scenario",
+			"description": "Multi-step test to verify non-fail-fast behavior",
+			"steps": [
+				{
+					"name": "Step 1",
+					"use_transaction_id": "Step Tx"
+				},
+				{
+					"name": "Step 2",
+					"use_transaction_id": "Step Tx"
+				},
+				{
+					"name": "Step 3",
+					"use_transaction_id": "Step Tx"
+				},
+				{
+					"name": "Step 4",
+					"use_transaction_id": "Step Tx"
+				}
+			]
+		}
+	]`
+
+	tmpFile, err := os.CreateTemp("", "test_full_scenario.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(configData)
+	require.NoError(t, err)
+	tmpFile.Close()
+
+	spec := iso8583.Spec87
+	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
+	require.NoError(t, err)
+
+	runner := NewScenarioRunner(nil, tc)
+	report, err := runner.RunScenario("Full Run Scenario")
+	require.NoError(t, err)
+	require.NotNil(t, report)
+
+	assert.False(t, report.Success)
+	assert.Len(t, report.Steps, 4, "All 4 steps should be executed even though earlier steps failed")
+	assert.Equal(t, "Step 1", report.Steps[0].StepName)
+	assert.Equal(t, "Step 2", report.Steps[1].StepName)
+	assert.Equal(t, "Step 3", report.Steps[2].StepName)
+	assert.Equal(t, "Step 4", report.Steps[3].StepName)
+}
+
