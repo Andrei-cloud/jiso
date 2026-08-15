@@ -214,4 +214,27 @@ func TestServiceDisconnect(t *testing.T) {
 	}
 }
 
+func TestServiceGetConnection(t *testing.T) {
+	specFile := createTempSpecFile(t)
+	defer os.Remove(specFile)
+
+	service, err := NewService(
+		"localhost",
+		"8080",
+		specFile,
+		false,
+		3,
+		5*time.Second,
+		10*time.Second,
+		5*time.Second,
+	)
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	if service.GetConnection() != nil {
+		t.Error("GetConnection should be nil when not connected")
+	}
+}
+
 

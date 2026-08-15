@@ -9,7 +9,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/moov-io/iso8583"
-	connection "github.com/moov-io/iso8583-connection"
 
 	"jiso/internal/config"
 	iconn "jiso/internal/connection"
@@ -51,15 +50,7 @@ func (c *SendCommand) Execute() error {
 		return err
 	}
 
-	if !c.Svc.IsConnected() {
-		return ErrConnectionOffline
-	}
-
-	if c.Svc.Connection == nil {
-		return ErrConnectionOffline
-	}
-
-	if c.Svc.Connection.Status() != connection.StatusOnline {
+	if c.Svc == nil || !c.Svc.IsConnected() {
 		return ErrConnectionOffline
 	}
 

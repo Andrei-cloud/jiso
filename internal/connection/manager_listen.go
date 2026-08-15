@@ -176,6 +176,7 @@ func (m *Manager) Listen(port string, naps bool, header network.Header) error {
 	}
 
 	m.statusMu.Unlock()
+	m.notifyConnectionChange(conn)
 	return nil
 }
 

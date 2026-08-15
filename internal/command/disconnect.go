@@ -24,7 +24,7 @@ func (c *DisconnectCommand) Synopsis() string {
 // Execute closes active connection to server.
 func (c *DisconnectCommand) Execute() error {
 	fmt.Println("Disconnecting...")
-	if c.Svc.Connection == nil {
+	if c.Svc == nil || (!c.Svc.IsConnected() && c.Svc.GetConnection() == nil) {
 		return errors.New("no active connection")
 	}
 

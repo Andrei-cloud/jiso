@@ -237,7 +237,7 @@ func (c *ConnectCommand) Execute() error {
 			return fmt.Errorf("listener failed on port %s: %w", listenPort, err)
 		}
 
-		if c.Svc.Connection == nil || !c.Svc.IsConnected() {
+		if c.Svc == nil || !c.Svc.IsConnected() {
 			return fmt.Errorf("listener connection accepted on port %s but not online", listenPort)
 		}
 
@@ -253,14 +253,8 @@ func (c *ConnectCommand) Execute() error {
 		return fmt.Errorf("failed to connect to server at %s: %w", c.Svc.Address, err)
 	}
 
-
-	// Double-check connection status after connecting
-	if c.Svc.Connection == nil {
-		return fmt.Errorf("connection object is nil after connecting to %s", c.Svc.Address)
-	}
-
-	// Verify the connection status one more time
-	if !c.Svc.IsConnected() {
+	// Verify the connection status
+	if c.Svc == nil || !c.Svc.IsConnected() {
 		return fmt.Errorf("connection to %s is not online", c.Svc.Address)
 	}
 

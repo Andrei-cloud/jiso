@@ -40,6 +40,10 @@ type Manager struct {
 	header    network.Header
 	tlsConfig *tls.Config
 
+	// Callback for connection changes
+	cbMu               sync.RWMutex
+	onConnectionChange func(conn *moovconnection.Connection)
+
 	// Listener mode parameters
 	listenMode    bool
 	listenPort    string
@@ -212,7 +216,12 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 		}
 
 		m.statusMu.Unlock()
+		m.notifyConnectionChange(m.GetConnection())
 		break
+	}
+
+	if !m.IsConnected() {
+		m.notifyConnectionChange(nil)
 	}
 
 	// Enable Visa SMC Heartbeat keep-alive ONLY if Visa header format is selected
@@ -234,6 +243,29 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	}
 
 	return nil
+}
+
+// SetConnectionChangeHandler registers a callback invoked on connection updates
+func (m *Manager) SetConnectionChangeHandler(fn func(*moovconnection.Connection)) {
+	m.cbMu.Lock()
+	defer m.cbMu.Unlock()
+	m.onConnectionChange = fn
+}
+
+func (m *Manager) notifyConnectionChange(conn *moovconnection.Connection) {
+	m.cbMu.RLock()
+	fn := m.onConnectionChange
+	m.cbMu.RUnlock()
+	if fn != nil {
+		fn(conn)
+	}
+}
+
+// GetConnection returns the active underlying moovconnection.Connection safely
+func (m *Manager) GetConnection() *moovconnection.Connection {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
+	return m.Connection
 }
 
 // SetTLSConfig configures the *tls.Config for secure connections
@@ -383,6 +415,7 @@ func (m *Manager) closeUnlocked() error {
 		closeErr = m.Connection.Close()
 		m.Connection = nil
 	}
+	m.notifyConnectionChange(nil)
 
 	return closeErr
 }
