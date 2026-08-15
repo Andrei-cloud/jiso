@@ -61,8 +61,8 @@ func (c *StressTestCommand) Execute() error {
 				if tps <= 0 {
 					return errors.New("TPS must be greater than 0")
 				}
-				if tps > 10000 {
-					return errors.New("TPS cannot exceed 10000")
+				if tps > 100000 {
+					return errors.New("TPS cannot exceed 100000")
 				}
 
 				return nil
