@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"io"
 	"testing"
+
+	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/specs"
 )
 
 func TestParseStationID(t *testing.T) {
@@ -259,3 +262,80 @@ func TestVisaHeader_ExceedMaxMessageLength(t *testing.T) {
 		t.Errorf("expected error when payloadLen exceeds MaxMessageLength (2048)")
 	}
 }
+
+func TestVisaField60And61Packing(t *testing.T) {
+	specJSON := `{
+		"fields": {
+			"0": {
+				"type": "String",
+				"length": 4,
+				"description": "MTI",
+				"enc": "BCD",
+				"prefix": "BCD.Fixed"
+			},
+			"1": {
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Bitmap",
+				"enc": "Binary",
+				"prefix": "Binary.Fixed"
+			},
+			"60": {
+				"type": "Numeric",
+				"length": 12,
+				"description": "Additional POS Information",
+				"enc": "BCD",
+				"prefix": "Binary.L"
+			},
+			"61": {
+				"type": "Numeric",
+				"length": 36,
+				"description": "Other Amounts",
+				"enc": "BCD",
+				"prefix": "Binary.L"
+			}
+		}
+	}`
+
+	spec, err := specs.ImportJSON([]byte(specJSON))
+	if err != nil {
+		t.Fatalf("failed to import spec: %v", err)
+	}
+
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0100")
+	if err := msg.Field(60, "5900004007"); err != nil {
+		t.Fatalf("failed to set field 60: %v", err)
+	}
+	if err := msg.Field(61, "123456789012"); err != nil {
+		t.Fatalf("failed to set field 61: %v", err)
+	}
+
+	packed, err := msg.Pack()
+	if err != nil {
+		t.Fatalf("failed to pack message: %v", err)
+	}
+
+	// Unpack and verify exact string values
+	unpacked := iso8583.NewMessage(spec)
+	if err := unpacked.Unpack(packed); err != nil {
+		t.Fatalf("failed to unpack message: %v", err)
+	}
+
+	f60, err := unpacked.GetString(60)
+	if err != nil {
+		t.Fatalf("failed to get field 60: %v", err)
+	}
+	if f60 != "5900004007" {
+		t.Errorf("expected field 60 '5900004007', got '%s'", f60)
+	}
+
+	f61, err := unpacked.GetString(61)
+	if err != nil {
+		t.Fatalf("failed to get field 61: %v", err)
+	}
+	if f61 != "123456789012" {
+		t.Errorf("expected field 61 '123456789012', got '%s'", f61)
+	}
+}
+

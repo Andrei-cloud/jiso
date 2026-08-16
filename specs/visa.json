@@ -1231,17 +1231,17 @@
       "prefix": "Binary.L"
     },
     "60": {
-      "type": "Binary",
-      "length": 255,
-      "description": "POS Capture Data",
-      "enc": "Binary",
+      "type": "Numeric",
+      "length": 12,
+      "description": "Additional POS Information",
+      "enc": "BCD",
       "prefix": "Binary.L"
     },
     "61": {
-      "type": "Binary",
-      "length": 18,
+      "type": "Numeric",
+      "length": 36,
       "description": "Other Amounts",
-      "enc": "Binary",
+      "enc": "BCD",
       "prefix": "Binary.L"
     },
     "62": {
