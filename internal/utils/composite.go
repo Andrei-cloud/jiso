@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -110,3 +111,98 @@ func normalizeCompositeScalar(v interface{}) interface{} {
 		return fmt.Sprintf("%v", val)
 	}
 }
+
+// ExtractFieldData extracts data from an iso8583 field into JSON-serializable values (scalar or nested map for composites).
+func ExtractFieldData(f field.Field, specField *field.Spec) (interface{}, bool) {
+	if f == nil {
+		return nil, false
+	}
+
+	if composite, ok := f.(*field.Composite); ok && composite != nil {
+		subfields := composite.GetSubfields()
+		if len(subfields) > 0 {
+			res := make(map[string]interface{})
+			for _, k := range SortedSubfieldKeys(subfields) {
+				if k == "0" { // Skip bitmap subfield in composite
+					continue
+				}
+				var subSpec *field.Spec
+				if specField != nil && specField.Subfields != nil {
+					if sf, ok := specField.Subfields[k]; ok && sf != nil {
+						subSpec = sf.Spec()
+					}
+				}
+				if val, ok := ExtractFieldData(subfields[k], subSpec); ok && val != nil {
+					res[k] = val
+				}
+			}
+			if len(res) > 0 {
+				return res, true
+			}
+		}
+	}
+
+	// If the field is not a *field.Composite, but the spec defines it as a Composite, attempt to unpack raw bytes
+	if specField != nil && len(specField.Subfields) > 0 {
+		if rawBytes, err := f.Bytes(); err == nil && len(rawBytes) > 0 {
+			comp := field.NewComposite(specField)
+			if _, err := comp.Unpack(rawBytes); err == nil {
+				return ExtractFieldData(comp, specField)
+			}
+		}
+	}
+
+	str, err := f.String()
+	if err != nil || str == "" {
+		return nil, false
+	}
+	return str, true
+}
+
+// SortedSubfieldKeys returns numeric-first sorted keys of subfields
+func SortedSubfieldKeys[T any](m map[string]T) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		numI, errI := strconv.Atoi(keys[i])
+		numJ, errJ := strconv.Atoi(keys[j])
+		if errI == nil && errJ == nil {
+			return numI < numJ
+		}
+		if errI == nil {
+			return true
+		}
+		if errJ == nil {
+			return false
+		}
+		return keys[i] < keys[j]
+	})
+	return keys
+}
+
+// ExtractMessageFields extracts all fields (and subfields) from an iso8583.Message into a structured map based on spec.
+func ExtractMessageFields(msg *iso8583.Message, spec *iso8583.MessageSpec) map[string]interface{} {
+	if msg == nil {
+		return nil
+	}
+	fields := make(map[string]interface{})
+	for i := 2; i <= 128; i++ {
+		f := msg.GetField(i)
+		if f == nil {
+			continue
+		}
+		var fieldSpec *field.Spec
+		if spec != nil && spec.Fields != nil {
+			if sf, ok := spec.Fields[i]; ok && sf != nil {
+				fieldSpec = sf.Spec()
+			}
+		}
+		if val, ok := ExtractFieldData(f, fieldSpec); ok && val != nil {
+			fields[strconv.Itoa(i)] = val
+		}
+	}
+	return fields
+}
+

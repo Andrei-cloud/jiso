@@ -371,10 +371,12 @@ func logToDB(sessionID, trxnName string, req, resp *iso8583.Message, processingT
 		txFileName = ""
 	}
 
+	spec := utils.ResolveSpec(specPath, utils.GetDefaultSpec())
+
 	var reqJSON string
 	var reqRawHex string
 	if req != nil {
-		jsonStr, err := db.MessageToJSON(req)
+		jsonStr, err := db.MessageToJSONWithSpec(req, spec)
 		if err == nil && jsonStr != "" {
 			reqJSON = jsonStr
 		} else {
@@ -393,7 +395,7 @@ func logToDB(sessionID, trxnName string, req, resp *iso8583.Message, processingT
 				responseCode = str
 			}
 		}
-		jsonStr, err := db.MessageToJSON(resp)
+		jsonStr, err := db.MessageToJSONWithSpec(resp, spec)
 		if err == nil && jsonStr != "" {
 			respJSON = &jsonStr
 		} else {

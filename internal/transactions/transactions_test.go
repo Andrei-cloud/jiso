@@ -7,6 +7,8 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -45,15 +47,14 @@ func (suite *TransactionCollectionSuite) SetupTest() {
 	}
 	dataBytes, err := json.Marshal(data)
 	suite.Require().NoError(err)
-	file, err := os.CreateTemp("", "transactions.json")
-	suite.Require().NoError(err)
-	defer os.Remove(file.Name())
-	_, err = file.Write(dataBytes)
+
+	tmpDir := suite.T().TempDir()
+	tmpFile := filepath.Join(tmpDir, "test_transactions.json")
+	err = os.WriteFile(tmpFile, dataBytes, 0o644)
 	suite.Require().NoError(err)
 
-	// Create a new TransactionCollection instance with the temporary file
 	spec := iso8583.Spec87
-	tc, err := NewTransactionCollection(file.Name(), spec)
+	tc, err := NewTransactionCollection(tmpFile, spec)
 	suite.Require().NoError(err)
 	suite.tc = tc
 }
@@ -81,24 +82,41 @@ func (suite *TransactionCollectionSuite) TestInfo() {
 }
 
 func TestLoadRealTransactionJSON(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	projectRoot := filepath.Dir(filepath.Dir(wd))
-	txFile := filepath.Join(projectRoot, "transactions", "transaction.json")
-	if _, err := os.Stat(txFile); err != nil {
-		t.Skip("transaction.json not found at project root")
-	}
+	tmpDir := t.TempDir()
+	txFile := filepath.Join(tmpDir, "transaction.json")
+	sampleJSON := `[
+		{
+			"type": "transaction",
+			"name": "Echo Test",
+			"description": "Network Management: Echo",
+			"fields": {
+				"0": "0800",
+				"7": "auto",
+				"11": "auto",
+				"70": "301"
+			}
+		},
+		{
+			"type": "mock_route",
+			"name": "Echo Route",
+			"match_fields": {
+				"0": "0800",
+				"70": "301"
+			},
+			"response_mti": "0810",
+			"response_fields": {
+				"39": "00"
+			}
+		}
+	]`
+	require.NoError(t, os.WriteFile(txFile, []byte(sampleJSON), 0o644))
 
 	spec := iso8583.Spec87
 	tc, err := NewTransactionCollection(txFile, spec)
-	if err != nil {
-		t.Fatalf("failed to load transaction.json: %v", err)
-	}
-	if tc == nil {
-		t.Fatalf("expected non-nil transaction collection")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, tc)
+	assert.Equal(t, 1, len(tc.ListNames()))
+	assert.Equal(t, 1, len(tc.GetMockRoutes()))
 }
 
 func TestTransactionCollectionSuite(t *testing.T) {

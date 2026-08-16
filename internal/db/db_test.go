@@ -1,13 +1,22 @@
 package db
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/encoding"
+	"github.com/moov-io/iso8583/field"
+	"github.com/moov-io/iso8583/prefix"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
+
+	"jiso/internal/utils"
 )
 
 func TestInitDB(t *testing.T) {
@@ -374,6 +383,151 @@ func TestStressTestSummaryLogging(t *testing.T) {
 }
 
 
+func TestVisaSessionsAndApprovedTransactions(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_visa.db")
+
+	if err := InitDB(dbPath); err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer func() {
+		_ = Close()
+	}()
+
+	visaSessionID := "sess-visa-001"
+	otherSessionID := "sess-other-002"
+
+	_ = UpsertSession(visaSessionID, "specs/visa.json", "visa.json", "tx.json", "tx.json", "127.0.0.1", "9000", "CLIENT", "Visa", "active", false)
+	_ = UpsertSession(otherSessionID, "specs/spec.json", "spec.json", "tx.json", "tx.json", "127.0.0.1", "8080", "CLIENT", "2-byte", "active", false)
+
+	resp00 := `{"mti":"0110","fields":{"38":"123456","39":"00"}}`
+	resp05 := `{"mti":"0110","fields":{"38":"000000","39":"05"}}`
+
+	_ = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:    visaSessionID,
+		TxName:       "Visa Auth Approved",
+		Success:      true,
+		ResponseCode: "00",
+		RequestJSON:  `{"mti":"0100","fields":{"2":"4000000000000002","4":"10000"}}`,
+		ResponseJSON: &resp00,
+	})
+
+	_ = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:    visaSessionID,
+		TxName:       "Visa Auth Declined",
+		Success:      false,
+		ResponseCode: "05",
+		RequestJSON:  `{"mti":"0100","fields":{"2":"4000000000000002","4":"20000"}}`,
+		ResponseJSON: &resp05,
+	})
+
+	_ = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:    otherSessionID,
+		TxName:       "Generic Tx",
+		Success:      true,
+		ResponseCode: "00",
+		RequestJSON:  `{"mti":"0200","fields":{"2":"5000000000000001","4":"10000"}}`,
+		ResponseJSON: &resp00,
+	})
+
+	visaSessions, err := GetVisaSessions()
+	if err != nil {
+		t.Fatalf("GetVisaSessions failed: %v", err)
+	}
+	if len(visaSessions) != 1 || visaSessions[0].SessionID != visaSessionID {
+		t.Fatalf("Expected 1 visa session (%s), got: %d", visaSessionID, len(visaSessions))
+	}
+	if visaSessions[0].SuccessCount != 1 || visaSessions[0].FailedCount != 1 {
+		t.Errorf("Unexpected visa session counts: success=%d, failed=%d", visaSessions[0].SuccessCount, visaSessions[0].FailedCount)
+	}
+
+	approvedTxs, err := GetApprovedVisaTransactions(visaSessionID)
+	if err != nil {
+		t.Fatalf("GetApprovedVisaTransactions failed: %v", err)
+	}
+	if len(approvedTxs) != 1 || approvedTxs[0].TxName != "Visa Auth Approved" {
+		t.Fatalf("Expected 1 approved tx, got: %d", len(approvedTxs))
+	}
+}
+
 func stringPtr(s string) *string {
 	return &s
 }
+
+func TestMessageToJSONWithSpec_CompositeFields(t *testing.T) {
+	// 1. Create a spec with composite field 62 (subfields 1 and 2)
+	spec := &iso8583.MessageSpec{
+		Fields: map[int]field.Field{
+			0: field.NewString(&field.Spec{
+				Length:      4,
+				Description: "MTI",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			1: field.NewBitmap(&field.Spec{
+				Length:      8,
+				Description: "Bitmap",
+				Enc:         encoding.Binary,
+				Pref:        prefix.Binary.Fixed,
+			}),
+			2: field.NewString(&field.Spec{
+				Length:      16,
+				Description: "PAN",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			62: field.NewComposite(&field.Spec{
+				Length:      255,
+				Description: "Custom Payment Service Fields",
+				Pref:        prefix.Binary.Fixed,
+				Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Field 62.0 Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+				Subfields: map[string]field.Field{
+					"1": field.NewString(&field.Spec{
+						Length:      1,
+						Description: "ACI",
+						Enc:         encoding.ASCII,
+						Pref:        prefix.ASCII.Fixed,
+					}),
+					"2": field.NewString(&field.Spec{
+						Length:      15,
+						Description: "Transaction Identifier",
+						Enc:         encoding.ASCII,
+						Pref:        prefix.ASCII.Fixed,
+					}),
+				},
+			}),
+		},
+	}
+
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0100")
+	require.NoError(t, msg.Field(2, "4085652009074000"))
+
+	// Pack composite field 62 using utils.SetCompositeFieldValue
+	compData := map[string]interface{}{
+		"1": "A",
+		"2": "466215320236000",
+	}
+	require.NoError(t, utils.SetCompositeFieldValue(msg, spec, 62, compData))
+
+	// 2. Call MessageToJSONWithSpec
+	jsonStr, err := MessageToJSONWithSpec(msg, spec)
+	require.NoError(t, err)
+	require.NotEmpty(t, jsonStr)
+
+	// 3. Verify JSON parses into structured map with subfields preserved
+	var parsed struct {
+		MTI    string                 `json:"mti"`
+		Fields map[string]interface{} `json:"fields"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(jsonStr), &parsed))
+	assert.Equal(t, "0100", parsed.MTI)
+	assert.Equal(t, "4085652009074000", parsed.Fields["2"])
+
+	f62, ok := parsed.Fields["62"].(map[string]interface{})
+	require.True(t, ok, "Field 62 in JSON should be a structured map of subfields, got: %T (%v)", parsed.Fields["62"], parsed.Fields["62"])
+	assert.Equal(t, "A", f62["1"])
+	assert.Equal(t, "466215320236000", f62["2"])
+}
+
+

@@ -5,8 +5,7 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
-
-	"jiso/internal/utils"
+	"github.com/moov-io/iso8583/specs"
 )
 
 func (suite *TransactionCollectionSuite) TestValidate() {
@@ -147,7 +146,6 @@ func (suite *TransactionCollectionSuite) TestValidatePerTransactionSpec() {
 }
 
 func (suite *TransactionCollectionSuite) TestValidateBinaryFieldHexLengthUsesBytes() {
-	// DE61 in VISA spec is Binary length 18 bytes; analyzer emits it as a 36-char hex string.
 	data := []map[string]interface{}{
 		{
 			"type":        "transaction",
@@ -167,10 +165,32 @@ func (suite *TransactionCollectionSuite) TestValidateBinaryFieldHexLengthUsesByt
 	_, err = file.Write(dataBytes)
 	suite.Require().NoError(err)
 
-	spec, err := utils.CreateSpecFromFile("../../specs/visa.json")
-	if err != nil {
-		spec, err = utils.CreateSpecFromFile("./specs/visa.json")
-	}
+	specJSON := []byte(`{
+		"fields": {
+			"0": {
+				"type": "String",
+				"length": 4,
+				"description": "Message Type Indicator",
+				"enc": "ASCII",
+				"prefix": "ASCII.Fixed"
+			},
+			"1": {
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Bitmap",
+				"enc": "Binary",
+				"prefix": "Hex.Fixed"
+			},
+			"61": {
+				"type": "Binary",
+				"length": 19,
+				"description": "Point of Service Data",
+				"enc": "Binary",
+				"prefix": "Hex.Fixed"
+			}
+		}
+	}`)
+	spec, err := specs.ImportJSON(specJSON)
 	suite.Require().NoError(err)
 
 	tc, err := NewTransactionCollection(file.Name(), spec)

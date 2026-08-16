@@ -2,7 +2,6 @@ package analyzer
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/moov-io/iso8583"
@@ -19,8 +18,9 @@ type VarianceResult struct {
 
 // VarianceEngine performs variance analysis on captured message flows
 type VarianceEngine struct {
-	spec     *iso8583.MessageSpec
-	unsecure bool
+	spec       *iso8583.MessageSpec
+	anonymizer *Anonymizer
+	unsecure   bool
 }
 
 // NewVarianceEngine creates a new VarianceEngine instance
@@ -32,11 +32,13 @@ func NewVarianceEngine(spec *iso8583.MessageSpec, unsecure ...bool) *VarianceEng
 	if len(unsecure) > 0 {
 		ve.unsecure = unsecure[0]
 	}
+	ve.anonymizer = NewAnonymizer(ve.unsecure)
 	return ve
 }
 
 func (ve *VarianceEngine) SetUnsecure(unsecure bool) {
 	ve.unsecure = unsecure
+	ve.anonymizer = NewAnonymizer(unsecure)
 }
 
 func (ve *VarianceEngine) IsUnsecure() bool {
@@ -70,12 +72,8 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) ([]*VarianceResult, er
 }
 
 func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) interface{} {
-	if isNumericField(ve.spec, fieldID) && fieldID != 0 {
-		if num, err := strconv.ParseInt(val, 10, 64); err == nil {
-			return num
-		}
+	if fieldID == 3 {
+		return FormatProcCode(val)
 	}
 	return val
 }
-
-// AnalyzeFlowToMockRoutes generates Mock Server Route items from a captured response flow

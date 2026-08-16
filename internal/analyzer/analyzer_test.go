@@ -21,8 +21,7 @@ import (
 )
 
 func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
 	msg1 := iso8583.NewMessage(spec)
 	msg1.MTI("0200")
@@ -90,8 +89,7 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 }
 
 func TestNetworkManagement08XX(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
 	msg1 := iso8583.NewMessage(spec)
 	msg1.MTI("0800")
@@ -254,11 +252,7 @@ func createSyntheticPCAPFile(t *testing.T, reqPayload []byte, respPayload []byte
 }
 
 func TestExtractFromPCAPFile(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
-	if err != nil {
-		spec, err = utils.CreateSpecFromFile("./specs/spec.json")
-	}
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0200")
@@ -302,11 +296,7 @@ func TestExtractFromPCAPFile(t *testing.T) {
 }
 
 func TestInspectAndFilterPCAPDirections(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
-	if err != nil {
-		spec, err = utils.CreateSpecFromFile("./specs/spec.json")
-	}
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
 	reqMsg := iso8583.NewMessage(spec)
 	reqMsg.MTI("0200")
@@ -366,8 +356,7 @@ func TestInspectAndFilterPCAPDirections(t *testing.T) {
 }
 
 func TestStreamAnalyzerMultiHeader(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec_bcp.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0800")
@@ -405,8 +394,7 @@ func TestStreamAnalyzerMultiHeader(t *testing.T) {
 }
 
 func TestAnalyzeFlowToMockRoutes(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/spec.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
 
 	respMsg1 := iso8583.NewMessage(spec)
 	respMsg1.MTI("0210")
@@ -449,29 +437,38 @@ func TestFindAvailablePCAPFiles(t *testing.T) {
 }
 
 func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
-	spec, err := utils.CreateSpecFromFile("../../specs/example_composed_emv.json")
-	require.NoError(t, err)
+	spec := utils.GetDefaultSpec()
+	spec.Fields[55] = field.NewComposite(&field.Spec{
+		Length:      255,
+		Description: "EMV Data",
+		Pref:        prefix.Binary.Fixed,
+		Bitmap:      field.NewBitmap(&field.Spec{Length: 1, Description: "Bitmap", Enc: encoding.Binary, Pref: prefix.Binary.Fixed, DisableAutoExpand: true}),
+		Subfields: map[string]field.Field{
+			"1": field.NewString(&field.Spec{
+				Length:      8,
+				Description: "Application Cryptogram",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+			"2": field.NewString(&field.Spec{
+				Length:      1,
+				Description: "Cryptogram Information Data",
+				Enc:         encoding.ASCII,
+				Pref:        prefix.ASCII.Fixed,
+			}),
+		},
+	})
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
 	require.NoError(t, respMsg.Field(3, "000000"))
 	require.NoError(t, respMsg.Field(39, "00"))
 
-	compField55 := spec.Fields[55]
-	require.NotNil(t, compField55)
-
-	instance := field.NewInstanceOf(compField55)
-	comp, ok := instance.(*field.Composite)
-	require.True(t, ok)
-
-	err = comp.MarshalPath("9F26", "11223344")
-	require.NoError(t, err)
-	err = comp.MarshalPath("9F27", "8")
-	require.NoError(t, err)
-
-	packed55, err := comp.Bytes()
-	require.NoError(t, err)
-	require.NoError(t, respMsg.BinaryField(55, packed55))
+	compMap := map[string]interface{}{
+		"1": "11223344",
+		"2": "8",
+	}
+	require.NoError(t, utils.SetCompositeFieldValue(respMsg, spec, 55, compMap))
 
 	flow := &CapturedFlow{
 		MTI:      "0210",
@@ -491,6 +488,6 @@ func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
 
 	f55Map, isMap := f55.(map[string]interface{})
 	require.True(t, isMap, "Composite response field 55 should be a map of subfields, not raw string")
-	assert.Equal(t, "11223344", f55Map["9F26"])
-	assert.Equal(t, "8", f55Map["9F27"])
+	assert.Equal(t, "11223344", f55Map["1"])
+	assert.Equal(t, "8", f55Map["2"])
 }

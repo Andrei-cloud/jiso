@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"io"
 	"testing"
+
+	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/specs"
 )
 
 func TestParseStationID(t *testing.T) {
@@ -259,3 +262,80 @@ func TestVisaHeader_ExceedMaxMessageLength(t *testing.T) {
 		t.Errorf("expected error when payloadLen exceeds MaxMessageLength (2048)")
 	}
 }
+
+func TestVisaField60And61Packing(t *testing.T) {
+	specJSON := `{
+		"fields": {
+			"0": {
+				"type": "String",
+				"length": 4,
+				"description": "MTI",
+				"enc": "BCD",
+				"prefix": "BCD.Fixed"
+			},
+			"1": {
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Bitmap",
+				"enc": "Binary",
+				"prefix": "Binary.Fixed"
+			},
+			"60": {
+				"type": "Binary",
+				"length": 255,
+				"description": "Additional POS Information",
+				"enc": "Binary",
+				"prefix": "Binary.L"
+			},
+			"61": {
+				"type": "Binary",
+				"length": 18,
+				"description": "Other Amounts",
+				"enc": "Binary",
+				"prefix": "Binary.L"
+			}
+		}
+	}`
+
+	spec, err := specs.ImportJSON([]byte(specJSON))
+	if err != nil {
+		t.Fatalf("failed to import spec: %v", err)
+	}
+
+	msg := iso8583.NewMessage(spec)
+	msg.MTI("0100")
+	if err := msg.BinaryField(60, []byte{0x59, 0x00, 0x00, 0x40, 0x07}); err != nil {
+		t.Fatalf("failed to set field 60: %v", err)
+	}
+	if err := msg.BinaryField(61, []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0x12}); err != nil {
+		t.Fatalf("failed to set field 61: %v", err)
+	}
+
+	packed, err := msg.Pack()
+	if err != nil {
+		t.Fatalf("failed to pack message: %v", err)
+	}
+
+	// Unpack and verify exact binary bytes
+	unpacked := iso8583.NewMessage(spec)
+	if err := unpacked.Unpack(packed); err != nil {
+		t.Fatalf("failed to unpack message: %v", err)
+	}
+
+	f60Bytes, err := unpacked.GetBytes(60)
+	if err != nil {
+		t.Fatalf("failed to get field 60: %v", err)
+	}
+	if !bytes.Equal(f60Bytes, []byte{0x59, 0x00, 0x00, 0x40, 0x07}) {
+		t.Errorf("expected field 60 bytes, got %x", f60Bytes)
+	}
+
+	f61Bytes, err := unpacked.GetBytes(61)
+	if err != nil {
+		t.Fatalf("failed to get field 61: %v", err)
+	}
+	if !bytes.Equal(f61Bytes, []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0x12}) {
+		t.Errorf("expected field 61 bytes, got %x", f61Bytes)
+	}
+}
+

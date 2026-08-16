@@ -79,6 +79,9 @@ func NewRootCmd() *cobra.Command {
 			if visaID, _ := cmd.Flags().GetString("visa-station-id"); visaID != "" {
 				c.SetVisaStationId(visaID)
 			}
+			if hdr, _ := cmd.Flags().GetString("header"); hdr != "" {
+				c.SetHeader(hdr)
+			}
 			if tlsPath, _ := cmd.Flags().GetString("tls-config"); tlsPath != "" {
 				if err := c.SetTLSConfigPath(tlsPath); err != nil {
 					return err
@@ -99,6 +102,7 @@ func NewRootCmd() *cobra.Command {
 	pflags.BoolP("hex", "x", false, "Enable hex dump output for messages")
 	pflags.StringP("host", "H", "", "Target server host address")
 	pflags.StringP("port", "p", "", "Target server port")
+	pflags.String("header", "", "ISO8583 message length header type (ascii4, binary2, bcd2, binary4, NAPS, Visa)")
 	pflags.IntP("reconnect-attempts", "r", 3, "Number of reconnection attempts on failure")
 	pflags.Duration("connect-timeout", 5*time.Second, "Timeout for individual connection attempts")
 	pflags.Duration("total-connect-timeout", 10*time.Second, "Total timeout for connection establishment")
@@ -113,6 +117,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newScenarioCmd())
 	rootCmd.AddCommand(newServerCmd())
 	rootCmd.AddCommand(newAnalyzeCmd())
+	rootCmd.AddCommand(newCTFCmd())
 	rootCmd.AddCommand(newREPLCmd())
 	rootCmd.AddCommand(newVersionCmd())
 

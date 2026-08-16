@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -10,6 +9,8 @@ import (
 	"github.com/moov-io/iso8583"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
+
+	"jiso/internal/utils"
 )
 
 var dbConn *sqlite.Conn
@@ -107,10 +108,13 @@ func InitDBWithConn(conn *sqlite.Conn) error {
 // Close closes the database connection
 func Close() error {
 	if dbConn != nil {
-		return dbConn.Close()
+		err := dbConn.Close()
+		dbConn = nil
+		return err
 	}
 	return nil
 }
+
 
 // createTables creates the necessary database tables
 func createTables() error {
@@ -548,6 +552,94 @@ func GetSessionByID(sessionID string) (*SessionRecord, error) {
 }
 
 
+// GetVisaSessions fetches sessions that used a Visa specification or header format
+func GetVisaSessions() ([]*SessionRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	sql := `
+		SELECT s.session_id, s.start_time, s.last_active_time, s.spec_path, s.spec_name, s.tx_file_path, s.tx_file_name, s.status,
+		       s.host, s.port, s.connection_type, s.header_type, s.tls_enabled,
+		       COUNT(t.id) as total_tx,
+		       SUM(CASE WHEN t.success = 1 AND (t.response_code = '00' OR t.response_code = '000' OR t.response_code = '') THEN 1 ELSE 0 END) as success_tx,
+		       SUM(CASE WHEN t.success = 0 OR (t.response_code != '00' AND t.response_code != '000' AND t.response_code != '') THEN 1 ELSE 0 END) as failed_tx,
+		       COUNT(DISTINCT st.id) as stress_count
+		FROM sessions s
+		LEFT JOIN transactions t ON s.session_id = t.session_id
+		LEFT JOIN stress_tests st ON s.session_id = st.session_id
+		WHERE LOWER(s.spec_name) LIKE '%visa%'
+		   OR LOWER(s.spec_path) LIKE '%visa%'
+		   OR LOWER(s.header_type) LIKE '%visa%'
+		   OR LOWER(t.spec_name) LIKE '%visa%'
+		   OR LOWER(t.spec_path) LIKE '%visa%'
+		GROUP BY s.session_id
+		ORDER BY s.start_time DESC
+	`
+
+	var results []*SessionRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			rec := &SessionRecord{
+				SessionID:        stmt.ColumnText(0),
+				SpecPath:         stmt.ColumnText(3),
+				SpecName:         stmt.ColumnText(4),
+				TxFilePath:       stmt.ColumnText(5),
+				TxFileName:       stmt.ColumnText(6),
+				Status:           stmt.ColumnText(7),
+				Host:             stmt.ColumnText(8),
+				Port:             stmt.ColumnText(9),
+				ConnectionType:   stmt.ColumnText(10),
+				HeaderType:       stmt.ColumnText(11),
+				TLSEnabled:       stmt.ColumnBool(12),
+				TransactionCount: int(stmt.ColumnInt64(13)),
+				SuccessCount:     int(stmt.ColumnInt64(14)),
+				FailedCount:      int(stmt.ColumnInt64(15)),
+				StressTestCount:  int(stmt.ColumnInt64(16)),
+			}
+			rec.StartTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(1))
+			rec.LastActiveTime, _ = time.Parse("2006-01-02 15:04:05", stmt.ColumnText(2))
+			results = append(results, rec)
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// GetApprovedVisaTransactions returns approved transactions for a given session.
+func GetApprovedVisaTransactions(sessionID string) ([]*EnrichedTransactionRecord, error) {
+	if dbConn == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	sql := `
+		SELECT id, session_id, timestamp, transaction_name, request_json, response_json,
+		       processing_time_ms, success, response_code, tx_file_path, tx_file_name,
+		       spec_path, spec_name, request_raw_hex, response_raw_hex
+		FROM transactions
+		WHERE session_id = ?
+		  AND success = 1
+		  AND (response_code = '00' OR response_code = '000' OR response_code = '' OR response_code IS NULL)
+		ORDER BY id ASC
+	`
+
+	var results []*EnrichedTransactionRecord
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			results = append(results, scanTransactionRecord(stmt))
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 // GetSessionTransactions returns all transactions executed within a session
 func GetSessionTransactions(sessionID string) ([]*EnrichedTransactionRecord, error) {
 	if dbConn == nil {
@@ -575,6 +667,27 @@ func GetSessionTransactions(sessionID string) ([]*EnrichedTransactionRecord, err
 		return nil, err
 	}
 	return results, nil
+}
+
+// GetSessionTransactionCount returns the number of transactions recorded for a session
+func GetSessionTransactionCount(sessionID string) (int, error) {
+	if dbConn == nil {
+		return 0, nil
+	}
+
+	var count int
+	sql := `SELECT COUNT(*) FROM transactions WHERE session_id = ?`
+	err := sqlitex.ExecuteTransient(dbConn, sql, &sqlitex.ExecOptions{
+		Args: []interface{}{sessionID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			count = int(stmt.ColumnInt64(0))
+			return nil
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // GetTransactionByID returns a single transaction by ID
@@ -643,13 +756,6 @@ func derefOrNil(s *string) interface{} {
 	return *s
 }
 
-var fieldKeyStrings = func() [129]string {
-	var keys [129]string
-	for i := 0; i <= 128; i++ {
-		keys[i] = strconv.Itoa(i)
-	}
-	return keys
-}()
 
 // deriveResponseCode derives the response code from response JSON
 func deriveResponseCode(responseJSON *string) string {
@@ -694,6 +800,11 @@ func deriveResponseCode(responseJSON *string) string {
 
 // MessageToJSON converts an ISO8583 message to JSON string
 func MessageToJSON(msg *iso8583.Message) (string, error) {
+	return MessageToJSONWithSpec(msg, nil)
+}
+
+// MessageToJSONWithSpec converts an ISO8583 message to JSON string using the provided spec for composite fields
+func MessageToJSONWithSpec(msg *iso8583.Message, spec *iso8583.MessageSpec) (string, error) {
 	if msg == nil {
 		return "", fmt.Errorf("message is nil")
 	}
@@ -704,15 +815,8 @@ func MessageToJSON(msg *iso8583.Message) (string, error) {
 		return "", fmt.Errorf("failed to get MTI: %w", err)
 	}
 
-	// Get all fields
-	fields := make(map[string]interface{})
-	for i := 2; i <= 128; i++ { // Skip MTI (0) and bitmap (1)
-		if field := msg.GetField(i); field != nil {
-			if str, err := field.String(); err == nil && str != "" {
-				fields[fieldKeyStrings[i]] = str
-			}
-		}
-	}
+	// Extract all fields and subfields based on spec
+	fields := utils.ExtractMessageFields(msg, spec)
 
 	// Create JSON structure
 	messageData := map[string]interface{}{

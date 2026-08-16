@@ -29,6 +29,47 @@ func TestAnonymizePAN(t *testing.T) {
 	assert.Equal(t, "1234567", AnonymizePAN(short))
 }
 
+func TestAnonymizer_DeterministicAndConsistent(t *testing.T) {
+	anon := NewAnonymizer(false)
+	cardA := "4000123456789012"
+	cardB := "4000987654321098"
+
+	// Calling multiple times on cardA produces the exact same masked result
+	res1 := anon.AnonymizePAN(cardA)
+	res2 := anon.AnonymizePAN(cardA)
+	assert.Equal(t, res1, res2, "Anonymized PAN must be 100% deterministic and identical across repeated calls")
+
+	// Calling on cardB produces a different result from cardA
+	resB := anon.AnonymizePAN(cardB)
+	assert.NotEqual(t, res1, resB, "Different cards must yield different masked results")
+
+	// Consistency with Track 2 and Track 1
+	tr2 := cardA + "=2612101000000"
+	anonTr2 := anon.AnonymizeTrack2(tr2)
+	assert.True(t, strings.HasPrefix(anonTr2, res1), "Track 2 masked PAN must match DE 2 masked PAN")
+
+	tr1 := "%B" + cardA + "^CARDHOLDER/TEST^2612101000000"
+	anonTr1 := anon.AnonymizeTrack1(tr1)
+	assert.True(t, strings.HasPrefix(anonTr1, "%B"+res1), "Track 1 masked PAN must match DE 2 masked PAN")
+
+	// Consistency with EMV tag in composite field
+	emvMap := map[string]interface{}{
+		"57": tr2,
+	}
+	anonEMV := anon.AnonymizeFieldValue(55, emvMap).(map[string]interface{})
+	assert.Equal(t, anonTr2, anonEMV["57"], "EMV tag 57 must match Track 2 anonymized value")
+}
+
+func TestFormatProcCode(t *testing.T) {
+	assert.Equal(t, "000000", FormatProcCode("0"))
+	assert.Equal(t, "000000", FormatProcCode("000000"))
+	assert.Equal(t, "100000", FormatProcCode("100000"))
+	assert.Equal(t, "200000", FormatProcCode("200000"))
+	assert.Equal(t, "003000", FormatProcCode("3000"))
+	assert.Equal(t, "011000", FormatProcCode("11000"))
+	assert.Equal(t, "", FormatProcCode(""))
+}
+
 func TestAnonymizeTrack2(t *testing.T) {
 	// Track 2 with '=' separator
 	tr2Equals := "9876543210987654=2601123456789"

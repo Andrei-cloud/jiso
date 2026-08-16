@@ -3,12 +3,20 @@ package transactions
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/moov-io/iso8583"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"jiso/internal/config"
+	"jiso/internal/db"
+	"jiso/internal/server"
+	"jiso/internal/service"
+	"jiso/internal/utils"
 )
 
 func TestInjectVariables(t *testing.T) {
@@ -386,3 +394,383 @@ func TestComposeInterpolationRandom(t *testing.T) {
 	// Verify that we saw multiple different randomly-selected values
 	assert.Greater(t, len(seen), 1, "Should select different items randomly across 50 invocations")
 }
+
+func TestRunScenario_DoesNotFailImmediately_ExecutesAllSteps(t *testing.T) {
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "Step Tx",
+			"fields": {
+				"0": "0100"
+			}
+		},
+		{
+			"type": "scenario",
+			"name": "Full Run Scenario",
+			"description": "Multi-step test to verify non-fail-fast behavior",
+			"steps": [
+				{
+					"name": "Step 1",
+					"use_transaction_id": "Step Tx"
+				},
+				{
+					"name": "Step 2",
+					"use_transaction_id": "Step Tx"
+				},
+				{
+					"name": "Step 3",
+					"use_transaction_id": "Step Tx"
+				},
+				{
+					"name": "Step 4",
+					"use_transaction_id": "Step Tx"
+				}
+			]
+		}
+	]`
+
+	tmpFile, err := os.CreateTemp("", "test_full_scenario.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(configData)
+	require.NoError(t, err)
+	tmpFile.Close()
+
+	spec := iso8583.Spec87
+	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
+	require.NoError(t, err)
+
+	runner := NewScenarioRunner(nil, tc)
+	report, err := runner.RunScenario("Full Run Scenario")
+	require.NoError(t, err)
+	require.NotNil(t, report)
+
+	assert.False(t, report.Success)
+	assert.Len(t, report.Steps, 4, "All 4 steps should be executed even though earlier steps failed")
+	assert.Equal(t, "Step 1", report.Steps[0].StepName)
+	assert.Equal(t, "Step 2", report.Steps[1].StepName)
+	assert.Equal(t, "Step 3", report.Steps[2].StepName)
+	assert.Equal(t, "Step 4", report.Steps[3].StepName)
+}
+
+func TestScenarioRunner_DatabaseLogging(t *testing.T) {
+	spec := utils.GetDefaultSpec()
+
+	// 1. Setup temp DB
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "scenario_db_test.db")
+
+	config.GetConfig().Reset()
+	config.GetConfig().SetDbPath(dbPath)
+	config.GetConfig().EnsureSessionId()
+	sessionID := config.GetConfig().GetSessionId()
+
+	require.NoError(t, db.InitDB(dbPath))
+	defer func() {
+		_ = db.Close()
+	}()
+	db.InitAsyncLogger(100, 10, 20*time.Millisecond)
+
+	// 2. Setup mock server
+	routes := []config.MockRouteConfig{
+		{
+			Name: "SignOn Approval",
+			MatchFields: map[string]interface{}{
+				"0": "0800",
+			},
+			ResponseMTI:    "0810",
+			EchoFields:     []int{7, 11, 37},
+			ResponseFields: map[string]interface{}{"39": "00"},
+		},
+	}
+	mockServer := server.NewServer(spec, routes, "binary2")
+	require.NoError(t, mockServer.Start("19899"))
+	defer func() {
+		_ = mockServer.Stop()
+	}()
+
+	// 3. Setup client service
+	svc, err := service.NewService(
+		"127.0.0.1", "19899", "", false, 1, 2*time.Second, 5*time.Second, 2*time.Second,
+	)
+	require.NoError(t, err)
+	svc.SetSpec(spec)
+
+	h, err := utils.SelectLength("binary2")
+	require.NoError(t, err)
+	require.NoError(t, svc.Connect(false, h))
+	defer func() {
+		_ = svc.Disconnect()
+	}()
+
+	// 4. Create Transaction Collection with a scenario
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "SignOn",
+			"fields": {
+				"0": "0800",
+				"7": "0412232900",
+				"11": "000151",
+				"37": "251020000150",
+				"70": "1"
+			}
+		},
+		{
+			"type": "scenario",
+			"name": "SignOn Scenario",
+			"steps": [
+				{
+					"name": "Step 1: Sign On",
+					"use_transaction_id": "SignOn",
+					"validate": [
+						{
+							"field": "39",
+							"expect": "00"
+						}
+					]
+				}
+			]
+		}
+	]`
+	tmpTx, err := os.CreateTemp("", "scenario_tx_*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpTx.Name())
+	_, err = tmpTx.WriteString(configData)
+	require.NoError(t, err)
+	tmpTx.Close()
+
+	tc, err := NewTransactionCollection(tmpTx.Name(), spec)
+	require.NoError(t, err)
+
+	// 5. Run scenario
+	runner := NewScenarioRunner(svc, tc)
+	report, err := runner.RunScenario("SignOn Scenario")
+	require.NoError(t, err)
+	require.NotNil(t, report)
+	assert.True(t, report.Success)
+
+	// 6. Flush async DB logger and verify transactions table in SQLite
+	db.FlushTransactions()
+
+	txs, err := db.GetSessionTransactions(sessionID)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+
+	assert.Equal(t, sessionID, txs[0].SessionID)
+	assert.Equal(t, "SignOn", txs[0].TxName)
+	assert.Equal(t, "00", txs[0].ResponseCode)
+	assert.True(t, txs[0].Success)
+	assert.NotEmpty(t, txs[0].RequestJSON)
+	assert.NotEmpty(t, txs[0].ResponseJSON)
+	assert.Contains(t, txs[0].RequestJSON, "0800")
+	assert.Contains(t, *txs[0].ResponseJSON, "0810")
+}
+
+func TestScenarioRunner_MultiStepWithReversalsAndEchoFields(t *testing.T) {
+	spec := utils.GetDefaultSpec()
+
+	// 1. Mock Server with differentiated card routes, reversal route, and echo fields
+	mockRoutes := []config.MockRouteConfig{
+		{
+			Name: "Card 1 Approved Route",
+			MatchFields: map[string]interface{}{
+				"0": "0100",
+				"2": "4000111122223333",
+				"3": "000000",
+			},
+			EchoFields: []int{2, 3, 4, 7, 11, 41, 49},
+			ResponseFields: map[string]interface{}{
+				"38": "auth_code",
+				"39": "00",
+			},
+		},
+		{
+			Name: "Card 2 Declined Route",
+			MatchFields: map[string]interface{}{
+				"0": "0100",
+				"2": "4000222233334444",
+				"3": "000000",
+			},
+			EchoFields: []int{2, 3, 4, 7, 11, 41, 49},
+			ResponseFields: map[string]interface{}{
+				"38": "auth_code",
+				"39": "51",
+			},
+		},
+		{
+			Name: "Card 3 Approved Route",
+			MatchFields: map[string]interface{}{
+				"0": "0100",
+				"2": "4000333344445555",
+				"3": "000000",
+			},
+			EchoFields: []int{2, 3, 4, 7, 11, 41, 49},
+			ResponseFields: map[string]interface{}{
+				"38": "auth_code",
+				"39": "00",
+			},
+		},
+		{
+			Name: "Card 3 Reversal Route",
+			MatchFields: map[string]interface{}{
+				"0": "0400",
+				"2": "4000333344445555",
+				"3": "000000",
+			},
+			EchoFields: []int{2, 3, 4, 7, 11, 38, 41, 49, 90},
+			ResponseFields: map[string]interface{}{
+				"39": "00",
+			},
+		},
+	}
+
+	mockServer := server.NewServer(spec, mockRoutes, "binary2")
+	require.NoError(t, mockServer.Start("19898"))
+	defer func() {
+		_ = mockServer.Stop()
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// 2. Connect client service
+	svc, err := service.NewService(
+		"127.0.0.1", "19898", "", false, 1, 2*time.Second, 5*time.Second, 2*time.Second,
+	)
+	require.NoError(t, err)
+	svc.SetSpec(spec)
+
+	h, err := utils.SelectLength("binary2")
+	require.NoError(t, err)
+	require.NoError(t, svc.Connect(false, h))
+	defer func() {
+		_ = svc.Disconnect()
+	}()
+
+	// 3. Define 4-step scenario (Card 1 Approved -> Card 2 Declined -> Card 3 Approved -> Card 3 Reversal)
+	configData := `[
+		{
+			"type": "transaction",
+			"name": "Tx Card 1",
+			"fields": {
+				"0": "0100",
+				"2": "4000111122223333",
+				"3": "000000",
+				"4": "10000",
+				"7": "auto",
+				"11": "auto",
+				"41": "TERM0001",
+				"49": "840"
+			}
+		},
+		{
+			"type": "transaction",
+			"name": "Tx Card 2",
+			"fields": {
+				"0": "0100",
+				"2": "4000222233334444",
+				"3": "000000",
+				"4": "20000",
+				"7": "auto",
+				"11": "auto",
+				"41": "TERM0002",
+				"49": "840"
+			}
+		},
+		{
+			"type": "transaction",
+			"name": "Tx Card 3",
+			"fields": {
+				"0": "0100",
+				"2": "4000333344445555",
+				"3": "000000",
+				"4": "30000",
+				"7": "auto",
+				"11": "auto",
+				"41": "TERM0003",
+				"49": "840"
+			}
+		},
+		{
+			"type": "transaction",
+			"name": "Reversal Card 3",
+			"fields": {
+				"0": "0400",
+				"2": "4000333344445555",
+				"3": "000000",
+				"4": "30000",
+				"7": "auto",
+				"11": "auto",
+				"38": "{{context.AuthId}}",
+				"41": "TERM0003",
+				"49": "840",
+				"90": "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
+			}
+		},
+		{
+			"type": "scenario",
+			"name": "Multi Step Scenario",
+			"steps": [
+				{
+					"name": "Step 1: Card 1 Approved",
+					"use_transaction_id": "Tx Card 1",
+					"validate": [
+						{"field": "39", "expect": "00"}
+					]
+				},
+				{
+					"name": "Step 2: Card 2 Declined",
+					"use_transaction_id": "Tx Card 2",
+					"validate": [
+						{"field": "39", "expect": "51"}
+					]
+				},
+				{
+					"name": "Step 3: Card 3 Approved",
+					"use_transaction_id": "Tx Card 3",
+					"extract": {
+						"AuthId": "38",
+						"OrigMTI": "0",
+						"OrigSTAN": "11",
+						"OrigDateTime": "7"
+					},
+					"validate": [
+						{"field": "39", "expect": "00"}
+					]
+				},
+				{
+					"name": "Step 4: Card 3 Reversal",
+					"use_transaction_id": "Reversal Card 3",
+					"validate": [
+						{"field": "39", "expect": "00"}
+					]
+				}
+			]
+		}
+	]`
+	tmpTx, err := os.CreateTemp("", "scenario_multistep_*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpTx.Name())
+	_, err = tmpTx.WriteString(configData)
+	require.NoError(t, err)
+	tmpTx.Close()
+
+	tc, err := NewTransactionCollection(tmpTx.Name(), spec)
+	require.NoError(t, err)
+
+	runner := NewScenarioRunner(svc, tc)
+	report, err := runner.RunScenario("Multi Step Scenario")
+	require.NoError(t, err)
+	require.NotNil(t, report)
+	assert.True(t, report.Success, "All steps in multi-step scenario must succeed")
+	assert.Equal(t, 4, len(report.Steps))
+	for _, step := range report.Steps {
+		assert.True(t, step.Success, "Step %s failed with err=%s", step.StepName, step.Error)
+		assert.Empty(t, step.ValidationErrors)
+	}
+}
+
+
+
+

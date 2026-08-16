@@ -13,7 +13,7 @@ import (
 )
 
 // Version defines the current application version.
-const Version = "v1.8.1"
+const Version = "v1.9.8"
 
 type Config struct {
 	file                string
@@ -29,6 +29,7 @@ type Config struct {
 	dbPath              string
 	sessionId           string
 	visaStationId       string
+	header              string
 	tlsConfigPath       string
 	tlsConfig           *TLSFileConfig
 	mu                  sync.RWMutex
@@ -96,6 +97,7 @@ func (c *Config) Parse() error {
 	hex := flag.Bool("hex", false, "enable hex dump output for messages")
 	dbPath := flag.String("db-path", "", "path to SQLite database file for storing sessions")
 	visaStationId := flag.String("visa-station-id", "", "VISA Local Station ID (6-digit hex or decimal)")
+	header := flag.String("header", "", "length header type (ascii4, binary2, bcd2, binary4, NAPS, Visa)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: jiso [OPTIONS]\n")
@@ -112,6 +114,7 @@ func (c *Config) Parse() error {
 	c.hex = *hex
 	c.dbPath = *dbPath
 	c.visaStationId = *visaStationId
+	c.header = *header
 	c.sessionId = generateSessionId()
 
 	return nil
@@ -142,6 +145,7 @@ func (c *Config) Reset() {
 	c.hex = false
 	c.dbPath = ""
 	c.visaStationId = ""
+	c.header = ""
 	c.tlsConfigPath = ""
 	c.tlsConfig = nil
 	c.reconnectAttempts = 3
@@ -310,6 +314,18 @@ func (c *Config) SetVisaStationId(stationId string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.visaStationId = stationId
+}
+
+func (c *Config) GetHeader() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.header
+}
+
+func (c *Config) SetHeader(header string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.header = header
 }
 
 func (c *Config) SetTLSConfigPath(path string) error {

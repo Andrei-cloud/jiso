@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	connection "github.com/moov-io/iso8583-connection"
 	"github.com/moov-io/iso8583/network"
@@ -21,10 +22,10 @@ const (
 )
 
 func SelectLength(lenType string) (network.Header, error) {
-	switch lenType {
+	switch strings.ToLower(lenType) {
 	case "ascii4":
 		return network.NewASCII4BytesHeader(), nil
-	case "binary2", "NAPS":
+	case "binary2", "naps":
 		return NewBinary2BytesAdapter(), nil
 	case "binary4":
 		return NewBinary4BytesAdapter(), nil
@@ -44,10 +45,10 @@ func SelectLength(lenType string) (network.Header, error) {
 // SelectServerHeader returns the appropriate header for embedded server role
 // For VISA header on server role, station ID is set to all zeros ("000000")
 func SelectServerHeader(lenType string) (network.Header, error) {
-	switch lenType {
+	switch strings.ToLower(lenType) {
 	case "ascii4":
 		return network.NewASCII4BytesHeader(), nil
-	case "binary2", "NAPS", "":
+	case "binary2", "naps", "":
 		return NewBinary2BytesAdapter(), nil
 	case "binary4":
 		return NewBinary4BytesAdapter(), nil

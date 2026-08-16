@@ -7,12 +7,21 @@ import (
 
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/utils"
 )
 
-func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool) map[string]interface{} {
+func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool, anon ...*Anonymizer) map[string]interface{} {
 	txFields := make(map[string]interface{})
 	if msg == nil {
 		return txFields
+	}
+
+	var a *Anonymizer
+	if len(anon) > 0 && anon[0] != nil {
+		a = anon[0]
+	} else {
+		a = NewAnonymizer(unsecure)
 	}
 
 	var fIDs []int
@@ -37,20 +46,16 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 		if !ok {
 			continue
 		}
-		extracted = AnonymizeFieldValue(i, extracted, unsecure)
+		extracted = a.AnonymizeFieldValue(i, extracted)
 		fieldKey := fmt.Sprintf("%d", i)
 
 		if i == 7 || i == 11 || i == 37 || i == 38 {
 			txFields[fieldKey] = "auto"
-		} else if isNumericField(spec, i) && i != 0 {
+		} else if i == 3 {
 			if strVal, isStr := extracted.(string); isStr {
-				if num, err := strconv.ParseInt(strVal, 10, 64); err == nil {
-					txFields[fieldKey] = num
-				} else {
-					txFields[fieldKey] = strVal
-				}
+				txFields[fieldKey] = FormatProcCode(strVal)
 			} else {
-				txFields[fieldKey] = extracted
+				txFields[fieldKey] = FormatProcCode(fmt.Sprintf("%v", extracted))
 			}
 		} else {
 			txFields[fieldKey] = extracted
@@ -62,52 +67,12 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 
 // extractFieldValueForTemplate converts field values into JSON-friendly values.
 // Composite fields are expanded into nested maps of subfield values.
-func extractFieldValueForTemplate(f field.Field) (interface{}, bool) {
-	if f == nil {
-		return nil, false
+func extractFieldValueForTemplate(f field.Field, specField ...*field.Spec) (interface{}, bool) {
+	var sf *field.Spec
+	if len(specField) > 0 {
+		sf = specField[0]
 	}
-
-	composite, ok := f.(*field.Composite)
-	if !ok {
-		v, err := f.String()
-		if err != nil || v == "" {
-			return nil, false
-		}
-		return v, true
-	}
-
-	subfields := composite.GetSubfields()
-	if len(subfields) == 0 {
-		v, err := f.String()
-		if err != nil || v == "" {
-			return nil, false
-		}
-		return v, true
-	}
-
-	result := make(map[string]interface{})
-	keys := sortedNumericOrStringKeys(subfields)
-
-	for _, key := range keys {
-		if key == "0" {
-			continue
-		}
-		v, ok := extractFieldValueForTemplate(subfields[key])
-		if !ok {
-			continue
-		}
-		result[key] = v
-	}
-
-	if len(result) == 0 {
-		v, err := f.String()
-		if err != nil || v == "" {
-			return nil, false
-		}
-		return v, true
-	}
-
-	return result, true
+	return utils.ExtractFieldData(f, sf)
 }
 
 func buildPlaceholderValue(prefix string, value interface{}) interface{} {

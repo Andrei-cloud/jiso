@@ -1233,7 +1233,7 @@
     "60": {
       "type": "Binary",
       "length": 255,
-      "description": "POS Capture Data",
+      "description": "Additional POS Information",
       "enc": "Binary",
       "prefix": "Binary.L"
     },

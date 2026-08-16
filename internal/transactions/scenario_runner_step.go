@@ -3,12 +3,17 @@ package transactions
 import (
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/moov-io/iso8583"
 	"github.com/moov-io/iso8583/field"
+
+	"jiso/internal/config"
+	"jiso/internal/db"
+	"jiso/internal/utils"
 )
 
 var (
@@ -130,12 +135,14 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 	if err != nil {
 		result.Success = false
 		result.Error = fmt.Errorf("network send failed: %w", err).Error()
+		sr.logStepToDB(step, reqMsg, nil, int(result.LatencyMs), false)
 		return result
 	}
 
 	if respMsg == nil {
 		result.Success = false
 		result.Error = "received empty response"
+		sr.logStepToDB(step, reqMsg, nil, int(result.LatencyMs), false)
 		return result
 	}
 
@@ -244,8 +251,8 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 		}
 	}
 
-	// 6. Extract fields if step succeeded
-	if result.Success {
+	// 6. Extract fields if response message is available
+	if respMsg != nil {
 		for varName, fieldStr := range step.Extract {
 			var fieldID int
 			if _, err := fmt.Sscanf(fieldStr, "%d", &fieldID); err != nil {
@@ -261,7 +268,99 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 		}
 	}
 
+	// 7. Log transaction to database and in-memory collection
+	sr.logStepToDB(step, reqMsg, respMsg, int(result.LatencyMs), result.Success)
+
 	return result
+}
+
+func (sr *ScenarioRunner) logStepToDB(step ScenarioStep, req *iso8583.Message, resp *iso8583.Message, processingTimeMs int, success bool) {
+	cfg := config.GetConfig()
+	if cfg.GetDbPath() == "" {
+		return
+	}
+
+	sessionID := cfg.GetSessionId()
+	if sessionID == "" {
+		return
+	}
+
+	specPath := cfg.GetSpec()
+	specName := filepath.Base(specPath)
+	if specPath == "" {
+		specName = ""
+	}
+	txFilePath := cfg.GetFile()
+	txFileName := filepath.Base(txFilePath)
+	if txFilePath == "" {
+		txFileName = ""
+	}
+
+	var spec *iso8583.MessageSpec
+	if sr.tc != nil {
+		spec = sr.tc.spec
+	}
+	if spec == nil && sr.svc != nil {
+		spec = sr.svc.GetSpec()
+	}
+
+	var reqJSON string
+	var reqRawHex string
+	if req != nil {
+		jsonStr, err := db.MessageToJSONWithSpec(req, spec)
+		if err == nil && jsonStr != "" {
+			reqJSON = jsonStr
+		} else {
+			if packed, pErr := req.Pack(); pErr == nil {
+				reqRawHex = utils.HexDump(packed)
+			}
+		}
+	}
+
+	var respJSON *string
+	var respRawHex *string
+	var responseCode string
+	if resp != nil {
+		if f := resp.GetField(39); f != nil {
+			if str, err := f.String(); err == nil {
+				responseCode = str
+			}
+		}
+		jsonStr, err := db.MessageToJSONWithSpec(resp, spec)
+		if err == nil && jsonStr != "" {
+			respJSON = &jsonStr
+		} else {
+			if packed, pErr := resp.Pack(); pErr == nil {
+				rHex := utils.HexDump(packed)
+				respRawHex = &rHex
+			}
+		}
+	}
+
+	txName := step.Name
+	if step.UseTransactionId != "" {
+		txName = step.UseTransactionId
+	}
+
+	db.LogTransactionEnriched(&db.TransactionRecord{
+		SessionID:        sessionID,
+		TxName:           txName,
+		TxFilePath:       txFilePath,
+		TxFileName:       txFileName,
+		SpecPath:         specPath,
+		SpecName:         specName,
+		RequestJSON:      reqJSON,
+		ResponseJSON:     respJSON,
+		RequestRawHEX:    reqRawHex,
+		ResponseRawHEX:   respRawHex,
+		ResponseCode:     responseCode,
+		ProcessingTimeMs: processingTimeMs,
+		Success:          success,
+	})
+
+	if sr.tc != nil && step.UseTransactionId != "" {
+		sr.tc.LogTransaction(step.UseTransactionId, success)
+	}
 }
 
 func (sr *ScenarioRunner) injectVariables(val string, datasetName string) string {

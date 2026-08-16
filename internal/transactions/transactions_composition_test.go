@@ -46,10 +46,24 @@ func (suite *TransactionCollectionSuite) TestCompose() {
 }
 
 func (suite *TransactionCollectionSuite) TestComposeEchoMastercard() {
-	wd, err := os.Getwd()
-	suite.Require().NoError(err)
-	projectRoot := filepath.Dir(filepath.Dir(wd))
-	txPath := filepath.Join(projectRoot, "transactions", "transaction.json")
+	tmpDir := suite.T().TempDir()
+	txPath := filepath.Join(tmpDir, "transaction.json")
+	sampleJSON := `[
+		{
+			"type": "transaction",
+			"name": "Echo Mastercard",
+			"description": "Network Management: Echo Mastercard",
+			"fields": {
+				"0": "0800",
+				"2": "41275",
+				"7": "auto",
+				"11": "stan",
+				"33": "003729",
+				"70": "270"
+			}
+		}
+	]`
+	suite.Require().NoError(os.WriteFile(txPath, []byte(sampleJSON), 0o644))
 
 	tc, err := NewTransactionCollection(txPath, iso8583.Spec87)
 	suite.Require().NoError(err)

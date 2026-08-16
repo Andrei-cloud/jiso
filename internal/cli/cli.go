@@ -94,6 +94,11 @@ func (cli *CLI) registerAllCommands() {
 	_ = cli.AddCommand(cli.factory.CreateStressTestCommand())
 	_ = cli.AddCommand(cli.factory.CreateDbStatsCommand())
 
+	ctfCmd := cli.factory.CreateCTFCommand()
+	_ = cli.AddCommand(ctfCmd)
+	cli.commands["ctf"] = ctfCmd
+	cli.commands["clearing"] = ctfCmd
+
 	scenarioCmd := cli.factory.CreateScenarioCommand()
 	cli.commands["scenario"] = scenarioCmd
 	cli.commands["scenarios"] = scenarioCmd

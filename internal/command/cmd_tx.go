@@ -75,8 +75,8 @@ func (c *TxCommand) Execute() error {
 		count = len(tc.ListNames())
 	}
 
-	newSessID, err := session.GetManager().RotateSession(specPath, txPath)
-	if err == nil && newSessID != "" {
+	newSessID, rotated, err := session.GetManager().UpdateOrRotateSession(specPath, txPath)
+	if err == nil && rotated && newSessID != "" {
 		fmt.Printf("New session initiated: %s\n", newSessID)
 	}
 

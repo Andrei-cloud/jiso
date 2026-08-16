@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/moov-io/iso8583"
 
@@ -41,13 +42,29 @@ func (ac *AnalyzeCommand) Execute() error {
 	var spec *iso8583.MessageSpec
 	unsecure := false
 	isScenario := false
+	headerType := config.GetConfig().GetHeader()
+	if headerType == "" {
+		headerType = "binary2"
+	}
 
-	for _, arg := range ac.args {
-		switch arg {
-		case "--unsecure", "-u", "unsecure":
+	for i := 0; i < len(ac.args); i++ {
+		arg := ac.args[i]
+		switch {
+		case arg == "--unsecure" || arg == "-u" || arg == "unsecure":
 			unsecure = true
-		case "--scenario", "-s", "scenario":
+		case arg == "--scenario" || arg == "-s" || arg == "scenario" || arg == "-S":
 			isScenario = true
+		case arg == "--header" || arg == "-H" || arg == "-header":
+			if i+1 < len(ac.args) {
+				i++
+				headerType = ac.args[i]
+			}
+		case strings.HasPrefix(arg, "--header="):
+			headerType = strings.TrimPrefix(arg, "--header=")
+		case strings.HasPrefix(arg, "-header="):
+			headerType = strings.TrimPrefix(arg, "-header=")
+		case strings.HasPrefix(arg, "-H="):
+			headerType = strings.TrimPrefix(arg, "-H=")
 		default:
 			cleanArgs = append(cleanArgs, arg)
 		}
@@ -60,7 +77,6 @@ func (ac *AnalyzeCommand) Execute() error {
 	// Non-interactive command format: analyze [--unsecure] [--scenario] <streamFile> [specFile] [headerType] [outputTxFile]
 	streamFile := cleanArgs[0]
 	specPath := config.GetConfig().GetSpec()
-	headerType := "binary2"
 	outputTxFile := config.GetConfig().GetFile()
 
 	if len(cleanArgs) > 1 && cleanArgs[1] != "" {

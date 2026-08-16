@@ -18,6 +18,10 @@ func newAnalyzeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			unsecure, _ := cmd.Flags().GetBool("unsecure")
 			scenario, _ := cmd.Flags().GetBool("scenario")
+			header, _ := cmd.Flags().GetString("header")
+			if header == "" {
+				header = cfg.GetConfig().GetHeader()
+			}
 
 			var cleanArgs []string
 			if unsecure {
@@ -25,6 +29,9 @@ func newAnalyzeCmd() *cobra.Command {
 			}
 			if scenario {
 				cleanArgs = append(cleanArgs, "--scenario")
+			}
+			if header != "" {
+				cleanArgs = append(cleanArgs, "--header", header)
 			}
 			cleanArgs = append(cleanArgs, args...)
 
@@ -34,6 +41,7 @@ func newAnalyzeCmd() *cobra.Command {
 
 	cmd.Flags().BoolP("unsecure", "u", false, "Disable payload masking / security sanitization")
 	cmd.Flags().BoolP("scenario", "S", false, "Analyze capture into scenario flow")
+	cmd.Flags().String("header", "", "Header format (ascii4, binary2, bcd2, binary4, NAPS, Visa)")
 	return cmd
 }
 
