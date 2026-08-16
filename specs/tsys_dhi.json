@@ -90,7 +90,7 @@
 		"7": {
 			"type": "String",
 			"length": 10,
-			"description": "Transmission Date \u0026 Time",
+			"description": "Transmission Date & Time",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
@@ -98,6 +98,13 @@
 			"type": "String",
 			"length": 8,
 			"description": "Billing Fee Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"9": {
+			"type": "String",
+			"length": 8,
+			"description": "Settlement Conversion Rate",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
@@ -147,13 +154,6 @@
 			"type": "String",
 			"length": 4,
 			"description": "Conversion Date",
-			"enc": "ASCII",
-			"prefix": "ASCII.Fixed"
-		},
-		"17": {
-			"type": "String",
-			"length": 4,
-			"description": "Capture Date",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
@@ -207,9 +207,9 @@
 			"prefix": "ASCII.Fixed"
 		},
 		"26": {
-			"type": "String",
+			"type": "Numeric",
 			"length": 1,
-			"description": "Point of Service Condition Code",
+			"description": "Point of Service PIN Capture Code",
 			"enc": "BCD",
 			"prefix": "BCD.Fixed"
 		},
@@ -229,7 +229,7 @@
 		},
 		"30": {
 			"type": "String",
-			"length": 9,
+			"length": 24,
 			"description": "Original Transaction Amount",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
@@ -276,13 +276,6 @@
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
-		"40": {
-			"type": "String",
-			"length": 3,
-			"description": "Service Restriction Code",
-			"enc": "ASCII",
-			"prefix": "ASCII.Fixed"
-		},
 		"41": {
 			"type": "String",
 			"length": 8,
@@ -299,7 +292,7 @@
 		},
 		"43": {
 			"type": "String",
-			"length": 40,
+			"length": 42,
 			"description": "Card Acceptor Name/Location",
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
@@ -379,7 +372,7 @@
 			"length": 36,
 			"description": "Original Data",
 			"enc": "ASCII",
-			"prefix": "ASCII.Fixed"
+			"prefix": "ASCII.LL"
 		},
 		"60": {
 			"type": "String",
@@ -403,11 +396,11 @@
 			"prefix": "ASCII.LLL"
 		},
 		"64": {
-			"type": "String",
+			"type": "Binary",
 			"length": 8,
-			"description": "MAC",
-			"enc": "ASCII",
-			"prefix": "ASCII.Fixed"
+			"description": "Message Authentication Code (MAC)",
+			"enc": "Binary",
+			"prefix": "Binary.Fixed"
 		},
 		"66": {
 			"type": "String",
@@ -441,9 +434,58 @@
 			"enc": "ASCII",
 			"prefix": "ASCII.Fixed"
 		},
+		"75": {
+			"type": "String",
+			"length": 10,
+			"description": "Credits, Reversal Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"76": {
+			"type": "String",
+			"length": 10,
+			"description": "Debits, Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"77": {
+			"type": "String",
+			"length": 10,
+			"description": "Debits, Reversal Number",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"86": {
+			"type": "String",
+			"length": 16,
+			"description": "Credits, Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"87": {
+			"type": "String",
+			"length": 16,
+			"description": "Credits, Reversal Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"88": {
+			"type": "String",
+			"length": 16,
+			"description": "Debits, Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
+		"89": {
+			"type": "String",
+			"length": 16,
+			"description": "Debits, Reversal Amount",
+			"enc": "ASCII",
+			"prefix": "ASCII.Fixed"
+		},
 		"90": {
 			"type": "Composite",
-			"length": 6,
+			"length": 42,
 			"description": "Original Data",
 			"prefix": "ASCII.Fixed",
 			"tag": {
@@ -459,7 +501,7 @@
 				},
 				"2": {
 					"type": "String",
-					"length": 5,
+					"length": 6,
 					"description": "Original trace number",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
@@ -473,8 +515,8 @@
 				},
 				"4": {
 					"type": "String",
-					"length": 20,
-					"description": "Original acquirer ID \u0026 forwarding institution ID",
+					"length": 22,
+					"description": "Original acquirer ID & forwarding institution ID",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
 				}
@@ -538,22 +580,29 @@
 		},
 		"104": {
 			"type": "String",
-			"length": 255,
+			"length": 999,
 			"description": "Transaction Specific Data",
 			"enc": "ASCII",
-			"prefix": "ASCII.LL"
+			"prefix": "ASCII.LLL"
+		},
+		"117": {
+			"type": "String",
+			"length": 120,
+			"description": "Additional Amounts, To Account",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
 		},
 		"118": {
 			"type": "String",
 			"length": 99,
-			"description": "Transaction Specific Data",
+			"description": "Intra Country",
 			"enc": "ASCII",
 			"prefix": "ASCII.LL"
 		},
 		"120": {
 			"type": "String",
 			"length": 999,
-			"description": "Transaction Specific Data",
+			"description": "Additional Information",
 			"enc": "ASCII",
 			"prefix": "ASCII.LLL"
 		},
@@ -570,12 +619,12 @@
 			"length": 255,
 			"prefix": "Binary.L",
 			"bitmap": {
-					"type": "Bitmap",
-					"length": 8,
-					"description": "Bitmap",
-					"enc": "Binary",
-					"prefix": "Binary.Fixed",
-					"disableautoexpand": true
+				"type": "Bitmap",
+				"length": 8,
+				"description": "Bitmap",
+				"enc": "Binary",
+				"prefix": "Binary.Fixed",
+				"disableautoexpand": true
 			},
 			"subfields": {
 				"6": {
@@ -594,7 +643,7 @@
 				},
 				"8": {
 					"type": "String",
-					"length": 2,
+					"length": 20,
 					"description": "Transaction ID",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
@@ -602,7 +651,7 @@
 				"9": {
 					"type": "String",
 					"length": 20,
-					"description": "CAVV",
+					"description": "CAVV/AEVV",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
 				},
@@ -612,8 +661,29 @@
 					"description": "CVV2",
 					"enc": "ASCII",
 					"prefix": "ASCII.Fixed"
+				},
+				"13": {
+					"type": "String",
+					"length": 1,
+					"description": "POS Environment",
+					"enc": "ASCII",
+					"prefix": "ASCII.Fixed"
 				}
 			}
+		},
+		"127": {
+			"type": "String",
+			"length": 255,
+			"description": "Record Data",
+			"enc": "ASCII",
+			"prefix": "ASCII.LLL"
+		},
+		"128": {
+			"type": "Binary",
+			"length": 8,
+			"description": "Message Authentication Code (MAC)",
+			"enc": "Binary",
+			"prefix": "Binary.Fixed"
 		}
 	}
 }
