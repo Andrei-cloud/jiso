@@ -109,10 +109,10 @@ func newCTFExportCmd() *cobra.Command {
 			cmd.Printf("Total TCRs in Batch:     %d\n", result.TotalTCRCount)
 			cmd.Printf("Destination Amount Sum:  %.2f (Raw: %d)\n", float64(result.DestinationAmountSum)/100.0, result.DestinationAmountSum)
 			cmd.Printf("Source Amount Sum:       %.2f (Raw: %d)\n", float64(result.SourceAmountSum)/100.0, result.SourceAmountSum)
-			cmd.Printf("Center Info Block (CIB): %s\n", result.CIB)
-			cmd.Printf("Processing Date:         %s\n", result.ProcessingDate)
+			cmd.Printf("Clearing Interchange BIN (CIB): %s\n", result.CIB)
+			cmd.Printf("Processing Date:                %s\n", result.ProcessingDate)
 			if result.SkippedCount > 0 {
-				cmd.Printf("Skipped Transactions:    %d (non-approved or BIN filtered)\n", result.SkippedCount)
+				cmd.Printf("Skipped Transactions:           %d (non-approved or BIN filtered)\n", result.SkippedCount)
 			}
 			cmd.Printf("=========================================================================\n")
 			return nil
@@ -121,7 +121,7 @@ func newCTFExportCmd() *cobra.Command {
 
 	cmd.Flags().StringP("session-id", "S", "", "Session ID to extract transactions from (required)")
 	cmd.Flags().StringP("output", "o", "", "Output CTF file path")
-	cmd.Flags().StringP("cib", "c", "400129", "Center Information Block (CIB)")
+	cmd.Flags().StringP("cib", "c", "400129", "Clearing Interchange BIN (CIB)")
 	cmd.Flags().StringP("bin", "b", "", "Filter approved transactions by card BIN")
 	cmd.Flags().IntP("batch", "B", 1, "Batch number")
 

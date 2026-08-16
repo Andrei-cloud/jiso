@@ -184,10 +184,10 @@ func exportCTFForSession(sessionID, outputPath, binFilter, cib string) error {
 	fmt.Printf("Total TCRs in Batch:     %d\n", result.TotalTCRCount)
 	fmt.Printf("Destination Amount Sum:  %.2f (Raw: %d)\n", float64(result.DestinationAmountSum)/100.0, result.DestinationAmountSum)
 	fmt.Printf("Source Amount Sum:       %.2f (Raw: %d)\n", float64(result.SourceAmountSum)/100.0, result.SourceAmountSum)
-	fmt.Printf("Center Info Block (CIB): %s\n", result.CIB)
-	fmt.Printf("Processing Date:         %s\n", result.ProcessingDate)
+	fmt.Printf("Clearing Interchange BIN (CIB): %s\n", result.CIB)
+	fmt.Printf("Processing Date:                %s\n", result.ProcessingDate)
 	if result.SkippedCount > 0 {
-		fmt.Printf("Skipped Transactions:    %d (non-approved or BIN filtered)\n", result.SkippedCount)
+		fmt.Printf("Skipped Transactions:           %d (non-approved or BIN filtered)\n", result.SkippedCount)
 	}
 	fmt.Println("=========================================================================")
 	return nil
