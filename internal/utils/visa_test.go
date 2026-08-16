@@ -281,17 +281,17 @@ func TestVisaField60And61Packing(t *testing.T) {
 				"prefix": "Binary.Fixed"
 			},
 			"60": {
-				"type": "Numeric",
-				"length": 12,
+				"type": "Binary",
+				"length": 255,
 				"description": "Additional POS Information",
-				"enc": "BCD",
+				"enc": "Binary",
 				"prefix": "Binary.L"
 			},
 			"61": {
-				"type": "Numeric",
-				"length": 36,
+				"type": "Binary",
+				"length": 18,
 				"description": "Other Amounts",
-				"enc": "BCD",
+				"enc": "Binary",
 				"prefix": "Binary.L"
 			}
 		}
@@ -304,10 +304,10 @@ func TestVisaField60And61Packing(t *testing.T) {
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0100")
-	if err := msg.Field(60, "5900004007"); err != nil {
+	if err := msg.BinaryField(60, []byte{0x59, 0x00, 0x00, 0x40, 0x07}); err != nil {
 		t.Fatalf("failed to set field 60: %v", err)
 	}
-	if err := msg.Field(61, "123456789012"); err != nil {
+	if err := msg.BinaryField(61, []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0x12}); err != nil {
 		t.Fatalf("failed to set field 61: %v", err)
 	}
 
@@ -316,26 +316,26 @@ func TestVisaField60And61Packing(t *testing.T) {
 		t.Fatalf("failed to pack message: %v", err)
 	}
 
-	// Unpack and verify exact string values
+	// Unpack and verify exact binary bytes
 	unpacked := iso8583.NewMessage(spec)
 	if err := unpacked.Unpack(packed); err != nil {
 		t.Fatalf("failed to unpack message: %v", err)
 	}
 
-	f60, err := unpacked.GetString(60)
+	f60Bytes, err := unpacked.GetBytes(60)
 	if err != nil {
 		t.Fatalf("failed to get field 60: %v", err)
 	}
-	if f60 != "5900004007" {
-		t.Errorf("expected field 60 '5900004007', got '%s'", f60)
+	if !bytes.Equal(f60Bytes, []byte{0x59, 0x00, 0x00, 0x40, 0x07}) {
+		t.Errorf("expected field 60 bytes, got %x", f60Bytes)
 	}
 
-	f61, err := unpacked.GetString(61)
+	f61Bytes, err := unpacked.GetBytes(61)
 	if err != nil {
 		t.Fatalf("failed to get field 61: %v", err)
 	}
-	if f61 != "123456789012" {
-		t.Errorf("expected field 61 '123456789012', got '%s'", f61)
+	if !bytes.Equal(f61Bytes, []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0x12}) {
+		t.Errorf("expected field 61 bytes, got %x", f61Bytes)
 	}
 }
 

@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/moov-io/iso8583"
+
+	"jiso/internal/utils"
 )
 
 // MessageDirection indicates whether a message is a request or response
@@ -94,29 +96,24 @@ func (a *StreamAnalyzer) ExtractAnnotatedMessagesFromFile(
 		return annotated, nil
 	}
 
-	var reqBuf, respBuf bytes.Buffer
-	var lastReqSrcPort, lastReqDstPort uint16
-	var lastRespSrcPort, lastRespDstPort uint16
+	type streamEndpoint struct {
+		srcPort uint16
+		dstPort uint16
+	}
+
+	var streamOrder []streamEndpoint
+	streamBuffers := make(map[streamEndpoint]*bytes.Buffer)
 
 	collector := func(srcPort, dstPort uint16, payload []byte) {
 		if len(payload) == 0 {
 			return
 		}
-		if targetServerPort > 0 {
-			if dstPort == targetServerPort {
-				reqBuf.Write(payload)
-				lastReqSrcPort = srcPort
-				lastReqDstPort = dstPort
-			} else if srcPort == targetServerPort {
-				respBuf.Write(payload)
-				lastRespSrcPort = srcPort
-				lastRespDstPort = dstPort
-			} else {
-				reqBuf.Write(payload)
-			}
-		} else {
-			reqBuf.Write(payload)
+		ep := streamEndpoint{srcPort: srcPort, dstPort: dstPort}
+		if streamBuffers[ep] == nil {
+			streamBuffers[ep] = &bytes.Buffer{}
+			streamOrder = append(streamOrder, ep)
 		}
+		streamBuffers[ep].Write(payload)
 	}
 
 	magicBE := binary.BigEndian.Uint32(headerBuf[0:4])
@@ -126,38 +123,83 @@ func (a *StreamAnalyzer) ExtractAnnotatedMessagesFromFile(
 		_ = parsePCAPPackets(f, collector)
 	}
 
-	reqMsgs, reqErr := a.ExtractMessagesFromStream(reqBuf.Bytes(), headerType)
-	respMsgs, respErr := a.ExtractMessagesFromStream(respBuf.Bytes(), headerType)
-	if reqErr != nil && len(reqMsgs) == 0 && respErr != nil && len(respMsgs) == 0 {
-		if reqErr != nil {
-			return nil, fmt.Errorf("extracting request messages: %w", reqErr)
-		}
-		return nil, fmt.Errorf("extracting response messages: %w", respErr)
-	}
-
 	var result []*AnnotatedMessage
 	order := 0
 
-	for _, m := range reqMsgs {
-		result = append(result, &AnnotatedMessage{
-			Message:   m,
-			Direction: DirectionRequest,
-			Order:     order,
-			SrcPort:   lastReqSrcPort,
-			DstPort:   lastReqDstPort,
-		})
-		order++
+	if targetServerPort > 0 {
+		var reqBuf, respBuf bytes.Buffer
+		var lastReqSrc, lastReqDst uint16
+		var lastRespSrc, lastRespDst uint16
+
+		for _, ep := range streamOrder {
+			buf := streamBuffers[ep]
+			if ep.dstPort == targetServerPort {
+				reqBuf.Write(buf.Bytes())
+				lastReqSrc = ep.srcPort
+				lastReqDst = ep.dstPort
+			} else if ep.srcPort == targetServerPort {
+				respBuf.Write(buf.Bytes())
+				lastRespSrc = ep.srcPort
+				lastRespDst = ep.dstPort
+			} else {
+				reqBuf.Write(buf.Bytes())
+			}
+		}
+
+		reqMsgs, reqErr := a.ExtractMessagesFromStream(reqBuf.Bytes(), headerType)
+		respMsgs, respErr := a.ExtractMessagesFromStream(respBuf.Bytes(), headerType)
+		if reqErr != nil && len(reqMsgs) == 0 && respErr != nil && len(respMsgs) == 0 {
+			if reqErr != nil {
+				return nil, fmt.Errorf("extracting request messages: %w", reqErr)
+			}
+			return nil, fmt.Errorf("extracting response messages: %w", respErr)
+		}
+
+		for _, m := range reqMsgs {
+			result = append(result, &AnnotatedMessage{
+				Message:   m,
+				Direction: DirectionRequest,
+				Order:     order,
+				SrcPort:   lastReqSrc,
+				DstPort:   lastReqDst,
+			})
+			order++
+		}
+
+		for _, m := range respMsgs {
+			result = append(result, &AnnotatedMessage{
+				Message:   m,
+				Direction: DirectionResponse,
+				Order:     order,
+				SrcPort:   lastRespSrc,
+				DstPort:   lastRespDst,
+			})
+			order++
+		}
+	} else {
+		for _, ep := range streamOrder {
+			buf := streamBuffers[ep]
+			msgs, _ := a.ExtractMessagesFromStream(buf.Bytes(), headerType)
+			for _, m := range msgs {
+				mti, _ := m.GetMTI()
+				dir := DirectionRequest
+				if utils.IsResponseMTI(mti) {
+					dir = DirectionResponse
+				}
+				result = append(result, &AnnotatedMessage{
+					Message:   m,
+					Direction: dir,
+					Order:     order,
+					SrcPort:   ep.srcPort,
+					DstPort:   ep.dstPort,
+				})
+				order++
+			}
+		}
 	}
 
-	for _, m := range respMsgs {
-		result = append(result, &AnnotatedMessage{
-			Message:   m,
-			Direction: DirectionResponse,
-			Order:     order,
-			SrcPort:   lastRespSrcPort,
-			DstPort:   lastRespDstPort,
-		})
-		order++
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no valid ISO8583 messages extracted from '%s' with header '%s'", filePath, headerType)
 	}
 
 	return result, nil
