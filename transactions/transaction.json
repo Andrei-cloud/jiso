@@ -1,114 +1,5 @@
 [
   {
-    "type": "transaction",
-    "name": "Sign On",
-    "description": "Network Management: Sign On",
-    "fields": {
-      "0": "0800",
-      "7": "auto",
-      "11": "auto",
-      "70": 1
-    }
-  },
-  {
-    "type": "transaction",
-    "name": "Echo",
-    "description": "Network Management: Echo",
-    "fields": {
-      "0": "0800",
-      "7": "auto",
-      "11": "auto",
-      "70": 301
-    }
-  },
-  {
-    "type": "transaction",
-    "name": "Echo Mastercard",
-    "description": "Network Management: Echo Mastercard",
-    "spec": "specs/mastercard.json",
-    "fields": {
-      "0": "0800",
-      "2": "41275",
-      "7": "auto",
-      "11": "stan",
-      "33": "003729",
-      "70": "270"
-    }
-  },
-  {
-    "type": "transaction",
-    "name": "Purchase Template",
-    "description": "Financial Request (0200) Base Template",
-    "dataset_name": "card_pool",
-    "fields": {
-      "0": "0200",
-      "2": "{{data.2}}",
-      "3": "000000",
-      "4": "1000",
-      "7": "auto",
-      "11": "auto",
-      "14": "{{data.14}}",
-      "18": "5999",
-      "19": "840",
-      "22": "021",
-      "23": "{{data.23}}",
-      "25": "00",
-      "35": "{{data.35}}",
-      "37": "auto",
-      "41": "77973588",
-      "42": "123456789012345",
-      "43": "TEST MERCHANT            DOHA        QAT",
-      "49": "634",
-      "60": "CBQP"
-    }
-  },
-  {
-    "type": "transaction",
-    "name": "Reversal Template",
-    "description": "Reversal Request (0400) Base Template",
-    "dataset_name": "card_pool",
-    "fields": {
-      "0": "0400",
-      "2": "{{data.2}}",
-      "3": "000000",
-      "4": "1000",
-      "7": "auto",
-      "11": "auto",
-      "14": "{{data.14}}",
-      "18": "5999",
-      "19": "840",
-      "22": "021",
-      "25": "00",
-      "37": "auto",
-      "38": "{{context.AuthId}}",
-      "39": "01",
-      "41": "77973588",
-      "42": "123456789012345",
-      "43": "TEST MERCHANT            DOHA        QAT",
-      "49": "634",
-      "90": "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
-    }
-  },
-  {
-    "type": "dataset",
-    "name": "card_pool",
-    "description": "Sample card data pool for testing scenarios",
-    "data": [
-      {
-        "2": "1234567890123456",
-        "14": "2512",
-        "23": "001",
-        "35": "1234567890123456=2512123"
-      },
-      {
-        "2": "9876543210987654",
-        "14": "2601",
-        "23": "002",
-        "35": "9876543210987654=2601123"
-      }
-    ]
-  },
-  {
     "type": "scenario",
     "name": "E2E Purchase and Reversal",
     "description": "Signs on, sends a purchase transaction, extracts the Auth ID, and then sends a reversal transaction using that Auth ID",
@@ -166,31 +57,6 @@
   },
   {
     "type": "mock_route",
-    "name": "Sign On Approval",
-    "match_fields": {
-      "0": "0800",
-      "70": 1
-    },
-    "required_fields": [
-      "0",
-      "7",
-      "11",
-      "70"
-    ],
-    "echo_fields": [
-      7,
-      11,
-      70
-    ],
-    "response_mti": "0810",
-    "response_fields": {
-      "39": "00" 
-    },
-    "latency_ms": 100,
-    "jitter_ms": 25
-  },
-  {
-    "type": "mock_route",
     "name": "Echo",
     "match_fields": {
       "0": "0800",
@@ -211,6 +77,871 @@
     "response_fields": {
       "39": "00"
     }
+  },
+  {
+    "type": "transaction",
+    "name": "Echo Mastercard",
+    "description": "Network Management: Echo Mastercard",
+    "fields": {
+      "0": "0800",
+      "2": "41275",
+      "7": "auto",
+      "11": "stan",
+      "33": "003729",
+      "70": "270"
+    }
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=000000 RC=00 #1",
+    "description": "Auto-generated mock route for response flow 0110 DE3 000000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085652042272000",
+      "3": "000000",
+      "22": "1000",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      48,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=000000 RC=00 #2",
+    "description": "Auto-generated mock route for response flow 0110 DE3 000000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4174480020301000",
+      "3": "000000",
+      "22": "1020",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=000000 RC=51 #3",
+    "description": "Auto-generated mock route for response flow 0110 DE3 000000 (RC: 51)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658943524000",
+      "3": "000000",
+      "22": "1000",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      48,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "39": "51"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=000000 RC=5C #5",
+    "description": "Auto-generated mock route for response flow 0110 DE3 000000 (RC: 5C)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658989217000",
+      "3": "000000",
+      "22": "1000",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      48,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "39": "5C"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=000000 RC=85 #4",
+    "description": "Auto-generated mock route for response flow 0110 DE3 000000 (RC: 85)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4421780042272000",
+      "3": "000000",
+      "22": "0",
+      "25": "51"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      42,
+      49,
+      62,
+      63
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "85"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=003000",
+    "description": "Auto-generated mock route for response flow 0110 DE3 003000",
+    "match_fields": {
+      "0": "0100",
+      "3": "003000",
+      "22": "100",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=00 #1",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658937556000",
+      "3": "100000",
+      "22": "120",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C0000000998800001784D000000020000"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=00 #2",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658902395000",
+      "3": "100000",
+      "22": "100",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C0000000001180001784D000000002700"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=00 #3",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658910810000",
+      "3": "100000",
+      "22": "120",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C0000000095280001784D000000083500"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=00 #4",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658911820000",
+      "3": "100000",
+      "22": "1020",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C0000001283170001784D000000005000"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=00 #5",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658909987000",
+      "3": "100000",
+      "22": "1020",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C0000002926420001784D000000045000"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=51 #6",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 51)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4600312408162000",
+      "3": "100000",
+      "22": "120",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "39": "51"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=100000 RC=51 #7",
+    "description": "Auto-generated mock route for response flow 0110 DE3 100000 (RC: 51)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658930984000",
+      "3": "100000",
+      "22": "1020",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "39": "51",
+      "54": "0002784C0000000000000001784C000000000000"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=110000",
+    "description": "Auto-generated mock route for response flow 0110 DE3 110000",
+    "match_fields": {
+      "0": "0100",
+      "3": "110000",
+      "22": "100",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      44,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=200000 RC=00 #1",
+    "description": "Auto-generated mock route for response flow 0110 DE3 200000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658940290000",
+      "3": "200000",
+      "22": "100",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      49,
+      60,
+      62
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C000000004098",
+      "63": {
+        "1": "2"
+      }
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=200000 RC=00 #2",
+    "description": "Auto-generated mock route for response flow 0110 DE3 200000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4198692492681000",
+      "3": "200000",
+      "22": "100",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0001784C0000037876640001784D0000112123360002784C000000000053"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "mock_route",
+    "name": "Mock Route 0110 DE3=200000 RC=00 #3",
+    "description": "Auto-generated mock route for response flow 0110 DE3 200000 (RC: 00)",
+    "match_fields": {
+      "0": "0100",
+      "2": "4085658975004000",
+      "3": "200000",
+      "22": "1020",
+      "25": "59"
+    },
+    "echo_fields": [
+      2,
+      3,
+      4,
+      7,
+      11,
+      19,
+      25,
+      32,
+      37,
+      41,
+      42,
+      49,
+      60,
+      62,
+      63,
+      104
+    ],
+    "response_mti": "0110",
+    "response_fields": {
+      "38": "auth_code",
+      "39": "00",
+      "54": "0002784C000000003725"
+    },
+    "latency_ms": 10,
+    "jitter_ms": 5
+  },
+  {
+    "type": "scenario",
+    "name": "PCAP Captured Test Scenario",
+    "description": "Scaffolded test scenario containing 17 step(s) extracted from PCAP",
+    "steps": [
+      {
+        "name": "0100 DE3=000000 (Step #1)",
+        "use_transaction_id": "Tx 0100 DE3=000000 #1",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=000000 (Step #2)",
+        "use_transaction_id": "Tx 0100 DE3=000000 #2",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "51"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=000000 (Step #3)",
+        "use_transaction_id": "Tx 0100 DE3=000000 #3",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=000000 (Step #4)",
+        "use_transaction_id": "Tx 0100 DE3=000000 #4",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "85"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=200000 (Step #5)",
+        "use_transaction_id": "Tx 0100 DE3=200000 #5",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #6)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #6",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #7)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #7",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=110000 (Step #8)",
+        "use_transaction_id": "Tx 0100 DE3=110000 #8",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #9)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #9",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "51"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #10)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #10",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=003000 (Step #11)",
+        "use_transaction_id": "Tx 0100 DE3=003000 #11",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=200000 (Step #12)",
+        "use_transaction_id": "Tx 0100 DE3=200000 #12",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #13)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #13",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #14)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #14",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=000000 (Step #15)",
+        "use_transaction_id": "Tx 0100 DE3=000000 #15",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "5C"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=100000 (Step #16)",
+        "use_transaction_id": "Tx 0100 DE3=100000 #16",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "51"
+          }
+        ]
+      },
+      {
+        "name": "0100 DE3=200000 (Step #17)",
+        "use_transaction_id": "Tx 0100 DE3=200000 #17",
+        "fields": null,
+        "extract": null,
+        "validate": [
+          {
+            "field": "39",
+            "expect": "00"
+          }
+        ]
+      }
+    ]
   },
   {
     "type": "mock_route",
@@ -250,6 +981,33 @@
     "jitter_ms": 25
   },
   {
+    "type": "transaction",
+    "name": "Purchase Template",
+    "description": "Financial Request (0200) Base Template",
+    "fields": {
+      "0": "0200",
+      "2": "{{data.2}}",
+      "3": "000000",
+      "4": "1000",
+      "7": "auto",
+      "11": "auto",
+      "14": "{{data.14}}",
+      "18": "5999",
+      "19": "840",
+      "22": "021",
+      "23": "{{data.23}}",
+      "25": "00",
+      "35": "{{data.35}}",
+      "37": "auto",
+      "41": "77973588",
+      "42": "123456789012345",
+      "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634",
+      "60": "CBQP"
+    },
+    "dataset_name": "card_pool"
+  },
+  {
     "type": "mock_route",
     "name": "Reversal Approval",
     "match_fields": {
@@ -287,5 +1045,1094 @@
     },
     "latency_ms": 100,
     "jitter_ms": 25
+  },
+  {
+    "type": "transaction",
+    "name": "Reversal Template",
+    "description": "Reversal Request (0400) Base Template",
+    "fields": {
+      "0": "0400",
+      "2": "{{data.2}}",
+      "3": "000000",
+      "4": "1000",
+      "7": "auto",
+      "11": "auto",
+      "14": "{{data.14}}",
+      "18": "5999",
+      "19": "840",
+      "22": "021",
+      "25": "00",
+      "37": "auto",
+      "38": "{{context.AuthId}}",
+      "39": "01",
+      "41": "77973588",
+      "42": "123456789012345",
+      "43": "TEST MERCHANT            DOHA        QAT",
+      "49": "634",
+      "90": "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
+    },
+    "dataset_name": "card_pool"
+  },
+  {
+    "type": "transaction",
+    "name": "Sign On",
+    "description": "Network Management: Sign On",
+    "fields": {
+      "0": "0800",
+      "7": "auto",
+      "11": "auto",
+      "70": 1
+    }
+  },
+  {
+    "type": "mock_route",
+    "name": "Sign On Approval",
+    "match_fields": {
+      "0": "0800",
+      "70": 1
+    },
+    "required_fields": [
+      "0",
+      "7",
+      "11",
+      "70"
+    ],
+    "echo_fields": [
+      7,
+      11,
+      70
+    ],
+    "response_mti": "0810",
+    "response_fields": {
+      "39": "00"
+    },
+    "latency_ms": 100,
+    "jitter_ms": 25
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=000000 #1",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 000000",
+    "fields": {
+      "0": "0100",
+      "2": "4085652042272000",
+      "3": "000000",
+      "4": "4598",
+      "6": "4598",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "2807",
+      "18": "5818",
+      "19": "372",
+      "22": "1000",
+      "25": "59",
+      "32": "408343",
+      "33": "408343",
+      "34": {
+        "02": {
+          "80": "1"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "212963000200925",
+      "43": "APPLE.COM/BILL           ITUNES.COM   IE",
+      "48": {
+        "5C": "L%L5422"
+      },
+      "49": "784",
+      "51": "784",
+      "60": "0000000007",
+      "62": {
+        "2": "466215322677000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6220"
+        }
+      },
+      "125": {
+        "03": {
+          "03": "0305264602959533"
+        }
+      },
+      "126": {
+        "13": "R"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=000000 #15",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 000000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658989217000",
+      "3": "000000",
+      "4": "499",
+      "6": "499",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3103",
+      "18": "5818",
+      "19": "372",
+      "22": "1000",
+      "25": "59",
+      "32": "408343",
+      "33": "408343",
+      "34": {
+        "02": {
+          "80": "1"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "212963000200925",
+      "43": "APPLE.COM/BILL           ITUNES.COM   IE",
+      "48": {
+        "5C": "L%L1274"
+      },
+      "49": "784",
+      "51": "784",
+      "60": "5000004007",
+      "62": {
+        "2": "356215321494000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6220"
+        }
+      },
+      "123": {
+        "68": {
+          "01": "4354978494626824",
+          "02": "11",
+          "03": "40010030273",
+          "06": "3112",
+          "07": "02"
+        }
+      },
+      "125": {
+        "03": {
+          "03": "0356109452309936"
+        }
+      },
+      "126": {
+        "13": "C"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=000000 #2",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 000000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658943524000",
+      "3": "000000",
+      "4": "4999",
+      "6": "4999",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "2912",
+      "18": "5818",
+      "19": "372",
+      "22": "1000",
+      "25": "59",
+      "32": "408343",
+      "33": "408343",
+      "34": {
+        "02": {
+          "80": "1"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "212963000200925",
+      "43": "APPLE.COM/BILL           ITUNES.COM   IE",
+      "48": {
+        "5C": "L%L1274"
+      },
+      "49": "784",
+      "51": "784",
+      "60": "5000004007",
+      "62": {
+        "2": "586215327213000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6220"
+        }
+      },
+      "123": {
+        "68": {
+          "01": "4337835558758699",
+          "02": "11",
+          "03": "40010030273",
+          "06": "3112",
+          "07": "02"
+        }
+      },
+      "125": {
+        "03": {
+          "03": "0585222617861590"
+        }
+      },
+      "126": {
+        "13": "C"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=000000 #3",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 000000",
+    "fields": {
+      "0": "0100",
+      "2": "4174480020301000",
+      "3": "000000",
+      "4": "33474",
+      "6": "33474",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3004",
+      "18": "5814",
+      "19": "818",
+      "22": "1020",
+      "25": "59",
+      "32": "434694",
+      "33": "570000",
+      "37": "auto",
+      "41": "AIBS2I01",
+      "42": "1250586KH6HZ   ",
+      "43": "talabat.com PostPaid     cairo        EG",
+      "49": "818",
+      "51": "818",
+      "59": "0000      ",
+      "60": "5900000007",
+      "62": {
+        "2": "306215321289000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6225"
+        }
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=000000 #4",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 000000",
+    "fields": {
+      "0": "0100",
+      "2": "4421780042272000",
+      "3": "000000",
+      "4": "0",
+      "7": "auto",
+      "11": "auto",
+      "14": "3106",
+      "18": "6012",
+      "19": "784",
+      "22": "0",
+      "25": "51",
+      "32": "320000",
+      "37": "auto",
+      "42": "320000000000001",
+      "43": "Visa Provisioning Service             AE",
+      "49": "840",
+      "62": {
+        "2": "586215323400000"
+      },
+      "63": {
+        "1": "2"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=003000 #11",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 003000",
+    "fields": {
+      "0": "0100",
+      "2": "4198682490439000",
+      "3": "003000",
+      "4": "20190",
+      "6": "20190",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3107",
+      "18": "5411",
+      "19": "784",
+      "22": "100",
+      "25": "59",
+      "32": "450904",
+      "33": "570000",
+      "37": "auto",
+      "41": "11112878",
+      "42": "200200008514   ",
+      "43": "talabat.com              Dubai        AE",
+      "44": "              2",
+      "49": "784",
+      "51": "784",
+      "59": "12345     ",
+      "60": "5900004005",
+      "62": {
+        "2": "306215321482000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6225"
+        }
+      },
+      "123": {
+        "68": {
+          "01": "4415843271246443",
+          "02": "14",
+          "03": "40010030273",
+          "06": "3112",
+          "07": "02",
+          "80": "00",
+          "81": "00000000",
+          "82": "00",
+          "83": "60",
+          "84": "13",
+          "85": "0000C9"
+        }
+      },
+      "125": {
+        "02": {
+          "80": "A9"
+        }
+      },
+      "126": {
+        "13": "C"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #10",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658910810000",
+      "3": "100000",
+      "4": "83500",
+      "6": "83500",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3103",
+      "18": "4829",
+      "19": "784",
+      "22": "120",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "01": {
+          "86": "2.2.x",
+          "89": "92.98.54.147",
+          "C0": "02"
+        },
+        "02": {
+          "C0": "Tamouh Tower3  Building of Tamouh Investment"
+        },
+        "56": {
+          "9F20": "02",
+          "9F28": "07",
+          "9F29": "00"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000523982",
+      "43": "BOTIM MONEY              Abu Dhabi    AE",
+      "44": "          M   2",
+      "49": "784",
+      "51": "784",
+      "59": "0000          ",
+      "60": "5900004005",
+      "62": {
+        "2": "346215320054000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "01": "FT"
+        },
+        "5F": "0110C4F4F6F2F0F2F6F0F8F0F3F4F7F7F2F60222F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F9F7F1F5F5F2F8F6F4F3F5F60703F7F8F40A14C3C1D9D6D3C9D5C54040D5C1D4C1E3C1D2C14040"
+      },
+      "123": {
+        "68": {
+          "01": "4120657741836831",
+          "02": "10",
+          "03": "40020484469",
+          "06": "3103",
+          "07": "01",
+          "80": "00",
+          "82": "00",
+          "83": "00",
+          "84": "00",
+          "85": "000000",
+          "86": "040010072805"
+        }
+      },
+      "126": {
+        "9": "0007010193243000000003437842157545397940",
+        "10": "11 759",
+        "13": "C",
+        "20": "7"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #13",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658911820000",
+      "3": "100000",
+      "4": "5000",
+      "6": "5000",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "2812",
+      "18": "4829",
+      "19": "784",
+      "22": "1020",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "02": {
+          "C0": "Level 1  Gate Avenue   South Zone"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000537715",
+      "43": "TAPT*AngelicaAsdulo      DUBAI        AE",
+      "44": "              2",
+      "49": "784",
+      "51": "784",
+      "59": "00000         ",
+      "60": "5900004007",
+      "62": {
+        "2": "466215329904000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "01": "FT"
+        },
+        "5F": "0110F2F3F1F6F2F3F5F8F5F2F5F7F0F6F9F40222F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F1F8F4F8F6F2F0F5F6F7F2F6F8F1F6F8F1F8F00312C1958785938983814040C1A284A4939640400423C69381A340F1F0F440C19340C6819984819540C29384874040C2A4A2899585A2A240C20504C389A3A80703F7F8F40A12C1958785938983814040C1A284A493964040"
+      },
+      "123": {
+        "68": {
+          "01": "4274093529639110",
+          "02": "10",
+          "03": "40020205602",
+          "06": "2812",
+          "07": "01",
+          "80": "00",
+          "82": "00",
+          "83": "00",
+          "84": "00",
+          "85": "000000",
+          "86": "040010072805"
+        }
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #14",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658909987000",
+      "3": "100000",
+      "4": "45000",
+      "6": "45000",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3103",
+      "18": "4829",
+      "19": "784",
+      "22": "1020",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "02": {
+          "C0": "Level 1  Gate Avenue   South Zone"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000537715",
+      "43": "TAPT*D I KPeiris         DUBAI        AE",
+      "44": "              2",
+      "49": "784",
+      "51": "784",
+      "59": "00000         ",
+      "60": "5900004007",
+      "62": {
+        "2": "386215321680000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "01": "FT"
+        },
+        "5F": "0110F2F3F1F6F2F3F5F8F7F3F6F3F4F4F8F80222F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F2F2F1F2F5F4F9F0F5F5F6F1F4F0F3F0F2F0F80312C99485A2884040D781A38889998187854040040AC58187938540C69381A30508C182A484888182890703F7F8F40A0FC440C940D24040D785899989A24040"
+      },
+      "123": {
+        "68": {
+          "01": "4120657741527133",
+          "02": "10",
+          "03": "40020205602",
+          "06": "3103",
+          "07": "01",
+          "80": "00",
+          "82": "00",
+          "83": "00",
+          "84": "00",
+          "85": "000000",
+          "86": "040010072805"
+        }
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #16",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658930984000",
+      "3": "100000",
+      "4": "34175",
+      "6": "34175",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3103",
+      "18": "6051",
+      "19": "784",
+      "22": "1020",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "02": {
+          "80": "1",
+          "C0": "IH HD04  DUBAI INTERNET CITY"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000764287",
+      "43": "Tabby, 800 82229         DUBAI        AE",
+      "49": "784",
+      "51": "784",
+      "59": "0000          ",
+      "60": "5900004007",
+      "62": {
+        "2": "466215326874000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "01": "FT"
+        }
+      },
+      "123": {
+        "68": {
+          "01": "4120657740701648",
+          "02": "10",
+          "03": "40060193412",
+          "06": "3103",
+          "07": "01"
+        }
+      },
+      "125": {
+        "03": {
+          "03": "0306091816320588"
+        }
+      },
+      "126": {
+        "13": "R"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #6",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658937556000",
+      "3": "100000",
+      "4": "20000",
+      "6": "20000",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "2812",
+      "18": "6051",
+      "19": "784",
+      "22": "120",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "02": {
+          "C0": "IH HD04  DUBAI INTERNET CITY"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000764287",
+      "43": "Tabby, 800 82229         DUBAI        AE",
+      "44": "              2",
+      "49": "784",
+      "51": "784",
+      "59": "0000          ",
+      "60": "5900004005",
+      "62": {
+        "2": "346215323619000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "01": "FT"
+        }
+      },
+      "123": {
+        "68": {
+          "01": "4354978497169962",
+          "02": "14",
+          "03": "40010030273",
+          "06": "3112",
+          "07": "02",
+          "80": "00",
+          "81": "00000000",
+          "82": "00",
+          "83": "60",
+          "84": "13",
+          "85": "0000C8"
+        }
+      },
+      "125": {
+        "02": {
+          "80": "A5"
+        }
+      },
+      "126": {
+        "13": "C"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #7",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658902395000",
+      "3": "100000",
+      "4": "709",
+      "6": "2700",
+      "7": "auto",
+      "10": "63808181",
+      "11": "auto",
+      "14": "3104",
+      "18": "6012",
+      "19": "428",
+      "22": "100",
+      "25": "59",
+      "32": "408668",
+      "34": {
+        "01": {
+          "86": "2.2.x",
+          "C0": "02",
+          "C1": "F1"
+        },
+        "02": {
+          "C1": "SIA XPATE",
+          "C2": "�Dzirnavu 42",
+          "C3": "Riga",
+          "C4": "  ",
+          "C5": "�LV1010",
+          "C6": "LVA"
+        },
+        "56": {
+          "9F28": "07",
+          "9F29": "00"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "3AB7636B8E5C476",
+      "43": "nspnor                   Vilnius      LT",
+      "44": "          M   2",
+      "49": "840",
+      "51": "784",
+      "60": "0000000005",
+      "62": {
+        "2": "306215320365000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "56": "a�UAB NS Pay",
+        "57": {
+          "01": "FT",
+          "82": "ISOTHR"
+        },
+        "5F": "0217A281898689A2938194F1F9F2F47C87948189934B839694030A89A293819440E2C1C9C6040CF3F240E2A3998585A340F3F60507E28881999181880703F7F8F40A0A89A293819440E2C1C9C6"
+      },
+      "126": {
+        "9": "0007010193859000000002C58402157574812242",
+        "10": "11 835",
+        "20": "7"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=100000 #9",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 100000",
+    "fields": {
+      "0": "0100",
+      "2": "4600312408162000",
+      "3": "100000",
+      "4": "100000",
+      "6": "100000",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "2910",
+      "18": "6211",
+      "19": "784",
+      "22": "120",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "02": {
+          "C0": "4201 14  Emirates Towers Office Tower"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000545766",
+      "43": "Capital.com              Dubai        AE",
+      "44": "              2",
+      "49": "784",
+      "51": "784",
+      "59": "00000         ",
+      "60": "5000004005",
+      "62": {
+        "2": "586215328444000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "01": "LA"
+        },
+        "5F": "0222F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F04EF9F7F1F5F6F7F5F1F9F9F4F3031DD4E4C8C1D4D4C5C440E2C8C14040D4E4C8C1D4D4C5C440E2C1D3C940400410C182A440C4888182894040F2F14040F20509C182A440C4888182890703F7F8F40A1DD4E4C8C1D4D4C5C440E2C8C14040D4E4C8C1D4D4C5C440E2C1D3C94040"
+      },
+      "123": {
+        "68": {
+          "01": "4059512961480221",
+          "02": "11",
+          "03": "40010030273",
+          "06": "3112",
+          "07": "02",
+          "80": "00",
+          "81": "00000000",
+          "82": "00",
+          "83": "60",
+          "84": "13",
+          "85": "0003E8"
+        }
+      },
+      "125": {
+        "02": {
+          "80": "A9"
+        }
+      },
+      "126": {
+        "13": "C"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=110000 #8",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 110000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658952474000",
+      "3": "110000",
+      "4": "2500",
+      "6": "2500",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "3010",
+      "18": "7995",
+      "19": "784",
+      "22": "100",
+      "25": "59",
+      "32": "408432",
+      "33": "570000",
+      "34": {
+        "01": {
+          "86": "2.2.x",
+          "C0": "02"
+        },
+        "56": {
+          "9F28": "07",
+          "9F29": "00"
+        }
+      },
+      "37": "auto",
+      "41": "456     ",
+      "42": "461000000852   ",
+      "43": "Play971                  Abu Dhabi    AE",
+      "44": "          M   2",
+      "49": "784",
+      "51": "784",
+      "59": "10000     ",
+      "60": "5900000005",
+      "62": {
+        "2": "466215326646000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6225"
+        }
+      },
+      "126": {
+        "9": "0099010672758700000000197842157540423921",
+        "10": "11 188",
+        "20": "F"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=200000 #12",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 200000",
+    "fields": {
+      "0": "0100",
+      "2": "4198692492681000",
+      "3": "200000",
+      "4": "500",
+      "6": "53",
+      "7": "auto",
+      "10": "71060000",
+      "11": "auto",
+      "14": "2709",
+      "18": "4121",
+      "19": "764",
+      "22": "100",
+      "25": "59",
+      "32": "404567",
+      "33": "570000",
+      "37": "auto",
+      "41": "KBAS2I03",
+      "42": "401007014694001",
+      "43": "GRABTAXI                 A.RATCHATHEWITH",
+      "49": "764",
+      "51": "784",
+      "59": "10400     ",
+      "60": "5900000007",
+      "62": {
+        "2": "306215321246000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6225"
+        }
+      },
+      "126": {
+        "13": "C"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=200000 #17",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 200000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658975004000",
+      "3": "200000",
+      "4": "3725",
+      "6": "3725",
+      "7": "auto",
+      "10": "61000000",
+      "11": "auto",
+      "14": "2901",
+      "18": "5999",
+      "19": "784",
+      "22": "1020",
+      "25": "59",
+      "32": "411991",
+      "33": "411991",
+      "34": {
+        "02": {
+          "80": "1"
+        }
+      },
+      "37": "auto",
+      "41": "99999999",
+      "42": "000000000538320",
+      "43": "Tabby, 800 82229         DUBAI        AE",
+      "49": "784",
+      "51": "784",
+      "60": "5900004007",
+      "62": {
+        "2": "386209719394000"
+      },
+      "63": {
+        "1": "2"
+      },
+      "104": {
+        "57": {
+          "83": "6220"
+        }
+      },
+      "123": {
+        "68": {
+          "01": "4354978494095707",
+          "02": "10",
+          "03": "40060193412",
+          "06": "2901",
+          "07": "01"
+        }
+      },
+      "125": {
+        "03": {
+          "03": "0386209713984938"
+        }
+      },
+      "126": {
+        "13": "R"
+      }
+    }
+  },
+  {
+    "type": "transaction",
+    "name": "Tx 0100 DE3=200000 #5",
+    "description": "Scaffolded transaction template for MTI 0100 DE3 200000",
+    "fields": {
+      "0": "0100",
+      "2": "4085658940290000",
+      "3": "200000",
+      "4": "8756",
+      "6": "4098",
+      "7": "auto",
+      "10": "74680219",
+      "11": "auto",
+      "14": "3010",
+      "18": "7276",
+      "19": "344",
+      "22": "100",
+      "25": "59",
+      "32": "443871",
+      "34": {
+        "02": {
+          "C1": "ALLINPAY FINANCIAL SERVICES LIMITED",
+          "C2": "Unit J,15/F,King Palace Plaza 55 King Yip Street,Kwun Tong,KL",
+          "C3": "Hong Kong",
+          "C4": "  ",
+          "C5": "999077",
+          "C6": "HKG"
+        }
+      },
+      "37": "auto",
+      "41": "85299997",
+      "42": "852999972760001",
+      "43": "YUN-U SAS LIMITED        WA           HK",
+      "49": "344",
+      "51": "784",
+      "59": "000",
+      "60": "0000000007",
+      "62": {
+        "2": "386215321871000"
+      },
+      "63": {
+        "1": "2",
+        "3": "5120"
+      }
+    }
+  },
+  {
+    "type": "dataset",
+    "name": "card_pool",
+    "description": "Sample card data pool for testing scenarios",
+    "data": [
+      {
+        "14": "2512",
+        "2": "1234567890123456",
+        "23": "001",
+        "35": "1234567890123456=2512123"
+      },
+      {
+        "14": "2601",
+        "2": "9876543210987654",
+        "23": "002",
+        "35": "9876543210987654=2601123"
+      }
+    ]
   }
 ]

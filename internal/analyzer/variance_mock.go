@@ -24,7 +24,7 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 			if !ok {
 				continue
 			}
-			val = AnonymizeFieldValue(i, val, ve.unsecure)
+			val = ve.anonymizer.AnonymizeFieldValue(i, val)
 
 			if strVal, isString := val.(string); isString {
 				fieldValues[i] = append(fieldValues[i], strVal)
@@ -75,7 +75,7 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 			firstField := flow.Messages[0].GetField(fieldID)
 			extracted, ok := extractFieldValueForTemplate(firstField)
 			if ok {
-				templateFields[fieldKey] = AnonymizeFieldValue(fieldID, extracted, ve.unsecure)
+				templateFields[fieldKey] = ve.anonymizer.AnonymizeFieldValue(fieldID, extracted)
 				continue
 			}
 
@@ -151,7 +151,7 @@ func (ve *VarianceEngine) analyzeGeneralFlow(flow *CapturedFlow) ([]*VarianceRes
 					if !ok {
 						continue
 					}
-					extracted = AnonymizeFieldValue(fieldID, extracted, ve.unsecure)
+					extracted = ve.anonymizer.AnonymizeFieldValue(fieldID, extracted)
 					flattenValueForDataset(fmt.Sprintf("DE_%d", fieldID), extracted, row)
 				}
 			}
@@ -269,7 +269,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 				if !ok {
 					continue
 				}
-				extracted = AnonymizeFieldValue(i, extracted, ve.unsecure)
+				extracted = ve.anonymizer.AnonymizeFieldValue(i, extracted)
 				fieldKey := fmt.Sprintf("%d", i)
 
 				if i == 70 {
@@ -369,7 +369,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 			if !ok {
 				continue
 			}
-			extracted = AnonymizeFieldValue(i, extracted, ve.unsecure)
+			extracted = ve.anonymizer.AnonymizeFieldValue(i, extracted)
 			fieldKey := fmt.Sprintf("%d", i)
 
 			if i == 38 {
@@ -389,7 +389,7 @@ func (ve *VarianceEngine) AnalyzeFlowToMockRoutes(flow *CapturedFlow) ([]*Varian
 		cardVal := ""
 		if f2 := msg.GetField(2); f2 != nil {
 			if s, err := f2.String(); err == nil && s != "" {
-				cardVal = fmt.Sprintf("%v", AnonymizeFieldValue(2, s, ve.unsecure))
+				cardVal = ve.anonymizer.AnonymizePAN(s)
 			}
 		}
 

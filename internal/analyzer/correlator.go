@@ -92,7 +92,7 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 		reqMTI, _ := reqAM.Message.GetMTI()
 		reqSTAN := getFieldString(reqAM.Message, 11)
 		reqRRN := getFieldString(reqAM.Message, 37)
-		reqDE3 := getFieldString(reqAM.Message, 3)
+		reqDE3 := FormatProcCode(getFieldString(reqAM.Message, 3))
 
 		expectedRespMTI := utils.ResponseMTI(reqMTI)
 

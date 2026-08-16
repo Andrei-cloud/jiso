@@ -11,10 +11,17 @@ import (
 	"jiso/internal/utils"
 )
 
-func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool) map[string]interface{} {
+func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool, anon ...*Anonymizer) map[string]interface{} {
 	txFields := make(map[string]interface{})
 	if msg == nil {
 		return txFields
+	}
+
+	var a *Anonymizer
+	if len(anon) > 0 && anon[0] != nil {
+		a = anon[0]
+	} else {
+		a = NewAnonymizer(unsecure)
 	}
 
 	var fIDs []int
@@ -39,11 +46,17 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 		if !ok {
 			continue
 		}
-		extracted = AnonymizeFieldValue(i, extracted, unsecure)
+		extracted = a.AnonymizeFieldValue(i, extracted)
 		fieldKey := fmt.Sprintf("%d", i)
 
 		if i == 7 || i == 11 || i == 37 || i == 38 {
 			txFields[fieldKey] = "auto"
+		} else if i == 3 {
+			if strVal, isStr := extracted.(string); isStr {
+				txFields[fieldKey] = FormatProcCode(strVal)
+			} else {
+				txFields[fieldKey] = FormatProcCode(fmt.Sprintf("%v", extracted))
+			}
 		} else {
 			txFields[fieldKey] = extracted
 		}
