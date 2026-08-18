@@ -199,63 +199,99 @@
       "length": 3,
       "description": "Acquiring Institution Country Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "20": {
       "type": "Numeric",
       "length": 3,
       "description": "PAN Extended Country Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "21": {
       "type": "Numeric",
       "length": 3,
       "description": "Forwarding Institution Country Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "22": {
       "type": "Numeric",
       "length": 3,
       "description": "Point of Service Entry Mode",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "23": {
       "type": "Numeric",
       "length": 3,
       "description": "Card Sequence Number (CSN)",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "24": {
       "type": "Numeric",
       "length": 3,
       "description": "Network International ID",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "25": {
       "type": "Numeric",
       "length": 2,
       "description": "Point of Service Condition Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "26": {
       "type": "Numeric",
       "length": 2,
       "description": "Point of Service PIN Capture Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "27": {
       "type": "Numeric",
       "length": 1,
       "description": "Authorizing ID Response Length",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "28": {
       "type": "String",
@@ -441,17 +477,164 @@
     },
     "54": {
       "type": "String",
-      "length": 120,
+      "length": 240,
       "description": "Additional Amounts",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
     "55": {
-      "type": "String",
+      "type": "Composite",
       "length": 255,
-      "description": "Integrated Circuit Card (ICC) System Related Data",
-      "enc": "EBCDIC",
-      "prefix": "EBCDIC.LLL"
+      "description": "Integrated Circuit Card (ICC) System-Related Data",
+      "prefix": "EBCDIC.LLL",
+      "tag": {
+        "enc": "BerTLVTag",
+        "sort": "StringsByHex",
+        "skipUnknownTLVTags": true,
+        "storeUnknownTLVTags": true
+      },
+      "subfields": {
+        "9F26": {
+          "type": "Binary",
+          "length": 8,
+          "description": "Application Cryptogram (AC)",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F27": {
+          "type": "Binary",
+          "length": 1,
+          "description": "Cryptogram Information Data (CID)",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F10": {
+          "type": "Binary",
+          "length": 32,
+          "description": "Issuer Application Data (IAD)",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F37": {
+          "type": "Binary",
+          "length": 4,
+          "description": "Unpredictable Number",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F36": {
+          "type": "Binary",
+          "length": 2,
+          "description": "Application Transaction Counter (ATC)",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "95": {
+          "type": "Binary",
+          "length": 5,
+          "description": "Terminal Verification Results (TVR)",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9A": {
+          "type": "Numeric",
+          "length": 6,
+          "description": "Transaction Date (YYMMDD)",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "9C": {
+          "type": "Numeric",
+          "length": 2,
+          "description": "Transaction Type",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "9F02": {
+          "type": "Numeric",
+          "length": 12,
+          "description": "Amount, Authorized (Numeric)",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "5F2A": {
+          "type": "Numeric",
+          "length": 3,
+          "description": "Transaction Currency Code",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "82": {
+          "type": "Binary",
+          "length": 2,
+          "description": "Application Interchange Profile (AIP)",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F1A": {
+          "type": "Numeric",
+          "length": 3,
+          "description": "Terminal Country Code",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "9F03": {
+          "type": "Numeric",
+          "length": 12,
+          "description": "Amount, Other (Numeric)",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "9F33": {
+          "type": "Binary",
+          "length": 3,
+          "description": "Terminal Capabilities",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F34": {
+          "type": "Binary",
+          "length": 3,
+          "description": "Cardholder Verification Method (CVM) Results",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "9F35": {
+          "type": "Numeric",
+          "length": 2,
+          "description": "Terminal Type",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "9F1E": {
+          "type": "String",
+          "length": 8,
+          "description": "Interface Device (IFD) Serial Number",
+          "enc": "ASCII",
+          "prefix": "BerTLV"
+        },
+        "84": {
+          "type": "Binary",
+          "length": 16,
+          "description": "Dedicated File (DF) Name",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        },
+        "5F34": {
+          "type": "Numeric",
+          "length": 2,
+          "description": "Application Primary Account Number (PAN) Sequence Number",
+          "enc": "BCD",
+          "prefix": "BerTLV"
+        },
+        "9F6E": {
+          "type": "Binary",
+          "length": 32,
+          "description": "Form Factor Indicator / Visa Third Party Data",
+          "enc": "Binary",
+          "prefix": "BerTLV"
+        }
+      }
     },
     "56": {
       "type": "String",
@@ -476,10 +659,10 @@
     },
     "59": {
       "type": "String",
-      "length": 999,
+      "length": 29,
       "description": "Reserved for National Use",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.LLL"
+      "prefix": "EBCDIC.LL"
     },
     "60": {
       "type": "String",
@@ -490,14 +673,14 @@
     },
     "61": {
       "type": "String",
-      "length": 26,
+      "length": 53,
       "description": "Point of Service (POS) Data",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
     "62": {
       "type": "String",
-      "length": 100,
+      "length": 999,
       "description": "Intermediate Network Facility Data",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
@@ -525,31 +708,47 @@
     },
     "66": {
       "type": "Numeric",
-      "length": 1,
+      "length": 2,
       "description": "Settlement Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "67": {
       "type": "Numeric",
       "length": 2,
       "description": "Extended Payment Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "68": {
       "type": "Numeric",
       "length": 3,
       "description": "Receiving Institution Country Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "69": {
       "type": "Numeric",
       "length": 3,
       "description": "Settlement Institution Country Code",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "70": {
       "type": "String",
@@ -563,140 +762,220 @@
       "length": 4,
       "description": "Message Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "72": {
       "type": "Numeric",
       "length": 4,
       "description": "Message Number Last",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "73": {
       "type": "Numeric",
       "length": 6,
       "description": "Date Action (YYMMDD)",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "74": {
       "type": "Numeric",
       "length": 10,
       "description": "Credits Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "75": {
       "type": "Numeric",
       "length": 10,
       "description": "Credits Reversal Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "76": {
       "type": "Numeric",
       "length": 10,
       "description": "Debits Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "77": {
       "type": "Numeric",
       "length": 10,
       "description": "Debits Reversal Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "78": {
       "type": "Numeric",
       "length": 10,
       "description": "Transfer Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "79": {
       "type": "Numeric",
       "length": 10,
       "description": "Transfer Reversal Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "80": {
       "type": "Numeric",
       "length": 10,
       "description": "Inquiries Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "81": {
       "type": "Numeric",
       "length": 10,
       "description": "Authorizations Number",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "82": {
       "type": "Numeric",
       "length": 12,
       "description": "Credits Processing Fee Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "83": {
       "type": "Numeric",
       "length": 12,
       "description": "Credits Transaction Fee Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "84": {
       "type": "Numeric",
       "length": 12,
       "description": "Debits Processing Fee Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "85": {
       "type": "Numeric",
       "length": 12,
       "description": "Debits Transaction Fee Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "86": {
       "type": "Numeric",
       "length": 16,
       "description": "Credits Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "87": {
       "type": "Numeric",
       "length": 16,
       "description": "Credits Reversal Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "88": {
       "type": "Numeric",
       "length": 16,
       "description": "Debits Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "89": {
       "type": "Numeric",
       "length": 16,
       "description": "Debits Reversal Amount",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "90": {
       "type": "Numeric",
       "length": 42,
       "description": "Original Data Elements",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.Fixed",
+      "padding": {
+        "type": "Left",
+        "pad": "0"
+      }
     },
     "91": {
       "type": "String",
@@ -707,14 +986,14 @@
     },
     "92": {
       "type": "String",
-      "length": 2,
+      "length": 7,
       "description": "File Security Code",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.Fixed"
     },
     "93": {
       "type": "String",
-      "length": 5,
+      "length": 7,
       "description": "Response Indicator",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.Fixed"
@@ -742,17 +1021,17 @@
     },
     "97": {
       "type": "String",
-      "length": 17,
+      "length": 11,
       "description": "Amount, Net Settlement",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.LL"
     },
     "98": {
       "type": "String",
-      "length": 25,
+      "length": 11,
       "description": "Payee",
       "enc": "EBCDIC",
-      "prefix": "EBCDIC.Fixed"
+      "prefix": "EBCDIC.LL"
     },
     "99": {
       "type": "Numeric",
@@ -803,6 +1082,20 @@
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
+    "106": {
+      "type": "String",
+      "length": 999,
+      "description": "Fleet Service Data",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LLL"
+    },
+    "107": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved for Mastercard Use",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LLL"
+    },
     "108": {
       "type": "String",
       "length": 999,
@@ -810,10 +1103,24 @@
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
+    "109": {
+      "type": "String",
+      "length": 140,
+      "description": "Reserved for ISO Use",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LLL"
+    },
     "110": {
       "type": "String",
-      "length": 100,
+      "length": 999,
       "description": "Additional Data",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LLL"
+    },
+    "111": {
+      "type": "String",
+      "length": 999,
+      "description": "Reserved for ISO Use",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
@@ -821,6 +1128,34 @@
       "type": "String",
       "length": 999,
       "description": "National Use",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LLL"
+    },
+    "113": {
+      "type": "String",
+      "length": 20,
+      "description": "Reserved for National Use",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LL"
+    },
+    "114": {
+      "type": "String",
+      "length": 20,
+      "description": "Reserved for National Use",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LL"
+    },
+    "115": {
+      "type": "String",
+      "length": 20,
+      "description": "Reserved for National Use",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LL"
+    },
+    "116": {
+      "type": "String",
+      "length": 999,
+      "description": "Mastercard Internal Use Data 2",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
@@ -854,7 +1189,7 @@
     },
     "121": {
       "type": "String",
-      "length": 11,
+      "length": 6,
       "description": "Authorizing Agent Institution Identification Code",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
@@ -863,6 +1198,13 @@
       "type": "String",
       "length": 999,
       "description": "Additional Record Data",
+      "enc": "EBCDIC",
+      "prefix": "EBCDIC.LLL"
+    },
+    "123": {
+      "type": "String",
+      "length": 512,
+      "description": "Receipt Free Text",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
     },
@@ -882,7 +1224,7 @@
     },
     "126": {
       "type": "String",
-      "length": 150,
+      "length": 100,
       "description": "Transaction Description",
       "enc": "EBCDIC",
       "prefix": "EBCDIC.LLL"
