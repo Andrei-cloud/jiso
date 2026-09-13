@@ -22,6 +22,40 @@ build: ## Build the service
 build-linux: ## Build the service for linux
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/jiso ./cmd/
 
+# --- release artifacts ---------------------------------------------------
+# Self-contained, dependency-free binaries: CGO_ENABLED=0 yields static Go
+# executables (no libc/OpenSSL to ship), and the default spec + transactions
+# are baked in with //go:embed, so each archive is one runnable program plus
+# the LICENSE. -trimpath -s -w keeps them reproducible and small.
+DIST      ?= dist
+PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
+
+.PHONY: dist clean-dist
+dist: ## Build self-contained release binaries for all platforms into dist/
+	@rm -rf $(DIST) && mkdir -p $(DIST)
+	@set -eu; for p in $(PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; \
+		if [ "$$os" = windows ]; then ext=zip; bin=jiso.exe; else ext=tar.gz; bin=jiso; fi; \
+		name=jiso-$(VERSION)-$$os-$$arch; \
+		staging=$$(mktemp -d)/$$name; mkdir -p "$$staging"; \
+		printf '  %-34s %s/%s\n' "$$name" "$$os" "$$arch"; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath \
+			-ldflags "-s -w $(LDFLAGS)" -o "$$staging/$$bin" ./cmd/; \
+		cp LICENSE "$$staging/"; \
+		if [ "$$ext" = zip ]; then \
+			(cd "$$staging" && zip -qrX "$(CURDIR)/$(DIST)/$$name.zip" .); \
+		else \
+			COPYFILE_DISABLE=1 tar -czf "$(CURDIR)/$(DIST)/$$name.tar.gz" -C "$$staging" .; \
+		fi; \
+	done
+	@cd $(DIST) && for f in *.tar.gz *.zip; do \
+		{ command -v shasum >/dev/null 2>&1 && shasum -a 256 "$$f" || sha256sum "$$f"; }; \
+	done > checksums.txt
+	@echo "dist: $$(ls $(DIST) | grep -cE '\.(tar\.gz|zip)$$') self-contained artifacts + checksums.txt"
+
+clean-dist: ## Remove the dist/ build output
+	@rm -rf $(DIST)
+
 # default target, when make executed without arguments
 all: help
 

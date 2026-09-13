@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"jiso/internal/config"
@@ -143,17 +142,12 @@ func ServeStatsPath(port string) (string, error) {
 	return filepath.Join(dir, fmt.Sprintf("serve-%s.stats.json", port)), nil
 }
 
-// PIDAlive reports whether pid currently belongs to a live process
-// (signal 0 probe). EPERM counts as alive: the process exists, it just
-// belongs to someone else.
+// PIDAlive reports whether pid currently belongs to a live process. The probe
+// is platform-specific: a signal-0 raise on unix (EPERM counts as alive: the
+// process exists, it just belongs to someone else) and an OpenProcess handle
+// query on Windows. See pidalive_unix.go / pidalive_windows.go for pidAlive.
 func PIDAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-
-	err := syscall.Kill(pid, 0)
-
-	return err == nil || errors.Is(err, syscall.EPERM)
+	return pidAlive(pid)
 }
 
 // StartServeSideChannel publishes serve-<port>.json for the RUNNING srv
