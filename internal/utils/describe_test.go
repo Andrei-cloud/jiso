@@ -9,6 +9,8 @@ import (
 )
 
 func TestDescribeUsesUpstreamFormatter(t *testing.T) {
+	t.Parallel()
+
 	msg := iso8583.NewMessage(iso8583.Spec87)
 	msg.MTI("0200")
 	require.NoError(t, msg.Field(7, "123456"))

@@ -11,6 +11,8 @@ import (
 )
 
 func TestCorrelator_BasicPairing(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	reqMsg := iso8583.NewMessage(spec)
@@ -46,6 +48,8 @@ func TestCorrelator_BasicPairing(t *testing.T) {
 }
 
 func TestCorrelator_RRNFallback(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	reqMsg := iso8583.NewMessage(spec)
@@ -72,6 +76,8 @@ func TestCorrelator_RRNFallback(t *testing.T) {
 }
 
 func TestCorrelator_ReversalDetection(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	reqMsg := iso8583.NewMessage(spec)

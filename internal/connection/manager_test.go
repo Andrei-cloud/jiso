@@ -51,6 +51,8 @@ func mockMessageSpec() *iso8583.MessageSpec {
 }
 
 func TestNewManager(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	manager := NewManager("localhost", "8080", spec, true, 3, 5*time.Second, 10*time.Second, nil)
 

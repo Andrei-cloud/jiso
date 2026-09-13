@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/moov-io/iso8583"
@@ -15,11 +16,38 @@ import (
 	"jiso/internal/utils"
 )
 
+// regexCache memoizes compiled route regex patterns: matchFieldValue runs
+// per message per route on the serve hot path, and regexp.MatchString
+// recompiled the pattern on every call. An invalid pattern caches a nil
+// entry and never matches (same semantics as the old error branch).
+var regexCache sync.Map // string -> *regexp.Regexp (nil = invalid pattern)
+
+func matchCachedRegex(pattern, val string) bool {
+	v, ok := regexCache.Load(pattern)
+	if !ok {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			v, _ = regexCache.LoadOrStore(pattern, (*regexp.Regexp)(nil))
+		} else {
+			v, _ = regexCache.LoadOrStore(pattern, re)
+		}
+	}
+	re, _ := v.(*regexp.Regexp)
+	if re == nil {
+		return false
+	}
+	return re.MatchString(val)
+}
+
 // Matcher evaluates incoming ISO8583 messages against mock routes
 type Matcher struct {
 	routes []config.MockRouteConfig
 }
 
+// NewMatcher copies the configured routes and orders them most-specific-first, so
+// the first route a request matches is the one that constrains the most fields,
+// and the caller's slice stays exactly as configured. Sorting once here rather
+// than per request is the reason the matcher exists.
 func NewMatcher(routes []config.MockRouteConfig) *Matcher {
 	sortedRoutes := make([]config.MockRouteConfig, len(routes))
 	copy(sortedRoutes, routes)
@@ -100,23 +128,7 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 
 		// Echo requested fields from request
 		for _, fNum := range matchedRoute.EchoFields {
-			if reqField := req.GetField(fNum); reqField != nil {
-				if composite, ok := reqField.(*field.Composite); ok && composite != nil {
-					var fieldSpec *field.Spec
-					if spec != nil && spec.Fields != nil && spec.Fields[fNum] != nil {
-						fieldSpec = spec.Fields[fNum].Spec()
-					}
-					if data, ok := utils.ExtractFieldData(composite, fieldSpec); ok {
-						if dataMap, isMap := data.(map[string]interface{}); isMap {
-							_ = utils.SetCompositeFieldValue(resp, spec, fNum, dataMap)
-							continue
-						}
-					}
-				}
-				if val, err := reqField.String(); err == nil {
-					_ = resp.Field(fNum, val)
-				}
-			}
+			echoField(resp, req, spec, fNum)
 		}
 
 		// Inject response fields (supporting auto/dynamic keywords like auth_code, stan, rrn, datetime, and composite fields)
@@ -140,23 +152,7 @@ func (m *Matcher) MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpe
 
 	// Echo standard ISO8583 fields if present
 	for _, fNum := range []int{7, 11, 25, 32, 37, 41, 42, 63, 115} {
-		if reqField := req.GetField(fNum); reqField != nil {
-			if composite, ok := reqField.(*field.Composite); ok && composite != nil {
-				var fieldSpec *field.Spec
-				if spec != nil && spec.Fields != nil && spec.Fields[fNum] != nil {
-					fieldSpec = spec.Fields[fNum].Spec()
-				}
-				if data, ok := utils.ExtractFieldData(composite, fieldSpec); ok {
-					if dataMap, isMap := data.(map[string]interface{}); isMap {
-						_ = utils.SetCompositeFieldValue(resp, spec, fNum, dataMap)
-						continue
-					}
-				}
-			}
-			if val, err := reqField.String(); err == nil {
-				_ = resp.Field(fNum, val)
-			}
-		}
+		echoField(resp, req, spec, fNum)
 	}
 	_ = resp.Field(39, "12") // Default response code: "12" (Invalid Transaction / Fallback)
 
@@ -233,160 +229,139 @@ func extractFieldValue(req *iso8583.Message, fieldKey string) (string, bool) {
 }
 
 // matchFieldValue evaluates expected condition against extracted field value
-func matchFieldValue(val string, exists bool, condition interface{}) bool {
+// matchFieldValue evaluates expected condition against extracted field value
+func matchFieldValue(val string, exists bool, condition any) bool {
 	switch c := condition.(type) {
 	case string:
-		if !exists {
-			return false
-		}
-		if val == c || strings.TrimSpace(val) == strings.TrimSpace(c) {
-			return true
-		}
-		// Match numeric values with leading zero differences (e.g. "0" vs "000000" or "100" vs "0100")
-		if numVal, err1 := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err1 == nil {
-			if numC, err2 := strconv.ParseInt(strings.TrimSpace(c), 10, 64); err2 == nil {
-				return numVal == numC
-			}
-		}
-		return false
+		return exists && matchString(val, c)
 	case float64:
-		if !exists {
-			return false
-		}
-		if val == fmt.Sprintf("%.0f", c) || val == strconv.FormatFloat(c, 'f', 0, 64) {
-			return true
-		}
-		if numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err == nil {
-			return numVal == int64(c)
-		}
-		return false
+		return exists && matchFloat64(val, c)
 	case int:
-		if !exists {
-			return false
-		}
-		if val == strconv.Itoa(c) {
-			return true
-		}
-		if numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err == nil {
-			return numVal == int64(c)
-		}
-		return false
+		return exists && matchInt(val, c)
 	case int64:
-		if !exists {
-			return false
-		}
-		if val == strconv.FormatInt(c, 10) {
-			return true
-		}
-		if numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64); err == nil {
-			return numVal == c
-		}
-		return false
+		return exists && matchInt64(val, c)
 	case bool:
 		return exists == c
-	case []interface{}:
-		if !exists {
-			return false
-		}
-		for _, item := range c {
-			if matchFieldValue(val, exists, item) {
-				return true
-			}
-		}
-		return false
+	case []any:
+		return exists && matchAny(val, exists, c)
 	case []string:
-		if !exists {
-			return false
-		}
-		for _, item := range c {
-			if matchFieldValue(val, exists, item) {
-				return true
-			}
-		}
-		return false
+		return exists && matchAny(val, exists, toAny(c))
 	case []int:
-		if !exists {
-			return false
-		}
-		for _, item := range c {
-			if matchFieldValue(val, exists, item) {
-				return true
-			}
-		}
-		return false
+		return exists && matchAny(val, exists, toAny(c))
 	case []int64:
-		if !exists {
-			return false
-		}
-		for _, item := range c {
-			if matchFieldValue(val, exists, item) {
-				return true
-			}
-		}
-		return false
+		return exists && matchAny(val, exists, toAny(c))
 	case []float64:
-		if !exists {
-			return false
-		}
-		for _, item := range c {
-			if matchFieldValue(val, exists, item) {
-				return true
-			}
-		}
-		return false
-	case map[string]interface{}:
-		// Advanced matching object with rules like {"equals": "...", "regex": "...", "exists": true, "prefix": "...", "in": [...], "not_in": [...]}
-		if existCond, ok := c["exists"].(bool); ok {
-			if exists != existCond {
-				return false
-			}
-		}
-		if !exists {
-			return false
-		}
-
-		if eqCond, ok := c["equals"].(string); ok && val != eqCond {
-			return false
-		}
-		if inCond, ok := c["in"]; ok {
-			if !matchFieldValue(val, exists, inCond) {
-				return false
-			}
-		}
-		if oneOfCond, ok := c["one_of"]; ok {
-			if !matchFieldValue(val, exists, oneOfCond) {
-				return false
-			}
-		}
-		if notInCond, ok := c["not_in"]; ok {
-			if matchFieldValue(val, exists, notInCond) {
-				return false
-			}
-		}
-		if rxCond, ok := c["regex"].(string); ok {
-			matched, err := regexp.MatchString(rxCond, val)
-			if err != nil || !matched {
-				return false
-			}
-		}
-		if preCond, ok := c["prefix"].(string); ok && !strings.HasPrefix(val, preCond) {
-			return false
-		}
-		if sufCond, ok := c["suffix"].(string); ok && !strings.HasSuffix(val, sufCond) {
-			return false
-		}
-		return true
-	default:
-		return false
+		return exists && matchAny(val, exists, toAny(c))
+	case map[string]any:
+		return matchRule(val, exists, c)
 	}
+
+	return false
 }
 
-func setResponseFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value interface{}) error {
+// matchString compares a field value to an expected string: exact, whitespace-
+// trimmed, or numerically equal despite leading-zero differences.
+func matchString(val, expected string) bool {
+	if val == expected || strings.TrimSpace(val) == strings.TrimSpace(expected) {
+		return true
+	}
+	numVal, err1 := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+	numC, err2 := strconv.ParseInt(strings.TrimSpace(expected), 10, 64)
+
+	return err1 == nil && err2 == nil && numVal == numC
+}
+
+// matchFloat64 compares a field value to an expected float, exact or numerically.
+func matchFloat64(val string, expected float64) bool {
+	if val == fmt.Sprintf("%.0f", expected) || val == strconv.FormatFloat(expected, 'f', 0, 64) {
+		return true
+	}
+	numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+
+	return err == nil && numVal == int64(expected)
+}
+
+// matchInt compares a field value to an expected int, exact or numerically.
+func matchInt(val string, expected int) bool {
+	if val == strconv.Itoa(expected) {
+		return true
+	}
+	numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+
+	return err == nil && numVal == int64(expected)
+}
+
+// matchInt64 compares a field value to an expected int64, exact or numerically.
+func matchInt64(val string, expected int64) bool {
+	if val == strconv.FormatInt(expected, 10) {
+		return true
+	}
+	numVal, err := strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+
+	return err == nil && numVal == expected
+}
+
+// matchAny reports whether any element of a condition list matches.
+func matchAny(val string, exists bool, items []any) bool {
+	for _, item := range items {
+		if matchFieldValue(val, exists, item) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// toAny lifts a typed slice into []any for the shared element matcher.
+func toAny[T any](items []T) []any {
+	out := make([]any, len(items))
+	for i, item := range items {
+		out[i] = item
+	}
+
+	return out
+}
+
+// matchRule evaluates an advanced rule object ({"equals", "regex", "exists",
+// "prefix", "suffix", "in", "one_of", "not_in"}): every present clause holds.
+func matchRule(val string, exists bool, c map[string]any) bool {
+	if existCond, ok := c["exists"].(bool); ok && exists != existCond {
+		return false
+	}
+	if !exists {
+		return false
+	}
+	if eqCond, ok := c["equals"].(string); ok && val != eqCond {
+		return false
+	}
+	if inCond, ok := c["in"]; ok && !matchFieldValue(val, exists, inCond) {
+		return false
+	}
+	if oneOfCond, ok := c["one_of"]; ok && !matchFieldValue(val, exists, oneOfCond) {
+		return false
+	}
+	if notInCond, ok := c["not_in"]; ok && matchFieldValue(val, exists, notInCond) {
+		return false
+	}
+	if rxCond, ok := c["regex"].(string); ok && !matchCachedRegex(rxCond, val) {
+		return false
+	}
+	if preCond, ok := c["prefix"].(string); ok && !strings.HasPrefix(val, preCond) {
+		return false
+	}
+	if sufCond, ok := c["suffix"].(string); ok && !strings.HasSuffix(val, sufCond) {
+		return false
+	}
+
+	return true
+}
+
+func setResponseFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value any) error {
 	switch v := value.(type) {
 	case string:
 		cleanVal := strings.TrimSpace(strings.ToLower(v))
 		switch cleanVal {
-		case "auth_code", "$auth_code", "gen_auth_code":
+		case utils.KeywordAuthCode, "$auth_code", "gen_auth_code":
 			return msg.Field(fieldID, utils.RandString(6))
 		case "stan", "$stan", "gen_stan":
 			return msg.Field(fieldID, utils.GetCounter().GetStan())
@@ -397,9 +372,35 @@ func setResponseFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fiel
 		default:
 			return msg.Field(fieldID, v)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		return utils.SetCompositeFieldValue(msg, spec, fieldID, v)
 	default:
 		return msg.Field(fieldID, fmt.Sprintf("%v", v))
+	}
+}
+
+// echoField copies one requested field into the response. A composite that
+// yields a map is echoed structurally; anything else is echoed as its string
+// form. The guards keep that composite/string fork flat rather than nested.
+func echoField(resp, req *iso8583.Message, spec *iso8583.MessageSpec, fNum int) {
+	reqField := req.GetField(fNum)
+	if reqField == nil {
+		return
+	}
+	if composite, ok := reqField.(*field.Composite); ok && composite != nil {
+		var fieldSpec *field.Spec
+		if spec != nil && spec.Fields != nil && spec.Fields[fNum] != nil {
+			fieldSpec = spec.Fields[fNum].Spec()
+		}
+		if data, ok := utils.ExtractFieldData(composite, fieldSpec); ok {
+			if dataMap, isMap := data.(map[string]any); isMap {
+				_ = utils.SetCompositeFieldValue(resp, spec, fNum, dataMap)
+
+				return
+			}
+		}
+	}
+	if val, err := reqField.String(); err == nil {
+		_ = resp.Field(fNum, val)
 	}
 }

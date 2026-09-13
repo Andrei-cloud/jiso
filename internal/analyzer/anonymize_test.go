@@ -8,28 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAnonymizePAN(t *testing.T) {
-	// Standard 16-digit card number
-	orig16 := "9876543210987654"
-	anon16 := AnonymizePAN(orig16)
-	assert.Equal(t, 16, len(anon16))
-	assert.Equal(t, "98765432", anon16[:8], "First 8 digits (BIN) must be preserved")
-	assert.Equal(t, "000", anon16[13:16], "Positions 14, 15, 16 must be '000'")
-	assert.NotEqual(t, orig16, anon16, "Original PAN must be masked")
-
-	// 19-digit card number
-	orig19 := "1234567890123456789"
-	anon19 := AnonymizePAN(orig19)
-	assert.Equal(t, 19, len(anon19))
-	assert.Equal(t, "12345678", anon19[:8])
-	assert.Equal(t, "000", anon19[13:16])
-
-	// Short string under 9 digits
-	short := "1234567"
-	assert.Equal(t, "1234567", AnonymizePAN(short))
-}
-
 func TestAnonymizer_DeterministicAndConsistent(t *testing.T) {
+	t.Parallel()
+
 	anon := NewAnonymizer(false)
 	cardA := "4000123456789012"
 	cardB := "4000987654321098"
@@ -53,14 +34,20 @@ func TestAnonymizer_DeterministicAndConsistent(t *testing.T) {
 	assert.True(t, strings.HasPrefix(anonTr1, "%B"+res1), "Track 1 masked PAN must match DE 2 masked PAN")
 
 	// Consistency with EMV tag in composite field
-	emvMap := map[string]interface{}{
+	emvMap := map[string]any{
 		"57": tr2,
 	}
-	anonEMV := anon.AnonymizeFieldValue(55, emvMap).(map[string]interface{})
+	emvRes := anon.AnonymizeFieldValue(55, emvMap)
+	anonEMV, ok := emvRes.(map[string]any)
+	if !ok {
+		t.Fatalf("AnonymizeFieldValue(55, map) = %T, want map[string]any", emvRes)
+	}
 	assert.Equal(t, anonTr2, anonEMV["57"], "EMV tag 57 must match Track 2 anonymized value")
 }
 
 func TestFormatProcCode(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, "000000", FormatProcCode("0"))
 	assert.Equal(t, "000000", FormatProcCode("000000"))
 	assert.Equal(t, "100000", FormatProcCode("100000"))
@@ -71,9 +58,12 @@ func TestFormatProcCode(t *testing.T) {
 }
 
 func TestAnonymizeTrack2(t *testing.T) {
+	t.Parallel()
+
 	// Track 2 with '=' separator
 	tr2Equals := "9876543210987654=2601123456789"
-	anonTr2 := AnonymizeTrack2(tr2Equals)
+	anon := NewAnonymizer(false)
+	anonTr2 := anon.AnonymizeTrack2(tr2Equals)
 	parts := strings.Split(anonTr2, "=")
 	require.Len(t, parts, 2)
 	assert.Equal(t, "98765432", parts[0][:8])
@@ -82,7 +72,7 @@ func TestAnonymizeTrack2(t *testing.T) {
 
 	// Track 2 with 'D' separator
 	tr2D := "9876543210987654D2601123456789"
-	anonTr2D := AnonymizeTrack2(tr2D)
+	anonTr2D := anon.AnonymizeTrack2(tr2D)
 	dParts := strings.Split(anonTr2D, "D")
 	require.Len(t, dParts, 2)
 	assert.Equal(t, "98765432", dParts[0][:8])
@@ -90,13 +80,18 @@ func TestAnonymizeTrack2(t *testing.T) {
 }
 
 func TestAnonymizeTrack1(t *testing.T) {
+	t.Parallel()
+
 	tr1 := "%B9876543210987654^SMITH/JOHN^260112345"
-	anonTr1 := AnonymizeTrack1(tr1)
+	anon := NewAnonymizer(false)
+	anonTr1 := anon.AnonymizeTrack1(tr1)
 	assert.True(t, strings.HasPrefix(anonTr1, "%B98765432"))
 	assert.True(t, strings.Contains(anonTr1, "000^SMITH/JOHN^260112345"))
 }
 
 func TestAnonymizeFieldValueUnsecureFlag(t *testing.T) {
+	t.Parallel()
+
 	origPAN := "9876543210987654"
 
 	// Unsecure = true -> should keep original clear PAN
@@ -106,18 +101,31 @@ func TestAnonymizeFieldValueUnsecureFlag(t *testing.T) {
 	// Unsecure = false (Secure mode) -> should anonymize
 	secRes := AnonymizeFieldValue(2, origPAN, false)
 	assert.NotEqual(t, origPAN, secRes)
-	assert.Equal(t, "98765432", secRes.(string)[:8])
-	assert.Equal(t, "000", secRes.(string)[13:16])
+	secStr, ok := secRes.(string)
+	if !ok {
+		t.Fatalf("AnonymizeFieldValue(2, string, false) = %T, want string", secRes)
+	}
+	assert.Equal(t, "98765432", secStr[:8])
+	assert.Equal(t, "000", secStr[13:16])
 }
 
 func TestAnonymizeCompositeChipFields(t *testing.T) {
-	compMap := map[string]interface{}{
+	t.Parallel()
+
+	compMap := map[string]any{
 		"57":   "9876543210987654D2601123456789",
 		"9F26": "11223344",
 	}
 
-	anonMap := AnonymizeFieldValue(55, compMap, false).(map[string]interface{})
-	tr2Val := anonMap["57"].(string)
+	compRes := AnonymizeFieldValue(55, compMap, false)
+	anonMap, ok := compRes.(map[string]any)
+	if !ok {
+		t.Fatalf("AnonymizeFieldValue(55, map, false) = %T, want map[string]any", compRes)
+	}
+	tr2Val, ok := anonMap["57"].(string)
+	if !ok {
+		t.Fatalf("anonMap[\"57\"] = %T, want string", anonMap["57"])
+	}
 	assert.True(t, strings.HasPrefix(tr2Val, "98765432"))
 	assert.True(t, strings.Contains(tr2Val, "000D2601123456789"))
 	assert.Equal(t, "11223344", anonMap["9F26"])

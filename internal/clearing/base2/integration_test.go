@@ -42,12 +42,12 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 	routes := []config.MockRouteConfig{
 		{
 			Name: "Visa Auth Approval",
-			MatchFields: map[string]interface{}{
+			MatchFields: map[string]any{
 				"0": "0100",
 			},
 			ResponseMTI: "0110",
 			EchoFields:  []int{2, 3, 4, 11, 37, 41, 42, 43, 49},
-			ResponseFields: map[string]interface{}{
+			ResponseFields: map[string]any{
 				"38": "123456",
 				"39": "00",
 				"62": "123456789012345",
@@ -70,7 +70,7 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 	// 4. Connect Client to Mock Server
 	conn, err := net.Dial("tcp", "127.0.0.1:"+srvPort)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	testTxData := []struct {
 		name     string
@@ -122,9 +122,9 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 		assert.Equal(t, "00", respCode)
 
 		// Build JSON representations for SQLite recording
-		reqMap := map[string]interface{}{
+		reqMap := map[string]any{
 			"mti": "0100",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"2":  td.pan,
 				"3":  td.procCode,
 				"4":  td.amount,
@@ -136,9 +136,9 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 				"49": "840",
 			},
 		}
-		respMap := map[string]interface{}{
+		respMap := map[string]any{
 			"mti": "0110",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"38": "123456",
 				"39": "00",
 				"62": "123456789012345",
@@ -190,7 +190,7 @@ func TestEndToEndVisaMockServerAndCTFExport(t *testing.T) {
 	assert.Equal(t, int64(40000), resultAll.SourceAmountSum)
 	assert.Equal(t, 11, len(resultAll.Records))
 
-	require.NoError(t, os.WriteFile(outputCTF, resultAll.RawContent, 0644))
+	require.NoError(t, os.WriteFile(outputCTF, resultAll.RawContent, 0o644))
 
 	fileBytes, err := os.ReadFile(outputCTF)
 	require.NoError(t, err)

@@ -19,6 +19,20 @@ import (
 	"jiso/internal/utils"
 )
 
+// TestGetSessionByIDNotFound asserts an unknown session ID yields
+// ErrSessionNotFound instead of a fabricated zero-value record (M1 review #1).
+func TestGetSessionByIDNotFound(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "notfound.db")
+
+	require.NoError(t, InitDB(dbPath))
+	defer func() { _ = Close() }()
+
+	rec, err := GetSessionByID("no-such-session")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrSessionNotFound)
+	assert.Nil(t, rec, "no record may be fabricated for a missing session")
+}
+
 func TestInitDB(t *testing.T) {
 	// Create a temporary database file
 	tmpDir := t.TempDir()
@@ -43,7 +57,7 @@ func TestInitDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open database for verification: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Check if transactions table exists
 	var tableCount int
@@ -88,14 +102,14 @@ func TestInsertTransaction(t *testing.T) {
 	success := true
 
 	// Insert transaction
-	err = InsertTransaction(
-		sessionID,
-		txName,
-		requestJSON,
-		&responseJSON,
-		processingTimeMs,
-		success,
-	)
+	err = InsertTransactionEnriched(&EnrichedTransactionRecord{
+		SessionID:        sessionID,
+		TxName:           txName,
+		RequestJSON:      requestJSON,
+		ResponseJSON:     &responseJSON,
+		ProcessingTimeMs: processingTimeMs,
+		Success:          success,
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert transaction: %v", err)
 	}
@@ -105,7 +119,7 @@ func TestInsertTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open database for verification: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	var count int
 	var storedResponseJSON string
@@ -113,7 +127,7 @@ func TestInsertTransaction(t *testing.T) {
 		conn,
 		"SELECT COUNT(*), response_json FROM transactions WHERE session_id = ?",
 		&sqlitex.ExecOptions{
-			Args: []interface{}{sessionID},
+			Args: []any{sessionID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				count = int(stmt.ColumnInt64(0))
 				storedResponseJSON = stmt.ColumnText(1)
@@ -213,14 +227,14 @@ func TestGetTransactionStats(t *testing.T) {
 	}
 
 	for _, tx := range transactions {
-		err = InsertTransaction(
-			sessionID,
-			tx.txName,
-			tx.requestJSON,
-			tx.responseJSON,
-			tx.processingTimeMs,
-			tx.success,
-		)
+		err = InsertTransactionEnriched(&EnrichedTransactionRecord{
+			SessionID:        sessionID,
+			TxName:           tx.txName,
+			RequestJSON:      tx.requestJSON,
+			ResponseJSON:     tx.responseJSON,
+			ProcessingTimeMs: tx.processingTimeMs,
+			Success:          tx.success,
+		})
 		if err != nil {
 			t.Fatalf("Failed to insert transaction: %v", err)
 		}
@@ -298,7 +312,6 @@ func TestEnrichedSessionsAndTransactions(t *testing.T) {
 	if sessions[0].Host != "127.0.0.1" || sessions[0].Port != "8080" || sessions[0].ConnectionType != "CLIENT" || !sessions[0].TLSEnabled {
 		t.Errorf("Unexpected session connection details: %+v", sessions[0])
 	}
-
 
 	rec := &EnrichedTransactionRecord{
 		SessionID:        sessionID,
@@ -381,7 +394,6 @@ func TestStressTestSummaryLogging(t *testing.T) {
 		t.Errorf("Unexpected summary record: %+v", summaries[0])
 	}
 }
-
 
 func TestVisaSessionsAndApprovedTransactions(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -504,7 +516,7 @@ func TestMessageToJSONWithSpec_CompositeFields(t *testing.T) {
 	require.NoError(t, msg.Field(2, "4085652009074000"))
 
 	// Pack composite field 62 using utils.SetCompositeFieldValue
-	compData := map[string]interface{}{
+	compData := map[string]any{
 		"1": "A",
 		"2": "466215320236000",
 	}
@@ -517,17 +529,15 @@ func TestMessageToJSONWithSpec_CompositeFields(t *testing.T) {
 
 	// 3. Verify JSON parses into structured map with subfields preserved
 	var parsed struct {
-		MTI    string                 `json:"mti"`
-		Fields map[string]interface{} `json:"fields"`
+		MTI    string         `json:"mti"`
+		Fields map[string]any `json:"fields"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(jsonStr), &parsed))
 	assert.Equal(t, "0100", parsed.MTI)
 	assert.Equal(t, "4085652009074000", parsed.Fields["2"])
 
-	f62, ok := parsed.Fields["62"].(map[string]interface{})
+	f62, ok := parsed.Fields["62"].(map[string]any)
 	require.True(t, ok, "Field 62 in JSON should be a structured map of subfields, got: %T (%v)", parsed.Fields["62"], parsed.Fields["62"])
 	assert.Equal(t, "A", f62["1"])
 	assert.Equal(t, "466215320236000", f62["2"])
 }
-
-

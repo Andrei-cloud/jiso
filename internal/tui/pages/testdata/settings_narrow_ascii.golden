@@ -1,0 +1,19 @@
+SETTINGS (session config - edits apply live)  [w] save to ./user/config.yaml
+reconnect-attempts    3                                                     
+connect-timeout       5s                                                    
+total-connect-timeout 10s                                                   
+response-timeout      5s                                                    
+listen-timeout        5m                                                    
+hex output            off *                                                 
+visa-station-id       001234  session                                       
+tls-config            ./testdata/certs/tls_config.json [ok]                 
+spec                  ./specs/visa.json                                     
+tx file               ./transactions/pool.json                              
+db                    ./sessions.db  session                                
+output                text                                                  
+Enter edit field | w persists user defaults (YAML) | Esc discards
+applies to next operation
+
+
+
+

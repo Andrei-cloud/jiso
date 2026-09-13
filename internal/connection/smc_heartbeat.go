@@ -78,8 +78,8 @@ func (h *SMCHeartbeatDaemon) loop() {
 			}
 
 			if err := h.sendVisaEcho(); err != nil {
-				if h.manager.debugMode {
-					fmt.Printf("[SMC-HEARTBEAT] ⚠️ Visa 0800 Echo test failed: %v\n", err)
+				if h.manager.debugMode.Load() {
+					outputf("[SMC-HEARTBEAT] ⚠️ Visa 0800 Echo test failed: %v\n", err)
 				}
 			}
 		}
@@ -109,7 +109,7 @@ func (h *SMCHeartbeatDaemon) sendVisaEcho() error {
 
 	// DE 63: V.I.P. Private-Use Field (Composite)
 	// Per Visa spec, 63.1 must be a fixed 4-digit BCD Network ID value.
-	if err := utils.SetCompositeFieldValue(msg, spec, 63, map[string]interface{}{
+	if err := utils.SetCompositeFieldValue(msg, spec, 63, map[string]any{
 		"1": "0002",
 	}); err != nil {
 		return fmt.Errorf("failed to build field 63 payload: %w", err)
@@ -138,19 +138,19 @@ func (h *SMCHeartbeatDaemon) sendVisaEcho() error {
 		respCode, _ = f39.String()
 	}
 
-	if h.manager.debugMode {
-		fmt.Printf("[SMC-HEARTBEAT] 🟢 Visa 0800 Echo successful (Response MTI: %s, RC: %s)\n", mti, respCode)
+	if h.manager.debugMode.Load() {
+		outputf("[SMC-HEARTBEAT] 🟢 Visa 0800 Echo successful (Response MTI: %s, RC: %s)\n", mti, respCode)
 	}
 
 	if respCode != "00" && respCode != "" {
-		return fmt.Errorf("Visa 0800 echo rejected with response code %s", respCode)
+		return fmt.Errorf("visa 0800 echo rejected with response code %s", respCode)
 	}
 
 	return nil
 }
 
 // IsVisaHeader returns true if the specified header is a *utils.VisaHeader
-func IsVisaHeader(hdr interface{}) bool {
+func IsVisaHeader(hdr any) bool {
 	if hdr == nil {
 		return false
 	}

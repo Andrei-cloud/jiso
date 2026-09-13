@@ -7,8 +7,14 @@ import (
 	"time"
 )
 
-// ServerStats tracks mock server traffic statistics
-type ServerStats struct {
+// FallbackRouteName is the routeStats key the engine records for requests
+// that matched no configured route (the catch-all RC-12 fallback path in
+// handleConn). Consumers (app.Stats, the TUI §G stats card) derive
+// matched-vs-fallback from this single name.
+const FallbackRouteName = "Catch-all Fallback"
+
+// Stats tracks mock server traffic statistics
+type Stats struct {
 	mu          sync.RWMutex
 	startTime   time.Time
 	totalServed int64
@@ -19,10 +25,15 @@ type ServerStats struct {
 	lastTime    time.Time
 	instantTps  float64
 	peakInstTps float64
+	dropped     int64 // atomic: drop_connection route hits (SCR-507)
+	requestErrs int64 // atomic: request unpack failures (SCR-507)
 }
 
-func NewServerStats() *ServerStats {
-	return &ServerStats{
+// NewStats starts the clock at construction: the rates are measured from here, so
+// a server built early and started much later reports its rate over the time it
+// actually ran rather than over the idle stretch before it.
+func NewStats() *Stats {
+	return &Stats{
 		startTime:  time.Now(),
 		lastTime:   time.Now(),
 		mtiStats:   make(map[string]int64),
@@ -31,7 +42,11 @@ func NewServerStats() *ServerStats {
 	}
 }
 
-func (s *ServerStats) RecordMessage(mti string, routeName string, responseCode string) {
+// RecordMessage counts one served message against the total and each dimension it
+// carries. A dimension the message has no value for is skipped rather than
+// counted under an empty key, which would otherwise show up in the server view as
+// a blank row that reads like a data problem.
+func (s *Stats) RecordMessage(mti, routeName, responseCode string) {
 	atomic.AddInt64(&s.totalServed, 1)
 
 	s.mu.Lock()
@@ -66,7 +81,10 @@ func (s *ServerStats) RecordMessage(mti string, routeName string, responseCode s
 	}
 }
 
-func (s *ServerStats) Reset() {
+// Reset starts the counters and the clock over, so the figures describe the
+// interval from now rather than the whole life of a server that has been running
+// long enough to average itself flat.
+func (s *Stats) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.startTime = time.Now()
@@ -78,9 +96,98 @@ func (s *ServerStats) Reset() {
 	s.mtiStats = make(map[string]int64)
 	s.routeStats = make(map[string]int64)
 	s.codeStats = make(map[string]int64)
+	atomic.StoreInt64(&s.dropped, 0)
+	atomic.StoreInt64(&s.requestErrs, 0)
 }
 
-func (s *ServerStats) PrintSummary(port string, headerType string, activeConns int) {
+// RecordDrop counts a matched route that dropped the connection
+// (drop_connection routes never serve a response).
+func (s *Stats) RecordDrop() {
+	atomic.AddInt64(&s.dropped, 1)
+}
+
+// RecordRequestError counts a request payload that failed to unpack.
+func (s *Stats) RecordRequestError() {
+	atomic.AddInt64(&s.requestErrs, 1)
+}
+
+// Dropped returns the number of drop_connection hits since the last Reset.
+func (s *Stats) Dropped() int64 {
+	return atomic.LoadInt64(&s.dropped)
+}
+
+// RequestErrors returns the number of failed request unpacks since Reset.
+func (s *Stats) RequestErrors() int64 {
+	return atomic.LoadInt64(&s.requestErrs)
+}
+
+// TotalServed returns the number of messages served since the last Reset.
+func (s *Stats) TotalServed() int64 {
+	return atomic.LoadInt64(&s.totalServed)
+}
+
+// StartTime returns when the current stats window started.
+func (s *Stats) StartTime() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.startTime
+}
+
+// InstantTPS returns the smoothed instantaneous throughput.
+func (s *Stats) InstantTPS() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.instantTps
+}
+
+// PeakTPS returns the highest smoothed instantaneous throughput observed.
+func (s *Stats) PeakTPS() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.peakInstTps
+}
+
+// MTIStats returns a copy of the per-MTI served-message counts.
+func (s *Stats) MTIStats() map[string]int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return copyCounts(s.mtiStats)
+}
+
+// RouteStats returns a copy of the per-route served-message counts.
+func (s *Stats) RouteStats() map[string]int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return copyCounts(s.routeStats)
+}
+
+// CodeStats returns a copy of the per-response-code served-message counts.
+func (s *Stats) CodeStats() map[string]int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return copyCounts(s.codeStats)
+}
+
+func copyCounts(counts map[string]int64) map[string]int64 {
+	out := make(map[string]int64, len(counts))
+	for key, count := range counts {
+		out[key] = count
+	}
+
+	return out
+}
+
+// PrintSummary writes the human-readable run summary: port, header, active
+// connections, totals, and the average and instantaneous rates. It reads the maps
+// under a read lock, so taking a summary while the server is serving cannot tear
+// a count.
+func (s *Stats) PrintSummary(port, headerType string, activeConns int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

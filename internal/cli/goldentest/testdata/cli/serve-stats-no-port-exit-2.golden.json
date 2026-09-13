@@ -1,0 +1,11 @@
+{
+  "args": [
+    "serve",
+    "stats"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "cannot serve stats: port is not configured"
+  ],
+  "expect_exit": 2
+}

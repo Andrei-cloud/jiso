@@ -11,8 +11,8 @@ import (
 	"jiso/internal/utils"
 )
 
-func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec, unsecure bool, anon ...*Anonymizer) map[string]interface{} {
-	txFields := make(map[string]interface{})
+func buildMessageTemplateFields(msg *iso8583.Message, unsecure bool, anon ...*Anonymizer) map[string]any {
+	txFields := make(map[string]any)
 	if msg == nil {
 		return txFields
 	}
@@ -49,15 +49,16 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 		extracted = a.AnonymizeFieldValue(i, extracted)
 		fieldKey := fmt.Sprintf("%d", i)
 
-		if i == 7 || i == 11 || i == 37 || i == 38 {
-			txFields[fieldKey] = "auto"
-		} else if i == 3 {
+		switch i {
+		case 7, 11, 37, 38:
+			txFields[fieldKey] = utils.KeywordAuto
+		case 3:
 			if strVal, isStr := extracted.(string); isStr {
 				txFields[fieldKey] = FormatProcCode(strVal)
 			} else {
 				txFields[fieldKey] = FormatProcCode(fmt.Sprintf("%v", extracted))
 			}
-		} else {
+		default:
 			txFields[fieldKey] = extracted
 		}
 	}
@@ -67,21 +68,19 @@ func buildMessageTemplateFields(msg *iso8583.Message, spec *iso8583.MessageSpec,
 
 // extractFieldValueForTemplate converts field values into JSON-friendly values.
 // Composite fields are expanded into nested maps of subfield values.
-func extractFieldValueForTemplate(f field.Field, specField ...*field.Spec) (interface{}, bool) {
-	var sf *field.Spec
-	if len(specField) > 0 {
-		sf = specField[0]
-	}
-	return utils.ExtractFieldData(f, sf)
+func extractFieldValueForTemplate(f field.Field) (any, bool) {
+	// No field spec: a scaffolded template wants the field's own values, not a
+	// spec-driven decode. utils.ExtractFieldData takes nil for exactly that.
+	return utils.ExtractFieldData(f, nil)
 }
 
-func buildPlaceholderValue(prefix string, value interface{}) interface{} {
-	nested, ok := value.(map[string]interface{})
+func buildPlaceholderValue(prefix string, value any) any {
+	nested, ok := value.(map[string]any)
 	if !ok {
 		return fmt.Sprintf("{{data.%s}}", prefix)
 	}
 
-	result := make(map[string]interface{}, len(nested))
+	result := make(map[string]any, len(nested))
 	keys := sortedNumericOrStringKeys(nested)
 
 	for _, key := range keys {
@@ -91,8 +90,8 @@ func buildPlaceholderValue(prefix string, value interface{}) interface{} {
 	return result
 }
 
-func flattenValueForDataset(prefix string, value interface{}, row map[string]string) {
-	nested, ok := value.(map[string]interface{})
+func flattenValueForDataset(prefix string, value any, row map[string]string) {
+	nested, ok := value.(map[string]any)
 	if !ok {
 		row[prefix] = fmt.Sprintf("%v", value)
 		return
@@ -121,20 +120,20 @@ func sortedNumericOrStringKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-func mergeStructuredValues(dst, src map[string]interface{}) map[string]interface{} {
+func mergeStructuredValues(dst, src map[string]any) map[string]any {
 	if dst == nil {
-		dst = make(map[string]interface{})
+		dst = make(map[string]any)
 	}
 	for key, srcVal := range src {
-		srcNested, srcIsMap := srcVal.(map[string]interface{})
+		srcNested, srcIsMap := srcVal.(map[string]any)
 		dstVal, exists := dst[key]
-		dstNested, dstIsMap := dstVal.(map[string]interface{})
+		dstNested, dstIsMap := dstVal.(map[string]any)
 
 		switch {
 		case srcIsMap && dstIsMap:
 			dst[key] = mergeStructuredValues(dstNested, srcNested)
 		case srcIsMap:
-			dst[key] = mergeStructuredValues(make(map[string]interface{}), srcNested)
+			dst[key] = mergeStructuredValues(make(map[string]any), srcNested)
 		case !exists:
 			dst[key] = srcVal
 		}

@@ -15,6 +15,8 @@ import (
 )
 
 func TestIsVisaHeader(t *testing.T) {
+	t.Parallel()
+
 	vHdr, err := utils.NewVisaHeader("123456")
 	assert.NoError(t, err)
 	assert.True(t, IsVisaHeader(vHdr))
@@ -26,6 +28,8 @@ func TestIsVisaHeader(t *testing.T) {
 }
 
 func TestSMCHeartbeatDaemon_Lifecycle(t *testing.T) {
+	t.Parallel()
+
 	mgr := NewManager("localhost", "9999", nil, false, 1, time.Second, time.Second, nil)
 	daemon := NewSMCHeartbeatDaemon(mgr, 100*time.Millisecond)
 
@@ -47,6 +51,8 @@ func TestSMCHeartbeatDaemon_Lifecycle(t *testing.T) {
 }
 
 func TestVisaSMCHeartbeatField63UsesCompositeNetworkID(t *testing.T) {
+	t.Parallel()
+
 	spec := &iso8583.MessageSpec{
 		Name: "visa-0800-test",
 		Fields: map[int]field.Field{
@@ -70,7 +76,7 @@ func TestVisaSMCHeartbeatField63UsesCompositeNetworkID(t *testing.T) {
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0800")
 
-	err := utils.SetCompositeFieldValue(msg, spec, 63, map[string]interface{}{"1": "0002"})
+	err := utils.SetCompositeFieldValue(msg, spec, 63, map[string]any{"1": "0002"})
 	require.NoError(t, err)
 
 	packed, err := msg.Pack()

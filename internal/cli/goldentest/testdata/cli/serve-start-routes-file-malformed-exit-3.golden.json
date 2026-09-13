@@ -1,0 +1,18 @@
+{
+  "args": [
+    "serve",
+    "start",
+    "--routes-file",
+    "bad-routes.json",
+    "19999"
+  ],
+  "setup_files": {
+    "bad-routes.json": "{\"name\": \"not-an-array\"}\n"
+  },
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "malformed mock routes file",
+    "bad-routes.json"
+  ],
+  "expect_exit": 3
+}

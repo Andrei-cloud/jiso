@@ -109,17 +109,17 @@ func TestLoadUnifiedConfig(t *testing.T) {
 		}
 	]`
 
-	tmpFile, err := os.CreateTemp("", "unified_config.json")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "unified_config.json")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	_, err = tmpFile.WriteString(configData)
 	if err != nil {
 		t.Fatalf("failed to write config data: %v", err)
 	}
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	spec := iso8583.Spec87
 	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
@@ -298,17 +298,17 @@ func TestComposeInterpolation(t *testing.T) {
 		}
 	]`
 
-	tmpFile, err := os.CreateTemp("", "test_compose.json")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test_compose.json")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	_, err = tmpFile.WriteString(configData)
 	if err != nil {
 		t.Fatalf("failed to write data: %v", err)
 	}
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	spec := iso8583.Spec87
 	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
@@ -362,17 +362,17 @@ func TestComposeInterpolationRandom(t *testing.T) {
 		}
 	]`
 
-	tmpFile, err := os.CreateTemp("", "test_compose_random.json")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test_compose_random.json")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	_, err = tmpFile.WriteString(configData)
 	if err != nil {
 		t.Fatalf("failed to write data: %v", err)
 	}
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	spec := iso8583.Spec87
 	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
@@ -429,13 +429,13 @@ func TestRunScenario_DoesNotFailImmediately_ExecutesAllSteps(t *testing.T) {
 		}
 	]`
 
-	tmpFile, err := os.CreateTemp("", "test_full_scenario.json")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test_full_scenario.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	_, err = tmpFile.WriteString(configData)
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	spec := iso8583.Spec87
 	tc, err := NewTransactionCollection(tmpFile.Name(), spec)
@@ -463,8 +463,8 @@ func TestScenarioRunner_DatabaseLogging(t *testing.T) {
 
 	config.GetConfig().Reset()
 	config.GetConfig().SetDbPath(dbPath)
-	config.GetConfig().EnsureSessionId()
-	sessionID := config.GetConfig().GetSessionId()
+	config.GetConfig().EnsureSessionID()
+	sessionID := config.GetConfig().GetSessionID()
 
 	require.NoError(t, db.InitDB(dbPath))
 	defer func() {
@@ -476,12 +476,12 @@ func TestScenarioRunner_DatabaseLogging(t *testing.T) {
 	routes := []config.MockRouteConfig{
 		{
 			Name: "SignOn Approval",
-			MatchFields: map[string]interface{}{
+			MatchFields: map[string]any{
 				"0": "0800",
 			},
 			ResponseMTI:    "0810",
 			EchoFields:     []int{7, 11, 37},
-			ResponseFields: map[string]interface{}{"39": "00"},
+			ResponseFields: map[string]any{"39": "00"},
 		},
 	}
 	mockServer := server.NewServer(spec, routes, "binary2")
@@ -534,12 +534,12 @@ func TestScenarioRunner_DatabaseLogging(t *testing.T) {
 			]
 		}
 	]`
-	tmpTx, err := os.CreateTemp("", "scenario_tx_*.json")
+	tmpTx, err := os.CreateTemp(t.TempDir(), "scenario_tx_*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpTx.Name())
+	defer func() { _ = os.Remove(tmpTx.Name()) }()
 	_, err = tmpTx.WriteString(configData)
 	require.NoError(t, err)
-	tmpTx.Close()
+	require.NoError(t, tmpTx.Close())
 
 	tc, err := NewTransactionCollection(tmpTx.Name(), spec)
 	require.NoError(t, err)
@@ -575,52 +575,52 @@ func TestScenarioRunner_MultiStepWithReversalsAndEchoFields(t *testing.T) {
 	mockRoutes := []config.MockRouteConfig{
 		{
 			Name: "Card 1 Approved Route",
-			MatchFields: map[string]interface{}{
+			MatchFields: map[string]any{
 				"0": "0100",
 				"2": "4000111122223333",
 				"3": "000000",
 			},
 			EchoFields: []int{2, 3, 4, 7, 11, 41, 49},
-			ResponseFields: map[string]interface{}{
+			ResponseFields: map[string]any{
 				"38": "auth_code",
 				"39": "00",
 			},
 		},
 		{
 			Name: "Card 2 Declined Route",
-			MatchFields: map[string]interface{}{
+			MatchFields: map[string]any{
 				"0": "0100",
 				"2": "4000222233334444",
 				"3": "000000",
 			},
 			EchoFields: []int{2, 3, 4, 7, 11, 41, 49},
-			ResponseFields: map[string]interface{}{
+			ResponseFields: map[string]any{
 				"38": "auth_code",
 				"39": "51",
 			},
 		},
 		{
 			Name: "Card 3 Approved Route",
-			MatchFields: map[string]interface{}{
+			MatchFields: map[string]any{
 				"0": "0100",
 				"2": "4000333344445555",
 				"3": "000000",
 			},
 			EchoFields: []int{2, 3, 4, 7, 11, 41, 49},
-			ResponseFields: map[string]interface{}{
+			ResponseFields: map[string]any{
 				"38": "auth_code",
 				"39": "00",
 			},
 		},
 		{
 			Name: "Card 3 Reversal Route",
-			MatchFields: map[string]interface{}{
+			MatchFields: map[string]any{
 				"0": "0400",
 				"2": "4000333344445555",
 				"3": "000000",
 			},
 			EchoFields: []int{2, 3, 4, 7, 11, 38, 41, 49, 90},
-			ResponseFields: map[string]interface{}{
+			ResponseFields: map[string]any{
 				"39": "00",
 			},
 		},
@@ -749,12 +749,12 @@ func TestScenarioRunner_MultiStepWithReversalsAndEchoFields(t *testing.T) {
 			]
 		}
 	]`
-	tmpTx, err := os.CreateTemp("", "scenario_multistep_*.json")
+	tmpTx, err := os.CreateTemp(t.TempDir(), "scenario_multistep_*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpTx.Name())
+	defer func() { _ = os.Remove(tmpTx.Name()) }()
 	_, err = tmpTx.WriteString(configData)
 	require.NoError(t, err)
-	tmpTx.Close()
+	require.NoError(t, tmpTx.Close())
 
 	tc, err := NewTransactionCollection(tmpTx.Name(), spec)
 	require.NoError(t, err)
@@ -770,7 +770,3 @@ func TestScenarioRunner_MultiStepWithReversalsAndEchoFields(t *testing.T) {
 		assert.Empty(t, step.ValidationErrors)
 	}
 }
-
-
-
-

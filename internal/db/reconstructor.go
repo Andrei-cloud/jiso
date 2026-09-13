@@ -13,6 +13,11 @@ import (
 	"jiso/internal/utils"
 )
 
+// ReconstructedMessage is one message recovered from a capture: the decoded
+// message when the spec could read it, its hex, and the describe text the review
+// pane prints. IsRawFallback and ParseError carry the case where the decode did
+// not work, so the operator sees the bytes and the reason instead of an empty
+// message that looks like there was no traffic.
 type ReconstructedMessage struct {
 	Message       *iso8583.Message
 	HEX           string
@@ -46,19 +51,18 @@ func Reconstruct(jsonStr, rawHexStr, specPath string) (*ReconstructedMessage, er
 }
 
 func reconstructFromJSON(jsonStr string, spec *iso8583.MessageSpec) (*ReconstructedMessage, error) {
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
 	mti, _ := data["mti"].(string)
-	fieldsMap, _ := data["fields"].(map[string]interface{})
+	fieldsMap, _ := data["fields"].(map[string]any)
 
 	msg := iso8583.NewMessage(spec)
 	if mti != "" {
 		msg.MTI(mti)
 	}
-
 
 	for k, v := range fieldsMap {
 		fieldID, err := strconv.Atoi(k)
@@ -66,14 +70,13 @@ func reconstructFromJSON(jsonStr string, spec *iso8583.MessageSpec) (*Reconstruc
 			continue
 		}
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			_ = utils.SetCompositeFieldValue(msg, spec, fieldID, val)
 		default:
 			valStr := fmt.Sprintf("%v", v)
 			_ = msg.Field(fieldID, valStr)
 		}
 	}
-
 
 	packedBytes, err := msg.Pack()
 	hexStr := ""
@@ -85,7 +88,7 @@ func reconstructFromJSON(jsonStr string, spec *iso8583.MessageSpec) (*Reconstruc
 
 	var buf bytes.Buffer
 	if err := utils.Describe(msg, &buf, iso8583.DoNotFilterFields()...); err != nil {
-		buf.WriteString(fmt.Sprintf("\n(Describe error: %v)", err))
+		fmt.Fprintf(&buf, "\n(Describe error: %v)", err)
 	}
 
 	return &ReconstructedMessage{

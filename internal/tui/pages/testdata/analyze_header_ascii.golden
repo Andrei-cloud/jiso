@@ -1,0 +1,28 @@
+PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run
+>  [*] binary2
+   [ ] ascii4
+   [ ] naps
+   [ ] binary4
+   [ ] bcd2
+   [ ] visa
+j/k move | space selects | Enter next
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Enter] next   [Esc] back

@@ -1,0 +1,45 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--dry-run",
+    "--json",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4",
+    "-o",
+    "out.json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "dry_run",
+    "action",
+    "mode",
+    "stream_file",
+    "header_type",
+    "selected_port",
+    "selected_msgs",
+    "flows",
+    "tx_output",
+    "report_output"
+  ],
+  "expect_json_fields": {
+    "dry_run": "true",
+    "mode": "\"tx\"",
+    "selected_port": "8080",
+    "selected_msgs": "3",
+    "flows": "[{\"port\":8080,\"msgs\":3},{\"port\":9999,\"msgs\":1}]",
+    "tx_output": "\"transactions/transaction.json\"",
+    "report_output": "\"out.json\""
+  },
+  "expect_stderr_contains": [
+    "selected flow 8080 (3 msgs)"
+  ],
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/out.json",
+    "$WORK/transactions/transaction.json"
+  ]
+}

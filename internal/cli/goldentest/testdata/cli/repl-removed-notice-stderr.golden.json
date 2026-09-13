@@ -1,0 +1,10 @@
+{
+  "args": [
+    "repl"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "REPL was removed in v2.0.0 — use 'jiso tui' or the v2 command tree"
+  ],
+  "expect_exit": 2
+}

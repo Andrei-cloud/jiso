@@ -9,18 +9,37 @@ const (
 	// RecordLength is the exact length in bytes for all Base II CTF records.
 	RecordLength = 168
 
-	// Transaction Codes (TC)
-	TCSalesDraft       = "05"
-	TCCreditVoucher    = "06"
-	TCCashDisbursement = "07"
-	TCBatchTrailer     = "91"
-	TCFileTrailer      = "92"
-	TCHeader           = "90"
+	// Transaction codes, the record type written into field 3 of each Base II CTF
+	// record. A generated file is one header, the draft records, then a trailer.
 
-	// Transaction Component Sequence Numbers (TCR)
+	// TCSalesDraft is the ordinary purchase a cardholder makes at a terminal.
+	TCSalesDraft = "05"
+	// TCCreditVoucher is a draft that moves money to the cardholder rather than
+	// taking it.
+	TCCreditVoucher = "06"
+	// TCCashDisbursement is cash paid out at a terminal.
+	TCCashDisbursement = "07"
+	// TCBatchTrailer closes a batch; the generator writes exactly one per file, and
+	// a file without it is an incomplete export.
+	TCBatchTrailer = "91"
+	// TCFileTrailer is the file-level trailer, a different record from the batch
+	// trailer above and not interchangeable with it.
+	TCFileTrailer = "92"
+	// TCHeader opens a file, carrying the batch's aggregate counts.
+	TCHeader = "90"
+
+	// Transaction component sequence numbers: which component of a record a
+	// component record belongs to.
+
+	// TCR0 is the primary component, the one the generator stamps on every record
+	// it writes.
 	TCR0 = "0"
+	// TCR1 numbers the first additional component of a record, the one that
+	// carries the additional amounts a draft moves besides the transaction amount.
 	TCR1 = "1"
+	// TCR5 numbers a record's fee component, the surcharge or interchange amount.
 	TCR5 = "5"
+	// TCR7 numbers the reversal component, the record that undoes an earlier one.
 	TCR7 = "7"
 )
 
@@ -47,21 +66,24 @@ func (r *Record) Set(start, end int, val string, padLeft bool, padChar byte) {
 	length := end - start + 1
 	valLen := len(val)
 
+	// A value longer than its field is truncated at the alignment end, a shorter
+	// one is padded at the other end, and an exact one needs neither.
 	var formatted string
-	if valLen > length {
+	switch {
+	case valLen > length:
 		if padLeft {
 			formatted = val[valLen-length:]
 		} else {
 			formatted = val[:length]
 		}
-	} else if valLen < length {
+	case valLen < length:
 		pad := strings.Repeat(string(padChar), length-valLen)
 		if padLeft {
 			formatted = pad + val
 		} else {
 			formatted = val + pad
 		}
-	} else {
+	default:
 		formatted = val
 	}
 
@@ -172,7 +194,7 @@ func (d *TCR0DraftData) Format() *Record {
 	r.Set(130, 132, defaultString(d.MerchantCountry, "840"), false, ' ')
 	r.Set(133, 136, defaultString(d.MCC, "5999"), true, '0')
 	r.Set(137, 141, defaultString(d.MerchantZIP, "00000"), true, '0')
-	r.Set(142, 144, defaultString(d.MerchantState, "   "), false, ' ')
+	r.Set(142, 144, defaultString(d.MerchantState, blankStateProvince), false, ' ')
 	r.Set(145, 145, defaultString(d.RequestedPaymentSvc, "1"), false, ' ')
 	r.Set(146, 146, defaultString(d.NumberOfPaymentForms, "0"), false, '0')
 	r.Set(147, 147, defaultString(d.UsageCode, "0"), false, '0')

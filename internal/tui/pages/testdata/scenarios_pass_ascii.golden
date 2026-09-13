@@ -1,0 +1,28 @@
+SCENARIOS (3)  filter: -  report: scenario-report.json
++----------------------------------+ STEPS                                                                      
+|> E2E Purchase and Reversal       | +-------------------------------------------------------------------------+
+|  Card update flow                | |  1  Network Sign On                              0800 -> RC 00 1ms [ok] |
+|  Decline matrix                  | |  2  Purchase Authorization                       0200 -> RC 00 3ms [ok] |
+|                                  | |      extract AuthId=482913 - validate 39=00 [ok]                        |
+|                                  | |  3  Reversal                                     0420 -> RC 00 3ms [ok] |
+|                                  | |      validate 39=00 [ok]                                                |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
+|                                  | |                                                                         |
++----------------------------------+ |                                                                         |
+                                     |                                                                         |
+                                     +-------------------------------------------------------------------------+
+3/3 passed - 7ms total

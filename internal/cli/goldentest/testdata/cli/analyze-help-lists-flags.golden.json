@@ -1,0 +1,16 @@
+{
+  "args": [
+    "analyze",
+    "--help"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "--yes",
+    "--flow",
+    "--mode",
+    "--output",
+    "--dry-run",
+    "--json"
+  ],
+  "expect_exit": 0
+}

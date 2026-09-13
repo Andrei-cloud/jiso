@@ -1,0 +1,9 @@
+{
+  "args": [
+    "repl",
+    "-q"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_empty": true,
+  "expect_exit": 2
+}

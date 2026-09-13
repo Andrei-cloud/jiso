@@ -12,6 +12,9 @@ import (
 	"jiso/internal/config"
 )
 
+// The NAPS prefix strings some acquirers put in front of the framed message:
+// the ATM and POS terminal variants. They are wire content rather than
+// configuration, so they live beside the wrappers that write and verify them.
 const (
 	NAPSPREFIXATM = "ISO016000070"
 	NAPSPREFIXPOS = "ISO026000070"
@@ -21,46 +24,78 @@ const (
 	MaxMessageSize = 1024
 )
 
+// SelectLength returns the client-side length header an operator named. The
+// names are wire-facing vocabulary shared with LengthTypeOptions and
+// SelectServerHeader, which is why they are constants: a name offered by the
+// connect form but rejected here reads to the operator as a broken tool.
+const (
+	LengthTypeASCII4  = "ascii4"
+	LengthTypeBinary2 = "binary2"
+	LengthTypeNAPS    = "naps"
+	LengthTypeBinary4 = "binary4"
+	LengthTypeBCD2    = "bcd2"
+	LengthTypeVisa    = "visa"
+)
+
+// SelectLength returns the client-side length header an operator named. The names
+// are wire-facing vocabulary shared with LengthTypeOptions (what the connect form
+// and the analyze prompt offer) and SelectServerHeader, which is why they are
+// constants: a name offered in one place and rejected in another reads to the
+// operator as a broken tool, and no test would say which of the three misspelled
+// it.
 func SelectLength(lenType string) (network.Header, error) {
 	switch strings.ToLower(lenType) {
-	case "ascii4":
+	case LengthTypeASCII4:
 		return network.NewASCII4BytesHeader(), nil
-	case "binary2", "naps":
+	case LengthTypeBinary2, LengthTypeNAPS:
 		return NewBinary2BytesAdapter(), nil
-	case "binary4":
+	case LengthTypeBinary4:
 		return NewBinary4BytesAdapter(), nil
-	case "bcd2":
+	case LengthTypeBCD2:
 		return network.NewBCD2BytesHeader(), nil
-	case "visa":
-		stationID := config.GetConfig().GetVisaStationId()
+	case LengthTypeVisa:
+		stationID := config.GetConfig().GetVisaStationID()
 		if stationID == "" {
 			stationID = "000000" // Default for server role / fallback: station ID all zeros
 		}
+
 		return NewVisaHeader(stationID)
 	default:
 		return nil, fmt.Errorf("unknown length type: %s", lenType)
 	}
 }
 
+// LengthTypeOptions lists the length header types SelectLength accepts,
+// in its own acceptance order (LengthTypeNAPS shares the binary2 codec and is
+// offered separately, as the connect prompt does). UI option lists —
+// the TUI §J header step and the CLI analyze interactive prompt — must
+// source from here so they never offer a type the engine rejects.
+func LengthTypeOptions() []string {
+	return []string{LengthTypeASCII4, LengthTypeBinary2, LengthTypeNAPS, LengthTypeBinary4, LengthTypeBCD2, LengthTypeVisa}
+}
+
 // SelectServerHeader returns the appropriate header for embedded server role
 // For VISA header on server role, station ID is set to all zeros ("000000")
 func SelectServerHeader(lenType string) (network.Header, error) {
 	switch strings.ToLower(lenType) {
-	case "ascii4":
+	case LengthTypeASCII4:
 		return network.NewASCII4BytesHeader(), nil
-	case "binary2", "naps", "":
+	case LengthTypeBinary2, LengthTypeNAPS, "":
 		return NewBinary2BytesAdapter(), nil
-	case "binary4":
+	case LengthTypeBinary4:
 		return NewBinary4BytesAdapter(), nil
-	case "bcd2":
+	case LengthTypeBCD2:
 		return network.NewBCD2BytesHeader(), nil
-	case "visa":
+	case LengthTypeVisa:
 		return NewVisaHeader("000000")
 	default:
 		return nil, fmt.Errorf("unknown server length type: %s", lenType)
 	}
 }
 
+// ReadMessageLengthWrapper adapts a network.Header into the reader shape the
+// connection layer calls: read the prefix, then hand back the message length it
+// declares.
 func ReadMessageLengthWrapper(header network.Header) connection.MessageLengthReader {
 	return func(r io.Reader) (int, error) {
 		n, err := header.ReadFrom(r)
@@ -95,6 +130,10 @@ func ReadMessageLengthWrapper(header network.Header) connection.MessageLengthRea
 	}
 }
 
+// WriteMessageLengthWrapper adapts a header into the writer shape: record the
+// length, then emit the prefix. It is the counterpart of
+// ReadMessageLengthWrapper, and the pair is why a header can be swapped without
+// touching the connection code.
 func WriteMessageLengthWrapper(header network.Header) connection.MessageLengthWriter {
 	return func(w io.Writer, length int) (int, error) {
 		header.SetLength(length)
@@ -107,21 +146,25 @@ func WriteMessageLengthWrapper(header network.Header) connection.MessageLengthWr
 	}
 }
 
+// NapsWriteLengthWrapper puts a fixed NAPS prefix in front of the framed
+// message: the declared length grows by the prefix size, the prefix is written,
+// then the header and body follow. Acquirers that expect ISO016000070 count
+// those bytes as part of the message, so the length has to include them.
 func NapsWriteLengthWrapper(
 	h func(w io.Writer, length int) (int, error),
 ) func(w io.Writer, length int) (int, error) {
-	NAPSPREFIX := []byte(NAPSPREFIXATM)
+	napsPrefix := []byte(NAPSPREFIXATM)
 	return func(w io.Writer, length int) (int, error) {
 		// First, call the original function with the modified length.
-		n, err := h(w, length+len(NAPSPREFIX))
+		n, err := h(w, length+len(napsPrefix))
 		if err != nil {
 			return n, fmt.Errorf("writing message header wrapper: %w", err)
 		}
 
-		// Then, write the NAPSPREFIX to the writer.
-		nPrefix, err := w.Write(NAPSPREFIX)
+		// Then, write the NAPS prefix to the writer.
+		nPrefix, err := w.Write(napsPrefix)
 		if err != nil {
-			return n + nPrefix, fmt.Errorf("writing NAPSPREFIX: %w", err)
+			return n + nPrefix, fmt.Errorf("writing napsPrefix: %w", err)
 		}
 
 		// Return the total number of bytes written.
@@ -129,10 +172,13 @@ func NapsWriteLengthWrapper(
 	}
 }
 
+// NapsReadLengthWrapper reads and verifies that prefix before the length header,
+// failing the connection on a mismatch instead of mis-framing the message that
+// follows it.
 func NapsReadLengthWrapper(
 	h func(r io.Reader) (int, error),
 ) func(r io.Reader) (int, error) {
-	NAPSPREFIX := []byte(NAPSPREFIXATM)
+	napsPrefix := []byte(NAPSPREFIXATM)
 	return func(r io.Reader) (int, error) {
 		// First, call the original function to read the message length.
 		length, err := h(r)
@@ -140,20 +186,22 @@ func NapsReadLengthWrapper(
 			return length, fmt.Errorf("reading message header wrapper: %w", err)
 		}
 
-		// Then, read the NAPSPREFIX from the reader.
-		napsPrefixBuffer := make([]byte, len(NAPSPREFIX))
-		n, err := r.Read(napsPrefixBuffer)
+		// Then, read the NAPS prefix from the reader. ReadFull because a
+		// bare Read may return a short TCP segment and cause a spurious
+		// prefix mismatch.
+		var napsPrefixBuffer [len(NAPSPREFIXATM)]byte
+		n, err := io.ReadFull(r, napsPrefixBuffer[:])
 		if err != nil {
-			return length, fmt.Errorf("reading NAPSPREFIX: %w", err)
+			return length, fmt.Errorf("reading napsPrefix: %w", err)
 		}
 
-		// Check if the read prefix matches the expected NAPSPREFIX.
-		if !bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXATM)) &&
-			!bytes.Equal(napsPrefixBuffer, []byte(NAPSPREFIXPOS)) {
+		// Check if the read prefix matches the expected napsPrefix.
+		if !bytes.Equal(napsPrefixBuffer[:], []byte(NAPSPREFIXATM)) &&
+			!bytes.Equal(napsPrefixBuffer[:], []byte(NAPSPREFIXPOS)) {
 			return length, fmt.Errorf(
-				"NAPSPREFIX mismatch: expected %s, got %s",
-				NAPSPREFIX,
-				napsPrefixBuffer,
+				"napsPrefix mismatch: expected %s, got %s",
+				napsPrefix,
+				napsPrefixBuffer[:],
 			)
 		}
 

@@ -8,6 +8,8 @@ import (
 )
 
 func TestReadMessageLengthWrapper(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		header      network.Header
@@ -86,6 +88,8 @@ func TestReadMessageLengthWrapper(t *testing.T) {
 }
 
 func TestSelectLengthBinary4(t *testing.T) {
+	t.Parallel()
+
 	hdr, err := SelectLength("binary4")
 	if err != nil {
 		t.Fatalf("unexpected error for binary4: %v", err)

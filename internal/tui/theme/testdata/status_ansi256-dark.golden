@@ -1,0 +1,12 @@
+[1;38;5;34m✓ sent 33/33[m
+[1;38;5;136m⚠ slow response[m
+[1;38;5;167m✗ connection refused[m
+▸ [38;5;231;48;5;27m0210 RC 00[m
+  jiso send --file tx.yaml
+[38;5;245mspec: visa.sepa[m
+[38;5;33m127.0.0.1:8583[m
+[2;38;5;245mupdated ~5s ago[m
+[38;5;245m(session golden-0001)[m
+[38;5;238m┌────┐[m
+[38;5;238m│[mpane[38;5;238m│[m
+[38;5;238m└────┘[m

@@ -1,0 +1,20 @@
+{
+  "args": [
+    "stress",
+    "--tx",
+    "Nope",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "19999",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "unknown transaction 'Nope'"
+  ],
+  "expect_exit": 3
+}

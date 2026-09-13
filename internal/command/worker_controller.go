@@ -25,5 +25,5 @@ type WorkerController interface {
 	StopAllWorkers() error
 
 	// GetWorkerStats returns statistics for all workers
-	GetWorkerStats() map[string]interface{}
+	GetWorkerStats() map[string]any
 }

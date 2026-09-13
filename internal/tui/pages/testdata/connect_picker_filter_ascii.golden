@@ -1,0 +1,16 @@
+CONNECT
++------------------------------------------------------------+
+|  Mode        (*) Caller   ( ) Listener                     |
+|  IP          10.0.0.5          (caller only)               |
+|  Port        8080                                          |
+|> Header      binary2|          >                           |
+|HEADER |vi (1)                                              |
+|+------------------------------------------------------+    |
+||> visa      visa station id                           |    |
+||j/k move  enter pick  esc back                        |    |
+|+------------------------------------------------------+    |
+|  Station ID                    (visa header only)          |
+|  Unsolicited ( ) Yes   (*) No                              |
+|  TLS         tls_config.json                               |
+|                            [Enter] connect   [Esc] cancel  |
++------------------------------------------------------------+

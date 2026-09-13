@@ -52,11 +52,11 @@ func createTempSpecFile(t *testing.T) string {
 		}
 	}`
 
-	file, err := os.CreateTemp("", "spec.json")
+	file, err := os.CreateTemp(t.TempDir(), "spec.json")
 	if err != nil {
 		t.Fatalf("Failed to create temp spec file: %v", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	_, err = file.WriteString(spec)
 	if err != nil {
@@ -67,8 +67,10 @@ func createTempSpecFile(t *testing.T) string {
 }
 
 func TestNewService(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTempSpecFile(t)
-	defer os.Remove(specFile)
+	defer func() { _ = os.Remove(specFile) }()
 
 	service, err := NewService(
 		"localhost",
@@ -110,8 +112,10 @@ func TestNewService(t *testing.T) {
 }
 
 func TestServiceGetters(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTempSpecFile(t)
-	defer os.Remove(specFile)
+	defer func() { _ = os.Remove(specFile) }()
 
 	service, err := NewService(
 		"localhost",
@@ -141,8 +145,10 @@ func TestServiceGetters(t *testing.T) {
 }
 
 func TestServiceIsConnected(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTempSpecFile(t)
-	defer os.Remove(specFile)
+	defer func() { _ = os.Remove(specFile) }()
 
 	service, err := NewService(
 		"localhost",
@@ -165,8 +171,10 @@ func TestServiceIsConnected(t *testing.T) {
 }
 
 func TestServiceClose(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTempSpecFile(t)
-	defer os.Remove(specFile)
+	defer func() { _ = os.Remove(specFile) }()
 
 	service, err := NewService(
 		"localhost",
@@ -190,8 +198,10 @@ func TestServiceClose(t *testing.T) {
 }
 
 func TestServiceDisconnect(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTempSpecFile(t)
-	defer os.Remove(specFile)
+	defer func() { _ = os.Remove(specFile) }()
 
 	service, err := NewService(
 		"localhost",
@@ -215,8 +225,10 @@ func TestServiceDisconnect(t *testing.T) {
 }
 
 func TestServiceGetConnection(t *testing.T) {
+	t.Parallel()
+
 	specFile := createTempSpecFile(t)
-	defer os.Remove(specFile)
+	defer func() { _ = os.Remove(specFile) }()
 
 	service, err := NewService(
 		"localhost",
@@ -236,5 +248,3 @@ func TestServiceGetConnection(t *testing.T) {
 		t.Error("GetConnection should be nil when not connected")
 	}
 }
-
-

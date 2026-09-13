@@ -1,0 +1,31 @@
+{
+  "args": [
+    "ctf",
+    "export",
+    "--session",
+    "golden-visa-session-0002",
+    "--yes",
+    "--db",
+    "session.db",
+    "-o",
+    "out.ctf"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "VISA BASE II CTF CLEARING FILE EXPORT SUCCESSFUL",
+    "Session ID:",
+    "golden-visa-session-0002",
+    "Messages to Export:",
+    "Output File:",
+    "out.ctf",
+    "CTF file written to: out.ctf"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_exist": [
+    "$WORK/out.ctf"
+  ],
+  "expect_file_heads": {
+    "$WORK/out.ctf": "05004242424242424242"
+  }
+}

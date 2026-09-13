@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
+	"jiso/internal/cli/output"
 	cmdpkg "jiso/internal/command"
 )
 
@@ -26,7 +27,18 @@ func newSpecInitCmd() *cobra.Command {
 			if len(args) > 0 {
 				path = args[0]
 			}
+
+			out := output.New(cmd)
+			if out.DryRun() {
+				if path == "" {
+					path = cmdpkg.DefaultSpecInitPath
+				}
+
+				return previewFileWrite(out, "default specification file", path)
+			}
+
 			initCmd := &cmdpkg.InitSpecCommand{OutputPath: path}
+
 			return initCmd.Execute()
 		},
 	}

@@ -15,6 +15,9 @@ const (
 	rrnFilePath = "rrn.json" // File to store RRN value
 )
 
+// RRN generates retrieval reference numbers: a two-digit year, the day of the
+// year, and a persisted 7-digit sequence, twelve digits as field 37 carries
+// them. The sequence survives a restart, so two messages never share one.
 type RRN struct {
 	value uint32
 }
@@ -32,20 +35,28 @@ var (
 	rrnQuitChan    chan struct{}
 )
 
+// GetRRNInstance returns the process-wide RRN generator, seeded from its
+// persisted value. A generator that restarted at 1 would hand out references the
+// acquirer already saw, which is the whole reason it persists.
 func GetRRNInstance() *RRN {
 	rrnOnce.Do(func() {
 		// Extend the PersistentData structure to include RRN
 		data, err := loadPersistedRRNData()
 		if err != nil {
 			// If we can't load, start from 0 but log the error
-			fmt.Printf("Warning: Could not load persisted RRN value: %v\n", err)
+			outputf("Warning: Could not load persisted RRN value: %v\n", err)
 			rrnInstance = &RRN{value: 0}
 			return
 		}
 
-		// Initialize RRN with the loaded value
+		// Initialize RRN with the loaded value. The init line only
+		// carries information when the persisted value is non-zero;
+		// printing it at 0 was test-output and scrollback noise (the
+		// line itself goes through the package sink, UAT round 5).
 		rrnInstance = &RRN{value: data.RRNValue}
-		fmt.Printf("RRN counter initialized with persisted value: %d\n", data.RRNValue)
+		if data.RRNValue != 0 {
+			outputf("RRN counter initialized with persisted value: %d\n", data.RRNValue)
+		}
 
 		// Start persistence goroutine
 		rrnPersistChan = make(chan uint32, 1)
@@ -68,7 +79,7 @@ func rrnPersistWorker() {
 			if lastValue > 0 {
 				err := persistRRNData(RRNPersistentData{RRNValue: lastValue})
 				if err != nil {
-					fmt.Printf("Warning: Failed to persist RRN value: %v\n", err)
+					outputf("Warning: Failed to persist RRN value: %v\n", err)
 				}
 			}
 		case <-rrnQuitChan:
@@ -80,19 +91,32 @@ func rrnPersistWorker() {
 	}
 }
 
+// rrnPersistencePath resolves the RRN file path, keeping the historic
+// temp-directory fallback; all persistenceDir access goes through the
+// dirMu-guarded accessors (the global is shared with the STAN counter).
+func rrnPersistencePath() (string, error) {
+	dirMu.RLock()
+	dir := persistenceDir
+	dirMu.RUnlock()
+
+	if dir == "" {
+		dir = filepath.Join(os.TempDir(), "jiso")
+		if err := SetPersistenceDirectory(dir); err != nil {
+			return "", err
+		}
+	}
+
+	return filepath.Join(dir, rrnFilePath), nil
+}
+
 // Load RRN data from persistence file
 func loadPersistedRRNData() (RRNPersistentData, error) {
 	data := RRNPersistentData{}
 
-	// If persistence directory not set, use default temp directory
-	if persistenceDir == "" {
-		persistenceDir = filepath.Join(os.TempDir(), "jiso")
-		if err := SetPersistenceDirectory(persistenceDir); err != nil {
-			return data, err
-		}
+	filePath, err := rrnPersistencePath()
+	if err != nil {
+		return data, err
 	}
-
-	filePath := filepath.Join(persistenceDir, rrnFilePath)
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -120,12 +144,9 @@ func persistRRNData(data RRNPersistentData) error {
 	rrnPersistLock.Lock()
 	defer rrnPersistLock.Unlock()
 
-	// If persistence directory not set, use default
-	if persistenceDir == "" {
-		persistenceDir = filepath.Join(os.TempDir(), "jiso")
-		if err := SetPersistenceDirectory(persistenceDir); err != nil {
-			return err
-		}
+	filePath, err := rrnPersistencePath()
+	if err != nil {
+		return err
 	}
 
 	// Marshal data
@@ -135,7 +156,6 @@ func persistRRNData(data RRNPersistentData) error {
 	}
 
 	// Write atomically using temp file + rename
-	filePath := filepath.Join(persistenceDir, rrnFilePath)
 	tempFile := filePath + ".tmp"
 
 	if err := os.WriteFile(tempFile, jsonData, 0o644); err != nil {
@@ -143,14 +163,18 @@ func persistRRNData(data RRNPersistentData) error {
 	}
 
 	if err := os.Rename(tempFile, filePath); err != nil {
-		// Clean up temp file on failure
-		os.Remove(tempFile)
+		// Clean up temp file on failure; the rename error is the reportable one.
+		_ = os.Remove(tempFile)
+
 		return fmt.Errorf("failed to rename RRN temp file: %w", err)
 	}
 
 	return nil
 }
 
+// GetRRN returns the next reference number, advancing the sequence with a
+// compare-and-swap so concurrent senders cannot be handed the same one, and
+// passing the new value to the persistence worker without waiting for the write.
 func (r *RRN) GetRRN() string {
 	t := time.Now()
 	y, d := t.Year(), t.YearDay()

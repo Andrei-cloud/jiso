@@ -1,0 +1,15 @@
+{
+  "args": [
+    "db",
+    "tx",
+    "4242",
+    "--db",
+    "session.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "transaction ID 4242 not found"
+  ],
+  "expect_exit": 3
+}

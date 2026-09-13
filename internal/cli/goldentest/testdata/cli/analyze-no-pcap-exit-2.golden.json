@@ -1,0 +1,11 @@
+{
+  "args": [
+    "analyze",
+    "--yes"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "pcap file argument is required"
+  ],
+  "expect_exit": 2
+}

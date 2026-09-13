@@ -1,0 +1,25 @@
+{
+  "args": [
+    "db",
+    "stats",
+    "--db",
+    "session.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "db_path",
+    "size_bytes",
+    "session_count",
+    "total_transactions",
+    "first_session_start",
+    "last_session_active"
+  ],
+  "expect_json_fields": {
+    "db_path": "\"session.db\"",
+    "session_count": "2",
+    "total_transactions": "2"
+  },
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

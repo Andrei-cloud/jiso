@@ -21,7 +21,7 @@ In traditional ISO8583 deployments, client applications establish outbound TCP c
 | **Listener Mode** | Remote host dials `jiso` IP:Port (`net.Listen`) | Remote Host | Accepting incoming switch connections while operating as client |
 | **Mock Server (`serve`)** | Remote host dials `jiso` (`net.Listen`) | Remote Host | Fully automated mock server responding to all inbound requests via routes |
 
-> **Key Distinction**: Unlike `serve` (which acts as a multi-client mock server), **Listener Mode** operates `jiso` as an active single-connection client session tied to the REPL, scenario runner, and stress testing workers.
+> **Key Distinction**: Unlike `serve` (which acts as a multi-client mock server), **Listener Mode** operates `jiso` as an active single-connection client session tied to the interactive TUI, scenario runner, and stress testing workers.
 
 ---
 
@@ -29,13 +29,13 @@ In traditional ISO8583 deployments, client applications establish outbound TCP c
 
 ```mermaid
 sequenceDiagram
-    participant REPL as jiso REPL
+    participant Session as jiso session
     participant Svc as Service
     participant Mgr as Manager
     participant Listener
     participant Remote as Remote Host
 
-    REPL->>Svc: Listen request
+    Session->>Svc: Listen request
     Svc->>Mgr: Listen request
     Mgr->>Listener: Start TCP listener
     Note over Listener: Waiting for connection
@@ -44,15 +44,15 @@ sequenceDiagram
     Note over Listener: Close listener
     Mgr->>Mgr: Wrap with NewFrom
     Note over Mgr: Status ONLINE
-    Svc-->>REPL: Connection ready
+    Svc-->>Session: Connection ready
 
-    Note over REPL,Remote: Message Exchange
-    REPL->>Svc: Send message
+    Note over Session,Remote: Message Exchange
+    Session->>Svc: Send message
     Svc->>Mgr: Send message
     Mgr->>Remote: Write payload
     Remote-->>Mgr: Response
     Mgr-->>Svc: Matched response
-    Svc-->>REPL: Return response
+    Svc-->>Session: Return response
 
     Note over Remote,Mgr: Disconnect and Auto Re-Listen
     Remote->>Mgr: Disconnect
@@ -73,38 +73,29 @@ sequenceDiagram
 
 ---
 
-## Interactive REPL Usage
+## Interactive (TUI) Usage
 
-1. Launch `jiso` REPL:
+1. Launch the TUI with the spec and transaction file:
    ```bash
-   jiso -s specs/visa.json -f transactions/sample.json
+   jiso tui -s specs/visa.json -f transactions/sample.json
    ```
 
-2. Enter `connect`:
-   ```text
-   jiso> connect
-   ? Select connection mode: Listener (Wait for incoming)
-   ? Select length type: binary2
-   ? Parse and process unsolicited incoming messages via mock_routes? Yes
-   ? Enter port to listen on: 9999
+2. Open the connect dialog (`c`) and select:
+   - Connection mode: **Listener** (wait for the incoming connection)
+   - Length header type: `binary2`
+   - Unsolicited message handling via `mock_routes`: Yes
+   - Port to listen on: `9999`
 
-   Listening on port 9999 (timeout: 5m0s)... Waiting for remote host to connect...
-   ```
+3. When the remote switch or host connects, the dashboard connection card
+   goes `● ONLINE`; the listener accepts a single connection and re-listens
+   after disconnects until the timeout (`--listen-timeout`).
 
-3. When the remote switch or host connects:
-   ```text
-   Accepted incoming connection from 192.168.1.50:54321 on port 9999
-   Successfully accepted connection on port 9999! Client is now connected in listener mode.
-   ```
+4. Now work as usual: send from the Transactions page (`2`), start stress
+   workers from the Workers & Stress page (`4`), run scenarios from the
+   Scenarios page.
 
-4. Now execute commands as usual:
-   ```text
-   jiso> send 1
-   jiso> stress 10 100
-   jiso> run-scenario SanityCheck
-   ```
-
-5. To terminate the listener or connection, run `disconnect` or `exit`.
+5. To terminate the listener or connection, use the disconnect action
+   (dashboard quick key or palette; confirmed) or `ctrl+c`.
 
 ---
 
@@ -141,4 +132,4 @@ func main() {
 - [`internal/connection/manager_listen.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/connection/manager_listen.go): Implements `Listen()`, `attemptReListen()`, and listener timeout logic.
 - [`internal/connection/manager_listen_test.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/connection/manager_listen_test.go): Unit tests covering listener lifecycle, message sending over accepted sockets, timeouts, and cancellation.
 - [`internal/service/service.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/service/service.go): Service wrapper exposing listener controls.
-- [`internal/command/connect.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/command/connect.go): REPL prompt integration for mode selection.
+- [`internal/command/connect.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/command/connect.go): connection mode selection prompts for interactive flows.

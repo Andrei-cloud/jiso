@@ -1,0 +1,13 @@
+{
+  "args": [
+    "db",
+    "--help"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "Usage:",
+    "stats"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

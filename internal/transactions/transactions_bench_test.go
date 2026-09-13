@@ -9,11 +9,11 @@ import (
 )
 
 func BenchmarkCompose(b *testing.B) {
-	data := []map[string]interface{}{
+	data := []map[string]any{
 		{
 			"name":        "test1",
 			"description": "Test transaction 1",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"2":  "1234567890123456",
 				"3":  123456,
 				"4":  "10000",
@@ -37,11 +37,11 @@ func BenchmarkCompose(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to marshal setup data: %v", err)
 	}
-	file, err := os.CreateTemp("", "bench_transactions.json")
+	file, err := os.CreateTemp(b.TempDir(), "bench_transactions.json")
 	if err != nil {
 		b.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if _, err := file.Write(dataBytes); err != nil {
 		b.Fatalf("failed to write temp file: %v", err)
 	}
@@ -64,11 +64,11 @@ func BenchmarkCompose(b *testing.B) {
 }
 
 func BenchmarkComposeRaw(b *testing.B) {
-	data := []map[string]interface{}{
+	data := []map[string]any{
 		{
 			"name":        "test1",
 			"description": "Test transaction 1",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"2":  "1234567890123456",
 				"3":  123456,
 				"4":  "10000",
@@ -82,11 +82,11 @@ func BenchmarkComposeRaw(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to marshal setup data: %v", err)
 	}
-	file, err := os.CreateTemp("", "bench_transactions_raw.json")
+	file, err := os.CreateTemp(b.TempDir(), "bench_transactions_raw.json")
 	if err != nil {
 		b.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if _, err := file.Write(dataBytes); err != nil {
 		b.Fatalf("failed to write temp file: %v", err)
 	}

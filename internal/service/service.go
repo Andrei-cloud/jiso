@@ -3,6 +3,8 @@ package service
 import (
 	"crypto/tls"
 	"fmt"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/moov-io/iso8583"
@@ -14,15 +16,38 @@ import (
 	"jiso/internal/utils"
 )
 
+// Service is the session's sending side: the spec messages are composed against,
+// the connection manager that reaches the peer, and the network counters the
+// views report. Commands and pages act through one Service rather than holding a
+// connection directly, so the socket has exactly one owner. Service's own
+// Connection is a mirror of the manager's; that field's comment says why.
 type Service struct {
-	Address      string
+	Address string
+	// Connection is a legacy mirror of the manager's active connection.
+	// All writes go through setConnection; read it with GetConnection().
 	Connection   *moovconnection.Connection
+	connMu       sync.Mutex
 	MessageSpec  *iso8583.MessageSpec
 	connManager  *connection.Manager
 	debugMode    bool
 	networkStats *metrics.NetworkingStats
 }
 
+// setConnection updates the legacy Connection mirror. Safe for concurrent
+// callers: the manager invokes it from change-notification goroutines while
+// Connect/Listen/Disconnect run on command goroutines.
+func (s *Service) setConnection(c *moovconnection.Connection) {
+	s.connMu.Lock()
+	s.Connection = c
+	s.connMu.Unlock()
+}
+
+// NewService resolves the spec and builds the connection manager behind the
+// service. Loading the spec here is deliberate: it is the earliest point where a
+// bad --spec is the operator's problem to fix, reported as the file that failed,
+// rather than surfacing later as a compose error with no path in it. That is also
+// why it returns an error: a service with no spec cannot do anything a caller
+// asked for.
 func NewService(
 	host, port, specFileName string,
 	debugMode bool,
@@ -37,7 +62,7 @@ func NewService(
 		if err != nil {
 			return nil, fmt.Errorf("failed to load spec file: %w", err)
 		}
-		fmt.Printf("Spec file loaded successfully, current spec: %s\n", spec.Name)
+		_, _ = fmt.Fprintf(os.Stderr, "Spec file loaded successfully, current spec: %s\n", spec.Name)
 	} else {
 		spec = utils.GetDefaultSpec()
 	}
@@ -70,7 +95,7 @@ func NewService(
 
 	// Keep Service.Connection synchronized whenever Manager reconnects, connects, or disconnects
 	connManager.SetConnectionChangeHandler(func(c *moovconnection.Connection) {
-		service.Connection = c
+		service.setConnection(c)
 	})
 
 	return service, nil
@@ -93,12 +118,12 @@ func (s *Service) Connect(naps bool, header network.Header) error {
 
 	// Maintain backward compatibility with existing code
 	// by exposing the Connection field
-	s.Connection = s.connManager.Connection
+	s.setConnection(s.connManager.GetConnection())
 
 	// Give the connection a moment to stabilize
 	// This prevents false "connected" status before the connection is truly ready
 	if s.debugMode {
-		fmt.Println("Waiting for connection to stabilize...")
+		_, _ = fmt.Fprintln(os.Stderr, "Waiting for connection to stabilize...")
 	}
 
 	// The connection should be ready now, but let's explicitly verify
@@ -116,7 +141,7 @@ func (s *Service) Listen(port string, naps bool, header network.Header) error {
 		return err
 	}
 
-	s.Connection = s.connManager.Connection
+	s.setConnection(s.connManager.GetConnection())
 	s.Address = fmt.Sprintf("0.0.0.0:%s", port)
 
 	if !s.IsConnected() {
@@ -157,7 +182,7 @@ func (s *Service) Disconnect() error {
 	}
 
 	// Properly nullify the connection reference to prevent stale references
-	s.Connection = nil
+	s.setConnection(nil)
 	return nil
 }
 
@@ -254,9 +279,9 @@ func (s *Service) SetDebugMode(debug bool) {
 }
 
 // SetMaxPendingRequests sets the maximum number of pending requests on the connection manager
-func (s *Service) SetMaxPendingRequests(max int) {
+func (s *Service) SetMaxPendingRequests(maxPending int) {
 	if s.connManager != nil {
-		s.connManager.SetMaxPendingRequests(max)
+		s.connManager.SetMaxPendingRequests(maxPending)
 	}
 }
 

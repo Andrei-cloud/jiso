@@ -1,0 +1,42 @@
+{
+  "args": [
+    "stress",
+    "--tx",
+    "Echo,Purchase",
+    "--tps",
+    "5",
+    "--ramp",
+    "1s",
+    "--duration",
+    "2s",
+    "--workers",
+    "2",
+    "--report",
+    "out.json",
+    "--dry-run",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "19999"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "STRESS PLAN (dry-run: no connection, no worker started, no report written)",
+    "Transactions: Echo, Purchase",
+    "Target:       127.0.0.1:19999",
+    "TPS:          5",
+    "Ramp-up:      1s",
+    "Duration:     2s",
+    "Workers:      2",
+    "Report:       out.json (not written)"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/out.json"
+  ]
+}

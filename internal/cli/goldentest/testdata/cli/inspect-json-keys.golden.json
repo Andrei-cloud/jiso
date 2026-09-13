@@ -1,0 +1,24 @@
+{
+  "args": [
+    "inspect",
+    "Purchase",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "name",
+    "description",
+    "mti",
+    "processing_code",
+    "fields",
+    "spec_name",
+    "packed_bytes",
+    "packed_hex",
+    "parsed_message"
+  ],
+  "expect_exit": 0
+}

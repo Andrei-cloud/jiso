@@ -1,0 +1,14 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--mode",
+    "bogus"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "invalid --mode \"bogus\" (want tx, routes, or scenario)"
+  ],
+  "expect_exit": 2
+}

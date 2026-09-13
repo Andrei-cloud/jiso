@@ -1,0 +1,20 @@
+{
+  "args": [
+    "serve",
+    "stats",
+    "19997"
+  ],
+  "env": {
+    "JISO_STATE_DIR": "$WORK/stale-state"
+  },
+  "setup_files": {
+    "stale-state/serve-19997.json": "{\"pid\": $DEAD_PID, \"host\": \"127.0.0.1\", \"port\": \"19997\", \"started_at\": \"2026-01-01T00:00:00Z\"}\n"
+  },
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "no running jiso server on port 19997",
+    "stale state file",
+    "pid $DEAD_PID is not alive"
+  ],
+  "expect_exit": 1
+}

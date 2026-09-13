@@ -1,0 +1,13 @@
+{
+  "args": [],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "ISO8583 message tool and simulator",
+    "Usage:",
+    "jiso [command]",
+    "run 'jiso tui' for interactive mode",
+    "run 'jiso --help' for details"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

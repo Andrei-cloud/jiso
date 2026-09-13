@@ -3,6 +3,8 @@ package utils
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +37,12 @@ func TestGetPersistenceDirectory(t *testing.T) {
 	defer func() { persistenceDir = originalDir }()
 
 	persistenceDir = ""
+	// The default path is what this case is about, so the layers above it have to
+	// be unset: with a JISO_STATE_DIR or XDG_STATE_HOME inherited from the machine,
+	// this assertion tests the developer's environment rather than the code.
+	t.Setenv("JISO_STATE_DIR", "")
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("HOME", t.TempDir())
 
 	dir := GetPersistenceDirectory()
 	if dir == "" {
@@ -362,4 +370,76 @@ func TestPersistWorker(t *testing.T) {
 	if data.StanValue != 555 {
 		t.Errorf("Expected persisted value 555, got %d", data.StanValue)
 	}
+}
+
+// TestStateDirResolution pins the persistent-state contract: JISO_STATE_DIR
+// wins verbatim, then XDG_STATE_HOME/jiso, then $HOME/.local/state/jiso —
+// never os.TempDir, which the OS reclaims and silently reset the STAN
+// counter between runs (UAT round 3).
+func TestStateDirResolution(t *testing.T) {
+	t.Run("JISO_STATE_DIR wins verbatim", func(t *testing.T) {
+		want := filepath.Join(t.TempDir(), "hermetic")
+		t.Setenv("JISO_STATE_DIR", want)
+		t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "xdg"))
+
+		got, err := StateDir()
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	})
+
+	t.Run("XDG_STATE_HOME gets the jiso subdir", func(t *testing.T) {
+		xdg := t.TempDir()
+		t.Setenv("JISO_STATE_DIR", "")
+		t.Setenv("XDG_STATE_HOME", xdg)
+
+		got, err := StateDir()
+		require.NoError(t, err)
+		require.Equal(t, filepath.Join(xdg, "jiso"), got)
+	})
+
+	t.Run("home fallback is .local/state/jiso not temp", func(t *testing.T) {
+		t.Setenv("JISO_STATE_DIR", "")
+		t.Setenv("XDG_STATE_HOME", "")
+		t.Setenv("HOME", t.TempDir())
+
+		got, err := StateDir()
+		require.NoError(t, err)
+		require.Equal(t, filepath.Join(os.Getenv("HOME"), ".local", "state", "jiso"), got)
+		require.NotEqual(t, filepath.Join(os.TempDir(), "jiso"), got)
+	})
+}
+
+// TestStopPersistWorkerFlushes pins the shutdown flush: a STAN generated
+// after the last ticker tick must be on disk when StopPersistWorker
+// returns, and a restart must resume from it (never recycle early).
+func TestStopPersistWorkerFlushes(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, SetPersistenceDirectory(dir))
+
+	resetCounterForTest()
+
+	c := GetCounter()
+	want := c.GetStan()
+	StopPersistWorker()
+
+	data, err := loadPersistedData()
+	require.NoError(t, err)
+	require.NotZero(t, data.StanValue)
+
+	// Restart: a fresh singleton must load the flushed value and continue.
+	resetCounterForTest()
+
+	c2 := GetCounter()
+	next := c2.GetStan()
+	StopPersistWorker()
+
+	parsed, err := strconv.Atoi(next)
+	require.NoError(t, err)
+	if parsed != int(data.StanValue)+1 {
+		t.Errorf("after restart STAN = %s, want %06d (persisted %d)", next, data.StanValue+1, data.StanValue)
+	}
+	require.NotEqual(t, want, next)
+
+	// Double stop is a no-op.
+	StopPersistWorker()
 }

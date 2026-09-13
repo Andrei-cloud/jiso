@@ -1,6 +1,8 @@
 package connection
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -15,6 +17,8 @@ import (
 )
 
 func TestManagerSendWithNoConnection(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	manager := NewManager("localhost", "8080", spec, false, 3, 5*time.Second, 10*time.Second, nil)
 
@@ -36,6 +40,7 @@ func TestManagerSendWithNoConnection(t *testing.T) {
 
 type testServer struct {
 	listener net.Listener
+	tcpPort  int
 	spec     *iso8583.MessageSpec
 	header   network.Header
 	respond  bool
@@ -48,8 +53,15 @@ func startTestServer(spec *iso8583.MessageSpec, respond bool) (*testServer, erro
 		return nil, err
 	}
 
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = listener.Close()
+		return nil, fmt.Errorf("listener addr = %T, want *net.TCPAddr", listener.Addr())
+	}
+
 	server := &testServer{
 		listener: listener,
+		tcpPort:  addr.Port,
 		spec:     spec,
 		header:   utils.NewBinary2BytesAdapter(),
 		respond:  respond,
@@ -84,13 +96,13 @@ func (s *testServer) run() {
 }
 
 func (s *testServer) handle(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	for {
 		// Read length
 		_, err := s.header.ReadFrom(conn)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 			continue
@@ -147,10 +159,10 @@ func (s *testServer) handle(conn net.Conn) {
 }
 
 func (s *testServer) port() int {
-	return s.listener.Addr().(*net.TCPAddr).Port
+	return s.tcpPort
 }
 
 func (s *testServer) Close() {
 	close(s.done)
-	s.listener.Close()
+	_ = s.listener.Close() // shutdown helper: close failure here is not actionable
 }

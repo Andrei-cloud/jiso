@@ -12,6 +12,8 @@ import (
 )
 
 func TestCalculateLuhn(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		expected int
@@ -28,6 +30,8 @@ func TestCalculateLuhn(t *testing.T) {
 }
 
 func TestGenerateARN(t *testing.T) {
+	t.Parallel()
+
 	txTime := time.Date(2026, 11, 2, 14, 23, 38, 0, time.UTC)
 	arn := GenerateARN("400129", txTime, 1)
 
@@ -38,6 +42,8 @@ func TestGenerateARN(t *testing.T) {
 }
 
 func TestRecordFormattingLengths(t *testing.T) {
+	t.Parallel()
+
 	r := NewRecord()
 	assert.Equal(t, RecordLength, len(r.String()))
 
@@ -48,6 +54,8 @@ func TestRecordFormattingLengths(t *testing.T) {
 }
 
 func TestGenerateCTF_ApprovedTransactionsAndTrailers(t *testing.T) {
+	t.Parallel()
+
 	session := &db.SessionRecord{
 		SessionID: "test-session-visa-1",
 		SpecName:  "visa.json",
@@ -135,6 +143,8 @@ func TestGenerateCTF_ApprovedTransactionsAndTrailers(t *testing.T) {
 }
 
 func TestGenerateCTF_BINFilter(t *testing.T) {
+	t.Parallel()
+
 	session := &db.SessionRecord{
 		SessionID: "test-session-visa-bin",
 		SpecName:  "visa.json",
@@ -190,6 +200,8 @@ func TestGenerateCTF_BINFilter(t *testing.T) {
 }
 
 func TestGenerateCTF_CompositeSubfieldsAndCleanTID(t *testing.T) {
+	t.Parallel()
+
 	session := &db.SessionRecord{
 		SessionID: "test-session-subfields",
 		SpecName:  "visa.json",
@@ -282,4 +294,3 @@ func TestGenerateCTF_CompositeSubfieldsAndCleanTID(t *testing.T) {
 		assert.True(t, c >= '0' && c <= '9', "TID in TCR 5 must be all digits, got %c", c)
 	}
 }
-

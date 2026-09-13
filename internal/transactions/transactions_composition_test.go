@@ -223,9 +223,9 @@ func (suite *TransactionCollectionSuite) TestComposeBitmapCompositeFromDatasetSu
 		},
 	}
 
-	file, err := os.CreateTemp("", "bitmap_composite_dataset_*.json")
+	file, err := os.CreateTemp(suite.T().TempDir(), "bitmap_composite_dataset_*.json")
 	suite.Require().NoError(err)
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 
 	content := []byte(`[
 		{
@@ -452,19 +452,19 @@ func (suite *TransactionCollectionSuite) TestReservedAutoKeywords() {
 }
 
 func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
-	data := []map[string]interface{}{
+	data := []map[string]any{
 		{
 			"type":        "transaction",
 			"name":        "test_tx",
 			"description": "Test transaction",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"0": "0800",
 			},
 		},
 		{
 			"type": "mock_route",
 			"name": "Sign On Route",
-			"match_fields": map[string]interface{}{
+			"match_fields": map[string]any{
 				"0": "0800",
 			},
 			"latency_ms": 100,
@@ -473,9 +473,9 @@ func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
 	}
 	dataBytes, err := json.Marshal(data)
 	suite.Require().NoError(err)
-	file, err := os.CreateTemp("", "transactions_mock.json")
+	file, err := os.CreateTemp(suite.T().TempDir(), "transactions_mock.json")
 	suite.Require().NoError(err)
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	_, err = file.Write(dataBytes)
 	suite.Require().NoError(err)
 

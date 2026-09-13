@@ -1,0 +1,27 @@
+{
+  "args": [
+    "db",
+    "tx",
+    "1",
+    "--db",
+    "session.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "\"mode\": \"transaction\"",
+    "\"id\": 1",
+    "\"session_id\": \"golden-session-0001\"",
+    "\"transaction_name\": \"Purchase\"",
+    "\"success\": true",
+    "\"response_code\": \"00\"",
+    "\"has_response\": true",
+    "\"hex\": \"",
+    "\"describe_text\": \""
+  ],
+  "forbid_stdout_substrings": [
+    "\u001b"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

@@ -24,6 +24,8 @@ func TestGetRRNInstance(t *testing.T) {
 }
 
 func TestRRNGetRRNFormat(t *testing.T) {
+	t.Parallel()
+
 	rrn := &RRN{value: 0}
 
 	// Test RRN format: YYDDDNNNNNNN (2+3+7=12 digits)
@@ -48,6 +50,8 @@ func TestRRNGetRRNFormat(t *testing.T) {
 }
 
 func TestRRNGetRRNSequential(t *testing.T) {
+	t.Parallel()
+
 	rrn := &RRN{value: 0}
 
 	// Generate a few RRNs and verify they increment
@@ -67,6 +71,8 @@ func TestRRNGetRRNSequential(t *testing.T) {
 }
 
 func TestRRNGetRRNCyclicBehavior(t *testing.T) {
+	t.Parallel()
+
 	rrn := &RRN{value: 9999998}
 
 	// Generate RRNs around the rollover point
@@ -90,6 +96,8 @@ func TestRRNGetRRNCyclicBehavior(t *testing.T) {
 }
 
 func TestRRNGetRRNNoDuplicates(t *testing.T) {
+	t.Parallel()
+
 	rrn := &RRN{value: 0}
 
 	// Generate many RRNs and ensure no duplicate sequences
@@ -114,6 +122,8 @@ func TestRRNGetRRNNoDuplicates(t *testing.T) {
 }
 
 func TestRRNGetRRNConcurrentSafety(t *testing.T) {
+	t.Parallel()
+
 	rrn := &RRN{value: 0}
 
 	// Test concurrent access
@@ -165,6 +175,8 @@ func TestRRNGetRRNConcurrentSafety(t *testing.T) {
 }
 
 func TestRRNGetRRNZeroHandling(t *testing.T) {
+	t.Parallel()
+
 	rrn := &RRN{value: 0}
 
 	// Test that 0 becomes 1 (not 0000000)

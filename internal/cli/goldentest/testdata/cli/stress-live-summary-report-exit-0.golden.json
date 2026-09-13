@@ -1,0 +1,63 @@
+{
+  "args": [
+    "stress",
+    "--tx",
+    "Echo",
+    "--tps",
+    "50",
+    "--ramp",
+    "100ms",
+    "--duration",
+    "200ms",
+    "--workers",
+    "2",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "$LIVE_PORT",
+    "--header",
+    "ascii4",
+    "--reconnect-attempts",
+    "0",
+    "--report",
+    "report.json",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "worker_id",
+    "session_id",
+    "status",
+    "transaction_names",
+    "sent",
+    "successful",
+    "failed",
+    "response_codes",
+    "transactions",
+    "latency_buckets"
+  ],
+  "expect_json_fields": {
+    "status": "\"completed\"",
+    "failed": "0",
+    "target_tps": "50",
+    "workers": "2"
+  },
+  "expect_json_fields_gt": {
+    "sent": 0,
+    "successful": 0
+  },
+  "forbid_stdout_substrings": [
+    "\u001b["
+  ],
+  "expect_exit": 0,
+  "files_must_exist": [
+    "$WORK/report.json"
+  ],
+  "expect_file_heads": {
+    "$WORK/report.json": "{\n  \"scenario_name\": \"stress\""
+  }
+}

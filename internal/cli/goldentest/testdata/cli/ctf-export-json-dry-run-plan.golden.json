@@ -1,0 +1,36 @@
+{
+  "args": [
+    "ctf",
+    "export",
+    "--session",
+    "golden-visa-session-0002",
+    "--yes",
+    "--dry-run",
+    "--json",
+    "--db",
+    "session.db",
+    "-o",
+    "out.ctf"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "session_id",
+    "output_path",
+    "dry_run",
+    "written"
+  ],
+  "expect_json_fields": {
+    "session_id": "\"golden-visa-session-0002\"",
+    "output_path": "\"out.ctf\"",
+    "dry_run": "true",
+    "written": "false"
+  },
+  "forbid_stdout_substrings": [
+    "\u001b["
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/out.ctf"
+  ]
+}

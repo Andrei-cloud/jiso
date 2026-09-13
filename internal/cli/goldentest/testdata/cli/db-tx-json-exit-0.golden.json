@@ -1,0 +1,20 @@
+{
+  "args": [
+    "db",
+    "tx",
+    "1",
+    "--db",
+    "session.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "mode",
+    "transaction"
+  ],
+  "expect_json_fields": {
+    "mode": "\"transaction\""
+  },
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

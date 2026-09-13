@@ -14,13 +14,17 @@ type CountryInfo struct {
 
 // MerchantLocationDetails holds parsed components of ISO 8583 Field 43.
 type MerchantLocationDetails struct {
-	MerchantName    string
-	MerchantCity    string
-	CountryNumeric  string // 3-digit numeric for Base II TCR 0 (e.g. "840", "784", "124")
-	CountryAlpha2   string // 2-letter alpha (e.g. "US", "CA", "AE")
-	CountryAlpha3   string // 3-letter alpha (e.g. "USA", "CAN", "ARE")
-	StateProvince   string // 3-character formatted state code for Base II TCR 0 (e.g. "CA ", "ON ", "   ")
+	MerchantName   string
+	MerchantCity   string
+	CountryNumeric string // 3-digit numeric for Base II TCR 0 (e.g. "840", "784", "124")
+	CountryAlpha2  string // 2-letter alpha (e.g. "US", "CA", "AE")
+	CountryAlpha3  string // 3-letter alpha (e.g. "USA", "CAN", "ARE")
+	StateProvince  string // 3-character formatted state code for Base II TCR 0 (e.g. "CA ", "ON ", "   ")
 }
+
+// blankStateProvince is the fixed-width Base II state/province field when there
+// is no state to carry: three spaces, the blank the field pads to.
+const blankStateProvince = "   "
 
 var usStates = map[string]string{
 	"AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
@@ -233,66 +237,47 @@ func LookupCountryByNumeric(numeric string) (CountryInfo, bool) {
 // - Chars 26-37 or 26-38: Merchant City (12 or 13 chars)
 // - Chars 38-40 (3 chars): 3-character ISO Alpha-3 Country code (e.g. "ARE", "GBR", "FRA", "DEU", "JPN", "USA", "CAN").
 //   - Country is looked up, State is "   ".
+//
 // - Chars 39-40 (2 chars):
 //   - For US: 2-character State code (e.g. "CA", "NY", "TX", "AE", etc.). Country is "840" (US), State is "CA ".
 //   - For Canada: 2-character Province code (e.g. "ON", "QC", "BC"). Country is "124" (CA), State is "ON ".
 //   - For International: 2-character ISO Alpha-2 Country code (e.g. "AE", "GB", "FR"). Country is looked up, State is "   ".
-func ParseMerchantLocation(loc string, currencyCode string) MerchantLocationDetails {
+func ParseMerchantLocation(loc, currencyCode string) MerchantLocationDetails {
 	res := MerchantLocationDetails{
 		MerchantName:   "MER NAME TEST",
 		MerchantCity:   "MCITY TEST",
 		CountryNumeric: "840",
 		CountryAlpha2:  "US",
 		CountryAlpha3:  "USA",
-		StateProvince:  "   ",
+		StateProvince:  blankStateProvince,
 	}
 
 	trimmed := strings.TrimRight(loc, " ")
 	if len(trimmed) == 0 {
-		if c, ok := LookupCountryByNumeric(currencyCode); ok {
-			res.CountryNumeric = c.Numeric
-			res.CountryAlpha2 = c.Alpha2
-			res.CountryAlpha3 = c.Alpha3
-		}
+		applyCurrencyCountry(&res, currencyCode)
+
 		return res
 	}
 
 	// 1. Extract Merchant Name (up to 25 chars)
-	if len(loc) >= 25 {
-		res.MerchantName = strings.TrimSpace(loc[:25])
-	} else {
+	if len(loc) < 25 {
 		res.MerchantName = strings.TrimSpace(loc)
+
 		return res
 	}
+	res.MerchantName = strings.TrimSpace(loc[:25])
 
 	if len(loc) < 38 {
 		if len(loc) > 25 {
 			res.MerchantCity = strings.TrimSpace(loc[25:])
 		}
+
 		return res
 	}
 
 	// Check 3-character country code at positions 37..40 (chars 38, 39, 40)
-	if len(loc) >= 40 {
-		suffix3 := strings.ToUpper(strings.TrimSpace(loc[37:40]))
-		if len(suffix3) == 3 {
-			if country, ok := LookupCountryByAlpha3(suffix3); ok {
-				res.MerchantCity = strings.TrimSpace(loc[25:37])
-				res.CountryNumeric = country.Numeric
-				res.CountryAlpha2 = country.Alpha2
-				res.CountryAlpha3 = country.Alpha3
-				res.StateProvince = "   "
-				return res
-			}
-			if country, ok := LookupCountryByNumeric(suffix3); ok {
-				res.MerchantCity = strings.TrimSpace(loc[25:37])
-				res.CountryNumeric = country.Numeric
-				res.CountryAlpha2 = country.Alpha2
-				res.CountryAlpha3 = country.Alpha3
-				res.StateProvince = "   "
-				return res
-			}
-		}
+	if applyCountryAlpha3Suffix(&res, loc) {
+		return res
 	}
 
 	// Check 2-character state or country code at positions 38..40 (chars 39, 40)
@@ -304,42 +289,91 @@ func ParseMerchantLocation(loc string, currencyCode string) MerchantLocationDeta
 		suffix2 = strings.ToUpper(strings.TrimSpace(loc[38:]))
 	}
 
-	if len(suffix2) == 2 {
-		// US State
-		if _, isUSState := usStates[suffix2]; isUSState {
-			res.CountryNumeric = "840"
-			res.CountryAlpha2 = "US"
-			res.CountryAlpha3 = "USA"
-			res.StateProvince = suffix2 + " "
-			return res
-		}
-
-		// Canadian Province
-		if _, isCAProv := caProvinces[suffix2]; isCAProv {
-			res.CountryNumeric = "124"
-			res.CountryAlpha2 = "CA"
-			res.CountryAlpha3 = "CAN"
-			res.StateProvince = suffix2 + " "
-			return res
-		}
-
-		// Alpha2 Country
-		if country, ok := LookupCountryByAlpha2(suffix2); ok {
-			res.CountryNumeric = country.Numeric
-			res.CountryAlpha2 = country.Alpha2
-			res.CountryAlpha3 = country.Alpha3
-			res.StateProvince = "   "
-			return res
-		}
+	if applyCountrySuffix2(&res, suffix2) {
+		return res
 	}
 
 	// Fallback to currency code
+	applyCurrencyCountry(&res, currencyCode)
+
+	return res
+}
+
+// applyCurrencyCountry fills res's country fields from the currency code,
+// leaving them untouched when the code is unknown.
+func applyCurrencyCountry(res *MerchantLocationDetails, currencyCode string) {
 	if c, ok := LookupCountryByNumeric(currencyCode); ok {
 		res.CountryNumeric = c.Numeric
 		res.CountryAlpha2 = c.Alpha2
 		res.CountryAlpha3 = c.Alpha3
 	}
-
-	return res
 }
 
+// applyCountryAlpha3Suffix resolves a 3-character country code at chars 38..40
+// (alpha-3 first, then numeric) into res and reports whether it matched.
+func applyCountryAlpha3Suffix(res *MerchantLocationDetails, loc string) bool {
+	if len(loc) < 40 {
+		return false
+	}
+
+	suffix3 := strings.ToUpper(strings.TrimSpace(loc[37:40]))
+	if len(suffix3) != 3 {
+		return false
+	}
+
+	country, ok := LookupCountryByAlpha3(suffix3)
+	if !ok {
+		country, ok = LookupCountryByNumeric(suffix3)
+	}
+	if !ok {
+		return false
+	}
+
+	res.MerchantCity = strings.TrimSpace(loc[25:37])
+	res.CountryNumeric = country.Numeric
+	res.CountryAlpha2 = country.Alpha2
+	res.CountryAlpha3 = country.Alpha3
+	res.StateProvince = blankStateProvince
+
+	return true
+}
+
+// applyCountrySuffix2 resolves a 2-character suffix (US state, Canadian province,
+// or alpha-2 country) into res and reports whether it matched.
+func applyCountrySuffix2(res *MerchantLocationDetails, suffix2 string) bool {
+	if len(suffix2) != 2 {
+		return false
+	}
+
+	// US State
+	if _, isUSState := usStates[suffix2]; isUSState {
+		res.CountryNumeric = "840"
+		res.CountryAlpha2 = "US"
+		res.CountryAlpha3 = "USA"
+		res.StateProvince = suffix2 + " "
+
+		return true
+	}
+
+	// Canadian Province
+	if _, isCAProv := caProvinces[suffix2]; isCAProv {
+		res.CountryNumeric = "124"
+		res.CountryAlpha2 = "CA"
+		res.CountryAlpha3 = "CAN"
+		res.StateProvince = suffix2 + " "
+
+		return true
+	}
+
+	// Alpha2 Country
+	if country, ok := LookupCountryByAlpha2(suffix2); ok {
+		res.CountryNumeric = country.Numeric
+		res.CountryAlpha2 = country.Alpha2
+		res.CountryAlpha3 = country.Alpha3
+		res.StateProvince = blankStateProvince
+
+		return true
+	}
+
+	return false
+}

@@ -169,7 +169,7 @@
         },
         "22": {
             "type": "String",
-            "length": 4,
+            "length": 3,
             "description": "Point of Sale (POS) Entry Mode",
             "enc": "ASCII",
             "prefix": "ASCII.Fixed"

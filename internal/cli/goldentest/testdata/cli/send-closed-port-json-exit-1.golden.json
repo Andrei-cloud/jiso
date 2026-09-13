@@ -1,0 +1,22 @@
+{
+  "args": [
+    "send",
+    "Echo",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "1",
+    "--reconnect-attempts",
+    "0",
+    "--json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "127.0.0.1:1"
+  ],
+  "expect_exit": 1
+}

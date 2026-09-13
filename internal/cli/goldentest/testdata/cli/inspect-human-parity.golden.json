@@ -1,0 +1,34 @@
+{
+  "args": [
+    "inspect",
+    "Purchase",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "env": {
+    "JISO_STATE_DIR": "$WORK/state"
+  },
+  "setup_files": {
+    "state/stan.json": "{\"stan_value\": 4241}"
+  },
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "Name: Purchase",
+    "Description: Financial Request (0200)",
+    "MTI: 0200",
+    "Processing Code: 000000",
+    "Message:",
+    "\"2\": \"4242424242424242\"",
+    "Composing a sample message with dataset interpolation if dataset_name is configured...",
+    "Sample Message Build",
+    "Packed bytes:",
+    "Packed HEX dump:",
+    "Parsed field view:"
+  ],
+  "expect_stderr_contains": [
+    "STAN counter initialized with persisted value"
+  ],
+  "expect_exit": 0
+}

@@ -1,0 +1,9 @@
++----------------------------------------------------------+
+|STRESS  1 tx > 2 rate > 3 run                             |
+|tps      0|  (1-100000)                                   |
+|ramp     30s  (e.g. 30s, 1m)                              |
+|duration 1m  (after ramp)                                 |
+|workers  1  (1-50)                                        |
+|[x] TPS must be greater than 0                            |
+|             [Enter] next   [up/down] field   [Esc] back  |
++----------------------------------------------------------+

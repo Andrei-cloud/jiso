@@ -1,0 +1,14 @@
+{
+  "args": [
+    "stress",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "--tx is required"
+  ],
+  "expect_exit": 2
+}

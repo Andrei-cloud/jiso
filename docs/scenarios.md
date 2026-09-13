@@ -188,21 +188,12 @@ The JSON test report (`TestReport`) contains:
 - `steps[]` — array of step results with `step_name`, `success`, `latency_ms`, `error`, and `validation_errors[]`
 - Each `validation_error` includes: `field`, `expected`, `actual`, `message`
 
-### 5.2 Interactive Shell Mode
+### 5.2 Interactive (TUI) Mode
 
-Type commands directly inside the `jiso>` prompt:
+On the TUI Scenarios page (open the command palette with `:`) you can list
+scenarios, run one with a live step stream, and export the report; the
+boilerplate generators are `jiso tx init [path]` and `jiso spec init [path]`
+on the CLI.
 
-```text
-# List all scenarios
-jiso> scenarios
-
-# Run a scenario by name (prompts for selection if name is omitted)
-jiso> run-scenario "E2E Purchase and Reversal"
-jiso> run-scenario
-
-# Generate boilerplate files
-jiso> init-tx custom.json
-jiso> init-spec custom_spec.json
-```
-
-> **Note:** Scenario execution in interactive mode requires an active server connection (`connect` must be called first).
+> **Note:** Scenario execution in the TUI requires an active server
+> connection (connect dialog, `c`).

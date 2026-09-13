@@ -1,0 +1,20 @@
+{
+  "args": [
+    "ctf",
+    "export",
+    "--session",
+    "no-such-session-42",
+    "--db",
+    "session.db",
+    "-o",
+    "out.ctf"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "unknown session: no-such-session-42"
+  ],
+  "expect_exit": 3,
+  "files_must_not_exist": [
+    "$WORK/out.ctf"
+  ]
+}

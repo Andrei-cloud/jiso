@@ -27,13 +27,14 @@ func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
 		return nil, fmt.Errorf("failed to pack message: %w", err)
 	}
 
-	if m.header == nil {
+	naps, header := m.connParams()
+	if header == nil {
 		return packedMsg, nil
 	}
 
 	// Fast paths for common headers avoiding cloneHeader and buffer growth
-	if !m.naps {
-		switch m.header.(type) {
+	if !naps {
+		switch header.(type) {
 		case *utils.Binary2BytesAdapter:
 			fullPayload := make([]byte, 2+len(packedMsg))
 			binary.BigEndian.PutUint16(fullPayload[0:2], uint16(len(packedMsg)))
@@ -47,12 +48,12 @@ func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
 		}
 	}
 
-	hdr := cloneHeader(m.header)
+	hdr := cloneHeader(header)
 	hdr.SetLength(len(packedMsg))
 
 	var buf bytes.Buffer
 	buf.Grow(32 + len(packedMsg))
-	if m.naps {
+	if naps {
 		napsWrite := utils.NapsWriteLengthWrapper(utils.WriteMessageLengthWrapper(hdr))
 		if _, err := napsWrite(&buf, len(packedMsg)); err != nil {
 			return nil, fmt.Errorf("failed to write message header: %w", err)
@@ -67,6 +68,10 @@ func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Send writes one message and waits for its reply. It refuses when the connection
+// is not online instead of queueing: an operator who sends into a dropped
+// connection wants that answer now, not after a timeout that ends in the same
+// message.
 func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	// Connection validation and error handling
 	m.statusMu.RLock()
@@ -85,9 +90,10 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 	var responseChan chan *iso8583.Message
 	if stan != "" {
 		responseChan = make(chan *iso8583.Message, 1)
+		responseTimeout := m.responseTimeoutDur()
 		pending := &pendingRequest{
 			responseChan: responseChan,
-			timeout:      time.Now().Add(m.responseTimeout),
+			timeout:      time.Now().Add(responseTimeout),
 		}
 		m.pendingMu.Lock()
 		m.pendingRequests[stan] = pending
@@ -105,14 +111,15 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 		return nil, fmt.Errorf("failed to build message payload: %w", err)
 	}
 
-	if m.debugMode {
-		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(fullPayload))
+	if m.debugMode.Load() {
+		outputf("\nSENDING MESSAGE:\n%v\n", hex.Dump(fullPayload))
 	}
 
 	// Send raw combined header + message payload directly in one TCP write
 	if _, err := conn.Write(fullPayload); err != nil {
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
+	m.recordSendBytes(len(fullPayload))
 
 	// Wait for response via responseChan (delivered immediately by reader goroutine) or timeout
 	var response *iso8583.Message
@@ -122,21 +129,23 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 			if response == nil {
 				return nil, fmt.Errorf("response timeout for STAN %s", stan)
 			}
-		case <-time.After(m.responseTimeout):
-			return nil, fmt.Errorf("response timeout after %v for STAN %s", m.responseTimeout, stan)
+		case <-time.After(m.responseTimeoutDur()):
+			return nil, fmt.Errorf("response timeout after %v for STAN %s", m.responseTimeoutDur(), stan)
 		}
 	} else {
-		// Fallback for requests without STAN
-		response, err = m.Connection.Send(msg)
+		// Fallback for requests without STAN: use the connection captured
+		// under statusMu above; re-reading m.Connection unlocked here would
+		// defeat the guarded capture.
+		response, err = conn.Send(msg)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if m.debugMode && response != nil {
+	if m.debugMode.Load() && response != nil {
 		packedResponse, packErr := response.Pack()
 		if packErr == nil {
-			fmt.Printf("\nRECEIVED RESPONSE:\n%v\n", hex.Dump(packedResponse))
+			outputf("\nRECEIVED RESPONSE:\n%v\n", hex.Dump(packedResponse))
 		}
 	}
 
@@ -165,10 +174,14 @@ func (m *Manager) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error)
 	if _, err := conn.Write(fullPayload); err != nil {
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
+	m.recordSendBytes(len(fullPayload))
 
 	return nil, nil
 }
 
+// SendAsync writes a message and returns the channel that will carry its reply,
+// so the TUI keeps rendering while a send is in flight rather than blocking the
+// update loop until the peer answers.
 func (m *Manager) SendAsync(
 	msg *iso8583.Message,
 	transactionName string,
@@ -191,11 +204,13 @@ func (m *Manager) SendAsync(
 		return nil, fmt.Errorf("request missing or invalid STAN field")
 	}
 
+	responseTimeout := m.responseTimeoutDur()
+
 	// Create pending request
 	responseChan := make(chan *iso8583.Message, 1)
 	pending := &pendingRequest{
 		responseChan:    responseChan,
-		timeout:         time.Now().Add(m.responseTimeout),
+		timeout:         time.Now().Add(responseTimeout),
 		transactionName: transactionName,
 	}
 
@@ -207,9 +222,9 @@ func (m *Manager) SendAsync(
 	}
 
 	// Check if max pending requests limit is reached
-	if len(m.pendingRequests) >= m.maxPendingRequests {
+	if maxPending := m.GetMaxPendingRequests(); len(m.pendingRequests) >= maxPending {
 		m.pendingMu.Unlock()
-		return nil, fmt.Errorf("maximum pending requests limit reached (%d)", m.maxPendingRequests)
+		return nil, fmt.Errorf("maximum pending requests limit reached (%d)", maxPending)
 	}
 
 	m.pendingRequests[stan] = pending
@@ -223,8 +238,8 @@ func (m *Manager) SendAsync(
 		return nil, fmt.Errorf("failed to build message payload: %w", err)
 	}
 
-	if m.debugMode {
-		fmt.Printf("\nSENDING MESSAGE:\n%v\n", hex.Dump(fullPayload))
+	if m.debugMode.Load() {
+		outputf("\nSENDING MESSAGE:\n%v\n", hex.Dump(fullPayload))
 	}
 
 	if _, err := conn.Write(fullPayload); err != nil {
@@ -233,9 +248,10 @@ func (m *Manager) SendAsync(
 		m.pendingMu.Unlock()
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
+	m.recordSendBytes(len(fullPayload))
 
 	// Set timeout handler with time.AfterFunc to avoid dedicated goroutine allocation
-	time.AfterFunc(m.responseTimeout, func() {
+	time.AfterFunc(responseTimeout, func() {
 		m.pendingMu.Lock()
 		if pendingReq, exists := m.pendingRequests[stan]; exists && pendingReq == pending {
 			delete(m.pendingRequests, stan)
@@ -244,8 +260,8 @@ func (m *Manager) SendAsync(
 			default:
 			}
 			close(pendingReq.responseChan)
-			if m.debugMode {
-				fmt.Printf("Request timeout for STAN %s, transaction %s\n", stan, transactionName)
+			if m.debugMode.Load() {
+				outputf("Request timeout for STAN %s, transaction %s\n", stan, transactionName)
 			}
 		}
 		m.pendingMu.Unlock()

@@ -1,0 +1,27 @@
+SESSIONS  db: ./sessions.db  filter: -
+Purchase | id 7 | RC 96 | 2ms | [x]
+session 9f3ca1e2b7d84455a1
+REQUEST HEX
+30 32 30 30 82 34 50 00 00 00
+38 30 38 30 30 30 30 30 30 30 30 30
+REQUEST FIELDS
+MTI ....
+  2 (PAN) 4242424242424242
+  39 (RC) 96
+RESPONSE HEX
+30 32 31 30
+RESPONSE FIELDS
+[!] raw hex fallback
+MTI ....
+  39 (RC) 96
+j | k scroll | esc close
+
+
+
+
+
+
+
+
+
+

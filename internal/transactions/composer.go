@@ -14,45 +14,68 @@ import (
 	"jiso/internal/utils"
 )
 
-func (t *Transaction) ensureParsed(spec *iso8583.MessageSpec) error {
+// ensureParsed parses the transaction fields JSON once and returns the
+// resolved static/auto field maps. The parse error is cached so every
+// concurrent (and later) caller observes the same failure instead of
+// silently proceeding with an empty template.
+func (tc *TransactionCollection) ensureParsed(t *Transaction) (map[int]any, map[int]string, error) {
+	tc.parseMu.Lock()
 	if t.parsedCache == nil {
 		t.parsedCache = &transactionParsedCache{}
 	}
-	var parseErr error
-	t.parsedCache.once.Do(func() {
-		if len(t.Fields) == 0 {
-			return
-		}
+	cache := t.parsedCache
+	tc.parseMu.Unlock()
 
-		fieldMap := make(map[int]interface{})
-		if err := json.Unmarshal(t.Fields, &fieldMap); err != nil {
-			parseErr = fmt.Errorf("json unmarshal error: %w", err)
-			return
-		}
-		t.parsedCache.fieldMap = fieldMap
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
 
-		staticFields := make(map[int]interface{})
-		autoFields := make(map[int]string)
-
-		for k, v := range fieldMap {
-			if strVal, ok := v.(string); ok {
-				cleanVal := strings.TrimSpace(strings.ToLower(strVal))
-				if isReservedAutoKeywordString(cleanVal) {
-					autoFields[k] = cleanVal
-					continue
-				}
-				staticFields[k] = strVal
-			} else if v != nil {
-				staticFields[k] = v
-			}
-		}
-
-		t.parsedCache.staticFields = staticFields
-		t.parsedCache.autoFields = autoFields
-	})
-	return parseErr
+	if !cache.done {
+		cache.done = true
+		cache.parseFields(t.Fields)
+	}
+	return cache.staticFields, cache.autoFields, cache.err
 }
 
+// parseFields parses the transaction fields JSON into the cache's field/static/
+// auto maps, recording any unmarshal error so later callers observe the same
+// failure.
+func (c *transactionParsedCache) parseFields(fields json.RawMessage) {
+	if len(fields) == 0 {
+		return
+	}
+
+	fieldMap := make(map[int]any)
+	if err := json.Unmarshal(fields, &fieldMap); err != nil {
+		c.err = fmt.Errorf("json unmarshal error: %w", err)
+
+		return
+	}
+	c.fieldMap = fieldMap
+
+	staticFields := make(map[int]any)
+	autoFields := make(map[int]string)
+
+	for k, v := range fieldMap {
+		if strVal, ok := v.(string); ok {
+			cleanVal := strings.TrimSpace(strings.ToLower(strVal))
+			if isReservedAutoKeywordString(cleanVal) {
+				autoFields[k] = cleanVal
+				continue
+			}
+			staticFields[k] = strVal
+		} else if v != nil {
+			staticFields[k] = v
+		}
+	}
+
+	c.staticFields = staticFields
+	c.autoFields = autoFields
+}
+
+// Compose builds the named transaction's message ready to send. The dataset row
+// for this send is drawn here and the dynamic values (sequence numbers, derived
+// dates, random fields) are filled in, so two calls on one transaction
+// legitimately produce two different messages.
 func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) {
 	t, err := tc.findTransaction(name)
 	if err != nil {
@@ -72,19 +95,20 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 	}
 
 	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
-	if err := t.ensureParsed(targetSpec); err != nil {
+	staticFields, autoFields, err := tc.ensureParsed(t)
+	if err != nil {
 		return nil, err
 	}
 
 	msg := iso8583.NewMessage(targetSpec)
-	tc.setAutoFields(msg, t.parsedCache.autoFields, t)
+	tc.setAutoFields(msg, autoFields, t)
 
 	var selectedRow map[string]string
 	if datasetName != "" {
 		selectedRow = tc.selectDatasetRow(datasetName)
 	}
 
-	for fieldID, rawValue := range t.parsedCache.staticFields {
+	for fieldID, rawValue := range staticFields {
 		resolvedValue, keep := resolveFieldValueWithData(rawValue, selectedRow)
 		if !keep {
 			continue
@@ -98,6 +122,10 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 	return msg, nil
 }
 
+// ComposeRaw populates the fields the transaction spells out and stops: no
+// dataset row is drawn and no sequence number is consumed. That is what a preview
+// or a spec diff needs, where showing the operator a STAN the real send will not
+// carry would be a lie.
 func (tc *TransactionCollection) ComposeRaw(name string) (*iso8583.Message, error) {
 	t, err := tc.findTransaction(name)
 	if err != nil {
@@ -125,7 +153,7 @@ func (tc *TransactionCollection) selectDatasetRow(datasetName string) map[string
 	return nil
 }
 
-func resolveFieldValueWithData(value interface{}, selectedRow map[string]string) (interface{}, bool) {
+func resolveFieldValueWithData(value any, selectedRow map[string]string) (any, bool) {
 	switch v := value.(type) {
 	case string:
 		if !strings.Contains(v, "{{") || !strings.Contains(v, "}}") {
@@ -136,8 +164,8 @@ func resolveFieldValueWithData(value interface{}, selectedRow map[string]string)
 			return nil, false
 		}
 		return resolved, true
-	case map[string]interface{}:
-		resolved := make(map[string]interface{})
+	case map[string]any:
+		resolved := make(map[string]any)
 		for key, nested := range v {
 			resolvedValue, keep := resolveFieldValueWithData(nested, selectedRow)
 			if !keep {
@@ -168,14 +196,14 @@ func interpolateCompositePlaceholderString(val string, selectedRow map[string]st
 		return ""
 	})
 
-	val = contextRegex.ReplaceAllStringFunc(val, func(m string) string {
+	val = contextRegex.ReplaceAllStringFunc(val, func(_ string) string {
 		return ""
 	})
 
 	return val, missingData
 }
 
-func extractPlaceholderKey(m string, prefix string) string {
+func extractPlaceholderKey(m, prefix string) string {
 	m = strings.TrimSpace(m)
 	m = strings.TrimPrefix(m, "{{")
 	m = strings.TrimSuffix(m, "}}")
@@ -188,7 +216,10 @@ func extractPlaceholderKey(m string, prefix string) string {
 
 func (tc *TransactionCollection) findTransaction(name string) (*Transaction, error) {
 	// Check cache first
-	if transaction, exists := tc.cache[name]; exists {
+	tc.cacheMu.RLock()
+	transaction, exists := tc.cache[name]
+	tc.cacheMu.RUnlock()
+	if exists {
 		return transaction, nil
 	}
 
@@ -196,7 +227,9 @@ func (tc *TransactionCollection) findTransaction(name string) (*Transaction, err
 	for i := range tc.transactions {
 		if tc.transactions[i].Name == name {
 			// Add to cache for future lookups
+			tc.cacheMu.Lock()
 			tc.cache[name] = &tc.transactions[i]
+			tc.cacheMu.Unlock()
 			return &tc.transactions[i], nil
 		}
 	}
@@ -206,12 +239,13 @@ func (tc *TransactionCollection) findTransaction(name string) (*Transaction, err
 
 func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transaction) error {
 	targetSpec := utils.ResolveSpec(t.Spec, tc.spec)
-	if err := t.ensureParsed(targetSpec); err != nil {
+	staticFields, autoFields, err := tc.ensureParsed(t)
+	if err != nil {
 		return err
 	}
 
-	tc.setAutoFields(msg, t.parsedCache.autoFields, t)
-	tc.setStaticFields(msg, t.parsedCache.staticFields, targetSpec)
+	tc.setAutoFields(msg, autoFields, t)
+	tc.setStaticFields(msg, staticFields, targetSpec)
 	tc.applyRandomValues(msg, t.Dataset)
 
 	return nil
@@ -220,7 +254,7 @@ func (tc *TransactionCollection) populateFields(msg *iso8583.Message, t *Transac
 func isReservedAutoKeywordString(s string) bool {
 	cleanVal := strings.TrimSpace(strings.ToLower(s))
 	switch cleanVal {
-	case "auto", "$auto", "stan", "$stan", "gen_stan", "rrn", "$rrn", "gen_rrn", "auth_code", "$auth_code", "gen_auth_code", "datetime", "$datetime", "date", "time", "random", "$random":
+	case "auto", "$auto", "stan", "$stan", "gen_stan", "rrn", "$rrn", "gen_rrn", "auth_code", "$auth_code", "gen_auth_code", "datetime", "$datetime", "date", "time", utils.KeywordRandom, "$random":
 		return true
 	default:
 		return false
@@ -233,7 +267,7 @@ func (tc *TransactionCollection) setAutoFields(
 	t *Transaction,
 ) {
 	for i, cleanVal := range autoFields {
-		if cleanVal == "random" || cleanVal == "$random" {
+		if cleanVal == utils.KeywordRandom || cleanVal == "$random" {
 			tc.handleRandomFields(msg, t)
 		} else {
 			tc.handleAutoFieldsWithKeyword(i, msg, cleanVal)
@@ -241,13 +275,13 @@ func (tc *TransactionCollection) setAutoFields(
 	}
 }
 
-func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFields map[int]interface{}, spec *iso8583.MessageSpec) {
+func (tc *TransactionCollection) setStaticFields(msg *iso8583.Message, staticFields map[int]any, spec *iso8583.MessageSpec) {
 	for i, v := range staticFields {
 		_ = tc.setFieldValue(msg, spec, i, v)
 	}
 }
 
-func (tc *TransactionCollection) setFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value interface{}) error {
+func (tc *TransactionCollection) setFieldValue(msg *iso8583.Message, spec *iso8583.MessageSpec, fieldID int, value any) error {
 	if fieldID == 0 {
 		if s, ok := value.(string); ok {
 			msg.MTI(s)
@@ -272,7 +306,7 @@ func (tc *TransactionCollection) setFieldValue(msg *iso8583.Message, spec *iso85
 		return msg.Field(fieldID, strconv.FormatFloat(v, 'f', -1, 64))
 	case bool:
 		return msg.Field(fieldID, strconv.FormatBool(v))
-	case map[string]interface{}:
+	case map[string]any:
 		return tc.setCompositeFieldValue(msg, spec, fieldID, v)
 	default:
 		return msg.Field(fieldID, fmt.Sprintf("%v", v))
@@ -283,7 +317,7 @@ func (tc *TransactionCollection) setCompositeFieldValue(
 	msg *iso8583.Message,
 	spec *iso8583.MessageSpec,
 	fieldID int,
-	value map[string]interface{},
+	value map[string]any,
 ) error {
 	return utils.SetCompositeFieldValue(msg, spec, fieldID, value)
 }
@@ -297,7 +331,7 @@ func (tc *TransactionCollection) handleAutoFieldsWithKeyword(i int, msg *iso8583
 	case "rrn", "$rrn":
 		_ = msg.Field(i, utils.GetRRNInstance().GetRRN())
 		return
-	case "auth_code", "$auth_code":
+	case utils.KeywordAuthCode, "$auth_code":
 		_ = msg.Field(i, utils.RandString(6))
 		return
 	case "datetime", "$datetime":
@@ -356,15 +390,19 @@ func (tc *TransactionCollection) handleAutoFields(i int, msg *iso8583.Message) {
 		// Field 38: Authorization Identification Response / Auth Code
 		_ = msg.Field(i, utils.RandString(6))
 	default:
-		// For any other field marked as "auto", try to make an intelligent decision
-		if strings.Contains(description, "Date") {
-			// If it's a date field, use current date in MMDD format
+		// For any other field marked as "auto", the spec's description says which
+		// kind of value to generate. The cases are three unrelated predicates over
+		// one string, which is what a switch-on-true is for; the value each one
+		// produces is the field's own format, not a variation of the previous one.
+		switch {
+		case strings.Contains(description, "Date"):
+			// A date field takes the current date in MMDD format.
 			_ = msg.Field(i, time.Now().Format("0102"))
-		} else if strings.Contains(description, "Time") {
-			// If it's a time field, use current time in hhmmss format
+		case strings.Contains(description, "Time"):
+			// A time field takes the current time in hhmmss format.
 			_ = msg.Field(i, time.Now().Format("150405"))
-		} else {
-			// Default to using a random numeric string matching the field's length
+		default:
+			// Neither: a random numeric string matching the field's length.
 			fieldLength := fieldSpec.Spec().Length
 			_ = msg.Field(i, utils.RandString(fieldLength))
 		}

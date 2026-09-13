@@ -1,0 +1,24 @@
+{
+  "args": [
+    "connect",
+    "check",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "$LIVE_PORT",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "target",
+    "reachable",
+    "latency_ms",
+    "error"
+  ],
+  "expect_json_fields": {
+    "reachable": "true",
+    "error": "\"\""
+  },
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

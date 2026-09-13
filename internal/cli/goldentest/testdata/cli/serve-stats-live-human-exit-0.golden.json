@@ -1,0 +1,21 @@
+{
+  "args": [
+    "serve",
+    "stats",
+    "$LIVE_PORT"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "MOCK SERVER STATISTICS",
+    "Status:",
+    "running",
+    "Uptime:",
+    "Sessions:",
+    "Messages served:",
+    "Throughput:",
+    "ROUTES:",
+    "MTIS:",
+    "RESPONSE CODES (DE 39):"
+  ],
+  "expect_exit": 0
+}

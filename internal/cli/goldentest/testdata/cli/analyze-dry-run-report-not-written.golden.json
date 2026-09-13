@@ -1,0 +1,24 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--dry-run",
+    "-o",
+    "out.json",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "dry-run: report would be written to out.json",
+    "dry-run: nothing was written"
+  ],
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/out.json",
+    "$WORK/transactions/transaction.json"
+  ]
+}

@@ -1,0 +1,28 @@
+INSPECTOR  Transactions > Purchase  Messages(1/12)  [fields] bitmap [packed] raw json
+FIELDS (interpolated -> live)                    PACKED MESSAGE                                                   
++----------------------------------------------+ +---------------------------------------------------------------+
+|> ISO8583 Message:                            | |len hdr: binary2 - msg 19 bytes                                |
+|  MTI..........: 0200                         | |00000000  00 79 32 30 30 00 30 00  30 00 30 00 32 30 00 32  ~  |
+|  F0   Message Type Indicator..: 0200         | |00000010  35 31 32                                         |~  |
+|  F2   Primary Account Number..: 4567****34~  | |                                                               |
+|  F70  Network Info Code.......: 301          | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
+|                                              | |                                                               |
++----------------------------------------------+ +---------------------------------------------------------------+
+validation: [ok] ok - [ok] subfield lengths sum

@@ -3,70 +3,44 @@ package command
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	json "github.com/goccy/go-json"
 
+	"jiso/internal/cli/output"
 	"jiso/internal/service"
 	"jiso/internal/transactions"
 )
 
-type ScenarioCommand struct {
-	Tc transactions.Repository
-}
+// ErrScenarioFailed is the sentinel RunScenarioCommand.Execute returns when
+// one or more scenario steps failed. Callers must match it with errors.Is to
+// map the test-failure exit code; never string-match the message.
+var ErrScenarioFailed = errors.New("scenario failed")
 
+// RunScenarioCommand runs one scenario over the session's connection and reports
+// each step's outcome. It drives the same runner the TUI does, so a scenario that
+// passes here passes there -- one implementation, two front ends.
 type RunScenarioCommand struct {
 	Tc           transactions.Repository
 	Svc          *service.Service
 	ScenarioName string
 	ReportPath   string
+
+	// Out routes the report through the v2 renderer when set (cobra path):
+	// under --json stdout carries the pure-JSON TestReport and the ANSI
+	// human report is suppressed; nil keeps the legacy REPL stdout
+	// behavior (M1 review #14).
+	Out *output.Renderer
 }
 
-func (c *ScenarioCommand) Name() string {
-	return "scenarios"
-}
-
-func (c *ScenarioCommand) Synopsis() string {
-	return "List all defined test scenarios"
-}
-
-func (c *ScenarioCommand) Execute() error {
-	if err := VerifyTx(c.Tc); err != nil {
-		return err
-	}
-	tcImpl, ok := c.Tc.(*transactions.TransactionCollection)
-	if !ok {
-		return errors.New("invalid transaction repository type")
-	}
-
-	scenarios := tcImpl.ListScenarios()
-	if len(scenarios) == 0 {
-		fmt.Println("No scenarios defined in the configuration file")
-
-		return nil
-	}
-
-	fmt.Println("Available Scenarios:")
-	for _, name := range scenarios {
-		scenario, err := tcImpl.GetScenario(name)
-		if err == nil {
-			fmt.Printf("  %-30s - %s\n", scenario.Name, scenario.Description)
-		}
-	}
-
-	return nil
-}
-
-func (c *RunScenarioCommand) Name() string {
-	return "run-scenario"
-}
-
-func (c *RunScenarioCommand) Synopsis() string {
-	return "Run a specific test scenario. (requires connection to server)"
-}
-
+// Execute checks the spec, the transaction file and the connection before anything
+// touches the network, then runs one scenario: the named one, or a picker over the
+// scenarios the file defines when no name was given. Checking up front is why a
+// mistyped --spec or --file is reported at once rather than as a failure after a
+// connection was already paid for.
 func (c *RunScenarioCommand) Execute() error {
 	if err := VerifySpec(c.Svc); err != nil {
 		return err
@@ -106,56 +80,73 @@ func (c *RunScenarioCommand) Execute() error {
 		return fmt.Errorf("failed to run scenario '%s': %w", name, err)
 	}
 
-	// Print formatted terminal report
-	c.printReport(report)
+	// Print the report: JSON data under --json, ANSI human report otherwise.
+	if err := c.emitReport(report); err != nil {
+		return err
+	}
 
 	// Save JSON report if path is provided
 	if c.ReportPath != "" {
 		if err := c.saveReport(report); err != nil {
-			fmt.Printf("Warning: Failed to save test report: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: Failed to save test report: %v\n", err)
 		}
 	}
 
 	if !report.Success {
-		return errors.New("scenario failed")
+		return ErrScenarioFailed
 	}
 
 	return nil
 }
 
-func (c *RunScenarioCommand) printReport(report *transactions.TestReport) {
-	fmt.Printf("\n\x1b[1mScenario Execution Report: %s\x1b[0m\n", report.ScenarioName)
-	if report.Description != "" {
-		fmt.Printf("Description: %s\n", report.Description)
-	}
-	fmt.Printf("Duration: %d ms\n", report.DurationMs)
-	if report.Success {
-		fmt.Printf("Overall Status: \x1b[32m\x1b[1mPASSED ✅\x1b[0m\n\n")
-	} else {
-		fmt.Printf("Overall Status: \x1b[31m\x1b[1mFAILED ❌\x1b[0m\n\n")
+// emitReport renders the test report: with an injected renderer under --json
+// it emits the TestReport as pure JSON on stdout (the human report is
+// suppressed there); otherwise it prints the ANSI report to the renderer's
+// writer or, without a renderer, to stdout as before.
+func (c *RunScenarioCommand) emitReport(report *transactions.TestReport) error {
+	if c.Out != nil {
+		return c.Out.Data(report, func() { c.printReport(c.Out.Out(), report) })
 	}
 
-	fmt.Println("Steps:")
+	c.printReport(os.Stdout, report)
+
+	return nil
+}
+
+func (c *RunScenarioCommand) printReport(w io.Writer, report *transactions.TestReport) {
+	_, _ = fmt.Fprintf(w, "\n\x1b[1mScenario Execution Report: %s\x1b[0m\n", report.ScenarioName)
+	if report.Description != "" {
+		_, _ = fmt.Fprintf(w, "Description: %s\n", report.Description)
+	}
+	_, _ = fmt.Fprintf(w, "Duration: %d ms\n", report.DurationMs)
+	if report.Success {
+		_, _ = fmt.Fprintf(w, "Overall Status: \x1b[32m\x1b[1mPASSED ✅\x1b[0m\n\n")
+	} else {
+		_, _ = fmt.Fprintf(w, "Overall Status: \x1b[31m\x1b[1mFAILED ❌\x1b[0m\n\n")
+	}
+
+	_, _ = fmt.Fprintln(w, "Steps:")
 	for i, step := range report.Steps {
 		statusIndicator := "\x1b[32mPASSED ✅\x1b[0m"
 		if !step.Success {
 			statusIndicator = "\x1b[31mFAILED ❌\x1b[0m"
 		}
-		fmt.Printf("  %d. %-35s %s (%d ms)\n", i+1, step.StepName, statusIndicator, step.LatencyMs)
+		_, _ = fmt.Fprintf(w, "  %d. %-35s %s (%d ms)\n", i+1, step.StepName, statusIndicator, step.LatencyMs)
 		if step.Error != "" {
-			fmt.Printf("     \x1b[31mError: %s\x1b[0m\n", step.Error)
+			_, _ = fmt.Fprintf(w, "     \x1b[31mError: %s\x1b[0m\n", step.Error)
 		}
 		if len(step.ValidationErrors) > 0 {
-			fmt.Printf("     \x1b[33mValidation Failures:\x1b[0m\n")
+			_, _ = fmt.Fprintf(w, "     \x1b[33mValidation Failures:\x1b[0m\n")
 			for _, valErr := range step.ValidationErrors {
-				fmt.Printf(
+				_, _ = fmt.Fprintf(
+					w,
 					"       - Field %s: expected '%s', got '%s' (Detail: %s)\n",
 					valErr.Field, valErr.Expected, valErr.Actual, valErr.Message,
 				)
 			}
 		}
 	}
-	fmt.Println()
+	_, _ = fmt.Fprintln(w)
 }
 
 func (c *RunScenarioCommand) saveReport(report *transactions.TestReport) error {
@@ -173,7 +164,7 @@ func (c *RunScenarioCommand) saveReport(report *transactions.TestReport) error {
 		return err
 	}
 
-	fmt.Printf("Test report exported to: %s\n", c.ReportPath)
+	_, _ = fmt.Fprintf(os.Stderr, "Test report exported to: %s\n", c.ReportPath)
 
 	return nil
 }

@@ -1,0 +1,17 @@
+{
+  "args": [
+    "stress",
+    "--tx",
+    "Echo",
+    "--json",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "cannot stress: host and port are not configured"
+  ],
+  "expect_exit": 3
+}

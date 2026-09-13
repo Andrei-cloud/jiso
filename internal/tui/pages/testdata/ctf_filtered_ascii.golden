@@ -1,0 +1,28 @@
+VISA BASE II - CTF EXPORT  db: ./sessions.db
+SESSIONS (Visa tx eligible)                                         PARAMETERS                                      
++-----------------------------------------------------------------+ +----------------------------------------------+
+|  SESSION     WHEN        APPROVED                               | |CIB (interchange BIN) 400129                  |
+|> 77b2..d3    today 09:55 22 approved                            | |Filter card BIN       (blank = all)           |
+|                                                                 | |Batch number          1                       |
+|                                                                 | |Output path           ./out/CTF_001.dat       |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
++-----------------------------------------------------------------+ +----------------------------------------------+
+SUMMARY: [ok] 148 tx | $ 12,450.00 total | header/trailer dates auto
+[Enter] preview records -> shows every record, writes nothing

@@ -7,6 +7,8 @@ import (
 )
 
 func TestLookupCountry(t *testing.T) {
+	t.Parallel()
+
 	// Alpha 2
 	c, ok := LookupCountryByAlpha2("US")
 	assert.True(t, ok)
@@ -32,6 +34,8 @@ func TestLookupCountry(t *testing.T) {
 }
 
 func TestParseMerchantLocation_USState(t *testing.T) {
+	t.Parallel()
+
 	loc := "STARBUCKS #1234          SEATTLE      WA"
 	details := ParseMerchantLocation(loc, "840")
 
@@ -43,6 +47,8 @@ func TestParseMerchantLocation_USState(t *testing.T) {
 }
 
 func TestParseMerchantLocation_CanadianProvince(t *testing.T) {
+	t.Parallel()
+
 	loc := "TIM HORTONS #5678        TORONTO      ON"
 	details := ParseMerchantLocation(loc, "124")
 
@@ -54,6 +60,8 @@ func TestParseMerchantLocation_CanadianProvince(t *testing.T) {
 }
 
 func TestParseMerchantLocation_InternationalAlpha3(t *testing.T) {
+	t.Parallel()
+
 	// UAE
 	loc := "DUBAI MALL FASHION       DUBAI       ARE"
 	details := ParseMerchantLocation(loc, "784")
@@ -80,6 +88,8 @@ func TestParseMerchantLocation_InternationalAlpha3(t *testing.T) {
 }
 
 func TestParseMerchantLocation_ShortOrEmpty(t *testing.T) {
+	t.Parallel()
+
 	details := ParseMerchantLocation("", "840")
 	assert.Equal(t, "840", details.CountryNumeric)
 	assert.Equal(t, "US", details.CountryAlpha2)

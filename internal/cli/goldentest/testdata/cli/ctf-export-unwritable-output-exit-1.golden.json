@@ -1,0 +1,18 @@
+{
+  "args": [
+    "ctf",
+    "export",
+    "--session",
+    "golden-visa-session-0002",
+    "--yes",
+    "--db",
+    "session.db",
+    "-o",
+    "missing-dir/out.ctf"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "failed to write CTF file to missing-dir/out.ctf"
+  ],
+  "expect_exit": 1
+}

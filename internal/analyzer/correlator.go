@@ -34,16 +34,32 @@ func NewCorrelator(unsecure ...bool) *Correlator {
 }
 
 // Correlate matches request-response pairs and links any associated reversal transactions
+// Correlate matches request-response pairs and links any associated reversal transactions
 func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair, error) {
 	if len(messages) == 0 {
 		return nil, fmt.Errorf("no messages to correlate")
 	}
 
-	var reqs []*AnnotatedMessage
-	var resps []*AnnotatedMessage
-	var revReqs []*AnnotatedMessage
-	var revResps []*AnnotatedMessage
+	classes := classifyMessages(messages)
+	pairs, pairsByStan := c.pairRequests(classes.reqs, classes.resps)
+	pairs = c.correlateReversals(classes.revReqs, classes.revResps, pairs, pairsByStan)
 
+	return pairs, nil
+}
+
+// messageClasses buckets annotated messages by MTI into requests, responses,
+// reversal requests, and reversal responses.
+type messageClasses struct {
+	reqs     []*AnnotatedMessage
+	resps    []*AnnotatedMessage
+	revReqs  []*AnnotatedMessage
+	revResps []*AnnotatedMessage
+}
+
+// classifyMessages buckets each message by MTI: 04/14 MTIs are reversals, and
+// each of those is further split into request and response halves.
+func classifyMessages(messages []*AnnotatedMessage) messageClasses {
+	var cls messageClasses
 	for _, am := range messages {
 		if am == nil || am.Message == nil {
 			continue
@@ -53,98 +69,79 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 			continue
 		}
 
-		if strings.HasPrefix(mti, "04") || strings.HasPrefix(mti, "14") {
-			if utils.IsResponseMTI(mti) {
-				revResps = append(revResps, am)
-			} else {
-				revReqs = append(revReqs, am)
-			}
-		} else if utils.IsResponseMTI(mti) {
-			resps = append(resps, am)
-		} else {
-			reqs = append(reqs, am)
+		reversal := strings.HasPrefix(mti, "04") || strings.HasPrefix(mti, "14")
+		switch {
+		case reversal && utils.IsResponseMTI(mti):
+			cls.revResps = append(cls.revResps, am)
+		case reversal:
+			cls.revReqs = append(cls.revReqs, am)
+		case utils.IsResponseMTI(mti):
+			cls.resps = append(cls.resps, am)
+		default:
+			cls.reqs = append(cls.reqs, am)
 		}
 	}
 
+	return cls
+}
+
+// pairRequests matches each primary request to its response by STAN under the
+// expected response MTI, falling back to RRN, and builds a correlated pair per
+// request plus an STAN index of those pairs for reversal correlation.
+func (c *Correlator) pairRequests(reqs, resps []*AnnotatedMessage) ([]*CorrelatedPair, map[string]*CorrelatedPair) {
 	usedResps := make(map[*AnnotatedMessage]bool)
 	respByStan := make(map[string][]*AnnotatedMessage, len(resps))
 	respByRRN := make(map[string][]*AnnotatedMessage, len(resps))
 
 	for _, respAM := range resps {
 		respMTI, _ := respAM.Message.GetMTI()
-		stan := getFieldString(respAM.Message, 11)
-		if stan != "" {
+		if stan := getFieldString(respAM.Message, 11); stan != "" {
 			k := respMTI + ":" + stan
 			respByStan[k] = append(respByStan[k], respAM)
 		}
-		rrn := getFieldString(respAM.Message, 37)
-		if rrn != "" {
+		if rrn := getFieldString(respAM.Message, 37); rrn != "" {
 			k := respMTI + ":" + rrn
 			respByRRN[k] = append(respByRRN[k], respAM)
 		}
 	}
 
-	var pairs []*CorrelatedPair
+	pairs := make([]*CorrelatedPair, 0, len(reqs))
 	pairsByStan := make(map[string]*CorrelatedPair, len(reqs))
-
-	// Pair primary requests with responses
 	for _, reqAM := range reqs {
 		reqMTI, _ := reqAM.Message.GetMTI()
 		reqSTAN := getFieldString(reqAM.Message, 11)
 		reqRRN := getFieldString(reqAM.Message, 37)
 		reqDE3 := FormatProcCode(getFieldString(reqAM.Message, 3))
-
 		expectedRespMTI := utils.ResponseMTI(reqMTI)
 
-		var matchedResp *AnnotatedMessage
-
-		// 1. Match by STAN + Expected MTI via index
-		if reqSTAN != "" {
-			for _, candidate := range respByStan[expectedRespMTI+":"+reqSTAN] {
-				if !usedResps[candidate] {
-					matchedResp = candidate
-					break
-				}
-			}
-		}
-
-		// 2. Fallback match by RRN if STAN match failed
-		if matchedResp == nil && reqRRN != "" {
-			for _, candidate := range respByRRN[expectedRespMTI+":"+reqRRN] {
-				if !usedResps[candidate] {
-					matchedResp = candidate
-					break
-				}
-			}
-		}
-
-		if matchedResp != nil {
-			usedResps[matchedResp] = true
+		matchedResp := claimFirstUnused(respByStan[expectedRespMTI+":"+reqSTAN], usedResps)
+		if matchedResp == nil {
+			matchedResp = claimFirstUnused(respByRRN[expectedRespMTI+":"+reqRRN], usedResps)
 		}
 
 		label := fmt.Sprintf("Pair [%s → %s] STAN:%s DE3:%s", reqMTI, expectedRespMTI, reqSTAN, reqDE3)
 		if matchedResp == nil {
 			label += " (No Response Captured)"
 		}
-
-		p := &CorrelatedPair{
-			Request:  reqAM,
-			Response: matchedResp,
-			Label:    label,
-		}
+		p := &CorrelatedPair{Request: reqAM, Response: matchedResp, Label: label}
 		pairs = append(pairs, p)
 		if reqSTAN != "" {
 			pairsByStan[reqSTAN] = p
 		}
 	}
 
-	// Reversal correlation using DE90 (Original Data Elements)
+	return pairs, pairsByStan
+}
+
+// correlateReversals links each reversal request to its primary pair (via the
+// DE90 originals, falling back to the reversal's own STAN) and to a reversal
+// response, attaching both to that pair or emitting a standalone reversal pair.
+func (c *Correlator) correlateReversals(revReqs, revResps []*AnnotatedMessage, pairs []*CorrelatedPair, pairsByStan map[string]*CorrelatedPair) []*CorrelatedPair {
 	usedRevResps := make(map[*AnnotatedMessage]bool)
 	revRespByStan := make(map[string][]*AnnotatedMessage, len(revResps))
 	for _, revRespAM := range revResps {
 		mti := getFieldMTI(revRespAM.Message)
-		stan := getFieldString(revRespAM.Message, 11)
-		if stan != "" {
+		if stan := getFieldString(revRespAM.Message, 11); stan != "" {
 			k := mti + ":" + stan
 			revRespByStan[k] = append(revRespByStan[k], revRespAM)
 		}
@@ -153,44 +150,16 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 	for _, revReqAM := range revReqs {
 		origMTI, origSTAN, _ := extractDE90Originals(revReqAM.Message)
 		revSTAN := getFieldString(revReqAM.Message, 11)
-		var matchedPair *CorrelatedPair
+		matchedPair := matchReversalPair(pairsByStan, origMTI, origSTAN, revSTAN)
 
-		// 1. Try matching against existing pairs using original STAN
-		if origSTAN != "" {
-			if p, ok := pairsByStan[origSTAN]; ok && p != nil && p.Request != nil {
-				pairMTI, _ := p.Request.Message.GetMTI()
-				if origMTI == "" || origMTI == pairMTI {
-					matchedPair = p
-				}
-			}
-		}
-
-		// 2. Fallback matching using reversal's own STAN
-		if matchedPair == nil && revSTAN != "" {
-			if p, ok := pairsByStan[revSTAN]; ok {
-				matchedPair = p
-			}
-		}
-
-		// Find matching reversal response
 		revRespMTI := utils.ResponseMTI(getFieldMTI(revReqAM.Message))
-		var matchedRevResp *AnnotatedMessage
-		if revSTAN != "" {
-			for _, candidate := range revRespByStan[revRespMTI+":"+revSTAN] {
-				if !usedRevResps[candidate] {
-					matchedRevResp = candidate
-					usedRevResps[candidate] = true
-					break
-				}
-			}
-		}
+		matchedRevResp := claimFirstUnused(revRespByStan[revRespMTI+":"+revSTAN], usedRevResps)
 
 		if matchedPair != nil {
 			matchedPair.Reversal = revReqAM
 			matchedPair.ReversalResp = matchedRevResp
 			matchedPair.Label += " [Reversal Detected]"
 		} else {
-			// Unmatched reversal standalone pair
 			revMTI := getFieldMTI(revReqAM.Message)
 			pairs = append(pairs, &CorrelatedPair{
 				Request:      revReqAM,
@@ -202,7 +171,42 @@ func (c *Correlator) Correlate(messages []*AnnotatedMessage) ([]*CorrelatedPair,
 		}
 	}
 
-	return pairs, nil
+	return pairs
+}
+
+// matchReversalPair finds the pair a reversal belongs to: by the original STAN
+// from DE90 when the original MTI agrees with the pair's request, falling back
+// to the reversal's own STAN.
+func matchReversalPair(pairsByStan map[string]*CorrelatedPair, origMTI, origSTAN, revSTAN string) *CorrelatedPair {
+	if origSTAN != "" {
+		if p, ok := pairsByStan[origSTAN]; ok && p != nil && p.Request != nil {
+			pairMTI, _ := p.Request.Message.GetMTI()
+			if origMTI == "" || origMTI == pairMTI {
+				return p
+			}
+		}
+	}
+	if revSTAN != "" {
+		if p, ok := pairsByStan[revSTAN]; ok {
+			return p
+		}
+	}
+
+	return nil
+}
+
+// claimFirstUnused returns the first candidate not yet claimed and marks it
+// used, so a response is never matched to two requests.
+func claimFirstUnused(candidates []*AnnotatedMessage, used map[*AnnotatedMessage]bool) *AnnotatedMessage {
+	for _, candidate := range candidates {
+		if !used[candidate] {
+			used[candidate] = true
+
+			return candidate
+		}
+	}
+
+	return nil
 }
 
 func getFieldString(msg *iso8583.Message, fieldID int) string {
@@ -229,7 +233,7 @@ func getFieldMTI(msg *iso8583.Message) string {
 }
 
 // extractDE90Originals extracts Original MTI, Original STAN, and Original Transmission Date & Time from DE 90
-func extractDE90Originals(msg *iso8583.Message) (origMTI string, origSTAN string, origDateTime string) {
+func extractDE90Originals(msg *iso8583.Message) (origMTI, origSTAN, origDateTime string) {
 	if msg == nil {
 		return "", "", ""
 	}

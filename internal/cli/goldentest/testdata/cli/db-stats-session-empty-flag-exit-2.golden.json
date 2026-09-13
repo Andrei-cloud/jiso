@@ -1,0 +1,15 @@
+{
+  "args": [
+    "db",
+    "stats",
+    "--session",
+    "",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "--session requires a session ID"
+  ],
+  "expect_exit": 2
+}

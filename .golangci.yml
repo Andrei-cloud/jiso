@@ -1,0 +1,258 @@
+# jiso lint configuration -- the source of truth for which linters run.
+#
+# Adopted 2026-09-11 (code-health review). The strict set is ON PURPOSE, and
+# `default: none` + an explicit enable list keeps the gate deterministic: it
+# does not silently widen when golangci-lint ships new default linters.
+# Local gate is `make qa` (no CI workflow by decision).
+#
+# Budgets this config enforces:
+#   function  <= 80 lines / 40 statements (funlen), complexity <= 30 (gocognit)
+#   file      <= 500 prod / <= 600 test   (TestSourceFileLineBudget guard test)
+#   goldens   7-bit under the ASCII profile (TestASCIIGoldensAreSevenBit)
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+output:
+  sort-order:
+    - linter
+    - file
+
+linters:
+  default: none
+  enable:
+    # --- correctness: the golangci-lint standard set ---
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    # --- adopted strict set ---
+    - revive
+    - goconst
+    - funlen
+    - gocognit
+    - gocritic
+    - unparam
+    - prealloc
+    - misspell
+    # --- correctness extras adopted with the strict set ---
+    - errorlint
+    - nilerr
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - copyloopvar
+    - durationcheck
+    - fatcontext
+    - reassign
+    - forcetypeassert
+    - unconvert
+    - usestdlibvars
+    - whitespace
+    - predeclared
+    - asciicheck
+    - bidichk
+    - dupword
+    - nestif
+    - nolintlint
+  settings:
+    revive:
+      severity: warning
+      rules:
+        # This repo documents every FILE with a header block (see
+        # internal/tui/pages/layout.go:1-16). revive's package-comments rule
+        # demands a "Package x ..." doc on every file of a package, which is
+        # unsatisfiable; package docs live in one file per package instead.
+        - name: package-comments
+          disabled: true
+        - name: exported
+        - name: var-naming
+        - name: var-declaration
+        - name: redefines-builtin-id
+        - name: unused-parameter
+        - name: unexported-return
+        - name: error-strings
+        - name: errorf
+        - name: blank-imports
+        - name: context-as-argument
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: superfluous-else
+        - name: time-equal
+        - name: dot-imports
+        - name: duplicated-imports
+        - name: bare-return
+        - name: confusing-results
+        - name: deep-exit
+        - name: empty-block
+        - name: empty-lines
+        - name: flag-parameter
+        - name: function-result-limit
+          arguments:
+            - 3
+        - name: early-return
+        - name: identical-branches
+        - name: unreachable-code
+        - name: struct-tag
+        - name: unnecessary-if
+        - name: string-of-int
+        - name: optimize-operands-order
+        - name: defer
+        - name: range-val-address
+        - name: range-val-in-closure
+        - name: unexported-naming
+        - name: use-any
+        - name: max-control-nesting
+          arguments:
+            - 4
+        # File size is NOT enforced here: file-length-limit reported nothing even
+        # for a 1,524-line file, and a rule that silently does nothing is worse
+        # than none. internal/repohealth.TestSourceFileLineBudget owns it, with
+        # per-file ceilings that ratchet down.
+    funlen:
+      # Baseline: 46 prod functions over 80 lines (longest 529). The file budget
+      # is enforced by TestSourceFileLineBudget, not by a linter.
+      lines: 80
+      statements: 40
+    gocognit:
+      min-complexity: 30
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+    errcheck:
+      # No exclusion list for fmt.Fprint*: call sites write an explicit
+      # `_ = fmt.Fprintf(...)` so "this error was considered" is visible in the
+      # source. Close/Remove and friends are handled on their merits.
+      check-blank: false
+      check-type-assertions: false
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+  exclusions:
+    generated: lax
+    paths: [.agents, .hermes, .opencode]
+    rules:
+      # Test fixtures repeat literals (spec paths, tx names, MTIs) by nature;
+      # hoisting them to constants makes tests harder to read, not easier.
+      - path: '_test\.go$'
+        linters:
+          - goconst
+      # Test symbols are not an external API: doc-comment and unused-parameter
+      # rules do not apply to helpers that exist to keep call sites readable.
+      # A bool that tells such a helper which fixture to build (withForm,
+      # withResponse) is a call-site modifier, not control coupling.
+      - path: '_test\.go$'
+        linters:
+          - revive
+        text: 'exported|unused-parameter|flag-parameter'
+      # A test helper that runs a command hands back every observable its one
+      # assertion site destructures (streams, exit code, the live command).
+      # function-result-limit and confusing-results both guard public-API
+      # return shape; a helper called by a single test that names its results
+      # at the call site is not a public API. Naming results there can even
+      # hurt: runBinary returns two strings from buffers already called
+      # stdout/stderr, so a named result would rename the buffers for nothing.
+      # Production functions are NOT excluded: they group over-arity results
+      # into a struct (latencySummary, flowExtraction) and name the rest.
+      - path: '_test\.go$'
+        linters:
+          - revive
+        text: 'function-result-limit|confusing-results'
+      # flag-parameter fires whenever a bool steers an if, but a bool is not
+      # always control coupling between two unrelated jobs. These are data and
+      # modifiers that belong in the signature: recorded outcomes (success,
+      # retriable, json), render/state modifiers (focused, selected, expanded,
+      # atCursor, enter, compact, withBrackets, request), sort/alignment
+      # directions (reverse, asc, padLeft), a header datum (naps), a pure
+      # converter (b2i's b), and interface/config pass-throughs (wait,
+      # skipValidation, unsecure, mockRouteGoal, reportGiven, process). Splitting
+      # each into two methods duplicates the render/format bodies they share, and
+      # a two-way bool does not want an enum (includeRev attaches the reversal
+       # step's Extract map). Listed by name rather than disabled,
+      # so a NEW control-flag parameter still gets reported.
+      - linters:
+          - revive
+        text: "flag-parameter: parameter '(unsecure|process|mockRouteGoal|json|padLeft|reportGiven|wait|skipValidation|naps|success|retriable|b|compact|atCursor|enter|focused|expand|expanded|reverse|request|spec|withBrackets|selected|asc|includeRev|wantF70|exists)' seems to be a control flag"
+      # Test helpers take the parameters they take for call-site clarity.
+      - path: '_test\.go$'
+        linters:
+          - unparam
+      # funlen/gocognit/nestif measure the size and branching of production
+      # code. A test's length is its scenario: a table-driven case list or a
+      # golden multi-step walkthrough is one linear story, and cutting it into
+      # sub-40-line helpers scatters the very flow the test exists to pin down.
+      # Production is NOT excluded -- every prod function here is being split
+      # along its real seams.
+      - path: '_test\.go$'
+        linters:
+          - funlen
+          - gocognit
+          - nestif
+      # The hint tables pair a key with an action word ("[esc] back", "[/] filter").
+      # The key side is named -- theme.KeyEsc and friends exist because a binding and
+      # its label must agree -- but the action word is English display copy: nothing
+      # outside the rendered frame compares against it, so a constant per word buys
+      # indirection, not safety, and a rename of the word is a copy edit, not a
+      # refactor. Listed individually rather than by raising min-occurrences, so a
+      # NEW duplicated string still gets reported and a contract that happens to be
+      # spelled like one of these words cannot hide behind a broad threshold.
+      - linters:
+          - goconst
+        text: 'string `(back|run|filter|reload|nav|next|connect|disconnect|send|help)` has'
+      # Reference-data and display-copy strings the linter reads as duplication
+      # but that are not contracts any component compares against. "USA" is the
+      # ISO 3166 alpha-3 code, at home in country.go's data table and its US-state
+      # branch; "off" is the on/off label rendered on the dashboard and settings
+      # screen, and one of several spellings the config parsers accept rather than
+      # a canonical value. Listed individually rather than by raising
+      # min-occurrences, so a NEW duplicated string is still reported and a real
+      # contract cannot hide behind a broad threshold.
+      - linters:
+          - goconst
+        text: 'string `(USA|off)` has'
+      # noctx asks for a context on net.Listen/net.Dial so a bind can be
+      # cancelled. In a test the bind is a loopback port opened by the test itself
+      # and closed by its own cleanup, and the only context available is
+      # context.Background(), so the conversion adds two lines per site to express
+      # a cancellation nobody holds. Production listeners are NOT excluded: they
+      # carry a reasoned directive at each site instead.
+      - path: '_test\.go$'
+        linters:
+          - noctx
+      # Preallocating in tests measures nothing.
+      - path: '_test\.go$'
+        linters:
+          - prealloc
+      # deep-exit is the documented pattern in main() and cmd wiring.
+      - path: 'cmd/.*\.go$'
+        linters:
+          - revive
+        text: 'deep-exit'
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      module-path: jiso
+      extra:
+        group-params: true
+    goimports:
+      local-prefixes:
+        - jiso
+  exclusions:
+    paths: [.agents, .hermes, .opencode]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

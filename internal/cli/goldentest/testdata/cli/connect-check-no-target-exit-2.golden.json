@@ -1,0 +1,11 @@
+{
+  "args": [
+    "connect",
+    "check"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "cannot check: host and port are not configured"
+  ],
+  "expect_exit": 2
+}

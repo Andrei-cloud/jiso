@@ -92,14 +92,9 @@ jiso --host smc.visa.com --port 443 \
      --tls-config testdata/certs/tls_config.json
 ```
 
-In the interactive REPL:
-
-```
-jiso> connect visa
-Connecting to smc.visa.com:443 (Header: visa)...
-Connection established to smc.visa.com:443 🟢
-[SMC-HEARTBEAT] Started Visa 0800 echo keep-alive daemon (30s interval)
-```
+In the TUI, open the connect dialog (`c`), pick the `visa` length header, and
+connect: the SMC heartbeat keep-alive daemon (Visa 0800 echo, 30s interval)
+starts on connect and runs for the lifetime of the session.
 
 ### 2. Starting Mock Server in mTLS Mode
 

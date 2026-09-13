@@ -22,26 +22,48 @@ type FieldContainer interface {
 	GetSubfields() map[string]field.Field
 }
 
+// ContainerWithBitmap is anything that can show its bitmap apart from its fields,
+// which is how Describe reports which fields the bitmap actually set.
 type ContainerWithBitmap interface {
 	Bitmap() *field.Bitmap
 }
 
+// FilterFunc names iso8583's filter predicate for callers of Describe. An alias
+// rather than a wrapper, so a filter written against iso8583 works unchanged.
 type FilterFunc = iso8583.FilterFunc
 
+// FieldFilter names iso8583's filter-set builder: a function that adds the fields
+// Describe should leave out of its output.
 type FieldFilter = iso8583.FieldFilter
 
 var (
-	DefaultFilters    = iso8583.DefaultFilters
+	// DefaultFilters is what Describe applies when the caller passes no filter: the
+	// fields iso8583 declines to decode inline.
+	DefaultFilters = iso8583.DefaultFilters
+	// DoNotFilterFields decodes every field Describe knows about, for the operator
+	// who wants the whole message including the parts the default set leaves encoded.
 	DoNotFilterFields = iso8583.DoNotFilterFields
-	NoOpFilter        = iso8583.NoOpFilter
-	EMVFilter         = iso8583.EMVFilter
-	PINFilter         = iso8583.PINFilter
-	PANFilter         = iso8583.PANFilter
-	Track1Filter      = iso8583.Track1Filter
-	Track2Filter      = iso8583.Track2Filter
-	Track3Filter      = iso8583.Track3Filter
+	// NoOpFilter decodes nothing and skips nothing, the filter set to pass when
+	// Describe should show fields without interpreting any of them.
+	NoOpFilter = iso8583.NoOpFilter
+	// EMVFilter leaves the EMV tag sequence (field 55) encoded, because decoding it
+	// needs the tag registry the describe path does not carry.
+	EMVFilter = iso8583.EMVFilter
+	// PINFilter leaves the PIN block (field 52) encoded, so the describe output
+	// never renders something that must not be shown.
+	PINFilter = iso8583.PINFilter
+	// PANFilter leaves the primary account number (field 2) as the operator
+	// entered it rather than reformatting it.
+	PANFilter = iso8583.PANFilter
+	// Track1Filter leaves track 1 data (field 35) encoded.
+	Track1Filter = iso8583.Track1Filter
+	// Track2Filter leaves track 2 data (field 36) encoded.
+	Track2Filter = iso8583.Track2Filter
+	// Track3Filter leaves track 3 data (field 45) encoded.
+	Track3Filter = iso8583.Track3Filter
 )
 
+// FilterField is how a caller says "describe everything except these fields".
 var FilterField = iso8583.FilterField
 
 // MessageWrapper implements FieldContainer for the iso8583.Message, since it has
@@ -50,8 +72,11 @@ type MessageWrapper struct {
 	*iso8583.Message
 }
 
+// GetSubfields returns the message's fields keyed by decimal string, the keying a
+// FieldContainer uses where iso8583.Message keys them by int. That single
+// difference is the reason MessageWrapper exists.
 func (m *MessageWrapper) GetSubfields() map[string]field.Field {
-	fields := m.Message.GetFields()
+	fields := m.GetFields()
 	result := make(map[string]field.Field, len(fields))
 	for k, v := range fields {
 		result[strconv.Itoa(k)] = v
@@ -65,7 +90,7 @@ func Describe(message *iso8583.Message, w io.Writer, filters ...FieldFilter) err
 	if spec := message.GetSpec(); spec != nil && spec.Name != "" {
 		specName = spec.Name
 	}
-	fmt.Fprintf(w, "%s Message:\n", specName)
+	_, _ = fmt.Fprintf(w, "%s Message:\n", specName)
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, '.', 0)
 
@@ -73,7 +98,7 @@ func Describe(message *iso8583.Message, w io.Writer, filters ...FieldFilter) err
 	if err != nil {
 		return fmt.Errorf("getting MTI: %w", err)
 	}
-	fmt.Fprintf(tw, "MTI\t: %s\n", mti)
+	_, _ = fmt.Fprintf(tw, "MTI\t: %s\n", mti)
 
 	if len(filters) == 0 {
 		filters = DefaultFilters()
@@ -102,17 +127,9 @@ func DescribeFieldContainer(container FieldContainer, w io.Writer, indent string
 	}
 
 	if bitmap != nil {
-		bitmapRaw, err := bitmap.Bytes()
-		if err != nil {
-			return fmt.Errorf("getting bitmap bytes: %w", err)
+		if err := describeBitmap(w, indent, bitmap); err != nil {
+			return err
 		}
-		fmt.Fprintf(w, "%sBitmap HEX\t: %s\n", indent, strings.ToUpper(hex.EncodeToString(bitmapRaw)))
-
-		bits, err := bitmap.String()
-		if err != nil {
-			return fmt.Errorf("getting bitmap: %w", err)
-		}
-		fmt.Fprintf(w, "%sBitmap bits\t:\n%s\n", indent, splitAndAnnotate(bits))
 	}
 
 	fields := container.GetSubfields()
@@ -130,12 +147,12 @@ func DescribeFieldContainer(container FieldContainer, w io.Writer, indent string
 		}
 
 		if container, ok := f.(FieldContainer); ok {
-			fmt.Fprintf(w, "%sF%-3s %s SUBFIELDS:\n", indent, i, desc)
-			fmt.Fprintf(w, "%s----------------------------------------\n", indent)
+			_, _ = fmt.Fprintf(w, "%sF%-3s %s SUBFIELDS:\n", indent, i, desc)
+			_, _ = fmt.Fprintf(w, "%s----------------------------------------\n", indent)
 			if err := DescribeFieldContainer(container, w, indent+"  ", filters...); err != nil {
 				return err
 			}
-			fmt.Fprintf(w, "%s----------------------------------------\n", indent)
+			_, _ = fmt.Fprintf(w, "%s----------------------------------------\n", indent)
 			continue
 		}
 
@@ -149,16 +166,33 @@ func DescribeFieldContainer(container FieldContainer, w io.Writer, indent string
 			str = filter(str, fields[i])
 		}
 
-		fmt.Fprintf(w, "%sF%-3s %s\t: %s\n", indent, i, desc, str)
+		_, _ = fmt.Fprintf(w, "%sF%-3s %s\t: %s\n", indent, i, desc, str)
 	}
 
 	if len(errorList) > 0 {
-		fmt.Fprintf(w, "\nUnpacking Errors:\n")
+		_, _ = fmt.Fprintf(w, "\nUnpacking Errors:\n")
 		for _, err := range errorList {
-			fmt.Fprintf(w, "- %s:\n", err)
+			_, _ = fmt.Fprintf(w, "- %s:\n", err)
 		}
 		return fmt.Errorf("displaying fields: %s", strings.Join(errorList, ","))
 	}
+
+	return nil
+}
+
+// describeBitmap writes the bitmap's hex and annotated bit-string representations.
+func describeBitmap(w io.Writer, indent string, bitmap *field.Bitmap) error {
+	bitmapRaw, err := bitmap.Bytes()
+	if err != nil {
+		return fmt.Errorf("getting bitmap bytes: %w", err)
+	}
+	_, _ = fmt.Fprintf(w, "%sBitmap HEX\t: %s\n", indent, strings.ToUpper(hex.EncodeToString(bitmapRaw)))
+
+	bits, err := bitmap.String()
+	if err != nil {
+		return fmt.Errorf("getting bitmap: %w", err)
+	}
+	_, _ = fmt.Fprintf(w, "%sBitmap bits\t:\n%s\n", indent, splitAndAnnotate(bits))
 
 	return nil
 }

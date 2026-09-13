@@ -1,0 +1,28 @@
+VISA BASE II - CTF EXPORT  db: ./sessions.db
+no CTF-eligible sessions in ./sessions.db. Record a Visa session first.
+SESSIONS (Visa tx eligible)                                         PARAMETERS                                      
++-----------------------------------------------------------------+ +----------------------------------------------+
+|no CTF-eligible sessions                                         | |CIB (interchange BIN)                         |
+|                                                                 | |Filter card BIN       (blank = all)           |
+|                                                                 | |Batch number                                  |
+|                                                                 | |Output path                                   |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
+|                                                                 | |                                              |
++-----------------------------------------------------------------+ +----------------------------------------------+
+SUMMARY: [ok] - tx | total - | header/trailer dates auto
+[Enter] preview records -> shows every record, writes nothing

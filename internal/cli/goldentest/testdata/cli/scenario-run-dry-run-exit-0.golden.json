@@ -1,0 +1,20 @@
+{
+  "args": [
+    "scenario",
+    "run",
+    "--dry-run",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "dry-run: no connection will be made",
+    "Would run scenario: Smoke",
+    "1. echo step (transaction: Echo)",
+    "2. purchase step (transaction: Purchase)"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

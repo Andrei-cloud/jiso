@@ -1,0 +1,24 @@
+{
+  "args": [
+    "scenario",
+    "run",
+    "--dry-run",
+    "--json",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "\"name\": \"Smoke\"",
+    "\"steps\"",
+    "\"use_transaction_id\": \"Echo\""
+  ],
+  "forbid_stdout_substrings": [
+    "\u001b[",
+    "dry-run: no connection"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

@@ -1,0 +1,28 @@
+PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run
+capture  capture.pcap
+spec     spec.json
+header   binary2
+output   -  [o] change
+goal     * t transactions + datasets  [ ] r mock routes  [ ] s scenario flow
+security [ok] on (mask PAN/track)  [m] toggle
+flows /  zzz  no flows match
+flows    412 msgs parsed, 3 unparsable
+  no flows match the filter
+[x] no flows match the filter - clear it or fix it
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Enter] run   [t/r/s] goal   [m] security   [/] filter   [w] write   [Esc] back

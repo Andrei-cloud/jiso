@@ -21,6 +21,8 @@ func (m *mockMatcherImpl) MatchAndCompose(req *iso8583.Message, spec *iso8583.Me
 }
 
 func TestSetMockMatcher(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	mgr := NewManager("localhost", "9999", spec, false, 1, 1*time.Second, 2*time.Second, nil)
 
@@ -36,6 +38,8 @@ func TestSetMockMatcher(t *testing.T) {
 }
 
 func TestUnsolicitedIncomingMessageHandling(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	mgr := NewManager("localhost", "9999", spec, false, 1, 1*time.Second, 2*time.Second, nil)
 

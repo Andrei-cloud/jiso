@@ -1,0 +1,36 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--mode",
+    "scenario",
+    "--json",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "mode",
+    "scenario_name",
+    "pair_count",
+    "pairs",
+    "scenario_step_count",
+    "generated_transaction_names",
+    "output_file"
+  ],
+  "expect_json_fields": {
+    "mode": "\"scenario\"",
+    "pair_count": "4",
+    "scenario_step_count": "4"
+  },
+  "expect_stderr_contains": [
+    "selected flow 8080 (3 msgs)"
+  ],
+  "expect_exit": 0,
+  "files_must_exist": [
+    "$WORK/transactions/transaction.json"
+  ]
+}

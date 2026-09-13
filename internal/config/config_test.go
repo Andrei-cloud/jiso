@@ -259,11 +259,11 @@ func TestConfigValidate(t *testing.T) {
 }
 
 func createTempFile(t *testing.T, name, content string) string {
-	file, err := os.CreateTemp("", name)
+	file, err := os.CreateTemp(t.TempDir(), name)
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if _, err := file.WriteString(content); err != nil {
 		t.Fatalf("failed to write to temp file: %v", err)

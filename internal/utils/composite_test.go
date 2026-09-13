@@ -12,6 +12,8 @@ import (
 )
 
 func TestExtractFieldData_And_ExtractMessageFields(t *testing.T) {
+	t.Parallel()
+
 	spec := &iso8583.MessageSpec{
 		Fields: map[int]field.Field{
 			0: field.NewString(&field.Spec{
@@ -65,7 +67,7 @@ func TestExtractFieldData_And_ExtractMessageFields(t *testing.T) {
 	msg.MTI("0100")
 	require.NoError(t, msg.Field(2, "4085652009074000"))
 
-	compMap := map[string]interface{}{
+	compMap := map[string]any{
 		"1": "A",
 		"2": "466215320236000",
 		"3": "6225",
@@ -77,7 +79,7 @@ func TestExtractFieldData_And_ExtractMessageFields(t *testing.T) {
 
 	assert.Equal(t, "4085652009074000", fields["2"])
 
-	f62, ok := fields["62"].(map[string]interface{})
+	f62, ok := fields["62"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "A", f62["1"])
 	assert.Equal(t, "466215320236000", f62["2"])
@@ -85,6 +87,8 @@ func TestExtractFieldData_And_ExtractMessageFields(t *testing.T) {
 }
 
 func TestSortedSubfieldKeys(t *testing.T) {
+	t.Parallel()
+
 	input := map[string]int{
 		"10": 1,
 		"2":  2,

@@ -1,0 +1,16 @@
+{
+  "args": [
+    "serve",
+    "start",
+    "--help"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "routes-file",
+    "report",
+    "mock_routes",
+    "SIGTERM",
+    "systemd"
+  ],
+  "expect_exit": 0
+}

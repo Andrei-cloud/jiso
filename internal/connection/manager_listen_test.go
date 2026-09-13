@@ -17,12 +17,16 @@ import (
 func getFreePort(t *testing.T) string {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	port := fmt.Sprintf("%d", l.Addr().(*net.TCPAddr).Port)
+	addr, ok := l.Addr().(*net.TCPAddr)
+	require.Truef(t, ok, "listener addr = %T, want *net.TCPAddr", l.Addr())
+	port := fmt.Sprintf("%d", addr.Port)
 	_ = l.Close()
 	return port
 }
 
 func TestListenAcceptsConnection(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	mgr := NewManager("localhost", "0", spec, true, 1, 1*time.Second, 2*time.Second, nil)
 	mgr.SetListenTimeout(2 * time.Second)
@@ -40,7 +44,7 @@ func TestListenAcceptsConnection(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	conn, err := net.Dial("tcp", "127.0.0.1:"+port)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	err = <-errCh
 	assert.NoError(t, err)
@@ -53,6 +57,8 @@ func TestListenAcceptsConnection(t *testing.T) {
 }
 
 func TestListenTimeout(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	mgr := NewManager("localhost", "0", spec, false, 1, 1*time.Second, 2*time.Second, nil)
 	mgr.SetListenTimeout(100 * time.Millisecond)
@@ -72,6 +78,8 @@ func TestListenTimeout(t *testing.T) {
 }
 
 func TestListenCloseCancels(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	mgr := NewManager("localhost", "0", spec, false, 1, 1*time.Second, 2*time.Second, nil)
 	mgr.SetListenTimeout(5 * time.Second)
@@ -99,6 +107,8 @@ func TestListenCloseCancels(t *testing.T) {
 }
 
 func TestListenSendReceive(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	mgr := NewManager("localhost", "0", spec, true, 1, 1*time.Second, 2*time.Second, nil)
 	mgr.SetListenTimeout(2 * time.Second)
@@ -115,7 +125,7 @@ func TestListenSendReceive(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	remoteConn, err := net.Dial("tcp", "127.0.0.1:"+port)
 	require.NoError(t, err)
-	defer remoteConn.Close()
+	defer func() { _ = remoteConn.Close() }()
 
 	err = <-errCh
 	require.NoError(t, err)

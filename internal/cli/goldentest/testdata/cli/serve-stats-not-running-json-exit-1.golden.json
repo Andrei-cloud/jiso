@@ -1,0 +1,16 @@
+{
+  "args": [
+    "serve",
+    "stats",
+    "19998",
+    "--json"
+  ],
+  "env": {
+    "JISO_STATE_DIR": "$WORK/missing-state"
+  },
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "no running jiso server on port 19998"
+  ],
+  "expect_exit": 1
+}

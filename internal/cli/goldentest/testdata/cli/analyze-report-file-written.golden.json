@@ -1,0 +1,30 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4",
+    "-o",
+    "out.json"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "ANALYZE COMPLETE",
+    "flow port 8080",
+    "Saved to:   transactions/transaction.json"
+  ],
+  "expect_stderr_contains": [
+    "selected flow 8080 (3 msgs)",
+    "report written to: out.json"
+  ],
+  "expect_exit": 0,
+  "files_must_exist": [
+    "$WORK/out.json"
+  ],
+  "expect_file_heads": {
+    "$WORK/out.json": "{\n  \"mode\": \"transactions\","
+  }
+}

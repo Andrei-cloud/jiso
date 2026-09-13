@@ -1,0 +1,19 @@
+{
+  "args": [
+    "inspect",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "stdin": "",
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "transaction name is required",
+    "jiso inspect \u003ctx-name\u003e"
+  ],
+  "forbid_stdout_substrings": [
+    "\u001b["
+  ],
+  "expect_exit": 2
+}

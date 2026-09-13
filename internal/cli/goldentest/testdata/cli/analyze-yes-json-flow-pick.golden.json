@@ -1,0 +1,42 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--json",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "mode",
+    "stream_file",
+    "header_type",
+    "target_port",
+    "packet_count",
+    "extracted_messages",
+    "flow_count",
+    "flows",
+    "generated_transaction_names",
+    "output_file"
+  ],
+  "expect_json_fields": {
+    "mode": "\"transactions\"",
+    "target_port": "8080",
+    "packet_count": "3",
+    "extracted_messages": "3",
+    "flow_count": "1"
+  },
+  "expect_stderr_contains": [
+    "selected flow 8080 (3 msgs)"
+  ],
+  "expect_exit": 0,
+  "files_must_exist": [
+    "$WORK/transactions/transaction.json"
+  ],
+  "files_must_not_exist": [
+    "$WORK/out.json"
+  ]
+}

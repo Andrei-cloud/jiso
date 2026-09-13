@@ -10,11 +10,18 @@ import (
 	"github.com/moov-io/iso8583/encoding"
 )
 
+// sessionControlIndicator is the byte that marks a message as session-control
+// rather than a transaction, and MaxMessageLength caps what the header will
+// declare, because an ISO8583 message is a few kilobytes and a larger declared
+// length means the framing is already wrong.
 const (
 	sessionControlIndicator = byte('2')
 	MaxMessageLength        = 2048
 )
 
+// VisaHeader is the VISA length header: the station ID the operator configures
+// plus the message length, both under one mutex because a connection's reader
+// and writer share the header.
 type VisaHeader struct {
 	mu               sync.RWMutex
 	length           int
@@ -23,6 +30,9 @@ type VisaHeader struct {
 	isSessionControl bool
 }
 
+// NewVisaHeader builds a header for a 6-digit station ID. An ID that is not six
+// numeric digits is refused here rather than turned into bytes that would frame
+// every message wrongly.
 func NewVisaHeader(stationIDStr string) (*VisaHeader, error) {
 	parsedID, err := ParseStationID(stationIDStr)
 	if err != nil {
@@ -34,6 +44,10 @@ func NewVisaHeader(stationIDStr string) (*VisaHeader, error) {
 	}, nil
 }
 
+// ParseStationID turns the operator's 6-digit station ID into the 3 bytes that
+// go on the wire. The digits are packed two to a byte, which is why exactly six
+// are required: a 5-digit ID would otherwise be silently padded into a value the
+// acquirer reads as a different station.
 func ParseStationID(idStr string) ([3]byte, error) {
 	var bytes [3]byte
 	if len(idStr) != 6 {
@@ -52,36 +66,52 @@ func ParseStationID(idStr string) ([3]byte, error) {
 	return bytes, nil
 }
 
+// SetLength records the length the next WriteTo declares.
 func (h *VisaHeader) SetLength(length int) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.length = length
 }
 
+// Length returns the declared length, 0 before the first message.
 func (h *VisaHeader) Length() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.length
 }
 
+// RawStationID returns the station ID as the operator typed it, the six-digit
+// string rather than the packed bytes, because that is what a settings page
+// re-displays.
 func (h *VisaHeader) RawStationID() string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.rawStationID
 }
 
+// IsSessionControl reports whether the header currently marks messages as
+// session-control messages.
 func (h *VisaHeader) IsSessionControl() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.isSessionControl
 }
 
+// SetSessionControl toggles the indicator byte the acquirer sees, which is how
+// one connection sends session messages and transaction messages with the same
+// station ID.
 func (h *VisaHeader) SetSessionControl(isSessionControl bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.isSessionControl = isSessionControl
 }
 
+// WriteTo frames the station ID and the declared length ahead of the message.
+// Its (int, error) result comes from moov-io's network.Header, not from
+// io.WriterTo, which asks for (int64, error); conforming to that would break the
+// header contract the connection layer codes against.
+//
+//nolint:govet // these implement moov-io network.Header, whose contract is
 func (h *VisaHeader) WriteTo(w io.Writer) (int, error) {
 	h.mu.RLock()
 	length := h.length
@@ -131,6 +161,11 @@ func (h *VisaHeader) WriteTo(w io.Writer) (int, error) {
 	return n, err
 }
 
+// ReadFrom reads the station ID and length prefix back and records the length it
+// declares. Like WriteTo it returns (int, error) for moov-io's network.Header
+// contract rather than io.ReaderFrom's.
+//
+//nolint:govet // these implement moov-io network.Header, whose contract is
 func (h *VisaHeader) ReadFrom(r io.Reader) (int, error) {
 	// Read 4 bytes TCP Header
 	var tcpHeader [4]byte

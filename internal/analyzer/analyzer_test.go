@@ -21,6 +21,8 @@ import (
 )
 
 func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	msg1 := iso8583.NewMessage(spec)
@@ -71,8 +73,8 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 	require.Len(t, results, 1)
 
 	res := results[0]
-	assert.Equal(t, config.TypeTransaction, res.Transaction.GetType())
-	assert.Equal(t, config.TypeDataset, res.Dataset.GetType())
+	assert.Equal(t, config.TypeTransaction, res.Transaction.Type)
+	assert.Equal(t, config.TypeDataset, res.Dataset.Type)
 	assert.Len(t, res.Dataset.Data, 2)
 	assert.True(t, strings.HasPrefix(res.Dataset.Data[0]["DE_2"], "41111111"))
 	assert.True(t, strings.HasSuffix(res.Dataset.Data[0]["DE_2"], "000"))
@@ -89,6 +91,8 @@ func TestStreamAnalyzerAndVarianceEngine(t *testing.T) {
 }
 
 func TestNetworkManagement08XX(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	msg1 := iso8583.NewMessage(spec)
@@ -123,7 +127,7 @@ func TestNetworkManagement08XX(t *testing.T) {
 	assert.Empty(t, tx.DatasetName)
 	assert.Empty(t, results[0].Dataset.Name)
 
-	var fields map[string]interface{}
+	var fields map[string]any
 	err = json.Unmarshal(tx.Fields, &fields)
 	require.NoError(t, err)
 
@@ -134,6 +138,8 @@ func TestNetworkManagement08XX(t *testing.T) {
 }
 
 func TestAnalyzeFlow_VaryingBitmapCompositeUsesSubfieldDataset(t *testing.T) {
+	t.Parallel()
+
 	spec := &iso8583.MessageSpec{
 		Name: "bitmap-composite-test",
 		Fields: map[int]field.Field{
@@ -177,9 +183,9 @@ func TestAnalyzeFlow_VaryingBitmapCompositeUsesSubfieldDataset(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 
-	var fields map[string]interface{}
+	var fields map[string]any
 	require.NoError(t, json.Unmarshal(results[0].Transaction.Fields, &fields))
-	field62, ok := fields["62"].(map[string]interface{})
+	field62, ok := fields["62"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "{{data.DE_62_1}}", field62["1"])
 	assert.Equal(t, "{{data.DE_62_2}}", field62["2"])
@@ -194,7 +200,7 @@ func TestAnalyzeFlow_VaryingBitmapCompositeUsesSubfieldDataset(t *testing.T) {
 	assert.False(t, hasRawField)
 }
 
-func createSyntheticPCAPFile(t *testing.T, reqPayload []byte, respPayload []byte) string {
+func createSyntheticPCAPFile(t *testing.T, reqPayload, respPayload []byte) string {
 	var buf bytes.Buffer
 
 	// Write PCAP Global Header (24 bytes)
@@ -252,6 +258,8 @@ func createSyntheticPCAPFile(t *testing.T, reqPayload []byte, respPayload []byte
 }
 
 func TestExtractFromPCAPFile(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	msg := iso8583.NewMessage(spec)
@@ -273,13 +281,13 @@ func TestExtractFromPCAPFile(t *testing.T) {
 	pcapFile := createSyntheticPCAPFile(t, payloadBuf.Bytes(), nil)
 
 	analyzer := NewStreamAnalyzer(spec)
-	extracted, err := analyzer.ExtractMessagesFromFile(pcapFile, "binary2")
+	extracted, err := analyzer.ExtractMessagesFromFileWithDirection(pcapFile, "binary2", TrafficDirection{Mode: "all"})
 	require.NoError(t, err)
 	require.Len(t, extracted, 1)
 
 	flows := analyzer.AggregateFlows(extracted)
 	varianceEng := NewVarianceEngine(spec)
-	var items []config.ConfigItem
+	var items []config.Item
 
 	for _, flow := range flows {
 		results, err := varianceEng.AnalyzeFlow(flow)
@@ -296,6 +304,8 @@ func TestExtractFromPCAPFile(t *testing.T) {
 }
 
 func TestInspectAndFilterPCAPDirections(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	reqMsg := iso8583.NewMessage(spec)
@@ -356,6 +366,8 @@ func TestInspectAndFilterPCAPDirections(t *testing.T) {
 }
 
 func TestStreamAnalyzerMultiHeader(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	msg := iso8583.NewMessage(spec)
@@ -394,6 +406,8 @@ func TestStreamAnalyzerMultiHeader(t *testing.T) {
 }
 
 func TestAnalyzeFlowToMockRoutes(t *testing.T) {
+	t.Parallel()
+
 	spec := utils.GetDefaultSpec()
 
 	respMsg1 := iso8583.NewMessage(spec)
@@ -430,15 +444,10 @@ func TestAnalyzeFlowToMockRoutes(t *testing.T) {
 	assert.Equal(t, "auth_code", route.ResponseFields["38"])
 }
 
-func TestFindAvailablePCAPFiles(t *testing.T) {
-	files := utils.FindAvailablePCAPFiles()
-	require.NotEmpty(t, files)
-	assert.Contains(t, files[len(files)-1], "Custom Path...")
-}
-
 func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
-	spec := utils.GetDefaultSpec()
-	spec.Fields[55] = field.NewComposite(&field.Spec{
+	t.Parallel()
+
+	spec := specWithDefaultField(55, field.NewComposite(&field.Spec{
 		Length:      255,
 		Description: "EMV Data",
 		Pref:        prefix.Binary.Fixed,
@@ -457,14 +466,14 @@ func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
 				Pref:        prefix.ASCII.Fixed,
 			}),
 		},
-	})
+	}))
 
 	respMsg := iso8583.NewMessage(spec)
 	respMsg.MTI("0210")
 	require.NoError(t, respMsg.Field(3, "000000"))
 	require.NoError(t, respMsg.Field(39, "00"))
 
-	compMap := map[string]interface{}{
+	compMap := map[string]any{
 		"1": "11223344",
 		"2": "8",
 	}
@@ -486,8 +495,24 @@ func TestAnalyzeFlowToMockRoutesWithCompositeFields(t *testing.T) {
 	f55, exists := route.ResponseFields["55"]
 	require.True(t, exists)
 
-	f55Map, isMap := f55.(map[string]interface{})
+	f55Map, isMap := f55.(map[string]any)
 	require.True(t, isMap, "Composite response field 55 should be a map of subfields, not raw string")
 	assert.Equal(t, "11223344", f55Map["1"])
 	assert.Equal(t, "8", f55Map["2"])
+}
+
+// specWithDefaultField copies the cached default spec and adds or replaces
+// one field: the cached spec is process-wide, and mutating it in place races
+// with the other parallel tests building messages from it.
+func specWithDefaultField(id int, f field.Field) *iso8583.MessageSpec {
+	base := utils.GetDefaultSpec()
+	cp := *base
+	fields := make(map[int]field.Field, len(base.Fields)+1)
+	for k, v := range base.Fields {
+		fields[k] = v
+	}
+	fields[id] = f
+	cp.Fields = fields
+
+	return &cp
 }

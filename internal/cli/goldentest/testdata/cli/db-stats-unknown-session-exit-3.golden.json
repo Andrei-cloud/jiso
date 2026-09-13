@@ -1,0 +1,17 @@
+{
+  "args": [
+    "db",
+    "stats",
+    "--session",
+    "missing-session-42",
+    "--db",
+    "session.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "session not found",
+    "missing-session-42"
+  ],
+  "expect_exit": 3
+}

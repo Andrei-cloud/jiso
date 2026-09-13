@@ -1,0 +1,22 @@
+{
+  "args": [
+    "ctf",
+    "list",
+    "--json",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "json_array",
+  "expect_stdout": [
+    "\"session_id\": \"golden-visa-session-0002\"",
+    "\"spec_name\": \"visa.json\"",
+    "\"transaction_count\": 1"
+  ],
+  "forbid_stdout_substrings": [
+    "golden-session-0001",
+    "\u001b[",
+    "Session ID"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

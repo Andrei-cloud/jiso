@@ -29,6 +29,9 @@ var (
 	defaultOnce sync.Once
 )
 
+// CreateSpecFromFile loads a spec from path, caching it by path so a long-lived
+// process does not re-read and re-parse the same file for every message. The
+// cached spec is shared, so callers must treat it as read-only.
 func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 	if cached, ok := specCache.Load(path); ok {
 		if spec, ok := cached.(*iso8583.MessageSpec); ok && spec != nil {
@@ -40,7 +43,7 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening file %s: %w", path, err)
 	}
-	defer fd.Close()
+	defer func() { _ = fd.Close() }() // read-only handle; nothing to report on close
 
 	raw, err := io.ReadAll(fd)
 	if err != nil {
@@ -56,6 +59,10 @@ func CreateSpecFromFile(path string) (*iso8583.MessageSpec, error) {
 	return spec, nil
 }
 
+// ResolveSpec returns the spec at specPath, or fallback when no path was given
+// or the path could not be read. Falling back quietly is correct here: the
+// command that must fail on a bad --spec is the one that validates the config,
+// and a helper that only picks a default has nothing to report.
 func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.MessageSpec {
 	if specPath == "" {
 		return fallback
@@ -72,6 +79,8 @@ func ResolveSpec(specPath string, fallback *iso8583.MessageSpec) *iso8583.Messag
 	return fallback
 }
 
+// GetDefaultSpec returns the compiled-in default spec, parsed once from the
+// embedded template, so a command can compose a message with no --spec at all.
 func GetDefaultSpec() *iso8583.MessageSpec {
 	defaultOnce.Do(func() {
 		if len(templates.DefaultSpecJSON) > 0 {
@@ -85,67 +94,9 @@ func GetDefaultSpec() *iso8583.MessageSpec {
 	return defaultSpec
 }
 
-func FindAvailableSpecFiles() []string {
-	results := []string{"[Default Embedded Spec]"}
-
-	dirs := []string{"specs", "."}
-	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			name := entry.Name()
-			if strings.HasSuffix(name, ".json") && (strings.Contains(name, "spec") || dir == "specs") {
-				path := filepath.Join(dir, name)
-				if dir == "." {
-					path = name
-				}
-				results = append(results, path)
-			}
-		}
-	}
-
-	results = append(results, "Custom Path...")
-	return results
-}
-
-func FindAvailablePCAPFiles() []string {
-	var results []string
-	seen := make(map[string]bool)
-
-	dirs := []string{".", "captures", "pcap", "dumps"}
-	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			name := entry.Name()
-			ext := strings.ToLower(filepath.Ext(name))
-			if ext == ".pcap" || ext == ".pcapng" || ext == ".cap" || ext == ".bin" || ext == ".dump" {
-				path := filepath.Join(dir, name)
-				if dir == "." {
-					path = name
-				}
-				if !seen[path] {
-					seen[path] = true
-					results = append(results, path)
-				}
-			}
-		}
-	}
-
-	results = append(results, "[Browse Custom Path...]")
-	return results
-}
-
+// RandString returns n alphanumeric characters, the source a dynamic field uses
+// when its value is set to random. It draws from math/rand, which is right for
+// shaping test data and wrong for anything that needs secrecy.
 func RandString(n int) string {
 	if n <= 0 {
 		return ""
@@ -167,6 +118,9 @@ func RandString(n int) string {
 	return string(b)
 }
 
+// ResponseMTI maps an MTI to the one its reply carries, by the third-digit
+// convention (0820 becomes 0830). An MTI whose third digit names no known
+// pairing returns the empty string rather than a plausible wrong number.
 func ResponseMTI(mti string) string {
 	if len(mti) < 4 {
 		return ""
@@ -190,6 +144,8 @@ func ResponseMTI(mti string) string {
 	}
 }
 
+// RequestMTI maps a response MTI back to the request it answers (0830 becomes
+// 0820), the inverse of ResponseMTI, with the same refusal for unpaired digits.
 func RequestMTI(mti string) string {
 	if len(mti) < 4 {
 		return ""
@@ -213,6 +169,9 @@ func RequestMTI(mti string) string {
 	}
 }
 
+// IsResponseMTI reports whether an MTI belongs to the response class by its
+// third digit, which is how the analyzer pairs a captured reply with the request
+// it answers.
 func IsResponseMTI(mti string) bool {
 	if len(mti) < 4 {
 		return false
@@ -221,6 +180,9 @@ func IsResponseMTI(mti string) bool {
 	return c == '1' || c == '3' || c == '5' || c == '8' || c == '9'
 }
 
+// GetTrxnDateTime returns the local clock as the MMDDhhmmss string field 13
+// carries. It reads the time of composing, so a message built before midnight
+// and sent after it carries the earlier date.
 func GetTrxnDateTime() string {
 	currentTime := time.Now()
 	// The format is defined based on the following time: Mon Jan 2 15:04:05 -0700 MST 2006
@@ -228,15 +190,17 @@ func GetTrxnDateTime() string {
 	return currentTime.Format("0102150405")
 }
 
+// HexDump renders bytes as an offset / hex / ASCII dump, the form an operator
+// compares against a capture file or a vendor log.
 func HexDump(data []byte) string {
 	var buf strings.Builder
 	for i := 0; i < len(data); i += 16 {
 		// offset
-		fmt.Fprintf(&buf, "%08x  ", i)
+		_, _ = fmt.Fprintf(&buf, "%08x  ", i)
 		// hex bytes
 		for j := 0; j < 16; j++ {
 			if i+j < len(data) {
-				fmt.Fprintf(&buf, "%02x ", data[i+j])
+				_, _ = fmt.Fprintf(&buf, "%02x ", data[i+j])
 			} else {
 				buf.WriteString("   ")
 			}
@@ -258,4 +222,3 @@ func HexDump(data []byte) string {
 	}
 	return buf.String()
 }
-

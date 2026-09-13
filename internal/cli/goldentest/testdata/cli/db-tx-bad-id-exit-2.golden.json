@@ -1,0 +1,14 @@
+{
+  "args": [
+    "db",
+    "tx",
+    "abc",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "invalid transaction ID"
+  ],
+  "expect_exit": 2
+}

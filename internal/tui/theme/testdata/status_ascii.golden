@@ -1,0 +1,12 @@
+[ok] sent 33/33
+[!] slow response
+[x] connection refused
+> 0210 RC 00
+  jiso send --file tx.yaml
+spec: visa.sepa
+127.0.0.1:8583
+updated ~5s ago
+(session golden-0001)
++----+
+|pane|
++----+

@@ -1,0 +1,17 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "-s",
+    "spec.json"
+  ],
+  "stdin": "",
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "--yes"
+  ],
+  "forbid_stdout_substrings": [
+    "\u001b["
+  ],
+  "expect_exit": 2
+}

@@ -1,0 +1,15 @@
+{
+  "args": [
+    "send",
+    "Echo",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "host and port are not configured"
+  ],
+  "expect_exit": 2
+}

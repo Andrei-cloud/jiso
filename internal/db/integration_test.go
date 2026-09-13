@@ -28,20 +28,20 @@ func TestEndToEndIntegration(t *testing.T) {
 	responseJSON := `{"mti":"0210","fields":{"2":"4111111111111111","3":"000000","4":"000000010000","7":"0101120000","11":"000001","37":"000000000001","39":"00","41":"12345678","43":"Test Terminal"}}`
 
 	// Insert successful transaction
-	err = InsertTransaction(sessionID, "Purchase", requestJSON, &responseJSON, 150, true)
+	err = InsertTransactionEnriched(&EnrichedTransactionRecord{SessionID: sessionID, TxName: "Purchase", RequestJSON: requestJSON, ResponseJSON: &responseJSON, ProcessingTimeMs: 150, Success: true})
 	if err != nil {
 		t.Fatalf("Failed to insert successful transaction: %v", err)
 	}
 
 	// Insert failed transaction (timeout)
-	err = InsertTransaction(sessionID, "Failed Purchase", requestJSON, nil, 0, false)
+	err = InsertTransactionEnriched(&EnrichedTransactionRecord{SessionID: sessionID, TxName: "Failed Purchase", RequestJSON: requestJSON, ResponseJSON: nil, ProcessingTimeMs: 0, Success: false})
 	if err != nil {
 		t.Fatalf("Failed to insert failed transaction: %v", err)
 	}
 
 	// Insert another successful transaction with different response code
 	responseJSON2 := `{"mti":"0210","fields":{"39":"05"}}`
-	err = InsertTransaction(sessionID, "Declined Purchase", requestJSON, &responseJSON2, 200, false)
+	err = InsertTransactionEnriched(&EnrichedTransactionRecord{SessionID: sessionID, TxName: "Declined Purchase", RequestJSON: requestJSON, ResponseJSON: &responseJSON2, ProcessingTimeMs: 200, Success: false})
 	if err != nil {
 		t.Fatalf("Failed to insert declined transaction: %v", err)
 	}

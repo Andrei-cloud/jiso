@@ -1,0 +1,17 @@
+{
+  "args": [
+    "stress",
+    "--tx",
+    "Echo",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "cannot stress: host and port are not configured",
+    "use --host/-H and --port/-p, JISO_HOST/JISO_PORT, or the user config file"
+  ],
+  "expect_exit": 3
+}

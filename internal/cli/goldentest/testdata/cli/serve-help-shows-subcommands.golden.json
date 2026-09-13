@@ -1,0 +1,13 @@
+{
+  "args": [
+    "serve",
+    "--help"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "start",
+    "stats",
+    "routes"
+  ],
+  "expect_exit": 0
+}

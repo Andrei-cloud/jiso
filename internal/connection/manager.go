@@ -3,29 +3,32 @@ package connection
 import (
 	"context"
 	"crypto/tls"
-	"encoding/hex"
-	"errors"
 	"fmt"
-	"io"
 	"net"
+	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/moov-io/iso8583"
 	moovconnection "github.com/moov-io/iso8583-connection"
-	iso8583errors "github.com/moov-io/iso8583/errors"
 	"github.com/moov-io/iso8583/network"
-	isoutl "github.com/moov-io/iso8583/utils"
 
 	"jiso/internal/metrics"
 	"jiso/internal/utils"
 )
 
+// Manager owns one connection to a peer and the reconnect sequence behind it.
+// It wraps moov-io's Connection and adds what jiso needs on top: reconnect
+// attempts bounded by a total budget, per-message response and listen timeouts,
+// optional TLS, and the inbound path that answers a request from a mock route.
+// The exported Connection field is a seam callers read directly, so the fields
+// beside it change only under statusMu.
 type Manager struct {
 	Connection          *moovconnection.Connection // Expose Connection as public for backward compatibility
 	address             string
 	spec                *iso8583.MessageSpec
-	debugMode           bool
+	debugMode           atomic.Bool
 	reconnectAttempts   int
 	connectTimeout      time.Duration
 	totalConnectTimeout time.Duration
@@ -34,8 +37,10 @@ type Manager struct {
 	networkStats        *metrics.NetworkingStats
 	statusMu            sync.RWMutex // Protects connection status updates
 	mockMatcher         RouteMatcher
+	closeGen            atomic.Uint64 // Bumped by closeUnlocked; cancels in-flight Connect publishes
 
 	// Connection parameters for reconnection
+	paramsMu  sync.RWMutex // Protects naps/header against concurrent send/reconnect reads
 	naps      bool
 	header    network.Header
 	tlsConfig *tls.Config
@@ -56,10 +61,13 @@ type Manager struct {
 	// Async processing fields
 	pendingRequests    map[string]*pendingRequest
 	pendingMu          sync.RWMutex
-	maxPendingRequests int // Maximum number of pending requests
-	responseTimeout    time.Duration
+	maxPendingRequests atomic.Int64 // Maximum number of pending requests
+	responseTimeout    atomic.Int64 // time.Duration as nanoseconds
 }
 
+// NewManager builds a manager for host:port. It does not connect: Connect and
+// Listen are what touch the network, so constructing one cannot fail and callers
+// can install the optional pieces -- TLS, mock routes, the debug switch -- first.
 func NewManager(
 	host, port string,
 	spec *iso8583.MessageSpec,
@@ -68,48 +76,43 @@ func NewManager(
 	connectTimeout, totalConnectTimeout time.Duration,
 	networkStats *metrics.NetworkingStats,
 ) *Manager {
-	return &Manager{
+	m := &Manager{
 		address:             fmt.Sprintf("%s:%s", host, port),
 		spec:                spec,
-		debugMode:           debugMode,
 		reconnectAttempts:   reconnectAttempts,
 		connectTimeout:      connectTimeout,
 		totalConnectTimeout: totalConnectTimeout,
 		networkStats:        networkStats,
 		pendingRequests:     make(map[string]*pendingRequest),
-		responseTimeout:     5 * time.Second, // Default 5s timeout
-		maxPendingRequests:  100,             // Default max 100 pending requests
 	}
+	m.debugMode.Store(debugMode)
+	m.responseTimeout.Store(int64(5 * time.Second)) // Default 5s timeout
+	m.maxPendingRequests.Store(100)                 // Default max 100 pending requests
+	return m
 }
 
-// Connect establishes a connection with the ISO8583 server
+// Connect establishes a connection with the ISO8583 server.
+// The connection attempt loop runs without holding statusMu; the resulting
+// connection is published under a short lock so GetStatus/IsConnected never
+// block behind connect backoffs or the stabilization sleep. A concurrent
+// Close bumps closeGen and cancels the pending publish.
 func (m *Manager) Connect(naps bool, header network.Header) error {
 	// Store connection parameters for potential reconnection
-	m.naps = naps
-	m.header = header
+	m.setConnParams(naps, header)
 
 	// Always clean up any existing connection before attempting a new one
 	// This prevents issues with stale connections that may appear online but are actually closed
-	if m.Connection != nil {
-		if m.debugMode {
-			fmt.Printf("Cleaning up existing connection to %s\n", m.address)
+	if m.GetConnection() != nil {
+		if m.debugMode.Load() {
+			outputf("Cleaning up existing connection to %s\n", m.GetAddress())
 		}
-		m.Close()
-		m.Connection = nil
+		_ = m.Close()
 	}
+	gen := m.closeGen.Load()
 
-	var err error
 	// Clone headers for reading and writing to avoid race conditions
 	// Reader and Writer run in separate goroutines
-	readHeader := cloneHeader(header)
-	writeHeader := cloneHeader(header)
-
-	readFunc := utils.ReadMessageLengthWrapper(readHeader)
-	writeFunc := utils.WriteMessageLengthWrapper(writeHeader)
-	if naps {
-		readFunc = utils.NapsReadLengthWrapper(readFunc)
-		writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
-	}
+	readFunc, writeFunc := m.lengthFuncs(naps, header)
 
 	// Add connection options with proper reconnection settings
 	options := m.buildConnectionOptions()
@@ -119,41 +122,21 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	baseDelay := 1 * time.Second
 
 	for attempt := 0; attempt <= m.reconnectAttempts; attempt++ {
-		if attempt > 0 {
-			delay := time.Duration(1<<uint(attempt-1)) * baseDelay
-			if delay > maxBackoff {
-				delay = maxBackoff
-			}
-			if m.networkStats != nil {
-				m.networkStats.RecordBackoff(delay)
-			}
-			if m.debugMode {
-				fmt.Printf(
-					"Retrying connection attempt %d/%d to %s after %v\n",
-					attempt,
-					m.reconnectAttempts,
-					m.address,
-					delay,
-				)
-			}
-			time.Sleep(delay)
-		}
+		m.backoffBefore(attempt, baseDelay, maxBackoff)
 
 		if m.networkStats != nil {
 			m.networkStats.RecordReconnectAttempt()
 		}
 
 		startTime := time.Now()
-		m.statusMu.Lock()
-		m.Connection, err = moovconnection.New(
-			m.address,
-			m.spec,
+		conn, err := moovconnection.New(
+			m.GetAddress(),
+			m.GetSpec(),
 			readFunc,
 			writeFunc,
 			options...,
 		)
 		if err != nil {
-			m.statusMu.Unlock()
 			if m.networkStats != nil {
 				m.networkStats.RecordReconnectFailure()
 			}
@@ -169,14 +152,10 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 
 		// Connect with timeout context to prevent hanging indefinitely
 		ctx, cancel := context.WithTimeout(context.Background(), m.totalConnectTimeout)
-		err = m.Connection.ConnectCtx(ctx)
+		err = conn.ConnectCtx(ctx)
 		cancel()
 		if err != nil {
-			m.Connection = nil // Clear failed connection
-			m.statusMu.Unlock()
-			if m.networkStats != nil {
-				m.networkStats.RecordReconnectFailure()
-			}
+			m.abandonFailedConnection(conn)
 			if attempt == m.reconnectAttempts {
 				return fmt.Errorf(
 					"failed to establish connection after %d attempts: %w",
@@ -184,40 +163,17 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 					err,
 				)
 			}
+
 			continue
 		}
 
-		// Success
-		if m.networkStats != nil {
-			duration := time.Since(startTime)
-			m.networkStats.RecordReconnectSuccess(duration)
+		adopted, err := m.adoptConnection(conn, naps, header, gen, startTime, attempt)
+		if err != nil {
+			return err
 		}
-
-		// Store connection parameters for reconnection
-		m.naps = naps
-		m.header = header
-
-		// Set connection status to online
-		m.Connection.SetStatus(moovconnection.StatusOnline)
-
-		// Wait a short time to ensure the connection stays open
-		// This prevents considering reconnection successful if the server immediately closes
-		time.Sleep(200 * time.Millisecond)
-		if m.Connection.Status() != moovconnection.StatusOnline {
-			m.Connection = nil // Clear failed connection
-			m.statusMu.Unlock()
-			if m.networkStats != nil {
-				m.networkStats.RecordReconnectFailure()
-			}
-			if attempt == m.reconnectAttempts {
-				return fmt.Errorf("connection closed immediately after establishment")
-			}
-			continue
+		if adopted {
+			break
 		}
-
-		m.statusMu.Unlock()
-		m.notifyConnectionChange(m.GetConnection())
-		break
 	}
 
 	if !m.IsConnected() {
@@ -225,22 +181,7 @@ func (m *Manager) Connect(naps bool, header network.Header) error {
 	}
 
 	// Enable Visa SMC Heartbeat keep-alive ONLY if Visa header format is selected
-	if IsVisaHeader(header) {
-		m.statusMu.Lock()
-		if m.smcDaemon != nil {
-			m.smcDaemon.Stop()
-		}
-		m.smcDaemon = NewSMCHeartbeatDaemon(m, 30*time.Second)
-		m.smcDaemon.Start()
-		m.statusMu.Unlock()
-	} else {
-		m.statusMu.Lock()
-		if m.smcDaemon != nil {
-			m.smcDaemon.Stop()
-			m.smcDaemon = nil
-		}
-		m.statusMu.Unlock()
-	}
+	m.applyVisaSMC(header)
 
 	return nil
 }
@@ -298,6 +239,9 @@ func (m *Manager) SetSpec(spec *iso8583.MessageSpec) {
 
 // Send sends an ISO8583 message with optional debug logging
 
+// IsConnected reports an online connection: not merely a non-nil Connection, but
+// one whose status is online. A connection that has dropped keeps its object
+// while it reconnects, and a caller asking this wants to know about that gap.
 func (m *Manager) IsConnected() bool {
 	m.statusMu.RLock()
 	defer m.statusMu.RUnlock()
@@ -328,69 +272,8 @@ func (m *Manager) SetAddress(host, port string) {
 	m.address = fmt.Sprintf("%s:%s", host, port)
 }
 
-func (m *Manager) buildConnectionOptions() []moovconnection.Option {
-	options := []moovconnection.Option{
-		moovconnection.ConnectTimeout(m.connectTimeout),
-	}
-
-	if m.tlsConfig != nil {
-		options = append(options, func(opts *moovconnection.Options) error {
-			opts.TLSConfig = m.tlsConfig
-			return nil
-		})
-	}
-
-	options = append(options,
-		moovconnection.ErrorHandler(func(err error) {
-			if m.debugMode {
-				fmt.Printf("Error encountered: %s\n", err)
-			}
-
-			var unpackErr *iso8583errors.UnpackError
-			if errors.As(err, &unpackErr) {
-				fmt.Printf("Unpack error: %s\n", unpackErr)
-				fmt.Printf("\n%v\n", hex.Dump(unpackErr.RawMessage))
-				return
-			}
-
-			var safeErr *isoutl.SafeError
-			if errors.As(err, &safeErr) {
-				fmt.Printf("Unsafe error: %s\n", safeErr.UnsafeError())
-			}
-
-			if errors.Is(err, io.EOF) || errors.Is(err, moovconnection.ErrConnectionClosed) {
-				fmt.Println("Connection closed")
-				m.statusMu.RLock()
-				listenMode := m.listenMode
-				m.statusMu.RUnlock()
-				if listenMode {
-					go m.attemptReListen()
-				} else if m.reconnectAttempts > 0 {
-					go m.attemptReconnect()
-				}
-			}
-		}),
-		moovconnection.InboundMessageHandler(
-			func(c *moovconnection.Connection, message *iso8583.Message) {
-				m.handleInboundMessage(message)
-			},
-		),
-		moovconnection.OnConnect(func(c *moovconnection.Connection) error {
-			if m.debugMode {
-				fmt.Printf("Connection established to %s\n", m.address)
-			}
-			return nil
-		}),
-		moovconnection.ConnectionClosedHandler(func(c *moovconnection.Connection) {
-			if m.debugMode {
-				fmt.Printf("Connection closed to %s\n", m.address)
-			}
-		}),
-	)
-	return options
-}
-
 func (m *Manager) closeUnlocked() error {
+	m.closeGen.Add(1) // Cancel any in-flight Connect publish
 	m.listenMode = false
 	if m.listener != nil {
 		_ = m.listener.Close()
@@ -441,30 +324,150 @@ func (m *Manager) SetMockMatcher(matcher RouteMatcher) {
 
 // handleInboundMessage handles messages received from the server
 
+// SetDebugMode switches verbose connection logging at runtime. The settings page
+// edits it while a connection is live, so the value is stored atomically instead
+// of behind statusMu, which the send path holds while it waits for a reply.
 func (m *Manager) SetDebugMode(debug bool) {
-	m.debugMode = debug
+	m.debugMode.Store(debug)
 }
 
+// SetResponseTimeout changes how long a sent message waits for its reply. Safe
+// between sends: each send reads the value when it starts, so changing it does
+// not disturb a message already in flight.
 func (m *Manager) SetResponseTimeout(timeout time.Duration) {
-	m.responseTimeout = timeout
+	m.responseTimeout.Store(int64(timeout))
 }
 
 // GetResponseTimeout returns the response timeout
 func (m *Manager) GetResponseTimeout() time.Duration {
-	return m.responseTimeout
+	return m.responseTimeoutDur()
 }
 
 // SetMaxPendingRequests sets the maximum number of pending requests
-func (m *Manager) SetMaxPendingRequests(max int) {
-	if max < 1 {
-		max = 1 // Minimum of 1
+func (m *Manager) SetMaxPendingRequests(maxPending int) {
+	if maxPending < 1 {
+		maxPending = 1 // one is the floor: zero would reject every request
 	}
-	m.maxPendingRequests = max
+	m.maxPendingRequests.Store(int64(maxPending))
 }
 
 // GetMaxPendingRequests returns the maximum number of pending requests
 func (m *Manager) GetMaxPendingRequests() int {
-	return m.maxPendingRequests
+	return int(m.maxPendingRequests.Load())
 }
 
 // attemptReconnect tries to reconnect in the background with exponential backoff
+
+// lengthFuncs builds the read/write message-length functions for a header: NAPS
+// framing when requested, then the read/write counters. Reader and writer run in
+// separate goroutines, so each gets its own header clone.
+func (m *Manager) lengthFuncs(naps bool, header network.Header) (moovconnection.MessageLengthReader, moovconnection.MessageLengthWriter) {
+	readHeader := cloneHeader(header)
+	writeHeader := cloneHeader(header)
+
+	readFunc := utils.ReadMessageLengthWrapper(readHeader)
+	writeFunc := utils.WriteMessageLengthWrapper(writeHeader)
+	if naps {
+		readFunc = utils.NapsReadLengthWrapper(readFunc)
+		writeFunc = utils.NapsWriteLengthWrapper(writeFunc)
+	}
+	readFunc = m.countReads(readFunc)
+	writeFunc = m.countWrites(writeFunc)
+
+	return readFunc, writeFunc
+}
+
+// backoffBefore sleeps the exponential-backoff delay before a retry attempt (a
+// no-op on the first attempt) and records it in the network stats and debug log.
+func (m *Manager) backoffBefore(attempt int, baseDelay, maxBackoff time.Duration) {
+	if attempt == 0 {
+		return
+	}
+	delay := time.Duration(1<<uint(attempt-1)) * baseDelay
+	if delay > maxBackoff {
+		delay = maxBackoff
+	}
+	if m.networkStats != nil {
+		m.networkStats.RecordBackoff(delay)
+	}
+	if m.debugMode.Load() {
+		_, _ = fmt.Fprintf(os.Stderr,
+			"Retrying connection attempt %d/%d to %s after %v\n",
+			attempt,
+			m.reconnectAttempts,
+			m.GetAddress(),
+			delay,
+		)
+	}
+	time.Sleep(delay)
+}
+
+// abandonFailedConnection marks a connection offline, releases its socket, and
+// records the reconnect failure.
+func (m *Manager) abandonFailedConnection(conn *moovconnection.Connection) {
+	conn.SetStatus(moovconnection.StatusOffline)
+	_ = conn.Close() // Release the socket from the failed attempt
+	if m.networkStats != nil {
+		m.networkStats.RecordReconnectFailure()
+	}
+}
+
+// applyVisaSMC (re)starts the Visa SMC heartbeat daemon when a Visa header format
+// is selected, and stops and clears it otherwise.
+func (m *Manager) applyVisaSMC(header network.Header) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+
+	if m.smcDaemon != nil {
+		m.smcDaemon.Stop()
+		m.smcDaemon = nil
+	}
+	if IsVisaHeader(header) {
+		m.smcDaemon = NewSMCHeartbeatDaemon(m, 30*time.Second)
+		m.smcDaemon.Start()
+	}
+}
+
+// adoptConnection records the successful reconnect, marks the connection online,
+// verifies it stayed open, and (unless a Close raced) stores it as live. It
+// returns (adopted, retry, err): adopted when the connection is live, retry when
+// the loop should try again, err when the loop should return.
+func (m *Manager) adoptConnection(conn *moovconnection.Connection, naps bool, header network.Header, gen uint64, startTime time.Time, attempt int) (adopted bool, err error) {
+	// Success
+	if m.networkStats != nil {
+		m.networkStats.RecordReconnectSuccess(time.Since(startTime))
+	}
+
+	// Store connection parameters for reconnection
+	m.setConnParams(naps, header)
+
+	// Set connection status to online
+	conn.SetStatus(moovconnection.StatusOnline)
+
+	// Wait a short time to ensure the connection stays open
+	// This prevents considering reconnection successful if the server immediately closes
+	time.Sleep(200 * time.Millisecond)
+	if conn.Status() != moovconnection.StatusOnline {
+		m.abandonFailedConnection(conn)
+		if attempt == m.reconnectAttempts {
+			return false, fmt.Errorf("connection closed immediately after establishment")
+		}
+
+		return false, nil
+	}
+
+	m.statusMu.Lock()
+	if m.closeGen.Load() != gen {
+		// A Close landed while we were connecting; do not resurrect it.
+		m.statusMu.Unlock()
+		conn.SetStatus(moovconnection.StatusOffline)
+		_ = conn.Close()
+
+		return false, fmt.Errorf("connection to %s cancelled: closed during connect", m.GetAddress())
+	}
+	m.Connection = conn
+	m.statusMu.Unlock()
+	m.notifyConnectionChange(conn)
+
+	return true, nil
+}

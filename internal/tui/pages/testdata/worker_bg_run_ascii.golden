@@ -1,0 +1,8 @@
++----------------------------------------------------------+
+|BGSEND  1 tx > 2 params > 3 run                           |
+|tx       tx-01                                            |
+|count    1                                                |
+|interval 1s                                               |
+|ready - Enter starts the background send                  |
+|                              [Enter] start   [Esc] back  |
++----------------------------------------------------------+

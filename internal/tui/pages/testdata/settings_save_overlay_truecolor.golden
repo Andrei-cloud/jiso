@@ -1,0 +1,27 @@
+[38;2;68;147;248mSETTINGS (session config — edits apply live)[m                                          [38;2;141;150;160m[w] save to ./user/config.yaml[m
+[38;2;68;147;248mSAVE USER CONFIG (YAML)[m
+[38;2;141;150;160mtarget: ./user/config.yaml[m
+  connect-timeout: 5s -> 8s
+  hex: off -> on
+[38;2;141;150;160m[w] confirm · Esc cancel (nothing is written)[m
+[2;38;2;141;150;160mEnter edit field · w persists user defaults (YAML) · Esc discards[m
+[2;38;2;141;150;160mapplies to next operation[m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -23,7 +23,7 @@ type TLSFileConfig struct {
 	InsecureSkipVerify bool   `json:"insecure_skip_verify,omitempty"`
 
 	// Directory path where the config file is located, used to resolve relative cert paths
-	baseDir string `json:"-"`
+	baseDir string
 }
 
 // LoadTLSConfig reads, parses, and validates a consolidated TLS JSON configuration file
@@ -46,42 +46,45 @@ func LoadTLSConfig(configPath string) (*TLSFileConfig, error) {
 	cfg.baseDir = filepath.Dir(configPath)
 
 	if cfg.Enabled {
-		// Resolve relative certificate file paths relative to the config file directory
-		cfg.ClientCert = resolvePath(cfg.baseDir, cfg.ClientCert)
-		cfg.ClientKey = resolvePath(cfg.baseDir, cfg.ClientKey)
-		cfg.ServerCert = resolvePath(cfg.baseDir, cfg.ServerCert)
-		cfg.ServerKey = resolvePath(cfg.baseDir, cfg.ServerKey)
-		cfg.CACert = resolvePath(cfg.baseDir, cfg.CACert)
-
-		// Validate file existence for all specified certificate files
-		if cfg.ClientCert != "" {
-			if _, err := os.Stat(cfg.ClientCert); os.IsNotExist(err) {
-				return nil, fmt.Errorf("client certificate file does not exist: %s", cfg.ClientCert)
-			}
-		}
-		if cfg.ClientKey != "" {
-			if _, err := os.Stat(cfg.ClientKey); os.IsNotExist(err) {
-				return nil, fmt.Errorf("client private key file does not exist: %s", cfg.ClientKey)
-			}
-		}
-		if cfg.ServerCert != "" {
-			if _, err := os.Stat(cfg.ServerCert); os.IsNotExist(err) {
-				return nil, fmt.Errorf("server certificate file does not exist: %s", cfg.ServerCert)
-			}
-		}
-		if cfg.ServerKey != "" {
-			if _, err := os.Stat(cfg.ServerKey); os.IsNotExist(err) {
-				return nil, fmt.Errorf("server private key file does not exist: %s", cfg.ServerKey)
-			}
-		}
-		if cfg.CACert != "" {
-			if _, err := os.Stat(cfg.CACert); os.IsNotExist(err) {
-				return nil, fmt.Errorf("CA certificate file does not exist: %s", cfg.CACert)
-			}
+		cfg.resolveCertPaths()
+		if err := cfg.validateCertFiles(); err != nil {
+			return nil, err
 		}
 	}
 
 	return &cfg, nil
+}
+
+// resolveCertPaths rewrites each relative certificate path against the config
+// file's directory.
+func (t *TLSFileConfig) resolveCertPaths() {
+	t.ClientCert = resolvePath(t.baseDir, t.ClientCert)
+	t.ClientKey = resolvePath(t.baseDir, t.ClientKey)
+	t.ServerCert = resolvePath(t.baseDir, t.ServerCert)
+	t.ServerKey = resolvePath(t.baseDir, t.ServerKey)
+	t.CACert = resolvePath(t.baseDir, t.CACert)
+}
+
+// validateCertFiles checks that every specified certificate file exists,
+// returning an error naming the first missing one.
+func (t *TLSFileConfig) validateCertFiles() error {
+	for _, f := range []struct{ path, label string }{
+		{t.ClientCert, "client certificate file"},
+		{t.ClientKey, "client private key file"},
+		{t.ServerCert, "server certificate file"},
+		{t.ServerKey, "server private key file"},
+		{t.CACert, "CA certificate file"},
+	} {
+		if f.path == "" {
+			continue
+		}
+
+		if _, err := os.Stat(f.path); os.IsNotExist(err) {
+			return fmt.Errorf("%s does not exist: %s", f.label, f.path)
+		}
+	}
+
+	return nil
 }
 
 // BuildCryptoTLSConfig generates a standard Go *tls.Config instance for client connections.

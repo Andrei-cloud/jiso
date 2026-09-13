@@ -1,0 +1,19 @@
+{
+  "args": [
+    "inspect",
+    "PurchaseDS",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json",
+    "--json"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "\"name\": \"PurchaseDS\"",
+    "\"mti\": \"0200\"",
+    "\"2\": \"{{data.pan}}\"",
+    "4000000000000002"
+  ],
+  "expect_exit": 0
+}

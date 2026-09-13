@@ -1,0 +1,20 @@
+{
+  "args": [
+    "ctf",
+    "list",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "Session ID",
+    "golden-visa-session-0002",
+    "Total Tx",
+    "Approved Tx"
+  ],
+  "forbid_stdout_substrings": [
+    "golden-session-0001"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

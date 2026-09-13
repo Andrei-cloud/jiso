@@ -1,0 +1,27 @@
+SETTINGS (session config - edits apply live)                                          [w] save to ./user/config.yaml
+SAVE USER CONFIG (YAML)
+target: ./user/config.yaml
+  connect-timeout: 5s -> 8s
+  hex: off -> on
+[w] confirm | Esc cancel (nothing is written)
+Enter edit field | w persists user defaults (YAML) | Esc discards
+applies to next operation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

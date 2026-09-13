@@ -1,0 +1,9 @@
+[38;2;68;147;248m:se[m[38;2;141;150;160m  13 matches[m
+  Send transaction   [1;38;2;68;147;248m(s)[m                
+[38;2;255;255;255;48;2;31;111;235m▸ Send history                          [m
+  go to transactions [1;38;2;68;147;248m(2)[m                
+  go to mock server  [1;38;2;68;147;248m(4)[m                
+  go to sessions     [1;38;2;68;147;248m(6)[m                
+  go to settings                        
+  Connect / reconnect [1;38;2;68;147;248m(c)[m               
+  Disconnect         [1;38;2;68;147;248m(D)[m                

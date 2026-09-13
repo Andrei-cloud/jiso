@@ -1,0 +1,28 @@
+PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run
+capture  capture.pcap
+spec     spec.json
+header   binary2
+output   -  [o] change
+goal     * t transactions + datasets  [ ] r mock routes  [ ] s scenario flow
+security [ok] on (mask PAN/track)  [m] toggle
+flows /  (all flows)
+flows    412 msgs parsed, 3 unparsable
+> [x] -> dst :8080  205 msgs   0200(180) 0800(25)  signon
+  [ ] <- src :8080  184 msgs   0210(178) 0810(6)
+  [ ] -> dst :9999  23 msgs    0200(23)
+  [ ] <- src :9999  23 msgs    0210(23)
+done in 1.2s
+dry-run: would write 6 generated ConfigItem(s) to 'transactions/transaction.json'; nothing was written
+  transactions: Purchase (0200), Echo (0800)
+  datasets: card_pool
+  mock routes: route-0200-00
+
+
+
+
+
+
+
+
+
+[Enter] run   [t/r/s] goal   [m] security   [/] filter   [w] write   [Esc] back

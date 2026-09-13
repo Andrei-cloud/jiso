@@ -12,7 +12,7 @@ type Repository interface {
 	ListNames() []string
 
 	// Info returns transaction details by name
-	Info(name string) (string, string, string, error)
+	Info(name string) (TransactionInfo, error)
 
 	// Compose creates a new ISO8583 message from transaction template
 	Compose(name string) (*iso8583.Message, error)

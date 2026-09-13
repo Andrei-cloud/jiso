@@ -1,0 +1,21 @@
+{
+  "args": [
+    "db",
+    "tx",
+    "1",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "TRANSACTION RETROSPECTIVE REVIEW [ID: 1]",
+    "Session ID:",
+    "golden-session-0001",
+    "Result:            SUCCESS (Response Code: 00)",
+    "Request HEX:",
+    "Request Parsed ISO8583 Message:",
+    "Response Parsed ISO8583 Message:"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

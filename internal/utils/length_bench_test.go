@@ -92,11 +92,11 @@ func BenchmarkGetRRN(b *testing.B) {
 
 func BenchmarkResolveSpec(b *testing.B) {
 	defaultSpec := GetDefaultSpec()
-	tempFile, err := os.CreateTemp("", "bench_spec_*.json")
+	tempFile, err := os.CreateTemp(b.TempDir(), "bench_spec_*.json")
 	if err != nil {
 		b.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 	_, _ = tempFile.WriteString(`{"fields":{}}`)
 	_ = tempFile.Close()
 

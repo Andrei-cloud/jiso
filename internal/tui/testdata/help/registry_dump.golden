@@ -1,0 +1,196 @@
+== dashboard — Dashboard page
+[navigation] up/k	up
+[navigation] down/j	down
+[navigation] pgup	page up
+[navigation] pgdown	page down
+[navigation] home	top
+[navigation] end	bottom
+[page actions] enter	run action
+[page actions] D	disconnect
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== transactions — Transactions page
+[navigation] up/k	up
+[navigation] down/j	down
+[navigation] pgup	page up
+[navigation] pgdown	page down
+[navigation] home	top
+[navigation] end	bottom
+[page actions] enter	detail
+[page actions] s	send
+[page actions] t	pick tx file
+[page actions] /	filter
+[page actions] f	sort
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== scenarios — Scenarios page
+[navigation] up/k	up
+[navigation] down/j	down
+[navigation] pgup	page up
+[navigation] pgdown	page down
+[navigation] home	top
+[navigation] end	bottom
+[page actions] enter	run
+[page actions] e	export report
+[page actions] /	filter
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== server — Mock server page
+[navigation] up/k	up
+[navigation] down/j	down
+[navigation] pgup	page up
+[navigation] pgdown	page down
+[navigation] home	top
+[navigation] end	bottom
+[page actions] s	stop server
+[page actions] r	focus routes
+[page actions] enter	open route
+[page actions] G/end	follow log tail
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== workers — Workers page
+[navigation] up	up
+[navigation] down/j	down
+[navigation] pgup	page up
+[navigation] pgdown	page down
+[navigation] home	top
+[navigation] end	bottom
+[page actions] b	bgsend
+[page actions] t	stress
+[page actions] k	stop sel
+[page actions] K	stop all
+[page actions] enter	detail
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== sessions — Sessions page
+[navigation] up/k	up
+[navigation] down/j	down
+[navigation] pgup	page up
+[navigation] pgdown	page down
+[navigation] home	top
+[navigation] end	bottom
+[page actions] enter	open
+[page actions] t	review tx
+[page actions] /	filter
+[page actions] r	reload
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== analyze — PCAP analyze page
+[navigation] up/k or down/j	move
+[navigation] pgup or pgdown or tab or shift+tab	step
+[page actions] enter	next
+[page actions] space	select
+[page actions] f	browse capture
+[page actions] /	flow filter
+[page actions] 	goal t/r/s
+[page actions] w	write report
+[page actions] esc	back / abort
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== ctf — CTF export page
+[navigation] up/k or down/j	move
+[navigation] pgup or pgdown or left/h or right/l	record page / columns
+[page actions] enter	generate
+[page actions] w	write
+[page actions] /	filter
+[page actions] r	reload
+[page actions] tab or shift+tab	pane/field
+[page actions] esc	close / back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== inspector — Inspector page
+[navigation] up/k or down/j	move
+[page actions] enter	expand / compose
+[page actions] left	collapse
+[page actions] right	expand
+[page actions] r	cycle pool
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== settings — Settings page
+[navigation] up/k or down/j	move
+[page actions] enter	edit field
+[page actions] w	save
+[page actions] r	reload
+[page actions] f	pick file
+[page actions] esc	revert / back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+== send-exchange — Send exchange page
+[page actions] enter	send again
+[page actions] h	describe/hexdump toggle
+[page actions] esc	back
+[global] 1-8	pages
+[global] :/ctrl+p	palette
+[global] c	connect
+[global] tab/shift+tab	focus pane
+[global] ?	this
+[global] q	quit / back
+[global] ctrl+c	graceful quit
+
+

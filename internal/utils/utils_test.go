@@ -7,6 +7,8 @@ import (
 )
 
 func TestResponseMTIAndRequestMTI(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		mti          string
 		expectedResp string

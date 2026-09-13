@@ -50,6 +50,8 @@ func loadTSYSDHISpec(t *testing.T) *iso8583.MessageSpec {
 }
 
 func TestTSYSDHI_SpecCompleteness(t *testing.T) {
+	t.Parallel()
+
 	spec := loadTSYSDHISpec(t)
 	assert.Equal(t, "ISO8583_DHI", spec.Name)
 
@@ -77,6 +79,8 @@ func TestTSYSDHI_SpecCompleteness(t *testing.T) {
 }
 
 func TestTSYSDHI_AuthorizationRequestAndResponse(t *testing.T) {
+	t.Parallel()
+
 	spec := loadTSYSDHISpec(t)
 
 	// 1. Build 0100 Authorization Request
@@ -85,7 +89,7 @@ func TestTSYSDHI_AuthorizationRequestAndResponse(t *testing.T) {
 	require.NoError(t, req.Field(2, "4000123456789010"))
 
 	// Field 3: Processing Code positional composite (000000)
-	procCode := map[string]interface{}{
+	procCode := map[string]any{
 		"1": "00",
 		"2": "00",
 		"3": "00",
@@ -117,7 +121,7 @@ func TestTSYSDHI_AuthorizationRequestAndResponse(t *testing.T) {
 	require.NoError(t, req.Field(104, largeP2PData))
 
 	// Field 126: Bitmap-governed composite
-	f126Data := map[string]interface{}{
+	f126Data := map[string]any{
 		"6":  "01",
 		"7":  "02",
 		"8":  "12345678901234567890", // 20-char XID
@@ -164,13 +168,13 @@ func TestTSYSDHI_AuthorizationRequestAndResponse(t *testing.T) {
 	extracted := ExtractMessageFields(unpackedReq, spec)
 	require.NotNil(t, extracted)
 
-	f3Extracted, ok := extracted["3"].(map[string]interface{})
+	f3Extracted, ok := extracted["3"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "00", f3Extracted["1"])
 	assert.Equal(t, "00", f3Extracted["2"])
 	assert.Equal(t, "00", f3Extracted["3"])
 
-	f126Extracted, ok := extracted["126"].(map[string]interface{})
+	f126Extracted, ok := extracted["126"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "01", f126Extracted["6"])
 	assert.Equal(t, "02", f126Extracted["7"])
@@ -204,19 +208,21 @@ func TestTSYSDHI_AuthorizationRequestAndResponse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "00", respCode)
 
-	authId, err := unpackedResp.GetString(38)
+	authID, err := unpackedResp.GetString(38)
 	require.NoError(t, err)
-	assert.Equal(t, "AUTH01", authId)
+	assert.Equal(t, "AUTH01", authID)
 }
 
 func TestTSYSDHI_ReversalWithCompositeField90(t *testing.T) {
+	t.Parallel()
+
 	spec := loadTSYSDHISpec(t)
 
 	rev := iso8583.NewMessage(spec)
 	rev.MTI("0420")
 	require.NoError(t, rev.Field(2, "4000123456789010"))
 
-	procCode := map[string]interface{}{
+	procCode := map[string]any{
 		"1": "00",
 		"2": "00",
 		"3": "00",
@@ -238,7 +244,7 @@ func TestTSYSDHI_ReversalWithCompositeField90(t *testing.T) {
 	// 90.2: Original STAN (6)
 	// 90.3: Original Tx Date/Time (10)
 	// 90.4: Original Acquirer ID (11) + Forwarding ID (11) = 22 digits
-	f90Data := map[string]interface{}{
+	f90Data := map[string]any{
 		"1": "0100",
 		"2": "654321",
 		"3": "0816210459",
@@ -271,7 +277,7 @@ func TestTSYSDHI_ReversalWithCompositeField90(t *testing.T) {
 	extracted := ExtractMessageFields(unpackedRev, spec)
 	require.NotNil(t, extracted)
 
-	f90Extracted, ok := extracted["90"].(map[string]interface{})
+	f90Extracted, ok := extracted["90"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "0100", f90Extracted["1"])
 	assert.Equal(t, "654321", f90Extracted["2"])
@@ -280,6 +286,8 @@ func TestTSYSDHI_ReversalWithCompositeField90(t *testing.T) {
 }
 
 func TestTSYSDHI_NetworkManagementMessage(t *testing.T) {
+	t.Parallel()
+
 	spec := loadTSYSDHISpec(t)
 
 	netReq := iso8583.NewMessage(spec)
@@ -306,12 +314,14 @@ func TestTSYSDHI_NetworkManagementMessage(t *testing.T) {
 }
 
 func TestTSYSDHI_AdditionalExtendedFields(t *testing.T) {
+	t.Parallel()
+
 	spec := loadTSYSDHISpec(t)
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0200")
 	require.NoError(t, msg.Field(2, "4000123456789010"))
-	require.NoError(t, SetCompositeFieldValue(msg, spec, 3, map[string]interface{}{"1": "00", "2": "00", "3": "00"}))
+	require.NoError(t, SetCompositeFieldValue(msg, spec, 3, map[string]any{"1": "00", "2": "00", "3": "00"}))
 	require.NoError(t, msg.Field(4, "000000010000"))
 	require.NoError(t, msg.Field(7, "0816210600"))
 	require.NoError(t, msg.Field(11, "999002"))

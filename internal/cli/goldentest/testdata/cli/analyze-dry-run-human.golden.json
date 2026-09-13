@@ -1,0 +1,31 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--dry-run",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "Flows in capture (destination port -> messages):",
+    "8080",
+    "3 msgs",
+    "9999",
+    "1 msgs",
+    "dry-run: would analyze flow 8080 (3 msgs) of 'analyze.pcap' (header ascii4) in tx mode",
+    "dry-run: generated items would be written to transactions/transaction.json",
+    "dry-run: nothing was written"
+  ],
+  "expect_stderr_contains": [
+    "selected flow 8080 (3 msgs)"
+  ],
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/transactions/transaction.json",
+    "$WORK/out.json"
+  ]
+}

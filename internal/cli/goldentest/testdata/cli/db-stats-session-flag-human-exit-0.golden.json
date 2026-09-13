@@ -1,0 +1,18 @@
+{
+  "args": [
+    "db",
+    "stats",
+    "--session",
+    "golden-session-0001",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "Database Statistics for Session: golden-session-0001",
+    "Total Transactions:",
+    "To inspect a transaction: jiso db tx <id>"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

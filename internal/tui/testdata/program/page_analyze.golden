@@ -1,0 +1,24 @@
++- jiso dev --------------------------------------- [x] offline - [!] no spec -+
+| PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run                          |
+| capture  |                                                                   |
+| no .pcap files found -- [f] browse or type a path                            |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+| [Enter] next   [f] browse   [Esc] cancel                                     |
++------------------------------------------------------------------------------+
+| 1 dash  2 tx  : cmd  ? help  q quit  enter next  esc cancel  ~+7             |
++------------------------------------------------------------------------------+

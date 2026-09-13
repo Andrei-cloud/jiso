@@ -1,19 +1,20 @@
 package command
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/moov-io/iso8583"
 
+	"jiso/internal/app"
 	"jiso/internal/config"
 	"jiso/internal/server"
 	"jiso/internal/transactions"
-	"jiso/internal/utils"
 )
 
 // ServerCommand manages the embedded ISO8583 mock server from REPL or CLI
@@ -22,95 +23,15 @@ type ServerCommand struct {
 	spec   *iso8583.MessageSpec
 	routes []config.MockRouteConfig
 	tc     transactions.Repository
-	args   []string
+	// statsStop halts the PAR-304 side-channel snapshot ticker and
+	// removes the state/snapshot files on a clean stop.
+	statsStop func() error
 }
 
-func (sc *ServerCommand) Name() string { return "serve" }
-func (sc *ServerCommand) Synopsis() string {
-	return "Manage embedded ISO8583 mock server (serve start [port] [headerType], serve stop, routes list)"
-}
-
-func (sc *ServerCommand) SetArgs(args []string) {
-	sc.args = args
-}
-
-func (sc *ServerCommand) Execute() error {
-	if len(sc.args) == 0 {
-		var action string
-		options := []string{"Start Server", "List Routes"}
-		if sc.srv != nil && sc.srv.IsRunning() {
-			options = []string{"Stop Server", "Server Statistics", "List Routes", "Restart Server"}
-		}
-
-		prompt := &survey.Select{
-			Message: "Select Mock Server action:",
-			Options: options,
-		}
-		if err := survey.AskOne(prompt, &action); err != nil {
-			return err
-		}
-
-		switch action {
-		case "Start Server", "Restart Server":
-			if sc.srv != nil && sc.srv.IsRunning() {
-				_ = sc.StopServer()
-			}
-
-			return sc.promptStartServer()
-		case "Stop Server":
-			return sc.StopServer()
-		case "Server Statistics":
-			sc.PrintStats()
-
-			return nil
-		case "List Routes":
-			sc.ListRoutes()
-
-			return nil
-		}
-
-		return nil
-	}
-
-	subCmd := strings.ToLower(sc.args[0])
-	switch subCmd {
-	case "start":
-		port := ""
-		headerType := ""
-		if len(sc.args) > 1 {
-			port = sc.args[1]
-		}
-		if len(sc.args) > 2 {
-			headerType = sc.args[2]
-		}
-		if len(sc.args) > 3 {
-			specPath := sc.args[3]
-			if loadedSpec, err := utils.CreateSpecFromFile(specPath); err == nil {
-				sc.spec = loadedSpec
-			}
-		}
-		if port == "" || headerType == "" {
-			return sc.promptStartServer()
-		}
-
-		return sc.StartServer(port, headerType)
-
-	case "stop":
-		return sc.StopServer()
-
-	case "stats", "status":
-		sc.PrintStats()
-		return nil
-
-	case "routes", "list":
-		sc.ListRoutes()
-		return nil
-
-	default:
-		return fmt.Errorf("unknown server command '%s'. Available: start [port] [headerType] [specPath], stop, stats, routes", subCmd)
-	}
-}
-
+// PrintStats prints the mock server counters, or says the server is stopped.
+// The second case is stated out loud rather than left as an absence: this runs
+// after a foreground serve, where the operator needs to know whether the server
+// never started or ran and served nothing.
 func (sc *ServerCommand) PrintStats() {
 	if sc.srv == nil || !sc.srv.IsRunning() {
 		fmt.Println("Mock server is currently stopped")
@@ -120,88 +41,91 @@ func (sc *ServerCommand) PrintStats() {
 	stats.PrintSummary(sc.srv.GetPort(), sc.srv.GetHeaderType(), sc.srv.ActiveConnections())
 }
 
-func (sc *ServerCommand) promptStartServer() error {
-	// 1. Select Specification File
-	specFiles := utils.FindAvailableSpecFiles()
-	var selectedSpec string
-	specPrompt := &survey.Select{
-		Message: "Select ISO8583 Specification File:",
-		Options: specFiles,
-		Default: specFiles[0],
-	}
-	if err := survey.AskOne(specPrompt, &selectedSpec); err != nil {
-		return err
-	}
-
-	if selectedSpec == "Custom Path..." {
-		inputPrompt := &survey.Input{
-			Message: "Enter path to specification JSON file:",
-		}
-		if err := survey.AskOne(inputPrompt, &selectedSpec); err != nil {
-			return err
-		}
-	}
-
-	if selectedSpec != "" && !strings.HasPrefix(selectedSpec, "[Default") {
-		if loadedSpec, err := utils.CreateSpecFromFile(selectedSpec); err == nil {
-			sc.spec = loadedSpec
-			fmt.Printf("Loaded spec from: %s\n", selectedSpec)
-		} else {
-			fmt.Printf("Warning: Failed to load spec from '%s' (%v), using default spec\n", selectedSpec, err)
-		}
-	}
-
-	// 1b. Select Transaction File (containing Mock Routes)
-	selector := NewFileSelector("transaction")
-	if txPath, err := selector.SelectFile(); err == nil && txPath != "" {
-		if tcLoaded, err := transactions.NewTransactionCollection(txPath, sc.spec); err == nil && tcLoaded != nil {
-			sc.routes = tcLoaded.GetMockRoutes()
-			sc.tc = tcLoaded
-			fmt.Printf("   ✓ Loaded %d mock route(s) from: %s\n", len(sc.routes), txPath)
-		} else {
-			fmt.Printf("   ⚠️ Warning: Failed to load mock routes from '%s': %v\n", txPath, err)
-		}
-	}
-
-	// 2. Enter Port Number
-	var port string
-	portPrompt := &survey.Input{
-		Message: "Enter server port:",
-		Default: "9999",
-	}
-	if err := survey.AskOne(portPrompt, &port); err != nil {
-		return err
-	}
-
-	// 3. Select TCP Header Type
-	var headerType string
-	headerPrompt := &survey.Select{
-		Message: "Select TCP header type:",
-		Options: []string{"ascii4", "binary2", "binary4", "bcd2", "NAPS", "visa"},
-		Default: "binary2",
-	}
-	if err := survey.AskOne(headerPrompt, &headerType); err != nil {
-		return err
-	}
-
-	return sc.StartServer(port, headerType)
+// DirectServerOptions configures the foreground `jiso serve start` run
+// (PAR-309). Zero values keep the pre-PAR-309 behavior: block until
+// SIGINT/SIGTERM, print the human stats summary, stop cleanly.
+type DirectServerOptions struct {
+	Port       string
+	HeaderType string
+	// ReportPath receives the final ServerStats JSON (atomic rename-per-
+	// write) after a clean signal stop; empty disables the report.
+	ReportPath string
+	// JSONStdout keeps stdout empty while the server runs and prints the
+	// final ServerStats JSON to Stdout on a clean stop (all logs go to
+	// Stderr); the blocking nature is unchanged.
+	JSONStdout bool
+	// Stdout/Stderr default to the process streams when nil.
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
-// RunDirectServer blocks in direct CLI mode until Ctrl+C (SIGINT/SIGTERM).
-func (sc *ServerCommand) RunDirectServer(port, headerType string) error {
-	if err := sc.StartServer(port, headerType); err != nil {
+// RunDirectServer blocks in direct CLI mode until SIGINT/SIGTERM. A clean
+// signal stop stops the server (the PAR-304 side-channel files are removed
+// by StopServer), optionally dumps the final stats to ReportPath and — under
+// JSONStdout — to stdout, and returns nil so the process exits 0: for a
+// foreground server under systemd, being stopped by a signal is success,
+// deliberately unlike one-shot commands whose interrupted work exits 130.
+func (sc *ServerCommand) RunDirectServer(opts DirectServerOptions) error {
+	stdout, stderr := opts.Stdout, opts.Stderr
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
+	if err := sc.StartServer(opts.Port, opts.HeaderType); err != nil {
 		return err
 	}
 
-	fmt.Println("Press Ctrl+C to stop the mock server.")
+	_, _ = fmt.Fprintln(stderr, "Press Ctrl+C to stop the mock server.")
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	<-sigCh
+	sig := <-sigCh
+	signal.Stop(sigCh)
 
-	fmt.Println("\nStopping mock server...")
-	sc.PrintStats()
+	_, _ = fmt.Fprintf(stderr, "\nreceived %v, stopping mock server...\n", sig)
 
-	return sc.StopServer()
+	// Resolve the real bound port while the listener is alive: an
+	// ephemeral "0" start must still be identifiable in the final stats.
+	boundPort, portErr := sc.srv.BoundPort()
+	if portErr != nil {
+		boundPort = sc.srv.GetPort()
+	}
+
+	if !opts.JSONStdout {
+		sc.PrintStats()
+	}
+
+	if err := sc.StopServer(); err != nil {
+		return err
+	}
+
+	// The traffic tracker keeps its totals after Stop (only Start resets),
+	// so the final view is captured post-stop with running=false.
+	final := app.NewServerStatsFromServerStats(
+		sc.srv.GetStats(), boundPort, sc.srv.GetHeaderType(), false, sc.srv.ActiveConnections(),
+	)
+	final.PID = os.Getpid()
+
+	if opts.ReportPath != "" {
+		if err := app.WriteJSONAtomic(opts.ReportPath, final); err != nil {
+			return fmt.Errorf("writing serve stats report: %w", err)
+		}
+
+		_, _ = fmt.Fprintf(stderr, "Serve stats report: %s\n", opts.ReportPath)
+	}
+
+	if opts.JSONStdout {
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+
+		if err := enc.Encode(final); err != nil {
+			return fmt.Errorf("writing final serve stats to stdout: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // NewServerCommand creates a new ServerCommand instance.
@@ -235,14 +159,27 @@ func (sc *ServerCommand) StartServer(port, headerType string) error {
 			return fmt.Errorf("failed to build server TLS configuration: %w", err)
 		}
 		sc.srv.SetTLSConfig(cryptoTLS)
-		fmt.Printf("   ✓ TLS/mTLS server security enabled (ServerName: %s)\n", tlsFileCfg.ServerName)
+		_, _ = fmt.Fprintf(os.Stderr, "   ✓ TLS/mTLS server security enabled (ServerName: %s)\n", tlsFileCfg.ServerName)
 	}
 
 	if err := sc.srv.Start(port); err != nil {
 		return err
 	}
 
-	fmt.Printf("Embedded ISO8583 Mock Server started on port %s (Header: %s) 🟢\n", port, headerType)
+	_, _ = fmt.Fprintf(os.Stderr, "Embedded ISO8583 Mock Server started on port %s (Header: %s) 🟢\n", port, headerType)
+
+	// PAR-304 side-channel: publish the state file and start the stats
+	// snapshot refresh so `jiso serve stats` can query this server from
+	// another process. A failure here degrades to "no state file" (serve
+	// stats will report not-running) but never blocks the server itself.
+	cfg := config.GetConfig()
+	statePath, stop, err := app.StartServeSideChannel(sc.srv, cfg.GetHost(), cfg.GetDbPath(), sc.routes, app.ServeStatsRefreshInterval)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: serve state file not written: %v\n", err)
+	} else {
+		sc.statsStop = stop
+		_, _ = fmt.Fprintf(os.Stderr, "Serve state file: %s\n", statePath)
+	}
 
 	return nil
 }
@@ -250,7 +187,8 @@ func (sc *ServerCommand) StartServer(port, headerType string) error {
 // StopServer stops the embedded mock server.
 func (sc *ServerCommand) StopServer() error {
 	if sc.srv == nil || !sc.srv.IsRunning() {
-		fmt.Println("Mock server is not running")
+		_, _ = fmt.Fprintln(os.Stderr, "Mock server is not running")
+		sc.stopSideChannel()
 
 		return nil
 	}
@@ -260,45 +198,22 @@ func (sc *ServerCommand) StopServer() error {
 		return fmt.Errorf("failed to stop mock server: %w", err)
 	}
 
-	fmt.Printf("Embedded ISO8583 Mock Server on port %s stopped 🔴\n", port)
+	// Clean stop retires the PAR-304 side-channel files, so `serve stats`
+	// immediately reports "no running server" instead of a stale PID.
+	sc.stopSideChannel()
+
+	_, _ = fmt.Fprintf(os.Stderr, "Embedded ISO8583 Mock Server on port %s stopped 🔴\n", port)
 
 	return nil
 }
 
-// ListRoutes displays all active mock routes.
-func (sc *ServerCommand) ListRoutes() {
-	if len(sc.routes) == 0 {
-		fmt.Println("No mock routes configured")
-		return
+// stopSideChannel halts the snapshot ticker and removes the state files;
+// idempotent and safe when the side-channel never started.
+func (sc *ServerCommand) stopSideChannel() {
+	if sc.statsStop != nil {
+		if err := sc.statsStop(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: serve state cleanup failed: %v\n", err)
+		}
+		sc.statsStop = nil
 	}
-
-	fmt.Println("================================================================================")
-	fmt.Println(" CONFIGURED MOCK ROUTES")
-	fmt.Println("================================================================================")
-	for i, r := range sc.routes {
-		var matchDesc strings.Builder
-		if len(r.MatchFields) == 0 {
-			matchDesc.WriteString("ANY")
-		} else {
-			first := true
-			for k, v := range r.MatchFields {
-				if !first {
-					matchDesc.WriteString(", ")
-				}
-				matchDesc.WriteString(fmt.Sprintf("%s=%v", k, v))
-				first = false
-			}
-		}
-		delayStr := ""
-		delayMs := r.DelayMs
-		if delayMs == 0 && r.LatencyMs > 0 {
-			delayMs = r.LatencyMs
-		}
-		if delayMs > 0 || r.JitterMs > 0 {
-			delayStr = fmt.Sprintf(" | Latency: %dms (Jitter: ±%dms)", delayMs, r.JitterMs)
-		}
-		fmt.Printf(" Route %d: %-25s | Match: %s | Resp MTI: %s%s\n",
-			i+1, r.Name, matchDesc.String(), r.ResponseMTI, delayStr)
-	}
-	fmt.Println("================================================================================")
 }

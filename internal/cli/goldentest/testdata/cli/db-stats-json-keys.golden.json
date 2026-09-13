@@ -1,0 +1,21 @@
+{
+  "args": [
+    "db",
+    "stats",
+    "golden-session-0001",
+    "--db",
+    "session.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "session",
+    "stats",
+    "transactions"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_exist": [
+    "session.db"
+  ]
+}

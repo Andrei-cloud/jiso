@@ -1,0 +1,22 @@
+{
+  "args": [
+    "db",
+    "stats",
+    "--db",
+    "session.db"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "Database Summary",
+    "DB Path:            session.db",
+    "Sessions:           2",
+    "Total Transactions: 2",
+    "First Session:",
+    "Last Session:"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_exist": [
+    "session.db"
+  ]
+}

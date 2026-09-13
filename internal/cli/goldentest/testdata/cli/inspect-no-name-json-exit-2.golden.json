@@ -1,0 +1,16 @@
+{
+  "args": [
+    "inspect",
+    "--json",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "stdin": "",
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "transaction name is required"
+  ],
+  "expect_exit": 2
+}

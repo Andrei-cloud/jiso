@@ -1,0 +1,10 @@
+{
+  "args": [
+    "tui"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "requires an interactive terminal"
+  ],
+  "expect_exit": 2
+}

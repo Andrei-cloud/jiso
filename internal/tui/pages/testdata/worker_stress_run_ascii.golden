@@ -1,0 +1,10 @@
++----------------------------------------------------------+
+|STRESS  1 tx > 2 rate > 3 run                             |
+|tx       tx-01                                            |
+|tps      10                                               |
+|ramp     30s                                              |
+|duration 1m                                               |
+|workers  1                                                |
+|ready - Enter starts the stress test                      |
+|                              [Enter] start   [Esc] back  |
++----------------------------------------------------------+

@@ -1,0 +1,29 @@
+{
+  "args": [
+    "serve",
+    "stats",
+    "$LIVE_PORT",
+    "--json"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "running",
+    "port",
+    "header_type",
+    "pid",
+    "start_time",
+    "uptime",
+    "active_connections",
+    "total_served",
+    "instant_tps",
+    "peak_tps",
+    "average_tps",
+    "snapshot_at"
+  ],
+  "expect_json_fields": {
+    "running": "true",
+    "port": "\"$LIVE_PORT\""
+  },
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

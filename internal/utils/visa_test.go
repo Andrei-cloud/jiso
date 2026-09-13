@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"io"
 	"testing"
 
@@ -11,6 +12,8 @@ import (
 )
 
 func TestParseStationID(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		input       string
@@ -72,6 +75,8 @@ func TestParseStationID(t *testing.T) {
 }
 
 func TestVisaHeader_WriteTo(t *testing.T) {
+	t.Parallel()
+
 	vh, err := NewVisaHeader("123456")
 	if err != nil {
 		t.Fatalf("failed to create VisaHeader: %v", err)
@@ -130,6 +135,8 @@ func TestVisaHeader_WriteTo(t *testing.T) {
 }
 
 func TestVisaHeader_ReadFrom(t *testing.T) {
+	t.Parallel()
+
 	// TCP header: 2 bytes length (22 + 15 = 37 = 0x0025), 2 bytes marker (0x00, 0x00)
 	// VisaNet header: length 22 (0x16), and rest zeroes
 	inputHex := "0025000016010200250000001234560000000000000000000000"
@@ -153,6 +160,8 @@ func TestVisaHeader_ReadFrom(t *testing.T) {
 }
 
 func TestVisaHeader_ReadFrom_ExtraHeaderBytes(t *testing.T) {
+	t.Parallel()
+
 	// Header length is 26 (0x1A).
 	// TCP header: length 26 + 10 = 36 = 0x0024, marker 0x0000
 	// VisaNet header: length 26, flag 0x01, format 0x02, etc. (total 26 bytes)
@@ -177,11 +186,13 @@ func TestVisaHeader_ReadFrom_ExtraHeaderBytes(t *testing.T) {
 }
 
 func TestVisaHeader_ReadFrom_Errors(t *testing.T) {
+	t.Parallel()
+
 	vh, _ := NewVisaHeader("000000")
 
 	// 1. Short TCP header
 	_, err := vh.ReadFrom(bytes.NewReader([]byte{0x00, 0x20}))
-	if err == nil || err == io.EOF {
+	if err == nil || errors.Is(err, io.EOF) {
 		t.Errorf("expected error for short TCP header, got %v", err)
 	}
 
@@ -213,6 +224,8 @@ func TestVisaHeader_ReadFrom_Errors(t *testing.T) {
 }
 
 func TestVisaHeader_SessionControl(t *testing.T) {
+	t.Parallel()
+
 	vh, _ := NewVisaHeader("000000")
 
 	// Session control indicator '2' in BCD is 0x20
@@ -246,6 +259,8 @@ func TestVisaHeader_SessionControl(t *testing.T) {
 }
 
 func TestVisaHeader_ExceedMaxMessageLength(t *testing.T) {
+	t.Parallel()
+
 	vh, _ := NewVisaHeader("000000")
 	vh.SetLength(3000)
 
@@ -264,6 +279,8 @@ func TestVisaHeader_ExceedMaxMessageLength(t *testing.T) {
 }
 
 func TestVisaField60And61Packing(t *testing.T) {
+	t.Parallel()
+
 	specJSON := `{
 		"fields": {
 			"0": {
@@ -338,4 +355,3 @@ func TestVisaField60And61Packing(t *testing.T) {
 		t.Errorf("expected field 61 bytes, got %x", f61Bytes)
 	}
 }
-

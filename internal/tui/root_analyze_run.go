@@ -1,0 +1,183 @@
+// root_analyze_run.go is the §J run leg: the goal/header/mask picks, arming the
+// engine, and applying its result to the wizard. The engine call happens in a
+// tea.Cmd; the apply here is pure state plus a command, and it drops any result
+// whose seq token is not the current one.
+package tui
+
+import (
+	"context"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+
+	app "jiso/internal/app"
+	"jiso/internal/tui/pages"
+)
+
+// handleAnalyzeRunMsg is Enter on the run step: start the analysis
+// through the existing run leg with the folded inline options. The
+// "/" flow filter is mapped to the run's port set over the enumerated
+// dst flows ("" = all flows; a filter matching none is a note, never a
+// fabricated selection).
+func (m *RootModel) handleAnalyzeRunMsg(msg pages.AnalyzeRunMsg) (tea.Model, tea.Cmd) {
+	if m.analyzeStep != pages.StepRun {
+		return m, nil
+	}
+	if m.analyzeEnumWait || m.analyzeSpecWait || m.analyzeRunWait || m.analyzeWriteWait {
+		m.analyzeNote = analyzeInFlight
+
+		return m, nil
+	}
+	filter := strings.TrimSpace(msg.Filter)
+	m.analyzeFlowFilter = filter
+
+	rows := m.analyzeFlowRows()
+	if len(rows) > 0 {
+		sels, note := analyzeRunSelection(rows, filter)
+		if sels == nil {
+			m.analyzeNote = note
+
+			return m, nil
+		}
+		m.analyzeSelected = sels
+	}
+
+	return m, m.armAnalyzeRun()
+}
+
+// analyzeRunSelection computes the run set from the pending directions
+// intersected with the rows the filter shows. It returns nil selections plus
+// an explanatory note when the selection is empty; Enter never resurrects
+// excluded flows.
+func analyzeRunSelection(rows []pages.AnalyzeFlowRow, filter string) ([]app.FlowSelection, string) {
+	sels := make([]app.FlowSelection, 0, len(rows))
+	for _, r := range rows {
+		if r.Selectable && r.Selected && pages.FlowMatchesFilter(r, filter) {
+			sels = append(sels, app.FlowSelection{Port: r.Port, Dir: r.Direction})
+		}
+	}
+
+	if len(sels) > 0 {
+		return sels, ""
+	}
+
+	if filter != "" {
+		return nil, "no flows match the filter - clear it or fix it"
+	}
+
+	return nil, "no flows selected - space includes, a includes all"
+}
+
+// handleAnalyzeChooseGoal / Header / Mask fold the run step's inline
+// selections (and the header step's pick) into the wizard truth; any
+// selection change marks the run stale (the results must match the
+// selections).
+func (m *RootModel) handleAnalyzeChooseGoal(msg pages.AnalyzeChooseGoalMsg) (tea.Model, tea.Cmd) {
+	switch msg.Goal {
+	case pages.AnalyzeGoalTransactions, pages.AnalyzeGoalMockRoutes, pages.AnalyzeGoalScenario:
+		m.analyzeGoal = msg.Goal
+		m.analyzeRunStale = true
+	}
+
+	return m, nil
+}
+
+func (m *RootModel) handleAnalyzeChooseHeader(msg pages.AnalyzeChooseHeaderMsg) (tea.Model, tea.Cmd) {
+	if msg.Header == "" {
+		return m, nil
+	}
+	m.analyzeHeader = msg.Header
+	m.analyzeRunStale = true
+
+	return m, nil
+}
+
+func (m *RootModel) handleAnalyzeChooseMask(msg pages.AnalyzeChooseMaskMsg) (tea.Model, tea.Cmd) {
+	m.analyzeMaskRaw = msg.Raw
+	m.analyzeRunStale = true
+
+	return m, nil
+}
+
+// armAnalyzeRun launches the engine leg when Enter on the run step
+// starts the analysis with stale selections (or never run): status
+// running, seq-tokened result.
+func (m *RootModel) armAnalyzeRun() tea.Cmd {
+	m.analyzeWriteLine, m.analyzeWriteOK = "", false
+	src := m.analyzeSource()
+	if src == nil {
+		m.analyzeStatus = pages.AnalyzeStatusError
+		m.analyzeNote = analyzeNoEngine
+
+		return nil
+	}
+	if m.analyzeCapturePath == "" {
+		m.analyzeStatus = pages.AnalyzeStatusError
+		m.analyzeNote = analyzeNeedCapture
+
+		return nil
+	}
+	if !m.analyzeRunStale && m.analyzeOutput != nil {
+		// Revisit with unchanged selections: the preview stands.
+		m.analyzeStatus = pages.AnalyzeStatusDone
+
+		return nil
+	}
+
+	m.analyzeRunWait = true
+	m.analyzeRunStale = false
+	m.analyzeStatus = pages.AnalyzeStatusRunning
+	m.analyzeOutput = nil
+	m.analyzePreview = ""
+	m.analyzeElapsed = ""
+	m.analyzeRunStart = m.now()
+	seq := m.analyzeSeq
+	opts := app.AnalyzeRunOptions{
+		PcapPath:   m.analyzeCapturePath,
+		HeaderType: m.analyzeHeader,
+		SpecPath:   m.analyzeSpecPath,
+		Mode:       analyzeEngineMode(m.analyzeGoal),
+		Unsecure:   m.analyzeMaskRaw,
+		Flows:      append([]app.FlowSelection(nil), m.analyzeSelected...),
+		OutputFile: m.analyzeOutputPath,
+	}
+
+	return func() tea.Msg {
+		out, err := src.RunAnalyze(context.Background(), opts)
+
+		return analyzeRunLoadedMsg{seq: seq, out: out, err: err}
+	}
+}
+
+// applyAnalyzeRun folds the engine result: success attaches the run
+// output and the results preview (PreviewWrite is a pure string call);
+// errors land as the run-step Note.
+func (m *RootModel) applyAnalyzeRun(msg analyzeRunLoadedMsg) (tea.Model, tea.Cmd) {
+	m.analyzeRunWait = false
+	if msg.seq != m.analyzeSeq || m.Current().ID() != pages.AnalyzePageID {
+		return m, nil
+	}
+	m.analyzeElapsed = elapsedCell(m.now().Sub(m.analyzeRunStart))
+	if msg.err != nil {
+		m.analyzeStatus = pages.AnalyzeStatusError
+		m.analyzeNote = analyzeErrorText(msg.err)
+
+		return m, nil
+	}
+	if msg.out == nil {
+		// A nil output without an error is a broken leg, not a preview
+		// (E5-FIX/B2: the old code nil-derefed through PreviewWrite).
+		m.analyzeStatus = pages.AnalyzeStatusError
+		m.analyzeNote = "analyze produced no output"
+
+		return m, nil
+	}
+	m.analyzeOutput = msg.out
+	m.analyzeExcluded = nil
+	m.analyzeItemsID++ // re-arms (opens) the generated-item picker (UAT round 6)
+	m.analyzeItemRows = analyzeItemRows(msg.out)
+	m.analyzePreview = analyzeRunSummary(msg.out)
+	m.analyzeStatus = pages.AnalyzeStatusDone
+
+	return m, nil
+}

@@ -36,12 +36,15 @@ type TransactionRecord struct {
 }
 
 var (
-	logger *AsyncLogger
-	once   sync.Once
+	logger   *AsyncLogger
+	once     sync.Once
+	loggerMu sync.Mutex // Guards logger/once; prevents double close(logger.done)
 )
 
 // InitAsyncLogger initializes the asynchronous logger
 func InitAsyncLogger(bufferSize, batchSize int, interval time.Duration) {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
 	once.Do(func() {
 		logger = &AsyncLogger{
 			txChan:    make(chan *TransactionRecord, bufferSize),
@@ -53,19 +56,23 @@ func InitAsyncLogger(bufferSize, batchSize int, interval time.Duration) {
 	})
 }
 
-// GetAsyncLogger returns the singleton logger instance
-func GetAsyncLogger() *AsyncLogger {
-	return logger
-}
-
-// StopAsyncLogger stops the background logger and flushes remaining records
+// StopAsyncLogger stops the background logger and flushes remaining records.
+// Safe for concurrent callers: only the first caller closes the done channel.
 func StopAsyncLogger() {
-	if logger != nil {
-		close(logger.done)
-		logger.wg.Wait()
-		logger = nil
-		once = sync.Once{}
+	loggerMu.Lock()
+	l := logger
+	logger = nil
+	loggerMu.Unlock()
+
+	if l == nil {
+		return
 	}
+	close(l.done)
+	l.wg.Wait()
+
+	loggerMu.Lock()
+	once = sync.Once{} // Allow re-initialization after stop
+	loggerMu.Unlock()
 }
 
 // FlushTransactions flushes all queued transactions to the database and waits for write completion
@@ -73,23 +80,14 @@ func FlushTransactions() {
 	StopAsyncLogger()
 }
 
-// LogTransaction queues a basic transaction for logging
-func LogTransaction(sessionID, txName, requestJSON string, responseJSON *string, processingTimeMs int, success bool) {
-	LogTransactionEnriched(&TransactionRecord{
-		SessionID:        sessionID,
-		TxName:           txName,
-		RequestJSON:      requestJSON,
-		ResponseJSON:     responseJSON,
-		ProcessingTimeMs: processingTimeMs,
-		Success:          success,
-	})
-}
-
 // LogTransactionEnriched queues an enriched transaction for logging
 func LogTransactionEnriched(record *TransactionRecord) {
 	if record == nil {
 		return
 	}
+	loggerMu.Lock()
+	logger := logger
+	loggerMu.Unlock()
 	if logger == nil {
 		// Fallback to synchronous if async logger isn't initialized
 		responseCode := record.ResponseCode
@@ -143,13 +141,19 @@ func (l *AsyncLogger) start() {
 			}
 		}
 
+		// appendRecord adds one record and flushes once the batch is full; the
+		// steady loop and the shutdown drain share it so the two paths cannot drift.
+		appendRecord := func(record *TransactionRecord) {
+			batch = append(batch, record)
+			if len(batch) >= l.batchSize {
+				flush()
+			}
+		}
+
 		for {
 			select {
 			case record := <-l.txChan:
-				batch = append(batch, record)
-				if len(batch) >= l.batchSize {
-					flush()
-				}
+				appendRecord(record)
 			case <-ticker.C:
 				flush()
 			case <-l.done:
@@ -159,10 +163,7 @@ func (l *AsyncLogger) start() {
 				for draining {
 					select {
 					case record := <-l.txChan:
-						batch = append(batch, record)
-						if len(batch) >= l.batchSize {
-							flush()
-						}
+						appendRecord(record)
 					default:
 						draining = false
 					}
@@ -175,6 +176,9 @@ func (l *AsyncLogger) start() {
 }
 
 func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
+	connMu.Lock()
+	defer connMu.Unlock()
+
 	if dbConn == nil {
 		return fmt.Errorf("database not initialized")
 	}
@@ -200,7 +204,7 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 	touchedSessions := make(map[string]bool)
 	for _, record := range batch {
 		if record.SessionID != "" && !touchedSessions[record.SessionID] {
-			_ = TouchSession(record.SessionID)
+			_ = touchSessionLocked(record.SessionID)
 			touchedSessions[record.SessionID] = true
 		}
 
@@ -210,7 +214,7 @@ func (l *AsyncLogger) writeBatch(batch []*TransactionRecord) error {
 		}
 
 		err = sqlitex.ExecuteTransient(dbConn, insertSQL, &sqlitex.ExecOptions{
-			Args: []interface{}{
+			Args: []any{
 				record.SessionID,
 				record.TxName,
 				record.RequestJSON,

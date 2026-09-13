@@ -1,0 +1,10 @@
+{
+  "args": [
+    "--bogus"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "unknown flag: --bogus"
+  ],
+  "expect_exit": 2
+}

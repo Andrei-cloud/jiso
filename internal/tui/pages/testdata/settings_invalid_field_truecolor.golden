@@ -1,0 +1,27 @@
+[38;2;68;147;248mSETTINGS (session config — edits apply live)[m                                          [38;2;141;150;160m[w] save to ./user/config.yaml[m
+[38;2;141;150;160mreconnect-attempts    [m3                                   [38;2;68;147;248mconnect-timeout       [mbogus                               
+                      [1;38;2;255;123;114m✗ invalid duration "bogus"[m
+[38;2;141;150;160mtotal-connect-timeout [m10s                                 [38;2;141;150;160mresponse-timeout      [m5s                                  
+[38;2;141;150;160mlisten-timeout        [m5m                                  [38;2;141;150;160mhex output            [moff [38;2;141;150;160m●[m                               
+[38;2;141;150;160mvisa-station-id       [m001234[2;38;2;141;150;160m  session[m                     [38;2;141;150;160mtls-config            [m./testdata/certs/tls_config.json [38;2;141;150;160m✓[m  
+[38;2;141;150;160mspec                  [m./specs/visa.json                   [38;2;141;150;160mtx file               [m./transactions/pool.json            
+[38;2;141;150;160mdb                    [m./sessions.db[2;38;2;141;150;160m  session[m              [38;2;141;150;160moutput                [mtext                                
+[2;38;2;141;150;160mEnter edit field · w persists user defaults (YAML) · Esc discards[m
+[2;38;2;141;150;160mapplies to next operation[m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

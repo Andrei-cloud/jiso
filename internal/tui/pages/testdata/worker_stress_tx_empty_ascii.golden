@@ -1,0 +1,6 @@
++----------------------------------------------------------+
+|STRESS  1 tx > 2 rate > 3 run                             |
+|filter                                                    |
+|no transactions loaded -- [f] browse                      |
+|   [Enter] next   [/] filter   [f] browse   [Esc] cancel  |
++----------------------------------------------------------+

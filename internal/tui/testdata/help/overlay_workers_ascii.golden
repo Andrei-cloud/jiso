@@ -1,0 +1,9 @@
++- HELP -- context: Workers page --------------------------+
+| navigation   up up | down/j down | pgup page up          |
+|              pgdown page down | home top | end bottom    |
+| page actions b bgsend | t stress | k stop sel            |
+|              K stop all | enter detail | esc back        |
+| global       1-8 pages | :/ctrl+p palette | c connect    |
+|              tab/shift+tab focus pane | ? this           |
+|              q quit / back | ctrl+c graceful quit        |
++----------------------------------------------------------+

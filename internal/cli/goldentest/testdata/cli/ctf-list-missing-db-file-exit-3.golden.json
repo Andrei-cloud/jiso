@@ -1,0 +1,17 @@
+{
+  "args": [
+    "ctf",
+    "list",
+    "--db",
+    "nope.db",
+    "--json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "database file does not exist: nope.db"
+  ],
+  "expect_exit": 3,
+  "files_must_not_exist": [
+    "nope.db"
+  ]
+}

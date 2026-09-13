@@ -1,0 +1,16 @@
+{
+  "args": [
+    "connect",
+    "check",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "$LIVE_PORT"
+  ],
+  "expect_stdout_mode": "prefix",
+  "expect_stdout": [
+    "ok 127.0.0.1:"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0
+}

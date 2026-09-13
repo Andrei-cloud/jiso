@@ -12,8 +12,8 @@ import (
 
 // VarianceResult holds the generated base transaction template and extracted dataset rows
 type VarianceResult struct {
-	Transaction config.ConfigItem
-	Dataset     config.ConfigItem
+	Transaction config.Item
+	Dataset     config.Item
 }
 
 // VarianceEngine performs variance analysis on captured message flows
@@ -34,15 +34,6 @@ func NewVarianceEngine(spec *iso8583.MessageSpec, unsecure ...bool) *VarianceEng
 	}
 	ve.anonymizer = NewAnonymizer(ve.unsecure)
 	return ve
-}
-
-func (ve *VarianceEngine) SetUnsecure(unsecure bool) {
-	ve.unsecure = unsecure
-	ve.anonymizer = NewAnonymizer(unsecure)
-}
-
-func (ve *VarianceEngine) IsUnsecure() bool {
-	return ve.unsecure
 }
 
 func isNumericField(spec *iso8583.MessageSpec, fieldID int) bool {
@@ -71,7 +62,7 @@ func (ve *VarianceEngine) AnalyzeFlow(flow *CapturedFlow) ([]*VarianceResult, er
 	return ve.analyzeGeneralFlow(flow)
 }
 
-func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) interface{} {
+func (ve *VarianceEngine) formatFieldValue(fieldID int, val string) any {
 	if fieldID == 3 {
 		return FormatProcCode(val)
 	}

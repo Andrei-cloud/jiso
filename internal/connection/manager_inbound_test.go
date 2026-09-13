@@ -12,6 +12,8 @@ import (
 )
 
 func TestCloseCleansUpPendingRequests(t *testing.T) {
+	t.Parallel()
+
 	spec := mockMessageSpec()
 	// Create a server that doesn't respond (for timeout testing)
 	server, err := startTestServer(spec, false) // Don't respond

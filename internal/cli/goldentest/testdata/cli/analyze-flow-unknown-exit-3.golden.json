@@ -1,0 +1,21 @@
+{
+  "args": [
+    "analyze",
+    "analyze.pcap",
+    "--yes",
+    "--flow",
+    "5555",
+    "--spec",
+    "spec.json",
+    "--header",
+    "ascii4"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "flow port 5555 not found in capture; available flows: 8080, 9999"
+  ],
+  "expect_exit": 3,
+  "files_must_not_exist": [
+    "$WORK/transactions/transaction.json"
+  ]
+}

@@ -1,0 +1,101 @@
+// scenarios_state.go holds the §F state contract (wireframe
+// .opencode/plans/02-tui-wireframes.md §F) and the page→router messages.
+// Root owns the live operation: it runs the SAME scenario engine the CLI
+// `scenario run` uses (transactions.ScenarioRunner via the app service),
+// streams per-step progress back as root-internal messages, derives every
+// display string (MTI, RC, validation notes, summary banner) with its
+// injectable clock and the shared app.ScenarioReport view, and pushes
+// ScenariosState snapshots via SetState — the page never touches
+// internal/app and never reads the clock (SCR-501 data-flow contract).
+package pages
+
+import (
+	"strings"
+	"time"
+)
+
+// ScenariosPageID is the router id of the §F scenarios page:
+// hotkey 3, footer label "scenarios".
+const ScenariosPageID = "scenarios"
+
+// ScenarioRow is one scenario in the master list. ID is the stable row
+// identity (the scenario name in the tx file) that survives filter
+// recomposition; Name is the display text.
+type ScenarioRow struct {
+	ID   string
+	Name string
+}
+
+// StepStatus is one step's execution state. Zero value is StepPending
+// (declared, not yet run) — never a fake pass.
+type StepStatus uint8
+
+const (
+	// StepPending is a declared step that has not started yet.
+	StepPending StepStatus = iota
+	// StepRunning is a step that started and has no result yet (renders ⏳ + "running",
+	// symbol+word per contract).
+	StepRunning
+	// StepPass is a step that finished successfully (✓).
+	StepPass
+	// StepFail is a step that finished with an error or failed assertions (✗).
+	StepFail
+)
+
+// StepRow is one step row as pre-derived display strings. MTI comes from
+// the step's transaction template (field 0), RC from the response's field
+// 39 when root could unpack it ("" renders as the dash). Note is the raw
+// sub-line text (extract/validate summary on pass, `expect "00" got "96"`
+// diff or engine error on fail); the page adds the theme status glyphs,
+// so no glyph choices leak into state and ascii goldens stay 7-bit.
+// Latency is root-stamped (time.Duration, never a timestamp).
+type StepRow struct {
+	Index   int
+	Name    string
+	MTI     string
+	RC      string
+	Note    string
+	Latency time.Duration
+	Status  StepStatus
+}
+
+// ScenariosState is the immutable snapshot root pushes into the page.
+// Scenarios is the full list (the page filters it locally);
+// SelectedSteps holds the step rows for the scenario under the page's
+// cursor (empty = none). Running marks a live engine run. Summary is the
+// final banner (`3/3 passed · 7.1ms total`); ReportPath is the export
+// destination root uses for `e` (the CLI --report convention: path as
+// given, default scenario-report.json in cwd — the CLI flag itself has
+// no default); StatusLine is the toast-less export feedback line
+// (`report → path` / `no report yet`, TUI-406b will add real toasts).
+type ScenariosState struct {
+	Scenarios     []ScenarioRow
+	SelectedSteps []StepRow
+	Running       bool
+	Summary       string
+	ReportPath    string
+	StatusLine    string
+}
+
+// matchText is the filter haystack: the lowercased display fields, so
+// one substring hit keeps the row (transactions pattern).
+func (r ScenarioRow) matchText() string {
+	return strings.ToLower(r.ID + " " + r.Name)
+}
+
+// ScenarioRunMsg asks the router to run the scenario with ID through the
+// engine (Enter). Root owns the live op: one run at a time, a run while
+// one is in flight is ignored (no queue — the send pattern).
+type ScenarioRunMsg struct {
+	ID string
+}
+
+// ScenarioExportMsg asks the router to write the last completed report
+// as JSON to the report path ('e'). With no completed report root marks
+// the status line honestly instead of silently succeeding.
+type ScenarioExportMsg struct{}
+
+// ScenarioPopMsg asks the router to pop the §F page (Esc). Root owns the
+// stack; at depth 1 the pop is a no-op (InspectorPopMsg/SendPopMsg
+// pattern — the consistent Esc/back behaviour of the merged pages).
+type ScenarioPopMsg struct{}

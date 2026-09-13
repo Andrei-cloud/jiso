@@ -1,0 +1,6 @@
++----------------------------------------------------------+
+|BGSEND  1 tx > 2 params > 3 run                           |
+|count    1|  (sends per tick)                             |
+|interval 1s  (e.g. 500ms, 1.5s, 1m)                       |
+|             [Enter] next   [up/down] field   [Esc] back  |
++----------------------------------------------------------+

@@ -1,0 +1,16 @@
+{
+  "args": [
+    "scenario",
+    "list",
+    "-s",
+    "bad-spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "failed to load spec",
+    "bad-spec.json"
+  ],
+  "expect_exit": 3
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -17,6 +18,9 @@ import (
 	"jiso/internal/utils"
 )
 
+// GetMockRoutes returns the mock routes the transaction file declares. It is nil
+// safe because the TUI asks a collection that failed to load, where the mock
+// page has to show an empty state instead of panicking.
 func (tc *TransactionCollection) GetMockRoutes() []cfg.MockRouteConfig {
 	if tc == nil {
 		return nil
@@ -24,12 +28,17 @@ func (tc *TransactionCollection) GetMockRoutes() []cfg.MockRouteConfig {
 	return tc.mockRoutes
 }
 
+// SetSpec replaces the spec messages are composed against, nil-safe for the same
+// reason as GetMockRoutes.
 func (tc *TransactionCollection) SetSpec(spec *iso8583.MessageSpec) {
 	if tc != nil {
 		tc.spec = spec
 	}
 }
 
+// NewTransactionCollection loads the transaction file at filename against specs.
+// An empty filename gives an empty collection rather than an error: running with
+// a --spec and no transaction file is valid, it simply has nothing to send.
 func NewTransactionCollection(
 	filename string,
 	specs *iso8583.MessageSpec,
@@ -56,19 +65,18 @@ func NewTransactionCollection(
 	if err := json.Unmarshal(data, &items); err != nil {
 		// Attempt parsing as legacy list of transactions directly
 		var legacyTx []Transaction
-		if errLegacy := json.Unmarshal(data, &legacyTx); errLegacy == nil {
-			items = make([]ConfigItem, len(legacyTx))
-			for i, lt := range legacyTx {
-				items[i] = ConfigItem{
-					Type:        "transaction",
-					Name:        lt.Name,
-					Description: lt.Description,
-					Fields:      lt.Fields,
-					Dataset:     lt.Dataset,
-				}
-			}
-		} else {
+		if errLegacy := json.Unmarshal(data, &legacyTx); errLegacy != nil {
 			return nil, fmt.Errorf("failed to unmarshal data: %w", err)
+		}
+		items = make([]ConfigItem, len(legacyTx))
+		for i, lt := range legacyTx {
+			items[i] = ConfigItem{
+				Type:        "transaction",
+				Name:        lt.Name,
+				Description: lt.Description,
+				Fields:      lt.Fields,
+				Dataset:     lt.Dataset,
+			}
 		}
 	}
 
@@ -86,54 +94,7 @@ func NewTransactionCollection(
 	}
 
 	for _, item := range items {
-		switch item.Type {
-		case "", "transaction":
-			specPath := item.Spec
-			if specPath == "" {
-				specPath = item.SpecFile
-			}
-			t := Transaction{
-				Name:        item.Name,
-				Description: item.Description,
-				Spec:        specPath,
-				Fields:      item.Fields,
-				Dataset:     item.Dataset,
-				DatasetName: item.DatasetName,
-			}
-			tc.transactions = append(tc.transactions, t)
-		case "dataset":
-			d := Dataset{
-				Name: item.Name,
-				Data: item.Data,
-			}
-			tc.datasets[item.Name] = &d
-		case "scenario":
-			var steps []ScenarioStep
-			if len(item.Steps) > 0 {
-				_ = json.Unmarshal(item.Steps, &steps)
-			}
-			s := Scenario{
-				Name:        item.Name,
-				Description: item.Description,
-				DatasetName: item.DatasetName,
-				Steps:       steps,
-			}
-			tc.scenarios[item.Name] = &s
-		case "mock_route":
-			r := cfg.MockRouteConfig{
-				Name:           item.Name,
-				MatchFields:    item.MatchFields,
-				RequiredFields: item.RequiredFields,
-				EchoFields:     item.EchoFields,
-				ResponseMTI:    item.ResponseMTI,
-				ResponseFields: item.ResponseFields,
-				DelayMs:        item.DelayMs,
-				LatencyMs:      item.LatencyMs,
-				JitterMs:       item.JitterMs,
-				DropConnection: item.DropConnection,
-			}
-			tc.mockRoutes = append(tc.mockRoutes, r)
-		}
+		tc.addItem(item)
 	}
 
 	if len(tc.transactions) == 0 && len(tc.scenarios) == 0 && len(tc.mockRoutes) == 0 {
@@ -156,10 +117,62 @@ func NewTransactionCollection(
 	// Load saved state
 	err = tc.loadState()
 	if err != nil {
-		fmt.Printf("Warning: Failed to load transaction state: %v\n", err)
+		outputf("Warning: Failed to load transaction state: %v\n", err)
 	}
 
 	return tc, nil
+}
+
+// addItem appends a parsed config item to the collection under its type.
+func (tc *TransactionCollection) addItem(item ConfigItem) {
+	switch item.Type {
+	case "", "transaction":
+		specPath := item.Spec
+		if specPath == "" {
+			specPath = item.SpecFile
+		}
+		t := Transaction{
+			Name:        item.Name,
+			Description: item.Description,
+			Spec:        specPath,
+			Fields:      item.Fields,
+			Dataset:     item.Dataset,
+			DatasetName: item.DatasetName,
+		}
+		tc.transactions = append(tc.transactions, t)
+	case "dataset":
+		d := Dataset{
+			Name: item.Name,
+			Data: item.Data,
+		}
+		tc.datasets[item.Name] = &d
+	case "scenario":
+		var steps []ScenarioStep
+		if len(item.Steps) > 0 {
+			_ = json.Unmarshal(item.Steps, &steps)
+		}
+		s := Scenario{
+			Name:        item.Name,
+			Description: item.Description,
+			DatasetName: item.DatasetName,
+			Steps:       steps,
+		}
+		tc.scenarios[item.Name] = &s
+	case "mock_route":
+		r := cfg.MockRouteConfig{
+			Name:           item.Name,
+			MatchFields:    item.MatchFields,
+			RequiredFields: item.RequiredFields,
+			EchoFields:     item.EchoFields,
+			ResponseMTI:    item.ResponseMTI,
+			ResponseFields: item.ResponseFields,
+			DelayMs:        item.DelayMs,
+			LatencyMs:      item.LatencyMs,
+			JitterMs:       item.JitterMs,
+			DropConnection: item.DropConnection,
+		}
+		tc.mockRoutes = append(tc.mockRoutes, r)
+	}
 }
 
 // SetPersistenceDirectory sets directory for transaction state persistence
@@ -182,18 +195,25 @@ func (tc *TransactionCollection) SaveState() error {
 	tc.saveLock.Lock()
 	defer tc.saveLock.Unlock()
 
+	// Resolve the persistence directory before taking the read lock:
+	// SetPersistenceDirectory needs the write lock and would deadlock
+	// against an already-held RLock (lock upgrade).
 	tc.stateLock.RLock()
-	defer tc.stateLock.RUnlock()
+	persistDir := tc.persistDir
+	tc.stateLock.RUnlock()
 
-	if tc.persistDir == "" {
+	if persistDir == "" {
 		// If persistence directory not set, use default temp directory
-		persistDir := filepath.Join(os.TempDir(), "jiso")
+		persistDir = filepath.Join(os.TempDir(), "jiso")
 		if err := tc.SetPersistenceDirectory(persistDir); err != nil {
 			return err
 		}
 	}
 
-	filePath := filepath.Join(tc.persistDir, transactionCacheFile)
+	tc.stateLock.RLock()
+	defer tc.stateLock.RUnlock()
+
+	filePath := filepath.Join(persistDir, transactionCacheFile)
 
 	// Marshal data
 	jsonData, err := json.MarshalIndent(tc.state, "", "  ")
@@ -214,11 +234,10 @@ func (tc *TransactionCollection) SaveState() error {
 	return nil
 }
 
-// loadState loads transaction state from disk
+// loadState loads transaction state from disk. Only called during
+// construction; the persistence directory must be resolved before taking
+// the state write lock (SetPersistenceDirectory acquires it too).
 func (tc *TransactionCollection) loadState() error {
-	tc.stateLock.Lock()
-	defer tc.stateLock.Unlock()
-
 	if tc.persistDir == "" {
 		// If persistence directory not set, use default temp directory
 		persistDir := filepath.Join(os.TempDir(), "jiso")
@@ -226,6 +245,9 @@ func (tc *TransactionCollection) loadState() error {
 			return err
 		}
 	}
+
+	tc.stateLock.Lock()
+	defer tc.stateLock.Unlock()
 
 	filePath := filepath.Join(tc.persistDir, transactionCacheFile)
 
@@ -271,14 +293,14 @@ func (tc *TransactionCollection) LogTransaction(name string, success bool) {
 
 	tc.stateLock.Unlock()
 
-	// Save state periodically (rate-limited to at most once every 5 seconds)
+	// Save state periodically (rate-limited to at most once every 5 seconds).
+	// The save runs synchronously: the CAS guarantees at most one caller per
+	// window, and a fire-and-forget goroutine could be lost on process exit.
 	now := time.Now().Unix()
 	lastSaved := atomic.LoadInt64(&tc.lastSavedUnix)
 	if now-lastSaved >= 5 {
 		if atomic.CompareAndSwapInt64(&tc.lastSavedUnix, lastSaved, now) {
-			go func() {
-				_ = tc.SaveState()
-			}()
+			_ = tc.SaveState()
 		}
 	}
 }
@@ -297,13 +319,17 @@ func (tc *TransactionCollection) GetTransactionHistory(limit int) []TransactionL
 		start = 0
 	}
 
-	return tc.state.TransactionLogs[start:]
+	// Clone: callers iterate the result after the lock is released, while
+	// LogTransaction keeps appending to the shared backing array.
+	return slices.Clone(tc.state.TransactionLogs[start:])
 }
 
 func isInvalidFilename(filename string) bool {
 	return strings.Contains(filepath.Clean(filename), "..")
 }
 
+// ListNames returns the transaction names in file order, which is the order the
+// send list shows them.
 func (tc *TransactionCollection) ListNames() []string {
 	names := make([]string, len(tc.transactions))
 	for i, t := range tc.transactions {
@@ -312,19 +338,33 @@ func (tc *TransactionCollection) ListNames() []string {
 	return names
 }
 
-func (tc *TransactionCollection) Info(name string) (string, string, string, error) {
+// TransactionInfo is one transaction's detail as the Info accessor and the
+// Repository interface report it: its name, description, and fields rendered
+// as indented JSON.
+type TransactionInfo struct {
+	Name        string
+	Description string
+	FieldsJSON  string
+}
+
+// Info returns the named transaction's name, description, and fields as
+// indented JSON, or an error when the collection has no such transaction.
+func (tc *TransactionCollection) Info(name string) (TransactionInfo, error) {
 	t, err := tc.findTransaction(name)
 	if err != nil {
-		return "", "", "", err
+		return TransactionInfo{}, err
 	}
 
 	fieldsJSON, err := json.MarshalIndent(t.Fields, "", "  ")
 	if err != nil {
-		return "", "", "", err
+		return TransactionInfo{}, err
 	}
-	return t.Name, t.Description, string(fieldsJSON), nil
+
+	return TransactionInfo{Name: t.Name, Description: t.Description, FieldsJSON: string(fieldsJSON)}, nil
 }
 
+// ListFormatted returns the transactions as "name  description" lines padded to
+// the longest name, so the CLI list aligns without the caller measuring.
 func (tc *TransactionCollection) ListFormatted() []string {
 	maxNameLen := 0
 	for _, t := range tc.transactions {
@@ -342,6 +382,8 @@ func (tc *TransactionCollection) ListFormatted() []string {
 
 // Validate performs comprehensive validation of the transaction collection
 
+// ListScenarios returns the scenario names sorted: they come out of a map, and an
+// operator comparing two runs of the list should see one order, not two.
 func (tc *TransactionCollection) ListScenarios() []string {
 	names := make([]string, 0, len(tc.scenarios))
 	for name := range tc.scenarios {
@@ -351,6 +393,7 @@ func (tc *TransactionCollection) ListScenarios() []string {
 	return names
 }
 
+// GetScenario returns the named scenario, or an error naming what was asked for.
 func (tc *TransactionCollection) GetScenario(name string) (*Scenario, error) {
 	s, ok := tc.scenarios[name]
 	if !ok {
@@ -359,6 +402,7 @@ func (tc *TransactionCollection) GetScenario(name string) (*Scenario, error) {
 	return s, nil
 }
 
+// GetDataset returns the named dataset, or an error naming what was asked for.
 func (tc *TransactionCollection) GetDataset(name string) (*Dataset, error) {
 	d, ok := tc.datasets[name]
 	if !ok {

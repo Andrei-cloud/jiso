@@ -19,11 +19,11 @@ type TransactionCollectionSuite struct {
 
 func (suite *TransactionCollectionSuite) SetupTest() {
 	// Create a temporary file with the test data
-	data := []map[string]interface{}{
+	data := []map[string]any{
 		{
 			"name":        "test1",
 			"description": "Test transaction 1",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"2":  "1234567890123456",
 				"3":  123456,
 				"4":  "10000",
@@ -35,7 +35,7 @@ func (suite *TransactionCollectionSuite) SetupTest() {
 		{
 			"name":        "test2",
 			"description": "Test transaction 2",
-			"fields": map[string]interface{}{
+			"fields": map[string]any{
 				"2":  "9876543210987654",
 				"3":  654321,
 				"4":  "20000",
@@ -67,10 +67,10 @@ func (suite *TransactionCollectionSuite) TestListNames() {
 }
 
 func (suite *TransactionCollectionSuite) TestInfo() {
-	name, desc, fields, err := suite.tc.Info("test1")
+	info, err := suite.tc.Info("test1")
 	suite.NoError(err)
-	suite.Equal("test1", name)
-	suite.Equal("Test transaction 1", desc)
+	suite.Equal("test1", info.Name)
+	suite.Equal("Test transaction 1", info.Description)
 	suite.JSONEq(`{
         "2": "1234567890123456",
         "3": 123456,
@@ -78,10 +78,12 @@ func (suite *TransactionCollectionSuite) TestInfo() {
         "7": "auto",
         "11": "auto",
         "37": "auto"
-    }`, fields)
+    }`, info.FieldsJSON)
 }
 
 func TestLoadRealTransactionJSON(t *testing.T) {
+	t.Parallel()
+
 	tmpDir := t.TempDir()
 	txFile := filepath.Join(tmpDir, "transaction.json")
 	sampleJSON := `[
@@ -120,5 +122,7 @@ func TestLoadRealTransactionJSON(t *testing.T) {
 }
 
 func TestTransactionCollectionSuite(t *testing.T) {
+	t.Parallel()
+
 	suite.Run(t, new(TransactionCollectionSuite))
 }

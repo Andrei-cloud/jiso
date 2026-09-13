@@ -1,0 +1,24 @@
++- jiso dev --------------------------------------- [x] offline - [!] no spec -+
+| VISA BASE II - CTF EXPORT  db: -                                             |
+| database not configured - pass --db to enable session logging                |
+| SESSIONS (Visa tx eligible)                                                  |
+| +--------------------------------------------------------------------------+ |
+| |database not configured                                                   | |
+| |                                                                          | |
+| |                                                                          | |
+| |                                                                          | |
+| |                                                                          | |
+| +--------------------------------------------------------------------------+ |
+| PARAMETERS                                                                   |
+| +--------------------------------------------------------------------------+ |
+| |CIB (interchange BIN) 400129                                              | |
+| |Filter card BIN       (blank = all)                                       | |
+| |Batch number          1                                                   | |
+| |Output path           ./out/CTF_001.dat                                   | |
+| +--------------------------------------------------------------------------+ |
+| SUMMARY: [ok] - tx | total - | header/trailer dates auto                     |
+| [Enter] preview records -> shows every record, writes nothing                |
+|                                                                              |
++------------------------------------------------------------------------------+
+| : cmd  ? help  q quit  enter generate  tab pane/field  w write               |
++------------------------------------------------------------------------------+

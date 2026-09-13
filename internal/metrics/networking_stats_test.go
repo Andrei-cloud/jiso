@@ -6,6 +6,8 @@ import (
 )
 
 func TestNewNetworkingStats(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 	if stats == nil {
 		t.Fatal("NewNetworkingStats returned nil")
@@ -51,6 +53,8 @@ func TestNewNetworkingStats(t *testing.T) {
 }
 
 func TestReconnectMetrics(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Record attempts
@@ -79,6 +83,8 @@ func TestReconnectMetrics(t *testing.T) {
 }
 
 func TestBackoffMetrics(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Record backoffs
@@ -94,6 +100,8 @@ func TestBackoffMetrics(t *testing.T) {
 }
 
 func TestCircuitBreakerMetrics(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Record trips and resets
@@ -109,6 +117,8 @@ func TestCircuitBreakerMetrics(t *testing.T) {
 }
 
 func TestHealthCheckMetrics(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Record health checks
@@ -124,6 +134,8 @@ func TestHealthCheckMetrics(t *testing.T) {
 }
 
 func TestErrorMetrics(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Record errors
@@ -139,6 +151,8 @@ func TestErrorMetrics(t *testing.T) {
 }
 
 func TestGetAllMetrics(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Record some metrics
@@ -207,6 +221,8 @@ func TestGetAllMetrics(t *testing.T) {
 }
 
 func TestMeanCalculationsWithZero(t *testing.T) {
+	t.Parallel()
+
 	stats := NewNetworkingStats()
 
 	// Test mean calculations with no data
@@ -221,5 +237,26 @@ func TestMeanCalculationsWithZero(t *testing.T) {
 	stats.RecordReconnectSuccess(100 * time.Millisecond)
 	if stats.MeanReconnectTime() != 100*time.Millisecond {
 		t.Errorf("Expected mean reconnect time 100ms, got %v", stats.MeanReconnectTime())
+	}
+}
+
+func TestByteCounters(t *testing.T) {
+	t.Parallel()
+
+	stats := NewNetworkingStats()
+	stats.RecordTxBytes(1000)
+	stats.RecordRxBytes(2048)
+	stats.RecordTxBytes(0)
+	stats.RecordRxBytes(-5)
+
+	if got := stats.TxBytes(); got != 1000 {
+		t.Errorf("TxBytes = %d, want 1000", got)
+	}
+	if got := stats.RxBytes(); got != 2048 {
+		t.Errorf("RxBytes = %d, want 2048", got)
+	}
+	m := stats.GetAllMetrics()
+	if m["tx_bytes"] != int64(1000) || m["rx_bytes"] != int64(2048) {
+		t.Errorf("GetAllMetrics bytes = %v/%v", m["tx_bytes"], m["rx_bytes"])
 	}
 }

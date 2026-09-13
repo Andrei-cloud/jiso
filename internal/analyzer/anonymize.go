@@ -53,7 +53,8 @@ func (a *Anonymizer) AnonymizePAN(pan string) string {
 	prefix := panClean[:8]
 	var masked string
 
-	if length >= 16 {
+	switch {
+	case length >= 16:
 		// Positions 9..13 (5 digits): deterministic numbers
 		randDigits := deterministicNumericDigits(panClean, 5)
 		// Positions 14..16 (3 digits): "000"
@@ -63,10 +64,10 @@ func (a *Anonymizer) AnonymizePAN(pan string) string {
 			tail = panClean[16:]
 		}
 		masked = prefix + randDigits + autogenSuffix + tail
-	} else if length <= 11 {
+	case length <= 11:
 		randCount := length - 8
 		masked = prefix + deterministicNumericDigits(panClean, randCount)
-	} else {
+	default:
 		randCount := length - 8 - 3
 		masked = prefix + deterministicNumericDigits(panClean, randCount) + "000"
 	}
@@ -124,7 +125,7 @@ func (a *Anonymizer) AnonymizeTrack1(track1 string) string {
 }
 
 // AnonymizeFieldValue anonymizes sensitive field values.
-func (a *Anonymizer) AnonymizeFieldValue(fieldID int, val interface{}) interface{} {
+func (a *Anonymizer) AnonymizeFieldValue(fieldID int, val any) any {
 	if a == nil || a.unsecure || val == nil {
 		return val
 	}
@@ -141,22 +142,23 @@ func (a *Anonymizer) AnonymizeFieldValue(fieldID int, val interface{}) interface
 		default:
 			return v
 		}
-	case map[string]interface{}:
-		res := make(map[string]interface{}, len(v))
+	case map[string]any:
+		res := make(map[string]any, len(v))
 		for k, child := range v {
-			if k == "57" || strings.EqualFold(k, "track2") || strings.EqualFold(k, "9f6b") {
+			switch {
+			case k == "57" || strings.EqualFold(k, "track2") || strings.EqualFold(k, "9f6b"):
 				if strChild, isStr := child.(string); isStr {
 					res[k] = a.AnonymizeTrack2(strChild)
 				} else {
 					res[k] = a.AnonymizeFieldValue(0, child)
 				}
-			} else if k == "2" || strings.EqualFold(k, "pan") {
+			case k == "2" || strings.EqualFold(k, "pan"):
 				if strChild, isStr := child.(string); isStr {
 					res[k] = a.AnonymizePAN(strChild)
 				} else {
 					res[k] = a.AnonymizeFieldValue(2, child)
 				}
-			} else {
+			default:
 				res[k] = a.AnonymizeFieldValue(0, child)
 			}
 		}
@@ -166,23 +168,8 @@ func (a *Anonymizer) AnonymizeFieldValue(fieldID int, val interface{}) interface
 	}
 }
 
-// AnonymizePAN masks a Primary Account Number using default deterministic anonymizer.
-func AnonymizePAN(pan string) string {
-	return defaultAnonymizer.AnonymizePAN(pan)
-}
-
-// AnonymizeTrack2 masks Track 2 data using default deterministic anonymizer.
-func AnonymizeTrack2(track2 string) string {
-	return defaultAnonymizer.AnonymizeTrack2(track2)
-}
-
-// AnonymizeTrack1 masks Track 1 data using default deterministic anonymizer.
-func AnonymizeTrack1(track1 string) string {
-	return defaultAnonymizer.AnonymizeTrack1(track1)
-}
-
 // AnonymizeFieldValue anonymizes sensitive field values using default deterministic anonymizer.
-func AnonymizeFieldValue(fieldID int, val interface{}, unsecure bool) interface{} {
+func AnonymizeFieldValue(fieldID int, val any, unsecure bool) any {
 	if unsecure {
 		return val
 	}

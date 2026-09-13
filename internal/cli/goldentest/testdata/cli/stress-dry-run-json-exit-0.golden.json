@@ -1,0 +1,55 @@
+{
+  "args": [
+    "stress",
+    "--tx",
+    "Echo,Purchase",
+    "--tps",
+    "5",
+    "--ramp",
+    "1s",
+    "--duration",
+    "2s",
+    "--workers",
+    "2",
+    "--report",
+    "out.json",
+    "--dry-run",
+    "--json",
+    "-s",
+    "spec.json",
+    "-f",
+    "tx.json",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "19999"
+  ],
+  "expect_stdout_mode": "json_keys",
+  "expect_stdout": [
+    "dry_run",
+    "tx",
+    "tps",
+    "ramp",
+    "duration",
+    "workers",
+    "target",
+    "report"
+  ],
+  "expect_json_fields": {
+    "dry_run": "true",
+    "tps": "5",
+    "workers": "2",
+    "ramp": "1000000000",
+    "duration": "2000000000",
+    "target": "\"127.0.0.1:19999\"",
+    "report": "\"out.json\""
+  },
+  "forbid_stdout_substrings": [
+    "\u001b["
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/out.json"
+  ]
+}

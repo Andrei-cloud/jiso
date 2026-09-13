@@ -2,6 +2,7 @@ package connection
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -10,10 +11,18 @@ import (
 	"jiso/internal/config"
 )
 
+// RouteMatcher answers the question the connection layer cannot: of the mock
+// routes on offer, which one claims this request, and what message goes back.
+// The interface is declared here so that accepting a connection does not depend
+// on the mock engine that implements it.
 type RouteMatcher interface {
 	MatchAndCompose(req *iso8583.Message, spec *iso8583.MessageSpec) (*config.MockRouteConfig, *iso8583.Message, error)
 }
 
+// NormalizeStan left-pads a sequence number to the width route matching compares
+// on, so a captured "1234" and a live "001234" are the same key. A longer value is
+// returned unchanged: only the sender can know its field is wrong, and silently
+// truncating here would hide that.
 func NormalizeStan(stan string) string {
 	stan = strings.TrimSpace(stan)
 	if stan == "" {
@@ -66,8 +75,8 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 		select {
 		case pending.responseChan <- message:
 		default:
-			if m.debugMode {
-				fmt.Printf("Response channel full for STAN %s\n", stan)
+			if m.debugMode.Load() {
+				outputf("Response channel full for STAN %s\n", stan)
 			}
 		}
 		return
@@ -85,50 +94,9 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 	m.statusMu.RUnlock()
 
 	if matcher != nil {
-		go func(req *iso8583.Message) {
-			mti, _ := req.GetMTI()
-			matchedRoute, resp, err := matcher.MatchAndCompose(req, m.spec)
-			if err != nil || resp == nil {
-				if m.debugMode {
-					fmt.Printf("\n[CLIENT-UNSOLICITED] ❌ Error matching/composing response for MTI %s: %v\n", mti, err)
-				}
-				return
-			}
-
-			routeName := "Catch-all Fallback"
-			if matchedRoute != nil {
-				routeName = matchedRoute.Name
-				if matchedRoute.DropConnection {
-					fmt.Printf("\n[CLIENT-UNSOLICITED] 🔴 Matched Route '%s' for MTI %s -> Dropping connection\n", routeName, mti)
-					_ = m.Close()
-					return
-				}
-			}
-
-			respCode := ""
-			if f39 := resp.GetField(39); f39 != nil {
-				respCode, _ = f39.String()
-			}
-			respMTI, _ := resp.GetMTI()
-
-			if matchedRoute != nil {
-				fmt.Printf("\n[CLIENT-UNSOLICITED] 🟢 Matched Route '%s' for MTI %s -> Responding %s (RC: %s)\n", routeName, mti, respMTI, respCode)
-			} else {
-				fmt.Printf("\n[CLIENT-UNSOLICITED] ⚠️ Fallback (No Route Match) for MTI %s -> Responding %s (RC: 12)\n", mti, respMTI)
-			}
-
-			m.statusMu.RLock()
-			conn := m.Connection
-			m.statusMu.RUnlock()
-
-			if conn != nil {
-				if err := conn.Reply(resp); err != nil && m.debugMode {
-					fmt.Printf("\n[CLIENT-UNSOLICITED] ❌ Error sending reply: %v\n", err)
-				}
-			}
-		}(message)
-	} else if m.debugMode {
-		fmt.Printf("Unmatched inbound message received for STAN %s\n", stan)
+		go m.serveUnsolicited(matcher, message)
+	} else if m.debugMode.Load() {
+		outputf("Unmatched inbound message received for STAN %s\n", stan)
 	}
 }
 
@@ -162,8 +130,8 @@ func (m *Manager) attemptReconnect() {
 			m.networkStats.RecordBackoff(delay)
 		}
 
-		if m.debugMode {
-			fmt.Printf(
+		if m.debugMode.Load() {
+			_, _ = fmt.Fprintf(os.Stderr,
 				"Waiting %v before reconnection attempt %d/%d\n",
 				delay,
 				attempt,
@@ -177,14 +145,15 @@ func (m *Manager) attemptReconnect() {
 		}
 
 		startTime := time.Now()
-		err := m.Connect(m.naps, m.header)
+		naps, header := m.connParams()
+		err := m.Connect(naps, header)
 		if err == nil {
 			if m.networkStats != nil {
 				duration := time.Since(startTime)
 				m.networkStats.RecordReconnectSuccess(duration)
 			}
-			if m.debugMode {
-				fmt.Printf("Reconnection successful on attempt %d\n", attempt)
+			if m.debugMode.Load() {
+				outputf("Reconnection successful on attempt %d\n", attempt)
 			}
 			return
 		}
@@ -193,12 +162,58 @@ func (m *Manager) attemptReconnect() {
 			m.networkStats.RecordReconnectFailure()
 		}
 
-		if m.debugMode {
-			fmt.Printf("Reconnection attempt %d failed: %s\n", attempt, err)
+		if m.debugMode.Load() {
+			outputf("Reconnection attempt %d failed: %s\n", attempt, err)
 		}
 	}
 
-	if m.debugMode {
-		fmt.Printf("All reconnection attempts failed\n")
+	if m.debugMode.Load() {
+		outputf("All reconnection attempts failed\n")
+	}
+}
+
+// serveUnsolicited answers an unsolicited inbound request through the mock
+// matcher: it matches and composes a reply (or drops the connection), then sends
+// that reply on the live connection.
+func (m *Manager) serveUnsolicited(matcher RouteMatcher, req *iso8583.Message) {
+	mti, _ := req.GetMTI()
+	matchedRoute, resp, err := matcher.MatchAndCompose(req, m.spec)
+	if err != nil || resp == nil {
+		if m.debugMode.Load() {
+			outputf("\n[CLIENT-UNSOLICITED] ❌ Error matching/composing response for MTI %s: %v\n", mti, err)
+		}
+		return
+	}
+
+	routeName := "Catch-all Fallback"
+	if matchedRoute != nil {
+		routeName = matchedRoute.Name
+		if matchedRoute.DropConnection {
+			outputf("\n[CLIENT-UNSOLICITED] 🔴 Matched Route '%s' for MTI %s -> Dropping connection\n", routeName, mti)
+			_ = m.Close()
+			return
+		}
+	}
+
+	respCode := ""
+	if f39 := resp.GetField(39); f39 != nil {
+		respCode, _ = f39.String()
+	}
+	respMTI, _ := resp.GetMTI()
+
+	if matchedRoute != nil {
+		outputf("\n[CLIENT-UNSOLICITED] 🟢 Matched Route '%s' for MTI %s -> Responding %s (RC: %s)\n", routeName, mti, respMTI, respCode)
+	} else {
+		outputf("\n[CLIENT-UNSOLICITED] ⚠️ Fallback (No Route Match) for MTI %s -> Responding %s (RC: 12)\n", mti, respMTI)
+	}
+
+	m.statusMu.RLock()
+	conn := m.Connection
+	m.statusMu.RUnlock()
+
+	if conn != nil {
+		if err := conn.Reply(resp); err != nil && m.debugMode.Load() {
+			outputf("\n[CLIENT-UNSOLICITED] ❌ Error sending reply: %v\n", err)
+		}
 	}
 }

@@ -1,0 +1,15 @@
+{
+  "args": [
+    "serve",
+    "start",
+    "--routes-file",
+    "nope.json",
+    "19999"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "failed to read mock routes file",
+    "nope.json"
+  ],
+  "expect_exit": 3
+}

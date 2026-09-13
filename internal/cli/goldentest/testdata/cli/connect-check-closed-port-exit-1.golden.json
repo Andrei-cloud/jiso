@@ -1,0 +1,15 @@
+{
+  "args": [
+    "connect",
+    "check",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "1"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "connect check failed: 127.0.0.1:1"
+  ],
+  "expect_exit": 1
+}

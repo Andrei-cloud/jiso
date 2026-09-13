@@ -31,9 +31,9 @@ func BenchmarkMessageToJSON(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_, err := MessageToJSON(msg)
+		_, err := MessageToJSONWithSpec(msg, nil)
 		if err != nil {
-			b.Fatalf("MessageToJSON failed: %v", err)
+			b.Fatalf("MessageToJSONWithSpec failed: %v", err)
 		}
 	}
 }

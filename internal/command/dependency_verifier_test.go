@@ -78,6 +78,8 @@ func TestVerifyConnection(t *testing.T) {
 }
 
 func TestVerifyConnectionWhenConnected(t *testing.T) {
+	t.Parallel()
+
 	specPath := filepath.Join("..", "..", "specs", "spec_bcp.json")
 	svc, err := service.NewService("", "", specPath, false, 1, 0, 0, 0)
 	if err != nil {

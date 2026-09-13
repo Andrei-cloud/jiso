@@ -1,0 +1,28 @@
+{
+  "args": [
+    "ctf",
+    "export",
+    "--session-id",
+    "golden-session-0001",
+    "--db",
+    "session.db",
+    "-o",
+    "out.ctf",
+    "--dry-run"
+  ],
+  "expect_stdout_mode": "contains",
+  "expect_stdout": [
+    "CTF CLEARING FILE EXPORT PLAN (dry-run: nothing written)",
+    "Session ID:",
+    "golden-session-0001",
+    "Messages to Export:",
+    "Output File:",
+    "out.ctf",
+    "dry-run: CTF file out.ctf was NOT written"
+  ],
+  "expect_stderr_empty": true,
+  "expect_exit": 0,
+  "files_must_not_exist": [
+    "$WORK/out.ctf"
+  ]
+}

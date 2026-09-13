@@ -8,6 +8,8 @@ import (
 )
 
 func TestBinary4BytesAdapter(t *testing.T) {
+	t.Parallel()
+
 	adapter := NewBinary4BytesAdapter()
 	adapter.SetLength(349)
 	require.Equal(t, 349, adapter.Length())

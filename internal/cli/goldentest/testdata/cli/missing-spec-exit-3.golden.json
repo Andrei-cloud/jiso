@@ -1,0 +1,19 @@
+{
+  "args": [
+    "scenario",
+    "run",
+    "--dry-run",
+    "-s",
+    "missing-spec.json",
+    "-f",
+    "tx.json"
+  ],
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "spec file does not exist: missing-spec.json"
+  ],
+  "forbid_stderr_substrings": [
+    "$WORK/absent-config.yaml"
+  ],
+  "expect_exit": 3
+}
