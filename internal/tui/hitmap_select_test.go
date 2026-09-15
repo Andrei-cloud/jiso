@@ -92,6 +92,25 @@ func TestClickSelectsTransactionsRow(t *testing.T) {
 		t.Errorf("the wheel did not move the window through the pane:\n%s", content)
 	}
 
+	// Click the SAME physical cell with the window scrolled down by one:
+	// the row under the cursor maps to data index scrollOff + (y −
+	// contentTop), NOT the visible row number (UAT round 8 review: at
+	// scrollOff 0 the two are indistinguishable, so only a scrolled click
+	// pins the offset term). The window top moved down one row, so the
+	// cell that mapped to Tx 03 at the top now shows the NEXT data row:
+	// scrollOff 1 + visibleIndex 2 = Tx 04 (index 3).
+	v3 := m.View()
+	scmd := v3.OnMouse(click)
+	if scmd == nil {
+		t.Fatal("a click on a scrolled row must emit a select msg")
+	}
+	if got := scmd(); got != (selectMsg{region: pages.RegionTxTable, index: 3}) {
+		t.Fatalf("scrolled row click = %#v, want selectMsg{tx:table 3} (scrollOff 1 + visibleIndex 2)", got)
+	}
+	if _, _ = m.Update(selectMsg{region: pages.RegionTxTable, index: 3}); m.tx.Cursor() != 3 {
+		t.Fatalf("after scrolled click-select the cursor = %d, want 3", m.tx.Cursor())
+	}
+
 	// A click on the plain pane BACKGROUND (the table box's top border
 	// row, inside the scroll region but on no row) stays inert: only the
 	// wheel acts there (the 8.2c rule).
@@ -311,5 +330,113 @@ func TestClickSelectsEverySurface(t *testing.T) {
 				t.Fatalf("after click-select the cursor = %d, want 2", tc.cursor(m))
 			}
 		})
+	}
+}
+
+// TestClickSelectsScrolledSessionRow pins the offset term on the FLAT
+// renderer (renderFlat/RowHits), the same mutation guard the grid leg in
+// TestClickSelectsTransactionsRow gives recordGridRows: after the wheel
+// moved the window down by one, the same physical cell maps to data index
+// scrollOff + visibleIndex (3), NOT the visible row number the
+// pre-scroll render showed (2).
+func TestClickSelectsScrolledSessionRow(t *testing.T) {
+	m := NewRootModel(nil)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	_, _ = m.Update(ch('6'))
+	now := time.Now()
+	for i := 1; i <= 40; i++ {
+		m.sessionsList = append(m.sessionsList, app.DbSessionView{
+			SessionID: fmt.Sprintf("sess-%04d", i), LastActiveTime: now,
+		})
+	}
+	m.syncSessions()
+	v := m.View()
+
+	ox, oy := m.contentOrigin()
+	row := selectRowAt(t, m, pages.RegionSessionsList, 2)
+	cell := tea.MouseClickMsg{X: ox + row.X + row.W/2, Y: oy + row.Y, Button: tea.MouseLeft}
+	cmd := v.OnMouse(cell)
+	if cmd == nil {
+		t.Fatal("a click inside a drawn row must emit a select msg, got nil")
+	}
+	if _, _ = m.Update(cmd()); m.sessions.ListCursor() != 2 {
+		t.Fatalf("click-select cursor = %d, want 2", m.sessions.ListCursor())
+	}
+
+	// Wheel the window down one through the pane (over the row's own
+	// cell, which also pins that the wheel still scrolls a scrolled pane).
+	v2 := m.View()
+	wcmd := v2.OnMouse(tea.MouseWheelMsg{X: cell.X, Y: cell.Y, Button: tea.MouseWheelDown})
+	if wcmd == nil {
+		t.Fatal("the wheel over a drawn row must still scroll its pane")
+	}
+	m.Update(wcmd())
+
+	// The same physical cell now shows the NEXT data row (the window top
+	// moved down one): scrollOff 1 + visibleIndex 2 = 3, NOT the visible
+	// row number 2 the pre-scroll render showed.
+	v3 := m.View()
+	scmd := v3.OnMouse(cell)
+	if scmd == nil {
+		t.Fatal("a click on a scrolled row must emit a select msg")
+	}
+	if got := scmd(); got != (selectMsg{region: pages.RegionSessionsList, index: 3}) {
+		t.Fatalf("scrolled row click = %#v, want selectMsg{sessions:list 3} (scrollOff 1 + visibleIndex 2)", got)
+	}
+	if _, _ = m.Update(selectMsg{region: pages.RegionSessionsList, index: 3}); m.sessions.ListCursor() != 3 {
+		t.Fatalf("after scrolled click-select the cursor = %d, want 3", m.sessions.ListCursor())
+	}
+}
+
+// TestFilePickerRowsSuppressedUnderConfirm pins the publication-side
+// defense (UAT round 8 review): handleSelectMsg's picker branch runs
+// BEFORE the modalOpen gate, so the confirmPending() check in buildHitMap
+// is the only thing keeping a click from selecting an entry under a §N3
+// confirm — with a confirm pending over the open picker, no cell resolves
+// a picker select hit and a click on a picker row's cell stays inert.
+func TestFilePickerRowsSuppressedUnderConfirm(t *testing.T) {
+	m := NewRootModel(nil)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	_, _ = m.Update(ch('2'))
+	dir := pickRootFixture(t)
+	m.filePickRootFn = func(string, string) (string, string) { return dir, "fixture/" }
+	_, fcmd := m.Update(ch('f'))
+	m.Update(fcmd())
+	if m.filePick == nil {
+		t.Fatal("f on §B must open the picker")
+	}
+
+	// Precondition: with only the picker up, its rows ARE registered (the
+	// suppression below must be the confirm's doing, not a dead map).
+	rows := m.pickerRowHits()
+	if len(rows) == 0 {
+		t.Fatal("precondition: the open picker publishes clickable rows")
+	}
+	hm := m.buildHitMap()
+	if act, ok := hm.resolve(rows[0].Rect.X+rows[0].Rect.W/2, rows[0].Rect.Y); !ok || act.region != regionPicker || act.kind != hitSelect {
+		t.Fatalf("precondition: picker row = %+v,%v, want the select hit", act, ok)
+	}
+
+	// Arm a §N3 confirm over the open picker (the quit path's own dialog;
+	// the overlay stack draws confirms LAST, above even the picker).
+	m.workersConfirm = widgets.NewConfirmDialog(m.themeOrNil(), "quit jiso?")
+	if !m.confirmPending() {
+		t.Fatal("precondition: the confirm must be pending")
+	}
+
+	hm2 := m.buildHitMap()
+	for _, r := range rows {
+		if act, ok := hm2.resolve(r.Rect.X+r.Rect.W/2, r.Rect.Y); ok && act.region == regionPicker {
+			t.Fatalf("picker row %d still resolves a select hit under the confirm: %+v", r.Index, act)
+		}
+	}
+	// And a click on a picker row's cell commits nothing: §B behind the
+	// picker is the empty state (no rows registered), so every picker-row
+	// cell is dead space while the confirm owns the screen.
+	v := m.View()
+	for _, r := range rows {
+		if cmd := v.OnMouse(tea.MouseClickMsg{X: r.Rect.X + r.Rect.W/2, Y: r.Rect.Y, Button: tea.MouseLeft}); cmd != nil {
+			t.Fatalf("a click under the confirm replayed %#v, want inert", cmd())
+		}
 	}
 }
