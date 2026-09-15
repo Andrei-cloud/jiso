@@ -95,8 +95,14 @@ func (d *ConnectDialog) FieldRowHits() []widgets.RowHit {
 		y += h
 		if d.pickerOpen && f.Kind == FieldPicker {
 			// The overlay spliced under the picker row is the overlay's
-			// own ink, not a field: its lines publish no focus hit.
-			y += 1 + lipgloss.Height(d.pickerBox(inner))
+			// own ink, not a field: its lines publish no focus hit. It
+			// occupies exactly Height(pickerBox) lines — the '\n'
+			// formFields writes before it STARTS the overlay's first
+			// line, adding no blank line — so the fields below the
+			// overlay keep their rects on their own drawn rows (review
+			// fix: counting the separator as a line shifted every below
+			// rect one row down, off its ink).
+			y += lipgloss.Height(d.pickerBox(inner))
 		}
 	}
 

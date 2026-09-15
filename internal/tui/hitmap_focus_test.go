@@ -165,6 +165,90 @@ func TestClickFocusClosesHeaderPicker(t *testing.T) {
 	}
 }
 
+// drawnLine returns the frame line whose raw text contains label (field
+// labels draw as raw text — the existing drawn-y pins rely on the same
+// fact) — the position a click must land on INDEPENDENT of the y maths
+// under test.
+func drawnLine(t *testing.T, v tea.View, label string) int {
+	t.Helper()
+
+	for i, line := range strings.Split(strings.TrimRight(v.Content, "\n"), "\n") {
+		if strings.Contains(line, label) {
+			return i
+		}
+	}
+	t.Fatalf("no drawn line contains %q:\n%s", label, v.Content)
+
+	return -1
+}
+
+// TestClickFocusBelowOpenHeaderPicker pins the drawn-ink alignment of the
+// field-row rects WHILE the header picker overlay is open (review fix):
+// the overlay occupies exactly Height(pickerBox) lines — the '\n'
+// between the picker row and the overlay starts the overlay's first
+// line, it adds no blank line — so every field BELOW the overlay must
+// keep its rect on its own drawn line. With the off-by-one each below
+// rect sat one row too low: clicking the drawn "Station ID" line emitted
+// nothing (dead), and the drawn "Unsolicited"/"TLS" lines focused the
+// neighbour one row above. The dim (visa-only) station row additionally
+// pins the Tab-like enabled-field clamp a click inherits from SetFocus.
+func TestClickFocusBelowOpenHeaderPicker(t *testing.T) {
+	m := NewRootModel(nil)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	_, _ = m.Update(ch('c'))
+	header := dlgFieldIdx(t, m.dlg, pages.ConnectFieldHeader)
+
+	for _, key := range []string{
+		pages.ConnectFieldStation, pages.ConnectFieldUnsolicited, pages.ConnectFieldTLS,
+	} {
+		idx := dlgFieldIdx(t, m.dlg, key)
+		label := ""
+		for _, f := range m.dlg.State().Fields {
+			if f.Key == key {
+				label = f.Label
+
+				break
+			}
+		}
+
+		// Re-open the overlay fresh per leg: the previous leg's click
+		// closed it (carry 3), so each leg measures its drawn line against
+		// a freshly opened overlay.
+		if _, _ = m.Update(focusMsg{region: regionConnectForm, index: header}); m.dlg.Focus() != header {
+			t.Fatalf("precondition: click-focus must land on the picker row for the %s leg", key)
+		}
+		_, _ = m.Update(ch(' ')) // the keyboard's space toggle
+		if !m.dlg.PickerOpen() {
+			t.Fatalf("precondition: the header overlay must be open for the %s leg", key)
+		}
+
+		v := m.View()
+		y := drawnLine(t, v, label)
+		// X/width are shared by every row and unaffected by the y maths,
+		// so the click's x may come from the published picker row.
+		phit := focusRowAt(t, m.connectFormRowHits(), header)
+		cmd := v.OnMouse(tea.MouseClickMsg{X: phit.X + phit.W/2, Y: y, Button: tea.MouseLeft})
+		if cmd == nil {
+			t.Fatalf("a click on the drawn %q line (y %d) emitted nothing; the field's rect is offset from its drawn ink", label, y)
+		}
+		want := focusMsg{region: regionConnectForm, index: idx}
+		if got := cmd(); got != want {
+			t.Fatalf("click on the drawn %q line = %#v, want %#v (the rect must sit on its own drawn ink)", label, got, want)
+		}
+
+		// The resolved click focuses the field itself; a DIM row (station
+		// is visa-only, disabled under the default header) clamps onto the
+		// nearest enabled field exactly like Tab does.
+		enabled := m.dlg.State().Fields[idx].Enabled
+		if _, _ = m.Update(want); enabled && m.dlg.Focus() != idx {
+			t.Fatalf("after click-focus on the drawn %q line Focus() = %d, want %d", label, m.dlg.Focus(), idx)
+		}
+		if !enabled && !m.dlg.State().Fields[m.dlg.Focus()].Enabled {
+			t.Fatalf("a click on the dim %q row must clamp onto an enabled field like Tab, focus = %d", label, m.dlg.Focus())
+		}
+	}
+}
+
 // TestFocusMsgInertUnderFilePicker pins carry 4: while the shared file
 // picker is open ON TOP of the §G form, the picker owns the input — a
 // focusMsg for a form field changes nothing (the narrow guard: the form
@@ -292,6 +376,14 @@ func TestClickWorkerRailSelectsStep(t *testing.T) {
 		t.Fatalf("backward rail click = step %d, want %d (free revisit)", w.Step(), pages.WorkerStepTx)
 	}
 
+	// Forward GAP: clicking "3 run" from tx would skip the params step,
+	// so the click stays inert — only the immediately next step replays
+	// the Enter leg.
+	r.upd(focusMsg{region: regionWorkerRail, index: pages.WorkerStepRun})
+	if w.Step() != pages.WorkerStepTx {
+		t.Fatalf("forward-gap rail click = step %d, want %d (inert: only the next step advances)", w.Step(), pages.WorkerStepTx)
+	}
+
 	// The current step: inert.
 	r.upd(focusMsg{region: regionWorkerRail, index: pages.WorkerStepTx})
 	if w.Step() != pages.WorkerStepTx {
@@ -301,8 +393,9 @@ func TestClickWorkerRailSelectsStep(t *testing.T) {
 
 // TestClickSendRailSelectsStep walks the send wizard's rail: the
 // backward click on the rail's first step is a free revisit, and a
-// forward click never teleports to the clicked step — it replays the
-// current step's Enter leg and lands at most one gated step forward.
+// forward click never teleports to the clicked step — only the
+// immediately next step's Enter leg replays, larger forward gaps are
+// inert.
 func TestClickSendRailSelectsStep(t *testing.T) {
 	r := wizardTestRoot(t)
 	r.upd(palette.OpenSendWizardMsg{})
@@ -335,13 +428,12 @@ func TestClickSendRailSelectsStep(t *testing.T) {
 		t.Fatalf("backward rail click = step %d, want 0 (free revisit)", w.Step())
 	}
 
-	// Forward click: clicking "3 send" from the spec step replays the
-	// spec step's Enter leg — the whole cmd chain runs (the program pump,
-	// done by hand) and the walk lands AT MOST one gated step forward; it
-	// must NOT teleport to the clicked step.
+	// Forward GAP: clicking "3 send" from the first step (gap 2) is
+	// inert — the rail cannot skip the spec/file steps, and only the
+	// immediately next step's Enter leg may be replayed.
 	r.updChain(focusMsg{region: regionSendRail, index: 2})
-	if w.Step() == 2 {
-		t.Fatal("a forward click must not bypass the step's Enter gate and teleport to the clicked step")
+	if w.Step() != 0 {
+		t.Fatalf("forward-gap rail click = step %d, want 0 (inert: only the next step advances)", w.Step())
 	}
 }
 

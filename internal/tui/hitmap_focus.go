@@ -9,8 +9,9 @@
 // navigation: a field click is ConnectDialog.SetFocus (navigate mode —
 // typing still enters edit mode, the 4.2 two-mode model), a rail click
 // is the wizard's own step walk (backward = free revisit, forward = the
-// current step's Enter leg with its validation, current step = inert).
-// The click never invents a transition the keyboard does not have.
+// current step's Enter leg with its validation but only for the
+// immediately next step, current step = inert). The click never invents
+// a transition the keyboard does not have.
 package tui
 
 import (
@@ -167,8 +168,11 @@ func (m *RootModel) analyzeRailRowHits() []widgets.RowHit {
 // open header picker so no stale overlay stays drawn over the field), a
 // rail click is the wizard's own step walk: backward = the free revisit
 // its Esc performs, forward = a replay of the current step's Enter leg
-// through root's validation (never a teleport to the clicked step), and
-// the current step is inert.
+// through root's validation, but ONLY for the immediately next step — a
+// larger forward gap is inert so "click step 4 from step 1" never
+// surprises — and the current step is inert. The §J rail keeps the
+// PgUp/PgDn path's own shape (its forward leg is root's gated
+// handleAnalyzeStepDelta, the keyboard's one-step transition).
 //
 // MODAL GUARD (carry 4, and why the FULL modalOpen() is wrong here):
 // these regions belong to the form/wizard modals THEMSELVES — those
@@ -207,6 +211,9 @@ func (m *RootModel) handleFocusMsg(msg focusMsg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
+		if msg.index > m.wizard.Step()+1 {
+			return m, nil // a forward gap would skip steps: inert, never a surprise
+		}
 		enter, _ := synthKeyPress("enter")
 
 		return m.updateWizardKey(enter)
@@ -219,6 +226,9 @@ func (m *RootModel) handleFocusMsg(msg focusMsg) (tea.Model, tea.Cmd) {
 			m.workerWiz.BackToStep(msg.index) // free revisit; == is a no-op
 
 			return m, nil
+		}
+		if msg.index > m.workerWiz.Step()+1 {
+			return m, nil // a forward gap would skip steps: inert, never a surprise
 		}
 		enter, _ := synthKeyPress("enter")
 
