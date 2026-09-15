@@ -1,22 +1,20 @@
 // serverroutes.go holds PAR-309's `serve start` foreground-run path: the
-// --routes-file mock-route resolution (precedence table below), the command
-// Long help pinning the systemd exit-code contract, and executeServerStart
-// wiring both into command.ServerCommand.RunDirectServer.
+// --routes-file mock-route resolution (delegated to app.ResolveRoutes, with
+// the exit-code mapping kept here), the command Long help pinning the
+// systemd exit-code contract, and executeServerStart wiring both into
+// command.ServerCommand.RunDirectServer.
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
+	"errors"
 
 	"github.com/moov-io/iso8583"
 	"github.com/spf13/cobra"
 
+	"jiso/internal/app"
 	"jiso/internal/cli/output"
 	cmdpkg "jiso/internal/command"
 	cfg "jiso/internal/config"
-	"jiso/internal/transactions"
 	"jiso/internal/utils"
 )
 
@@ -44,56 +42,17 @@ server runs (all logs go to stderr), and the final ServerStats JSON is
 printed to stdout on a clean stop, so ` + "`jiso serve start --json | jq`" + `
 receives the summary when the server is stopped.`
 
-// resolveServeRoutes implements the documented precedence
-// --routes-file > the tx file's mock_routes > no routes.
-//
-// An explicit --routes-file that cannot be read or parsed is always a
-// config error (exit 3) naming the path — the user asked for exactly that
-// file, so silently serving without routes would be a lie. The tx-file
-// source keeps the pre-PAR-309 silent fallback: a tx file that fails to
-// load contributes zero routes (its parse failures surface in the commands
-// that actually consume transactions).
-func resolveServeRoutes(routesFile, txPath string, spec *iso8583.MessageSpec) ([]cfg.MockRouteConfig, transactions.Repository, error) {
-	if routesFile = strings.TrimSpace(routesFile); routesFile != "" {
-		routes, err := loadServeRoutesFile(routesFile)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return routes, nil, nil
+// serveRoutesError translates a loader failure from app.ResolveRoutes into
+// the CLI's exit-code taxonomy: every routes-file failure is a config-class
+// error (exit 3) naming the path (PAR-309). The precedence and parsing live
+// in internal/app (shared with the TUI); only this mapping stays here.
+func serveRoutesError(err error) error {
+	var appCfgErr *app.ConfigError
+	if errors.As(err, &appCfgErr) {
+		return &ExitConfigError{Path: appCfgErr.Path, Err: appCfgErr.Err}
 	}
 
-	if txPath != "" && spec != nil {
-		if tc, err := transactions.NewTransactionCollection(txPath, spec); err == nil {
-			return tc.GetMockRoutes(), tc, nil
-		}
-	}
-
-	return nil, nil, nil
-}
-
-// loadServeRoutesFile parses an explicit mock-routes JSON file: an array of
-// route objects shaped like the tx file's mock_route entries (their "type"
-// field is simply ignored). Every failure names the path so the exit-3
-// message identifies the file the user pointed at.
-func loadServeRoutesFile(path string) ([]cfg.MockRouteConfig, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, &ExitConfigError{Path: path, Err: fmt.Errorf("failed to read mock routes file: %w", err)}
-	}
-
-	var routes []cfg.MockRouteConfig
-	if err := json.Unmarshal(raw, &routes); err != nil {
-		return nil, &ExitConfigError{Path: path, Err: fmt.Errorf("malformed mock routes file: %w", err)}
-	}
-
-	for i := range routes {
-		if strings.TrimSpace(routes[i].Name) == "" {
-			return nil, &ExitConfigError{Path: path, Err: fmt.Errorf("mock route #%d is missing a name", i+1)}
-		}
-	}
-
-	return routes, nil
+	return err
 }
 
 // executeServerStart resolves routes with the PAR-309 precedence BEFORE
@@ -117,9 +76,9 @@ func executeServerStart(cmd *cobra.Command, port, headerType string) error {
 		spec = utils.GetDefaultSpec()
 	}
 
-	routes, tcRepo, err := resolveServeRoutes(routesFile, txPath, spec)
+	routes, tcRepo, err := app.ResolveRoutes(routesFile, txPath, spec)
 	if err != nil {
-		return err
+		return serveRoutesError(err)
 	}
 
 	cmdObj := cmdpkg.NewServerCommand(spec, routes, tcRepo)

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"jiso/internal/app"
 	"jiso/internal/utils"
 )
 
@@ -100,9 +101,10 @@ func TestResolveServeRoutesPrecedence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routes, repo, err := resolveServeRoutes(tt.routesFile, tt.txPath, spec)
+			routes, repo, err := app.ResolveRoutes(tt.routesFile, tt.txPath, spec)
 
 			if tt.wantExitErr {
+				err = serveRoutesError(err) // CLI exit-code mapping (PAR-309)
 				require.Error(t, err)
 				assert.Equal(t, ExitConfig, ExitCodeForError(err), "malformed routes file must map to exit 3")
 				assert.Contains(t, err.Error(), tt.wantPathIn, "error must name the routes file path")
@@ -129,7 +131,7 @@ func TestResolveServeRoutesTxFailureStaysSilent(t *testing.T) {
 
 	badTx := writeRoutesFixture(t, "bad-tx.json", "not json at all")
 
-	routes, repo, err := resolveServeRoutes("", badTx, utils.GetDefaultSpec())
+	routes, repo, err := app.ResolveRoutes("", badTx, utils.GetDefaultSpec())
 	require.NoError(t, err)
 	assert.Empty(t, routes)
 	assert.Nil(t, repo)
@@ -174,7 +176,7 @@ func TestServeStartRoutesFileAcceptsTxShape(t *testing.T) {
 
 	path := writeRoutesFixture(t, "tx-shaped.json", txFileWithRoute)
 
-	routes, err := loadServeRoutesFile(path)
+	routes, err := app.LoadRoutesFile(path)
 	require.NoError(t, err)
 
 	// Both entries parse (the transaction entry keeps its name and simply
