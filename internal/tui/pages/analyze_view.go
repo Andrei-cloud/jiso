@@ -160,7 +160,7 @@ func (a *Analyze) captureBody(w int) string {
 	return a.listBody(w, a.state.CaptureItems,
 		a.th.Deemphasized.Render(pickGlyph(a.th,
 			"no .pcap files found \u2014 [", "no .pcap files found -- ["))+
-			a.th.HotKey.Render("f")+
+			a.th.Key("f")+
 			a.th.Deemphasized.Render("] browse or type a path"),
 		a.state.CaptureError)
 }
@@ -171,7 +171,7 @@ func (a *Analyze) specBody(w int) string {
 	return a.listBody(w, a.state.SpecItems,
 		a.th.Deemphasized.Render(pickGlyph(a.th,
 			"no .json spec files found \u2014 ", "no .json spec files found -- "))+
-			a.th.HotKey.Render("Enter")+
+			a.th.Key("Enter")+
 			a.th.Deemphasized.Render(" uses the engine default"),
 		a.state.SpecError)
 }
@@ -286,10 +286,10 @@ func (a *Analyze) headersBody(w int) string {
 			rows = append(rows, clipCells(a.th.TextMuted.Render(text), w, clipTail(a.th)))
 		}
 	}
-	rows = append(rows, a.th.HotKey.Render("j/k")+
+	rows = append(rows, a.th.Key("j/k")+
 		a.th.Dim.Render(" move | ")+
-		a.th.HotKey.Render("space")+a.th.Dim.Render(" selects | ")+
-		a.th.HotKey.Render("Enter")+a.th.Dim.Render(" next"))
+		a.th.Key("space")+a.th.Dim.Render(" selects | ")+
+		a.th.Key("Enter")+a.th.Dim.Render(" next"))
 
 	return strings.Join(rows, "\n")
 }
@@ -365,7 +365,7 @@ func (a *Analyze) securityRow(w int) string {
 	}
 	line := a.th.Deemphasized.Render(padRight("security", analyzeListLabelWidth)) +
 		a.th.Status(kind, word) +
-		a.th.Dim.Render("  [") + a.th.HotKey.Render("m") + a.th.Dim.Render("] toggle")
+		a.th.Dim.Render("  [") + a.th.Key("m") + a.th.Dim.Render("] toggle")
 
 	return clipCells(line, w, clipTail(a.th))
 }
@@ -401,7 +401,7 @@ func (a *Analyze) statusBlock(w int) string {
 			b.WriteString(clipCells(a.th.Status(theme.KindError, a.state.Note), w, clipTail(a.th)) + "\n")
 		} else {
 			b.WriteString(a.th.TextMuted.Render("ready - ") +
-				a.th.HotKey.Render("Enter") +
+				a.th.Key("Enter") +
 				a.th.TextMuted.Render(" starts the analysis") + "\n")
 		}
 	}

@@ -89,7 +89,7 @@ func (w *SendWizard) listBody(items []WizardItem, inner int) string {
 		base := w.th.Deemphasized
 
 		return head + "\n" + clipCells(base.Render("nothing to pick \u2014 [")+
-			w.th.HotKey.Render("f")+base.Render("] browse or type a path"), inner, clipTail(w.th))
+			w.th.Key("f")+base.Render("] browse or type a path"), inner, clipTail(w.th))
 	}
 
 	lines := make([]string, 0, len(idx))
@@ -121,7 +121,7 @@ func (w *SendWizard) templateBody(inner int) string {
 		base := w.th.Deemphasized
 
 		return head + "\n" + clipCells(base.Render("no templates \u2014 [")+
-			w.th.HotKey.Render("f")+base.Render("] browse for a tx file"), inner, clipTail(w.th))
+			w.th.Key("f")+base.Render("] browse for a tx file"), inner, clipTail(w.th))
 	}
 
 	lines := make([]string, 0, len(idx))

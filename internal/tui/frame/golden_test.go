@@ -92,6 +92,31 @@ func TestFrameGoldenAsciiIsPlain(t *testing.T) {
 	}
 }
 
+// TestFrameTrueColorFooterKeysAreBold pins UAT round-8 finding 3: footer
+// key tokens must use the Theme.Key badge (bold + accent) so a key looks
+// highlighted identically on every screen. The bold form is the combined
+// SGR "\x1b[1;38;2;68;147;248m" (dark-mode accent #4493f8); the old
+// plain-accent rendering directly before a key must be gone.
+func TestFrameTrueColorFooterKeysAreBold(t *testing.T) {
+	t.Parallel()
+
+	th := theme.NewWith(colorprofile.TrueColor, true)
+	got := Render(goldenProps(th, 90))
+
+	const boldOpen = "\x1b[1;38;2;68;147;248m"
+	const plainOpen = "\x1b[38;2;68;147;248m"
+	const reset = "\x1b[m"
+
+	for _, key := range []string{"j/k", "enter", "?"} {
+		if want := boldOpen + key + reset; !strings.Contains(got, want) {
+			t.Errorf("footer lacks the bold-accent Theme.Key badge for %q (%q)", key, want)
+		}
+		if plain := plainOpen + key + reset; strings.Contains(got, plain) {
+			t.Errorf("footer key %q still renders in plain accent without bold", key)
+		}
+	}
+}
+
 // itoa keeps the test free of strconv noise.
 func itoa(n int) string {
 	if n == 0 {

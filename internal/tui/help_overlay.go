@@ -172,7 +172,7 @@ func (h *helpOverlay) groupLines(g helpGroup, innerW, labelW int, compact bool) 
 	}
 
 	for _, e := range g.Entries {
-		seg := h.th.Accent.Render(e.Keys) + " " + h.th.TextPrimary.Render(e.Note)
+		seg := h.th.Key(e.Keys) + " " + h.th.TextPrimary.Render(e.Note)
 		segPlain := e.Keys + " " + e.Note
 
 		nextPlain := segPlain

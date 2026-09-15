@@ -284,6 +284,31 @@ func TestHelpOverlayGoldenTransactionsTrueColor(t *testing.T) {
 		renderHelpOverlay(t, pages.TransactionsPageID, colorprofile.TrueColor, 100))
 }
 
+// TestHelpOverlayTrueColorKeysAreBold pins UAT round-8 finding 3: every
+// key token in the truecolor overlay must carry the Theme.Key badge
+// (bold + accent), not the plain-accent style the overlay used before.
+// The bold form is the combined SGR "\x1b[1;38;2;68;147;248m" (dark-mode
+// accent #4493f8); the old plain-accent rendering "\x1b[38;2;68;147;248m"
+// directly before a key must be gone. Key TEXT is untouched (Phase 5).
+func TestHelpOverlayTrueColorKeysAreBold(t *testing.T) {
+	t.Parallel()
+
+	got := renderHelpOverlay(t, pages.TransactionsPageID, colorprofile.TrueColor, 100)
+
+	const boldOpen = "\x1b[1;38;2;68;147;248m"
+	const plainOpen = "\x1b[38;2;68;147;248m"
+	const reset = "\x1b[m"
+
+	for _, key := range []string{"up/k", "enter", "ctrl+c"} {
+		if want := boldOpen + key + reset; !strings.Contains(got, want) {
+			t.Errorf("overlay lacks the bold-accent Theme.Key badge for %q (%q)", key, want)
+		}
+		if plain := plainOpen + key + reset; strings.Contains(got, plain) {
+			t.Errorf("key %q still renders in plain accent without bold", key)
+		}
+	}
+}
+
 func TestHelpOverlayGoldenWorkersAscii(t *testing.T) {
 	t.Parallel()
 

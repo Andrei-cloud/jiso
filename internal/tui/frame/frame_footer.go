@@ -42,7 +42,7 @@ func (p Props) footerLine(th *theme.Theme, lv Level, width int) []string {
 		if h.Key == "" && h.Desc == "" {
 			continue
 		}
-		entry := th.Accent.Render(h.Key)
+		entry := th.Key(h.Key)
 		if h.Desc != "" {
 			entry += " " + th.TextMuted.Render(h.Desc)
 		}

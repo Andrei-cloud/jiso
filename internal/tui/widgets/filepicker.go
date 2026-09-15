@@ -372,7 +372,7 @@ func (p *FilePicker) View() string {
 	// explicitly (lipgloss only wraps a whole-string Render, so the
 	// spans between glyphs must carry the base themselves).
 	base := p.theme.Dim
-	hk := func(k string) string { return p.theme.HotKey.Render(k) }
+	hk := func(k string) string { return p.theme.Key(k) }
 	hints := hk("j/k") + base.Render(" move"+seps+" ") + hk("gg/G") +
 		base.Render(" top"+seps+" ") + hk("/") +
 		base.Render(" filter"+seps+" ") + hk("h") +

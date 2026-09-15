@@ -47,9 +47,9 @@ const (
 func workersEmptyHint(th *theme.Theme) string {
 	sep := th.Separator()
 
-	return "no workers - " + th.HotKey.Render("b") +
+	return "no workers - " + th.Key("b") +
 		th.TextMuted.Render(" background-send"+sep) +
-		th.HotKey.Render("t") + th.TextMuted.Render(" stress test")
+		th.Key("t") + th.TextMuted.Render(" stress test")
 }
 
 // workersColumns are the §H columns; TRANSACTION is the flex column that

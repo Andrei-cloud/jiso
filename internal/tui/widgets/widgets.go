@@ -102,7 +102,7 @@ func LabelWithHint(th *theme.Theme, label, badge string, column int) string {
 		pad = 1
 	}
 
-	return label + strings.Repeat(" ", pad) + th.HotKey.Render("("+badge+")")
+	return label + strings.Repeat(" ", pad) + th.Key("("+badge+")")
 }
 
 // HintColumn is the label column width that makes a list's badges line up: the

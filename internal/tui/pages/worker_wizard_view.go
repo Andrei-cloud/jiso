@@ -122,7 +122,7 @@ func (w *WorkerWizard) txBody(inner int) string {
 		lines = append(lines, clipCells(
 			w.th.Deemphasized.Render(pickGlyph(w.th,
 				"no transactions loaded \u2014 [", "no transactions loaded -- ["))+
-				w.th.HotKey.Render("f")+w.th.Deemphasized.Render("] browse"),
+				w.th.Key("f")+w.th.Deemphasized.Render("] browse"),
 			inner, clipTail(w.th)))
 	case len(shown) == 0:
 		lines = append(lines, w.th.Deemphasized.Render(clipCells(

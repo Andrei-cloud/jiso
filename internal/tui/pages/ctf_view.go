@@ -155,7 +155,7 @@ func (c *Ctf) hintLine(w int) string {
 		return clipCells(c.th.Dim.Render(line), w, clipTail(c.th))
 	}
 
-	return clipCells(c.th.Dim.Render("[")+c.th.HotKey.Render("Enter")+
+	return clipCells(c.th.Dim.Render("[")+c.th.Key("Enter")+
 		c.th.Dim.Render("] preview records "+pickGlyph(c.th, "\u2192", "->")+
 			" shows every record, writes nothing"),
 		w, clipTail(c.th))
