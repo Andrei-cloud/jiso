@@ -38,3 +38,6 @@ package-lock.json
 skills-lock.json
 docs/proposal-05-dashboard-server-panes.md
 docs/parity-matrix.md
+
+# SDD subagent workspace (task briefs, reports, review diffs) — local artifacts, not repo content
+.superpowers/
