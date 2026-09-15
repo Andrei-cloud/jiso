@@ -51,6 +51,7 @@ func (a *Analyze) render(w, h int) string {
 	// not at all (Task 8.2c: a pane that is not drawn publishes nothing).
 	a.itemsRect = geom.Rect{}
 	a.previewRect = geom.Rect{}
+	a.selRows = a.selRows[:0] // the roster's click rows re-publish likewise
 
 	bodyH := max(h-2, 3)
 	body := clipBlockStyled(a.th, a.stepBody(w), bodyH, w)

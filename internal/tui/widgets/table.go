@@ -8,8 +8,21 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 )
+
+// RowHit is one DRAWN data row of the last View: its rect relative to the
+// widget's own View origin (grid mode: inside the box border, below the
+// header rows; flat mode: the full line below the header line) and its
+// absolute data index. Pages translate these content-relative rects into
+// the page layout and publish them as click targets (UAT round 8 Task
+// 8.3); measuring the composed lines keeps the hit the ink the user sees,
+// the sectionRect convention on the widget side.
+type RowHit struct {
+	Rect  geom.Rect
+	Index int
+}
 
 // Column describes one table column. Width is the display width of the
 // cell content (padding excluded). In grid mode (the wireframe §B/§H
@@ -64,7 +77,18 @@ type Table struct {
 	// moves; both zero values are the historical default path.
 	height    int
 	scrollOff int
+
+	// rowHits records the DRAWN data-row rects of the last View (see
+	// RowHit); the accessors return it as-is until the next render. It
+	// is pure bookkeeping beside the renderers, so the bytes View emits
+	// never depend on it.
+	rowHits []RowHit
 }
+
+// RowHits reports the data-row rects the last View drew (empty while the
+// table renders its empty state). The rects are relative to the View's
+// own origin; callers translate them into their layout (Task 8.3).
+func (m *Table) RowHits() []RowHit { return m.rowHits }
 
 // NewTable builds an empty table with the given total width.
 func NewTable(th *theme.Theme, width int) *Table {
@@ -345,6 +369,8 @@ func (m *Table) resolvedWidths() []int {
 // panes), clipped line-by-line so nothing ever overflows or wraps.
 func (m *Table) View() string {
 	if len(m.rows) == 0 {
+		m.rowHits = nil // the empty-state line is not a row: no click targets
+
 		return m.theme.TextMuted.Render(m.empty)
 	}
 	if m.grid {
@@ -390,6 +416,17 @@ func (m *Table) renderFlat() string {
 			line = m.theme.Selection.Render(line)
 		}
 		lines = append(lines, line)
+	}
+
+	// Record the drawn data-row rects for the click hit map (Task 8.3):
+	// the flat renderer pads every line to the table width, so a row
+	// spans its measured line below the one header line (lines[0]).
+	m.rowHits = m.rowHits[:0]
+	for i := lo; i < hi; i++ {
+		m.rowHits = append(m.rowHits, RowHit{
+			Rect:  geom.Rect{X: 0, Y: 1 + i - lo, W: lipgloss.Width(lines[1+i-lo]), H: 1},
+			Index: i,
+		})
 	}
 
 	return strings.Join(lines, "\n")

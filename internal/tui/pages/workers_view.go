@@ -92,6 +92,7 @@ func (w *Workers) render(wt, h int) string {
 	// could run a cell past the right edge of the table it sits under.
 	inner := max(wt-2, 4)
 	w.tableRect = geom.Rect{} // the table re-publishes below, or not at all
+	w.selRows = w.selRows[:0] // and so do its click rows
 
 	head := titleLine(w.th, titleWorkers)
 	if line := w.statusLine(inner); line != "" {
@@ -116,7 +117,12 @@ func (w *Workers) render(wt, h int) string {
 	body := w.table.View()
 	// Publish the DRAWN table box for the wheel hit map (Task 8.2c):
 	// measured from the composed string like every recorded section rect.
-	w.tableRect = sectionRect(0, strings.Count(head, "\n")+1, body)
+	headH := strings.Count(head, "\n") + 1
+	w.tableRect = sectionRect(0, headH, body)
+	// And the drawn rows for the click hit map (Task 8.3): the table
+	// body starts under the head lines, so the widget's row rects shift
+	// down by the head height into content coords.
+	w.selRows = selectRows(w.selRows, RegionWorkersTable, w.table.RowHits(), 0, headH)
 
 	if strip != "" {
 		body += "\n" + strip

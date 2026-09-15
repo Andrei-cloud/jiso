@@ -318,8 +318,16 @@ func TestBuildHitMapPageRegions(t *testing.T) {
 			ox, oy := m.contentOrigin()
 			abs := geom.Rect{X: rel.X + ox, Y: rel.Y + oy, W: rel.W, H: rel.H}
 			act, ok := hm.resolve(abs.X+abs.W/2, abs.Y+abs.H/2)
-			if !ok || act.kind != hitScroll || act.region != tc.want {
-				t.Fatalf("pane centre = %+v,%v, want a scroll hit on %q", act, ok, tc.want)
+			if !ok || act.region != tc.want {
+				t.Fatalf("pane centre = %+v,%v, want a hit on %q", act, ok, tc.want)
+			}
+			// Task 8.3: the centre of a ROW-BEARING pane (tx, workers,
+			// sessions list, analyze roster) now resolves the topmost
+			// SELECT hit carrying the same region id — the wheel still
+			// scrolls through it, a click selects. Text panes (review,
+			// preview, records) keep the plain scroll hit.
+			if act.kind != hitScroll && act.kind != hitSelect {
+				t.Fatalf("pane centre resolved kind %v on %q, want scroll or select", act.kind, act.region)
 			}
 			// One row above the drawn top border must not resolve THIS
 			// region (it may legitimately resolve the pane stacked above

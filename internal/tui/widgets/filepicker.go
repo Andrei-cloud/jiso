@@ -12,6 +12,7 @@ import (
 	key "charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 )
 
@@ -368,6 +369,46 @@ func (p *FilePicker) selectEntry() (*FilePicker, tea.Cmd) {
 	path, label := e.path, p.relLabel(e.path)
 
 	return p, func() tea.Msg { return FilePickedMsg{Path: path, Label: label} }
+}
+
+// SelectRow moves the list cursor to index and runs the entry selection
+// Enter runs (Task 8.3 click-select): directories descend, selectable
+// files commit through FilePickedMsg, unselectable entries only move the
+// cursor. An out-of-range index changes nothing.
+func (p *FilePicker) SelectRow(index int) tea.Cmd {
+	if index < 0 || index >= p.list.Len() {
+		return nil
+	}
+	p.list.SetCursor(index)
+	_, cmd := p.selectEntry()
+
+	return cmd
+}
+
+// RowHits reports the DRAWN entry rows relative to the picker's own View
+// origin: below the header line (two lines while the `/` filter is open)
+// and above the footer line, one cell tall per visible list entry, each
+// carrying its absolute entry index. The error state draws no entry
+// rows. The root translates these into absolute cells the same way it
+// centers the box in View (Task 8.3 click-select).
+func (p *FilePicker) RowHits() []RowHit {
+	if p.err != "" {
+		return nil
+	}
+	head := 1
+	if p.filterOn {
+		head++
+	}
+	top, count := p.list.Window()
+	rows := make([]RowHit, 0, count)
+	for i := 0; i < count; i++ {
+		rows = append(rows, RowHit{
+			Rect:  geom.Rect{X: 0, Y: head + i, W: p.width, H: 1},
+			Index: top + i,
+		})
+	}
+
+	return rows
 }
 
 // View renders header (virtual current path + filter echo), the

@@ -44,11 +44,19 @@ type Workers struct {
 	// screen (the stress-summary overlay owns the body). It is the
 	// geometry the wheel hit map registers under RegionWorkersTable.
 	tableRect geom.Rect
+
+	// selRows are the DRAWN worker-row rects (content-relative) recorded
+	// during the last render for the Task 8.3 click-select seam, under
+	// RegionWorkersTable (wheel over a row still scrolls the pane).
+	selRows []SelectRegion
 }
 
-// §H owns one wheel-scrollable region (the workers table) and implements
-// the Task 8.2c region seam.
-var _ Scroller = (*Workers)(nil)
+// §H owns one wheel-scrollable, click-selectable region (the workers
+// table) and implements the Task 8.2c/8.3 seams.
+var (
+	_ Scroller = (*Workers)(nil)
+	_ Selector = (*Workers)(nil)
+)
 
 // workersNav is the page keymap: start forms, stop, stop-all, and the
 // pop/close chords.
@@ -138,6 +146,26 @@ func (w *Workers) ScrollRegion(id string, d int) bool {
 
 	return true
 }
+
+// SelectRegions publishes the table's drawn row rects (Task 8.3): one
+// per visible row under RegionWorkersTable, recorded by the last render.
+func (w *Workers) SelectRegions() []SelectRegion { return w.selRows }
+
+// SelectRegion moves the table cursor to the clicked row (clamped like
+// the keyboard nav; SetState re-places by index, which the click has
+// already moved).
+func (w *Workers) SelectRegion(id string, index int) bool {
+	if id != RegionWorkersTable || index < 0 || index >= len(w.state.Workers) {
+		return false
+	}
+	w.table.SetCursor(index)
+
+	return true
+}
+
+// Cursor reports the table cursor index (0 when empty) — the row the
+// keyboard and the click both move.
+func (w *Workers) Cursor() int { return w.table.Cursor() }
 
 // OpenSummary re-arms the stress-summary overlay for the summary the
 // page already carries (proposal 05 §3: the §A LAST STRESS card's

@@ -80,11 +80,21 @@ type Analyze struct {
 	// RegionAnalyzePreview (Task 8.2c).
 	itemsRect   geom.Rect
 	previewRect geom.Rect
+
+	// selRows are the DRAWN roster row rects (content-relative) recorded
+	// during the last render of the generated-item overlay for the Task
+	// 8.3 click-select seam, under RegionAnalyzeItems (a click moves the
+	// roster cursor; the wheel over a row still scrolls it as before).
+	selRows []SelectRegion
 }
 
 // §J owns two wheel-scrollable regions (the generated-item roster and
-// its preview sub-pane) and implements the Task 8.2c region seam.
-var _ Scroller = (*Analyze)(nil)
+// its preview sub-pane) and click-selectable roster rows (Task
+// 8.2c/8.3 seams).
+var (
+	_ Scroller = (*Analyze)(nil)
+	_ Selector = (*Analyze)(nil)
+)
 
 // ScrollRegions publishes the picker panes' drawn rects: the regions
 // exist exactly while the generated-item overlay is on screen, so the
@@ -135,6 +145,29 @@ func (a *Analyze) ScrollRegion(id string, d int) bool {
 
 	return false
 }
+
+// SelectRegions publishes the roster's drawn row rects (Task 8.3): a
+// click on a visible item moves the roster cursor there (space/a still
+// toggle inclusion; a click only selects, like the arrow keys).
+func (a *Analyze) SelectRegions() []SelectRegion { return a.selRows }
+
+// SelectRegion moves the roster cursor to the clicked item — the same
+// move the wheel's cursor walk makes, so the preview re-seats from the
+// top and the window drags along.
+func (a *Analyze) SelectRegion(id string, index int) bool {
+	if id != RegionAnalyzeItems || !a.itemsOpen || index < 0 || index >= len(a.state.Items) {
+		return false
+	}
+	a.itemCursor = index
+	a.previewOff = 0 // a new item previews from the top (the keys' rule)
+	a.scrollItemsIntoView(a.itemsWindow())
+
+	return true
+}
+
+// ItemsCursor reports the generated-item roster cursor index (0 when
+// empty) — the item the keys, the wheel and the click all move.
+func (a *Analyze) ItemsCursor() int { return a.itemCursor }
 
 // analyzeNav is the page keymap; Enter/Esc semantics are wizard
 // transitions root validates, so they leave as messages.

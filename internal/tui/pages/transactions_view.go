@@ -68,7 +68,9 @@ const tableGridChrome = 4
 // tx-file load shows the reason instead of the table or the empty state
 // (UAT round 7: silence hid the real error).
 func (t *Transactions) render(w, h int) string {
-	t.txRect = geom.Rect{} // the table re-publishes below, or not at all
+	t.txRect = geom.Rect{}    // the table re-publishes below, or not at all
+	t.selRows = t.selRows[:0] // and so do its click rows
+
 	if t.state.Error != "" {
 		return clipBlockStyled(t.th, t.titleRow(w)+"\n"+t.errorBody(), h, w)
 	}
@@ -82,6 +84,10 @@ func (t *Transactions) render(w, h int) string {
 	// measured from the composed string like every recorded section
 	// rect, so the registered region is the ink the user sees.
 	t.txRect = sectionRect(0, 1, body)
+	// And the drawn rows for the click hit map (Task 8.3): the table
+	// body starts under the one title row, so the widget's row rects
+	// shift down by one into content coords.
+	t.selRows = selectRows(t.selRows, RegionTxTable, t.table.RowHits(), 0, 1)
 
 	return clipBlockStyled(t.th, t.titleRow(w)+"\n"+body, h, w)
 }

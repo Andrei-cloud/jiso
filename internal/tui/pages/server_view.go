@@ -100,6 +100,7 @@ func (s *Server) View() tea.View {
 func (s *Server) render(w, h int) string {
 	s.sections = s.sections[:0] // redraw the section rects alongside the ink
 	s.logRect = geom.Rect{}     // the LOG pane re-publishes below, or not at all
+	s.selRows = s.selRows[:0]   // and so do the routes' click rows
 
 	head := s.headerRow(w)
 	if errLine := s.errorLine(w); errLine != "" {
@@ -338,7 +339,24 @@ func (s *Server) routesBox(x, y, w, h int) string {
 	s.table.SetFocused(s.routesFocused)
 	s.table.SetWidth(max(w-2, 4))
 
-	return s.sectionW(paneTitle(s.th, titleRoutes, s.routesFocused), s.table.View(), x, y, w, h, s.routesFocused)
+	out := s.sectionW(paneTitle(s.th, titleRoutes, s.routesFocused), s.table.View(), x, y, w, h, s.routesFocused)
+	// Publish the drawn rows for the click hit map (Task 8.3): the ModeServer
+	// box draws w wide with two border cells and clips its body to h-3
+	// lines of w-2 cells (sectionW hands the shared Section w+2), so the
+	// table body sits at x+1 under the title line and top rule, and only
+	// the table lines the box actually draws get a hit.
+	for _, rh := range s.table.RowHits() {
+		if rh.Rect.Y >= max(h-3, 1) {
+			continue // the box clips this line away: no ink, no hit
+		}
+		s.selRows = append(s.selRows, SelectRegion{
+			ID:    RegionServerRoutes,
+			Rect:  geom.Rect{X: x + 1, Y: y + 2 + rh.Rect.Y, W: min(rh.Rect.W, max(w-2, 1)), H: 1},
+			Index: rh.Index,
+		})
+	}
+
+	return out
 }
 
 // sectionW draws a titled bordered box occupying exactly w×h in the page

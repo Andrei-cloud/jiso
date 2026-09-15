@@ -55,6 +55,7 @@ func (s *Sessions) render(w, h int) string {
 	// not drawn publishes nothing; Task 8.2c).
 	s.listRect = geom.Rect{}
 	s.reviewRect = geom.Rect{}
+	s.selRows = s.selRows[:0] // the panes' click rows re-publish likewise
 
 	head := s.headerLine(w)
 	headH := 1
@@ -161,6 +162,10 @@ func (s *Sessions) listBox(x, y, w, h int) string {
 	out := s.sectionW(s.paneTitle(titleSessions, focused), s.list.View(), x, y, w, h, focused)
 	// Publish the DRAWN pane box for the wheel hit map (Task 8.2c).
 	s.listRect = sectionRect(x, y, out)
+	// And the drawn rows for the click hit map (Task 8.3): the windowed
+	// flat table sits inside the left border (x+1), under the title line
+	// and the box top rule (y+2); its lines clip to w-4 cells.
+	s.appendRows(RegionSessionsList, s.list.RowHits(), x, y, max(w-4, 1), max(h-3, 1))
 
 	return out
 }
@@ -185,7 +190,33 @@ func (s *Sessions) historyBox(x, y, w, h int) string {
 		title += " (" + shortDisplayID(s.th, s.state.SelectedID) + ")"
 	}
 
-	return s.sectionW(s.paneTitle(title, focused), s.history.View(), x, y, w, h, focused)
+	out := s.sectionW(s.paneTitle(title, focused), s.history.View(), x, y, w, h, focused)
+	// Publish the drawn rows for the click hit map (Task 8.3): the
+	// history table is unwindowed (it renders every row and the box
+	// clips the body to h-3 lines), so only table lines the box actually
+	// draws get a hit — phantom rows below the border stay inert.
+	s.appendRows(RegionSessionsHistory, s.history.RowHits(), x, y, max(w-4, 1), max(h-3, 1))
+
+	return out
+}
+
+// appendRows publishes a boxed pane's drawn row rects for the click hit
+// map: the table body sits one cell inside the left border and under the
+// title line plus the box top rule, its lines clipped to innerW cells
+// (the Section.Render convention). maxTableY caps which table lines are
+// drawn — pass the box's body height for an unwindowed table, or 0 when
+// the widget's own scroll window already limits the render.
+func (s *Sessions) appendRows(id string, hits []widgets.RowHit, x, y, innerW, maxTableY int) {
+	for _, h := range hits {
+		if maxTableY > 0 && h.Rect.Y >= maxTableY {
+			continue // the box clips this line away: no ink, no hit
+		}
+		s.selRows = append(s.selRows, SelectRegion{
+			ID:    id,
+			Rect:  geom.Rect{X: x + 1, Y: y + 2 + h.Rect.Y, W: min(h.Rect.W, innerW), H: 1},
+			Index: h.Index,
+		})
+	}
 }
 
 // paneTitle accents a focused pane's title and mutes the rest (focus

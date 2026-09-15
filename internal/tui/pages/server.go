@@ -52,11 +52,20 @@ type Server struct {
 	// It is the geometry the Task 8.2b hit map registers under
 	// RegionServerLog.
 	logRect geom.Rect
+
+	// selRows are the DRAWN ROUTES row rects (content-relative) recorded
+	// during the last render for the Task 8.3 click-select seam, under
+	// RegionServerRoutes (a select-only region: the routes table is
+	// unwindowed, the box clips its body).
+	selRows []SelectRegion
 }
 
 // §G owns one wheel-scrollable region (the SERVER LOG pane) and
-// implements the Task 8.2b region seam.
-var _ Scroller = (*Server)(nil)
+// click-selectable rows in the ROUTES pane (Task 8.2b/8.3 seams).
+var (
+	_ Scroller = (*Server)(nil)
+	_ Selector = (*Server)(nil)
+)
 
 // serverNav is the page keymap: stop, routes-pane focus, detail
 // enter/close, and the pop chord.
@@ -160,6 +169,25 @@ func (s *Server) ScrollRegion(id string, d int) bool {
 
 	return true
 }
+
+// SelectRegions publishes the ROUTES pane's drawn row rects (Task 8.3):
+// a click on a visible route moves the routes cursor there.
+func (s *Server) SelectRegions() []SelectRegion { return s.selRows }
+
+// SelectRegion moves the routes cursor to the clicked row (clamped like
+// the keyboard nav; SetState re-places by index, which the click has
+// already moved).
+func (s *Server) SelectRegion(id string, index int) bool {
+	if id != RegionServerRoutes || index < 0 || index >= len(s.state.Routes) {
+		return false
+	}
+	s.table.SetCursor(index)
+
+	return true
+}
+
+// RoutesCursor reports the routes table cursor index (0 when empty).
+func (s *Server) RoutesCursor() int { return s.table.Cursor() }
 
 // SetState replaces the rendered snapshot (root pushes it on boot, on
 // every tick, and on every start/stop transition). The routes table is

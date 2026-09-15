@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"jiso/internal/tui/geom"
 )
 
 // This file holds the wireframe grid renderer for Table, split out along
@@ -134,5 +136,22 @@ func (m *Table) renderGrid() string {
 		lines[i] = m.fit(l)
 	}
 
+	// Record the drawn data-row rects for the click hit map (Task 8.3).
+	m.recordGridRows(lines, lo, hi)
+
 	return strings.Join(lines, "\n")
+}
+
+// recordGridRows records the drawn data-row rects for the click hit map
+// (Task 8.3): lines[0..2] are the top rule, the header row and the mid
+// rule, so each visible row starts one cell inside the border columns,
+// under the header. The bottom rule is not a row.
+func (m *Table) recordGridRows(lines []string, lo, hi int) {
+	m.rowHits = m.rowHits[:0]
+	for i := lo; i < hi; i++ {
+		m.rowHits = append(m.rowHits, RowHit{
+			Rect:  geom.Rect{X: 1, Y: 3 + i - lo, W: max(lipgloss.Width(lines[3+i-lo])-2, 1), H: 1},
+			Index: i,
+		})
+	}
 }

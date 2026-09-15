@@ -121,6 +121,15 @@ func (a *Analyze) itemsRoster(w, h int) string {
 		} else {
 			lines = append(lines, a.th.TextPrimary.Render(clipCells(line, w, clipTail(a.th))))
 		}
+		// Record the drawn row for the click hit map (Task 8.3): the
+		// roster pane starts at itemsBodyY with its one head line, both
+		// layouts (side-by-side and stacked) pin it to content x 0, and
+		// every line appended above is one pane row down.
+		a.selRows = append(a.selRows, SelectRegion{
+			ID:    RegionAnalyzeItems,
+			Rect:  geom.Rect{X: 0, Y: itemsBodyY + len(lines) - 1, W: w, H: 1},
+			Index: i,
+		})
 	}
 	if hidden > 0 {
 		lines = append(lines, a.th.Dim.Render("  +"+strconv.Itoa(hidden)+" more"))

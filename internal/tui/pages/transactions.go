@@ -51,11 +51,21 @@ type Transactions struct {
 	// empty state). It is the geometry the wheel hit map registers under
 	// RegionTxTable.
 	txRect geom.Rect
+
+	// selRows are the DRAWN data-row rects (content-relative, one per
+	// visible row) recorded during the last render for the Task 8.3
+	// click-select seam; the empty slice means the table was not on
+	// screen. They publish under RegionTxTable so the wheel over a row
+	// still scrolls the pane while a click selects the row.
+	selRows []SelectRegion
 }
 
-// §B owns one wheel-scrollable region (the transactions table) and
-// implements the Task 8.2c region seam.
-var _ Scroller = (*Transactions)(nil)
+// §B owns one wheel-scrollable, click-selectable region (the
+// transactions table) and implements the Task 8.2c/8.3 seams.
+var (
+	_ Scroller = (*Transactions)(nil)
+	_ Selector = (*Transactions)(nil)
+)
 
 // txNav is the page keymap: filter-mode esc/backspace/enter plus the
 // page-local triggers; navigation itself is owned by widgets.Table.
@@ -165,6 +175,27 @@ func (t *Transactions) ScrollRegion(id string, d int) bool {
 
 	return true
 }
+
+// SelectRegions publishes the table's drawn row rects (Task 8.3): one
+// per visible row under RegionTxTable, recorded by the last render.
+func (t *Transactions) SelectRegions() []SelectRegion { return t.selRows }
+
+// SelectRegion moves the table cursor to the clicked row and re-tracks
+// the selected identity exactly like the keyboard nav does (updateNav),
+// so the next SetState preserves the click instead of snapping back.
+func (t *Transactions) SelectRegion(id string, index int) bool {
+	if id != RegionTxTable || index < 0 || index >= len(t.view) {
+		return false
+	}
+	t.table.SetCursor(index)
+	t.selectedID = t.view[index].ID
+
+	return true
+}
+
+// Cursor reports the table cursor index (0 when empty) — the row the
+// keyboard and the click both move.
+func (t *Transactions) Cursor() int { return t.table.Cursor() }
 
 // SetState replaces the rendered snapshot (root pushes it on boot and on
 // every Update). Filter, sort, and selection are recomposed over the new

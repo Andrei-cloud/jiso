@@ -83,11 +83,22 @@ type Sessions struct {
 	// the narrow drill shows neither list nor review).
 	listRect   geom.Rect
 	reviewRect geom.Rect
+
+	// selRows are the DRAWN row rects (content-relative, one per visible
+	// row) recorded during the last render for the Task 8.3 click-select
+	// seam: the SESSIONS list under RegionSessionsList (its wheel
+	// region) and the TX HISTORY pane under RegionSessionsHistory (a
+	// select-only region: that table draws every row and the box clips,
+	// so there is no wheel window to scroll).
+	selRows []SelectRegion
 }
 
-// §I owns two wheel-scrollable regions (the SESSIONS pane and the tx
-// review overlay) and implements the Task 8.2c region seam.
-var _ Scroller = (*Sessions)(nil)
+// §I owns two wheel-scrollable regions and click-selectable rows in the
+// list and history panes (Task 8.2c/8.3 seams).
+var (
+	_ Scroller = (*Sessions)(nil)
+	_ Selector = (*Sessions)(nil)
+)
 
 // ScrollRegions publishes the regions the last render drew: the
 // SESSIONS list box while the list panes are on screen, and the review
@@ -133,6 +144,43 @@ func (s *Sessions) ScrollRegion(id string, d int) bool {
 
 	return false
 }
+
+// SelectRegions publishes the drawn row rects of the list and history
+// panes (Task 8.3): a click on a visible row selects it.
+func (s *Sessions) SelectRegions() []SelectRegion { return s.selRows }
+
+// SelectRegion moves the clicked pane's cursor and re-tracks the
+// selected identity exactly like the keyboard nav does (syncSelID /
+// syncTxID), so the next SetState preserves the click instead of
+// snapping back.
+func (s *Sessions) SelectRegion(id string, index int) bool {
+	switch id {
+	case RegionSessionsList:
+		if index < 0 || index >= len(s.view) {
+			return false
+		}
+		s.list.SetCursor(index)
+		s.syncSelID()
+
+		return true
+	case RegionSessionsHistory:
+		if index < 0 || index >= len(s.state.History) {
+			return false
+		}
+		s.history.SetCursor(index)
+		s.syncTxID()
+
+		return true
+	}
+
+	return false
+}
+
+// ListCursor reports the SESSIONS list cursor index (0 when empty).
+func (s *Sessions) ListCursor() int { return s.list.Cursor() }
+
+// HistoryCursor reports the TX HISTORY cursor index (0 when empty).
+func (s *Sessions) HistoryCursor() int { return s.history.Cursor() }
 
 // sessionsNav is the page keymap: pane focus arrives as PaneFocusMsg
 // from the router (the §C contract), so the page binds only its local

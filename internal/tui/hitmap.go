@@ -24,6 +24,8 @@
 package tui
 
 import (
+	"strings"
+
 	"charm.land/lipgloss/v2"
 
 	tea "charm.land/bubbletea/v2"
@@ -204,8 +206,10 @@ func (m *RootModel) contentOrigin() (x, y int) {
 // buildHitMap assembles one frame's cell map. Task 8.2b registered the
 // first real regions — the top page's wheel-scroll regions (published
 // through pages.Scroller, so no page region id is hardcoded here) and the
-// §M overlay's box; footer hint cells and select/focus targets arrive
-// with Tasks 8.3–8.5.
+// §M overlay's box; Task 8.3 added the pages' click-selectable rows
+// (pages.Selector, registered over the pane scrollHits) and the file
+// picker's entry rows; footer hint cells and focus targets arrive with
+// Tasks 8.4–8.5.
 //
 // Registration order is z-order (page body first, overlays last), and an
 // empty map is legal: it is §G before its first log line, every page
@@ -224,11 +228,29 @@ func (m *RootModel) buildHitMap() hitMap {
 			hm.addAbs(ox, oy, r.Rect, scrollHit(r.ID))
 		}
 	}
+	// Task 8.3: the pages' drawn rows register AFTER the pane scrollHits
+	// so a click resolves the ROW (topmost), while the wheel over the
+	// same cell still scrolls the PANE — a selectHit carries the pane's
+	// own region id, and installMouse routes the wheel by action.region.
+	if sl, ok := m.Current().(pages.Selector); ok {
+		for _, r := range sl.SelectRegions() {
+			hm.addAbs(ox, oy, r.Rect, selectHit(r.ID, r.Index))
+		}
+	}
 	// The §M overlay is root-owned modal state, not a page: its region is
 	// spelled here and dispatched directly in handleScrollMsg. Added last
 	// so the wheel over the box never scrolls the page underneath it.
 	if m.help != nil {
 		hm.add(m.helpHitRect(), scrollHit(regionHelp))
+	}
+	// The file picker (Task 8.3) is likewise root-owned: its entry rows
+	// register over everything the page and the box below them drew —
+	// but NOT while a §N3 confirm draws over the picker itself, which
+	// would resolve phantom hits under the confirm's ink.
+	if m.filePick != nil && !m.confirmPending() {
+		for _, r := range m.pickerRowHits() {
+			hm.add(r.Rect, selectHit(regionPicker, r.Index))
+		}
 	}
 
 	return hm
@@ -237,6 +259,12 @@ func (m *RootModel) buildHitMap() hitMap {
 // regionHelp names the §M help box's scroll region (overlay: the box
 // scrolls its own keymap window through helpOverlay.ScrollBy).
 const regionHelp = "help:box"
+
+// regionPicker names the shared file picker's entry rows (root-owned
+// overlay, Task 8.3): a click on a row moves the picker cursor AND runs
+// the widget's own entry selection, so the region is dispatched directly
+// in handleSelectMsg instead of through a page seam.
+const regionPicker = "picker:entries"
 
 // helpHitRect is the §M box's ABSOLUTE drawn rect: it re-measures the
 // same View string root_view.go composited and mirrors overlayCenter's
@@ -253,6 +281,34 @@ func (m *RootModel) helpHitRect() geom.Rect {
 	y := max((inner.Height-bl)/2, 0)
 
 	return geom.Rect{X: ox + x, Y: oy + y, W: bw, H: min(bl, inner.Height-y)}
+}
+
+// pickerRowHits is the file picker's ABSOLUTE drawn entry-row rects
+// (Task 8.3): the box string is recomposed exactly as root_view.go
+// composites it (boxed + overlayCenter) and the centering math mirrors
+// overlayCenter on the content canvas, offset by the frame's content
+// origin — the helpHitRect trick applied to the widget's measured row
+// rects (one border column and one header offset in). Rows whose box
+// line overlayCenter clips below the canvas publish nothing, so a click
+// on dead space below the picker stays inert.
+func (m *RootModel) pickerRowHits() []widgets.RowHit {
+	inner := m.innerWS()
+	box := modalBox(m.themeOrNil(), modalBoxWidth(inner.Width), m.filePick.View())
+	lines := strings.Split(strings.TrimRight(box, "\n"), "\n")
+	x := max((inner.Width-boxWidth(lines))/2, 0)
+	y := max((inner.Height-len(lines))/2, 0)
+	ox, oy := m.contentOrigin()
+
+	var out []widgets.RowHit
+	for _, rh := range m.filePick.RowHits() {
+		row := geom.Rect{X: ox + x + 1 + rh.Rect.X, Y: oy + y + 1 + rh.Rect.Y, W: rh.Rect.W, H: 1}
+		if row.Y-oy >= inner.Height {
+			continue // the box row is not drawn: overlayCenter stops splicing
+		}
+		out = append(out, widgets.RowHit{Rect: row, Index: rh.Index})
+	}
+
+	return out
 }
 
 // installMouse arms the view for mouse input: CellMotion mode makes the
@@ -371,6 +427,14 @@ func (m *RootModel) modalOpen() bool {
 		m.workerWiz != nil || m.help != nil || m.filePick != nil {
 		return true
 	}
+
+	return m.confirmPending()
+}
+
+// confirmPending reports a pending §N3 confirm — the overlay stack draws
+// these LAST, above even the file picker, so the picker's click rows
+// stop publishing while one is up (buildHitMap).
+func (m *RootModel) confirmPending() bool {
 	for _, c := range []*widgets.ConfirmDialog{
 		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
 		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
@@ -383,9 +447,36 @@ func (m *RootModel) modalOpen() bool {
 	return false
 }
 
-// handleSelectMsg is the selectMsg seam Tasks 8.2–8.5 fill with row
-// selection (click a list row = move the cursor there).
-func (m *RootModel) handleSelectMsg(selectMsg) (tea.Model, tea.Cmd) { return m, nil }
+// handleSelectMsg is the selectMsg seam (Task 8.3): a left click
+// resolved to a drawn row selects it — the cursor moves to the row's
+// data index through the page's own clamping and identity rules, exactly
+// like the keyboard. The file picker is checked first: like the §M box
+// in handleScrollMsg it is root-owned modal state whose own rows stay
+// clickable while it owns the screen, and its click additionally runs
+// the widget's entry selection (descend a directory, commit a selectable
+// file). Then the SAME modal gate handleScrollMsg uses: while any
+// root-owned modal is open, a page-behind region stays inert, so a click
+// can never select under the overlay. Otherwise the region resolves
+// through pages.Selector on the top page (the Scroller pattern); unknown
+// regions and pages without the seam stay inert: a mouse msg never
+// reaches a page as a key.
+func (m *RootModel) handleSelectMsg(msg selectMsg) (tea.Model, tea.Cmd) {
+	if msg.region == regionPicker {
+		if m.filePick != nil { // a straggler after the picker closed: inert
+			return m, m.filePick.SelectRow(msg.index)
+		}
+
+		return m, nil
+	}
+	if m.modalOpen() {
+		return m, nil // the modal owns the screen; the page behind stays frozen
+	}
+	if sl, ok := m.Current().(pages.Selector); ok {
+		sl.SelectRegion(msg.region, msg.index)
+	}
+
+	return m, nil
+}
 
 // handleFocusMsg is the focusMsg seam Tasks 8.2–8.5 fill with pane focus
 // (click a split pane = Tab there).
