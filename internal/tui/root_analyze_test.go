@@ -277,11 +277,12 @@ func (r *analyzeTestRoot) mustStep(t *testing.T, want int) {
 	}
 }
 
-// TestAnalyzeHelpOpensOnFreshCaptureStep: the capture step claims the
-// keyboard for path typing, but "?" on the fresh step must still open
-// the §M overlay synchronously (SCR-513's every-page contract, checked
-// without running cmds); once the draft carries text, "?" is a literal
-// path byte (SCR-502).
+// TestAnalyzeHelpOpensOnFreshCaptureStep: UAT round 8 (D2) scoped the
+// capture claim to edit mode, so the fresh step is navigate mode and
+// "?" reaches the §M overlay synchronously through the global layer
+// (SCR-513's every-page contract, now without the deleted carve-out);
+// once a path is being typed, every colliding key — q, digits, ":" and
+// "?" included — reaches the draft (SCR-502).
 func TestAnalyzeHelpOpensOnFreshCaptureStep(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	r.gotoAnalyze()
@@ -289,18 +290,20 @@ func TestAnalyzeHelpOpensOnFreshCaptureStep(t *testing.T) {
 
 	_, _ = r.m.Update(ch('?'))
 	if r.m.help == nil {
-		t.Fatalf("'?' on the fresh capture step must open help:\n%s", r.view())
+		t.Fatalf("'?' on the navigate capture step must open help:\n%s", r.view())
 	}
 	_, _ = r.m.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // close it
 	r.m.help = nil
 
-	r.pump(ch('c'))
-	_, _ = r.m.Update(ch('?'))
+	r.pump(ch('/')) // the first path byte enters edit mode
+	for _, c := range "q4:?" {
+		r.pump(ch(c))
+	}
 	if r.m.help != nil {
 		t.Fatal("? while typing a path must type, not open help")
 	}
-	if d, editing := r.m.analyze.Draft(); !editing || !strings.HasPrefix(d, "c?") {
-		t.Fatalf("draft = %q/%v, want c?...", d, editing)
+	if d, editing := r.m.analyze.Draft(); !editing || !strings.HasPrefix(d, "/q4:?") {
+		t.Fatalf("draft = %q/%v, want /q4:?...", d, editing)
 	}
 }
 

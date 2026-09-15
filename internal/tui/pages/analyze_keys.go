@@ -145,9 +145,9 @@ func (a *Analyze) updateEnter() (Page, tea.Cmd) {
 // the cursor on an empty filter, [f] opens the shared picker (capture
 // only), and every printable types into the filter/typed path (the
 // SCR-502 lesson: once typing, all printables — j and k included — go
-// into the filter). Root's claim branch still hands "?" on a FRESH
-// draft to the §M overlay (FreshDraftHelp below), so help stays
-// reachable from every registry page (SCR-513).
+// into the filter). Once typing is in progress the step claims the
+// keyboard whole (UAT round 8 / D2): "?" types too; on the fresh step
+// the global layer still works and "?" opens §M).
 func (a *Analyze) updateListStep(msg tea.KeyPressMsg, n int, browse bool) (Page, tea.Cmd) {
 	switch {
 	case a.draft == "" && key.Matches(msg, a.nav.Up):

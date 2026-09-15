@@ -169,9 +169,10 @@ type staticErr struct{}
 func (staticErr) Error() string { return "boom" }
 
 // TestWorkerWizardHelpEscape: "?" on the wizard's EMPTY filter line
-// opens the §M overlay (the FreshDraftHelp escape hatch, root-side
-// branch); Esc closes the overlay and the wizard stays open under it;
-// once the filter carries text, "?" types into the filter.
+// opens the §M overlay (the wizard's FreshDraft escape hatch, root
+// modal branch — the wizard's two-mode edit entry lands with Task 4.2);
+// Esc closes the overlay and the wizard stays open under it; once the
+// filter carries text, "?" types into the filter.
 func TestWorkerWizardHelpEscape(t *testing.T) {
 	r := newFormTestRoot(t)
 	r.key(ch('t'))

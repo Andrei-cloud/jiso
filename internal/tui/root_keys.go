@@ -74,18 +74,10 @@ func (m *RootModel) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// the keyboard exactly like the palette does: keys that collide with
 	// global bindings (q, digits, :, ?) must reach the filter instead of
 	// quitting, jumping pages, or opening overlays. Ctrl+C was claimed
-	// above and stays global.
+	// above and stays global. UAT round 8 (D2): there is no "?"-on-empty
+	// escape hatch anymore — while a field is being typed into the page
+	// claims EVERY key; esc leaves the field before any global key works.
 	if kc, ok := m.Current().(pages.KeyboardClaimer); ok && kc.ClaimsKeyboard() {
-		// SCR-513: a claim page that types paths (pages.FreshDraftHelp)
-		// still hands "?" to the §M overlay while its draft is empty;
-		// once typing, "?" reaches the draft with every other printable.
-		if f, fresh := m.Current().(pages.FreshDraftHelp); fresh && keyMatches(msg, km.Help) && f.FreshDraft() {
-			m.openHelp()
-			m.debug.logf("help open from claim page %s", m.Current().ID())
-
-			return m, nil
-		}
-
 		return m.forward(msg)
 	}
 

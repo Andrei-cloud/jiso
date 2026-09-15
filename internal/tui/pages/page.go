@@ -57,15 +57,9 @@ type PaneFocusMsg struct {
 // page unclaimed by the global layer — the same contract the command
 // palette uses — so printable keys that collide with global bindings (q,
 // digits, :, ?) stay typeable. The graceful exit (ctrl+c) stays global.
+// UAT round 8 (D2): the claim is total; the old FreshDraftHelp
+// "?"-on-empty escape hatch is gone — esc leaves the field first, and
+// only then do the global keys work again.
 type KeyboardClaimer interface {
 	ClaimsKeyboard() bool
-}
-
-// FreshDraftHelp is the escape hatch for claim pages that type paths:
-// while the draft is EMPTY root still routes "?" to the §M help
-// overlay (SCR-513 keeps help reachable from every registry page);
-// once the user types, "?" belongs to the draft (the SCR-502
-// contract).
-type FreshDraftHelp interface {
-	FreshDraft() bool
 }

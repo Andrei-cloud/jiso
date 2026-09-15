@@ -19,8 +19,8 @@
 // SCR-501 data-flow contract). The tx step claims the keyboard while
 // its "/" filter is open and the param step always claims it (values
 // carry digits and duration letters that collide with global
-// bindings); the FreshDraftHelp escape hatch keeps "?" opening the §M
-// overlay while the filter line is empty (the SCR-513 contract).
+// bindings); the root modal branch keeps "?" opening the §M overlay
+// while no field is being typed into (the wizard's FreshDraft below).
 package pages
 
 import (
@@ -212,10 +212,12 @@ func (w *WorkerWizard) ClaimsKeyboard() bool {
 	return false
 }
 
-// FreshDraft implements FreshDraftHelp: while the tx filter is EMPTY
-// root still routes "?" to the §M help overlay (SCR-513 keeps help
-// reachable); once the filter carries text, "?" is a filter byte. The
-// param step never takes "?" as a value, so it stays a help key.
+// FreshDraft reports whether "?" may still mean the §M overlay while
+// this wizard owns the keyboard: only the root modal branch
+// (root_workers_form.go) asks it before forwarding. The param step
+// never takes "?" as a value, so it stays a help key. (Registry pages
+// lost this carve-out in UAT round 8: a claiming page now receives
+// every key; the wizard's two-mode edit entry lands with Task 4.2.)
 func (w *WorkerWizard) FreshDraft() bool {
 	switch w.step {
 	case WorkerStepTx:
@@ -333,5 +335,4 @@ func (w *WorkerWizard) pick(truecolor, ascii string) string {
 var (
 	_ Modal           = (*WorkerWizard)(nil)
 	_ KeyboardClaimer = (*WorkerWizard)(nil)
-	_ FreshDraftHelp  = (*WorkerWizard)(nil)
 )

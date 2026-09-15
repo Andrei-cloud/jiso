@@ -140,37 +140,38 @@ func (a *Analyze) Draft() (string, bool) { return a.draft, a.editingStep() }
 // ListCursor exposes the local list cursor (tests).
 func (a *Analyze) ListCursor() int { return a.sel }
 
-// ClaimsKeyboard implements KeyboardClaimer: the capture/spec list
-// steps own the keyboard for the whole step (the send-wizard list-step
-// contract) so path characters that collide with global bindings stay
-// typeable; the run step claims it only while the "/" flow filter is
-// open. Ctrl+C stays global.
-// The picker overlay rides on top: it owns the keyboard wholesale, as
-// does the unparsable-message viewer.
+// ClaimsKeyboard implements KeyboardClaimer with the UAT round 8 (D2)
+// scoping: the claim is EDIT mode, not "a step that has an editable
+// field". The capture/spec steps claim only while a typed path is in
+// progress (the first byte reaches them through the global layer, the
+// SCR-502 typeahead); the run step claims while the "/" flow filter or
+// the [o] output-path editor is open. The generated-item picker and
+// the unparsable-message viewer are overlays: they own the keyboard
+// wholesale while open. Ctrl+C stays global.
 func (a *Analyze) ClaimsKeyboard() bool {
-	return a.editingStep() || a.itemsOpen || a.unparsableOpen
+	if a.itemsOpen || a.unparsableOpen {
+		return true
+	}
+	switch a.state.Step {
+	case StepCapture, StepSpec:
+		return a.draft != ""
+	case StepRun:
+		return a.filtering || a.outEditing
+	}
+
+	return false
 }
 
-// editingStep reports whether the current step owns the keyboard.
+// editingStep reports whether the current step is a text-editing
+// surface for the view caret and Draft (the step-level question); the
+// keyboard claim proper is ClaimsKeyboard (UAT round 8: claim ==
+// actively typing).
 func (a *Analyze) editingStep() bool {
 	switch a.state.Step {
 	case StepCapture, StepSpec:
 		return true
 	case StepRun:
 		return a.filtering
-	}
-
-	return false
-}
-
-// FreshDraft implements FreshDraftHelp: the capture/spec claim is
-// entered with an empty draft, where "?" still means the §M overlay
-// (root's claim branch asks before forwarding); once the draft carries
-// text, "?" is a literal path byte.
-func (a *Analyze) FreshDraft() bool {
-	switch a.state.Step {
-	case StepCapture, StepSpec:
-		return a.draft == ""
 	}
 
 	return false

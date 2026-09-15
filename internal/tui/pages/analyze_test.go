@@ -186,30 +186,6 @@ func TestAnalyzeCaptureEmptyStateAndBrowse(t *testing.T) {
 	}
 }
 
-// TestAnalyzeFreshDraftHelpContract: the page-level side of SCR-513 —
-// FreshDraft is true exactly while a list step's draft is empty (root
-// hands "?" to the §M overlay then, and to the draft afterwards; the
-// root branch is covered in root_analyze_test.go).
-func TestAnalyzeFreshDraftHelpContract(t *testing.T) {
-	t.Parallel()
-
-	st := analyzeFixtureState()
-	st.Step = StepCapture
-	a := analyzePage(t, st, 120, 32)
-	if !a.FreshDraft() {
-		t.Error("a fresh capture step must offer the help draft")
-	}
-	_, _ = a.Update(ch('c'))
-	if a.FreshDraft() {
-		t.Error("typing closes the help draft (\"?\" becomes a path byte)")
-	}
-	st.Step = StepRun
-	a.SetState(st)
-	if a.FreshDraft() {
-		t.Error("the run step does not claim for paths; no help draft")
-	}
-}
-
 func TestAnalyzeCaptureInlineError(t *testing.T) {
 	t.Parallel()
 
@@ -229,8 +205,8 @@ func TestAnalyzeSpecStepCommitsSelection(t *testing.T) {
 	st.Step = StepSpec
 	a := analyzePage(t, st, 120, 32)
 
-	if !a.ClaimsKeyboard() {
-		t.Fatal("the spec step must claim the keyboard (paths contain q/digits)")
+	if a.ClaimsKeyboard() {
+		t.Fatal("a fresh spec step is navigate mode: globals (q, digits, ?) work until typing starts")
 	}
 	if a.ListCursor() != 0 {
 		t.Errorf("cursor = %d, want the current spec at 0", a.ListCursor())
@@ -241,11 +217,17 @@ func TestAnalyzeSpecStepCommitsSelection(t *testing.T) {
 		t.Errorf("Enter -> %T %+v, want CommitSpec ./spec.json", cmdMsg(t, cmd), cmdMsg(t, cmd))
 	}
 
-	// A typed path overrides the list.
+	// A typed path overrides the list — and the moment typing is in
+	// progress the step claims the keyboard (UAT round 8 / D2: the
+	// claim is edit mode, not "a step that has an editable field").
 	st = analyzeFixtureState()
 	st.Step = StepSpec
 	a = analyzePage(t, st, 120, 32)
-	for _, r := range "./my spec.json" {
+	_, _ = a.Update(ch('.')) // the first byte reaches the page unclaimed
+	if !a.ClaimsKeyboard() {
+		t.Fatal("typing a path must claim the keyboard (paths contain q/digits)")
+	}
+	for _, r := range "/my spec.json" {
 		_, _ = a.Update(ch(r))
 	}
 	_, cmd = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})

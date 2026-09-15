@@ -84,11 +84,13 @@ func (m *RootModel) closeWorkerWizard() {
 }
 
 // updateWorkerWizKey routes one key while the wizard owns the
-// keyboard. The FreshDraftHelp escape hatch stays root-side: "?" on
+// keyboard. The wizard's help escape hatch stays root-side: "?" on
 // the wizard's EMPTY filter line (or anywhere on the param step,
 // where "?" is never a value byte) opens the §M overlay, and while
 // the overlay is open it owns the keys first (Esc closes the overlay,
 // not the wizard — §N1). Ctrl+C stays global (claimed above).
+// (UAT round 8 scoped the registry-page claim to be total; the wizard
+// modal's two-mode edit entry lands with Task 4.2.)
 func (m *RootModel) updateWorkerWizKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.help != nil {
 		if keyMatches(msg, m.keys.Help) || msg.Code == tea.KeyEscape {
