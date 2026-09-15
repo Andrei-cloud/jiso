@@ -382,3 +382,47 @@ func TestElideMiddle(t *testing.T) {
 		}
 	}
 }
+
+// TestBorderFocused pins the focused-pane border derivation to the pages
+// sectionW idiom it replaces: the accent foreground applied over the
+// border token, byte-identical under a colour profile, while the
+// colorless ASCII profile keeps its plain-text, zero-escape-code
+// contract (the seven-bit goldens guard's rule).
+func TestBorderFocused(t *testing.T) {
+	t.Run("truecolor matches the by-hand pages derivation", func(t *testing.T) {
+		th := NewWith(colorprofile.TrueColor, true)
+		b := lipgloss.RoundedBorder()
+
+		want := lipgloss.NewStyle().
+			Border(b).
+			BorderForeground(th.Border.GetBorderTopForeground()).
+			BorderForeground(th.Accent.GetForeground()).
+			Render("x")
+		got := th.BorderFocused().Border(b).Render("x")
+		if got != want {
+			t.Errorf("focused border bytes differ:\ngot:  %q\nwant: %q", got, want)
+		}
+
+		unfocused := lipgloss.NewStyle().
+			Border(b).
+			BorderForeground(th.Border.GetBorderTopForeground()).
+			Render("x")
+		if got == unfocused {
+			t.Error("a focused border must differ from the neutral one")
+		}
+	})
+
+	t.Run("ascii stays plain text", func(t *testing.T) {
+		th := NewWith(colorprofile.ASCII, true)
+		got := th.BorderFocused().Border(lipgloss.ASCIIBorder()).Render("x")
+		if strings.ContainsAny(got, "\x1b\u009b") {
+			t.Errorf("ascii focused border emitted escape codes: %q", got)
+		}
+		for _, r := range got {
+			if r > 127 {
+				t.Errorf("ascii focused border emitted non-ASCII rune %q", r)
+				break
+			}
+		}
+	})
+}

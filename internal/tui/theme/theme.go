@@ -251,6 +251,18 @@ func (t *Theme) Selector(selected bool) string {
 	return GlyphSelected + " "
 }
 
+// BorderFocused is the focused pane's border style: the Border token
+// re-coloured with the accent foreground (UAT round 5: the active pane
+// must be obvious). It mirrors the derivation the sessions/server
+// sectionW helpers spelled by hand —
+// boxStyle().BorderForeground(th.Accent.GetForeground()) — so a focused
+// box is byte-identical whichever way it is built. Under a colorless
+// profile both tokens are identity styles and the border stays the plain
+// border glyph set with zero escape codes.
+func (t *Theme) BorderFocused() lipgloss.Style {
+	return t.Border.BorderForeground(t.Accent.GetForeground())
+}
+
 var (
 	defaultOnce  sync.Once
 	defaultTheme *Theme
