@@ -69,6 +69,11 @@ func (m *RootModel) View() tea.View {
 
 	out := tea.NewView(frame.Render(m.frameProps(m.overlayToasts(content))))
 	out.AltScreen = true
+	// UAT round 8 (finding 9): arm the terminal mouse against a hit map
+	// rebuilt from the geometry just composed; the OnMouse closure
+	// captures this frame's snapshot, so resolved cells always replay
+	// against the view the user actually sees (hitmap.go).
+	m.installMouse(&out, m.buildHitMap())
 
 	return out
 }

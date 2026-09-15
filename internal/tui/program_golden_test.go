@@ -137,6 +137,31 @@ func TestProgQuitReturns(t *testing.T) {
 	}
 }
 
+// TestProgMouseClickInert pins the mouse plumbing end-to-end (Task 8.1,
+// finding 9): the armed view writes the mouse-mode DECSET sequences
+// (1002+1006, a mode change — NOT SGR, so the colorless goldens pinning
+// the final frame content are untouched), a real SGR mouse report typed
+// into the input pipe parses and reaches View.OnMouse, and a click over
+// still-unregistered space is silently inert — the session keeps
+// rendering and quits clean. Real hit registration arrives with
+// Tasks 8.2–8.5; this proves the pipe is live underneath them.
+func TestProgMouseClickInert(t *testing.T) {
+	s := newProgSession(t, 80, 24)
+	s.delay = 80 * time.Millisecond // first frame (and its OnMouse) flushed
+	// SGR press+release at 1-based (5,5) = absolute cell (4,4), then quit.
+	r := s.run(t, "\x1b[<0;5;5M\x1b[<0;5;5m\x03")
+	wantClean(t, r)
+
+	if !strings.Contains(r.raw, "\x1b[?1002h") || !strings.Contains(r.raw, "\x1b[?1006h") {
+		t.Error("raw stream lacks the mouse DECSET sequences (1002/1006)")
+	}
+	if got := r.model.Current().ID(); got != "dashboard" {
+		t.Errorf("dead-space click moved the page to %q, want dashboard (no hits registered yet)", got)
+	}
+	// The frame itself must not shift a single cell because of the mouse.
+	checkProgGolden(t, "boot", r.frame)
+}
+
 // TestProgPanicExit: a page that panics inside Update takes the program
 // down on v2's recovered error-exit path — Run returns ErrProgramPanic
 // and the renderer still left the alt screen (terminal restored). This

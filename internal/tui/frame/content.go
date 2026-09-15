@@ -58,3 +58,24 @@ func ContentSize(width, height int) (w, h int) {
 
 	return width - borderInset, max(height-chrome, MinContentHeight)
 }
+
+// ContentOrigin reports the absolute terminal cell where the page body's
+// content area starts for a terminal of the given size — the exact
+// chromeParts decision Render composes with, so the mouse hit-map and the
+// drawn frame never disagree mid-shrink. X is always borderInset/2: the
+// side rule plus one space (wrapRow). Y is the top rule's height: 1 while
+// it survives, 0 once chromeParts drops it. Below MinWidth Render shows
+// the too-small state instead of a page body; the origin is still reported
+// as the normal x with y=0 (pages get a size they never show, exactly like
+// ContentSize's floor report).
+func ContentOrigin(width, height int) (x, y int) {
+	if width <= 0 {
+		width = FallbackWidth
+	}
+	if height <= 0 {
+		height = FallbackHeight
+	}
+	top, _, _ := chromeParts(height)
+
+	return borderInset / 2, b2i(top && width >= MinWidth)
+}

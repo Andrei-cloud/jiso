@@ -84,6 +84,9 @@ func (m *RootModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if next, cmd := m.routeCancelledMsg(msg); next != nil {
 		return next, cmd
 	}
+	if next, cmd := m.routeMouseMsg(msg); next != nil {
+		return next, cmd
+	}
 	// Arrows, hjkl aliases, and unknown keys reach the page unharmed.
 	return m.forward(msg)
 }

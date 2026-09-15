@@ -345,3 +345,24 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return nil, nil
 	}
 }
+
+// routeMouseMsg routes the mouse hit-map message family (UAT round 8
+// finding 9): cells resolved by the per-frame hitMap arrive as these small
+// root-owned msgs, consumed here so they never reach a page. The handlers
+// are the Task 8.2–8.5 seams (hitmap.go); the routing skeleton is pinned
+// by TestMouseMsgsRouteAtRoot.
+func (m *RootModel) routeMouseMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case scrollMsg:
+		return m.handleScrollMsg(msg)
+
+	case selectMsg:
+		return m.handleSelectMsg(msg)
+
+	case focusMsg:
+		return m.handleFocusMsg(msg)
+
+	default:
+		return nil, nil
+	}
+}
