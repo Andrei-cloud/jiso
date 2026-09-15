@@ -29,7 +29,9 @@ func TestAnalyzeRunOpensItemPickerAndWritesSelected(t *testing.T) {
 		t.Fatalf("engine ran %d times, want 1", f.runN)
 	}
 	opts := f.runOpts[0]
-	if opts.Mode != app.AnalyzeModeTx || opts.HeaderType != app.DefaultLengthType {
+	// UAT round 8 finding 6: the unchosen header rides the run opts as ""
+	// (the engine default applies in the analyzer, not in the wizard).
+	if opts.Mode != app.AnalyzeModeTx || opts.HeaderType != "" {
 		t.Fatalf("run opts = %+v", opts)
 	}
 	if r.m.analyzeStatus != pages.AnalyzeStatusDone {

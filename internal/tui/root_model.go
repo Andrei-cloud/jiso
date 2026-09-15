@@ -380,7 +380,6 @@ type RootModel struct {
 	analyzeUnparsable     int
 	analyzeUnparsableRows []pages.AnalyzeUnparsableRow // unparsable-message reviewer roster (UAT round 6)
 	analyzeUnparsableID   int                          // bumped per enum: re-arms the reviewer
-	analyzePrefilled      bool
 	analyzeSpecWait       bool
 	analyzeEnumWait       bool
 	analyzeRunWait        bool

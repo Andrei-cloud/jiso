@@ -40,13 +40,12 @@ import (
 type fakeAnalyze struct {
 	mu sync.Mutex
 
-	defaultSpec, defaultHeader string
-	enum                       *app.AnalyzeEnumeration
-	enumErr                    error
-	statErrs                   map[string]error
-	runOut                     *app.AnalyzeOutput
-	runErr                     error
-	writeErr                   error
+	enum     *app.AnalyzeEnumeration
+	enumErr  error
+	statErrs map[string]error
+	runOut   *app.AnalyzeOutput
+	runErr   error
+	writeErr error
 
 	statN, enumN, runN, writeN int
 	enumPaths                  []string
@@ -55,10 +54,6 @@ type fakeAnalyze struct {
 	runOpts                    []app.AnalyzeRunOptions
 	written                    []string
 	writtenSel                 []int
-}
-
-func (f *fakeAnalyze) AnalyzeDefaults() (string, string) {
-	return f.defaultSpec, f.defaultHeader
 }
 
 func (f *fakeAnalyze) StatPath(_ context.Context, path string) error {
@@ -315,8 +310,10 @@ func TestAnalyzeWalksFlowAndEnumerates(t *testing.T) {
 	if f.enumN != 1 {
 		t.Fatalf("enumeration ran %d times, want 1", f.enumN)
 	}
-	if f.enumPaths[0] != r.pcap || f.enumHeaders[0] != app.DefaultLengthType {
-		t.Fatalf("enumeration args = %q/%q, want the capture and the effective header",
+	// UAT round 8 finding 6: no header prefill — the unchosen header rides
+	// the leg as "" and the engine's own default framing applies.
+	if f.enumPaths[0] != r.pcap || f.enumHeaders[0] != "" {
+		t.Fatalf("enumeration args = %q/%q, want the capture and the unset header (engine default)",
 			f.enumPaths[0], f.enumHeaders[0])
 	}
 	// UAT round 7: enumeration seeds the run set with the request (dst)

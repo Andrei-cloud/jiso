@@ -93,9 +93,10 @@ func analyzeExistingFile(path string) (string, bool) {
 
 // analyzeSource is the §J engine façade leg: the App methods match it
 // structurally, and tests inject a fake (no real pcap/engine needed
-// above).
+// above). The wizard reads no config defaults from it: the spec/header
+// paths start empty and travel to the legs as chosen ("" = the engine
+// default applies there).
 type analyzeSource interface {
-	AnalyzeDefaults() (specPath, header string)
 	StatPath(ctx context.Context, path string) error
 	EnumerateFlows(ctx context.Context, pcapPath, headerType, specPath string) (*app.AnalyzeEnumeration, error)
 	RunAnalyze(ctx context.Context, opts app.AnalyzeRunOptions) (*app.AnalyzeOutput, error)

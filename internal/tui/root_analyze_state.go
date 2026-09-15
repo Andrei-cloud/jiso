@@ -19,43 +19,21 @@ import (
 	"jiso/internal/utils"
 )
 
-// syncAnalyze prefills the spec/header defaults once the source exists
-// (the App reports the configured spec path and effective header;
-// without a source the frameProps effective-header idiom applies: the
-// app default) and pushes the current snapshot into the page.
+// syncAnalyze pushes the current snapshot into the page. The wizard's
+// paths (capture/spec/header) start EMPTY by design (UAT round 8
+// finding 6): the operator chooses them, nothing is inherited from the
+// config. An unset spec/header simply rides the run legs as "" — the
+// same engine-default semantics the spec commit already documents
+// (resolveAnalyzeSpec / the analyzer's header fallback). The run step's
+// goal default is the one prefill that stays.
 func (m *RootModel) syncAnalyze() {
 	if m.analyze == nil {
 		return
 	}
-	if !m.analyzePrefilled {
-		m.prefillAnalyzeDefaults()
-	}
-	m.analyze.SetState(m.analyzeState())
-}
-
-// prefillAnalyzeDefaults fills the spec/header/goal defaults from the analyze
-// source once, leaving any values already set by the user untouched.
-func (m *RootModel) prefillAnalyzeDefaults() {
-	spec, header := "", app.DefaultLengthType
-	if src := m.analyzeSource(); src != nil {
-		s, h := src.AnalyzeDefaults()
-		if s != "" {
-			spec = s
-		}
-		if h != "" {
-			header = h
-		}
-	}
-	if m.analyzeSpecPath == "" {
-		m.analyzeSpecPath = spec
-	}
-	if m.analyzeHeader == "" {
-		m.analyzeHeader = header
-	}
 	if m.analyzeGoal == "" {
 		m.analyzeGoal = pages.AnalyzeGoalTransactions
 	}
-	m.analyzePrefilled = true
+	m.analyze.SetState(m.analyzeState())
 }
 
 // analyzeState builds the immutable snapshot the page renders. The
