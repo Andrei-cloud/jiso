@@ -302,7 +302,14 @@ func (m *RootModel) startServer() (tea.Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		return serverStartResultMsg{
 			port: port, header: header, spec: spec, routes: routes,
-			err: start(port, header, spec, routes),
+			// The §G "Routes file" field IS the routes-file leg (finding 1 /
+			// D1c): app.ServeStart resolves it through ResolveRoutes
+			// (routes-only or tx-shaped file), and a broken explicit pick
+			// fails the start with the path named instead of silently
+			// serving zero routes. No tx-file path is fabricated into the
+			// txPath leg — an empty field means no routes (UAT round 4:
+			// only values the operator supplied).
+			err: start(port, header, spec, "", routes),
 		}
 	}
 }

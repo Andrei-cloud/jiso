@@ -258,7 +258,7 @@ type RootModel struct {
 	serverTickSeq  uint64
 	serverTickWait bool
 	serverTickf    func(time.Duration, func() tea.Msg) tea.Cmd
-	serveStartFn   func(port, header, spec, routes string) error
+	serveStartFn   func(port, header, spec, txPath, routesFile string) error
 	serveStopFn    func() error
 	serveStatsFn   func() *app.ServerStats
 	serveRoutesFn  func() []config.MockRouteConfig

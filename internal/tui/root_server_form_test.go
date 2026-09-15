@@ -156,6 +156,7 @@ func TestRootServerEditedValuesReachServeLeg(t *testing.T) {
 	st := r.m.serverDlg.State()
 	st.Field("port").Value = "8123"
 	st.Field("spec").Value = "/tmp/custom-spec.json"
+	st.Field(serverFieldRoutes).Value = "/tmp/routes-only.json"
 	r.m.serverDlg.SetState(st)
 	_, cmd := r.m.Update(special(tea.KeyEnter))
 	r.run(cmd)
@@ -169,6 +170,12 @@ func TestRootServerEditedValuesReachServeLeg(t *testing.T) {
 	defer r.mu.Unlock()
 	if r.last.port != "8123" || r.last.spec != "/tmp/custom-spec.json" {
 		t.Fatalf("serve leg got %+v", r.last)
+	}
+	// Finding 1 (D1c): the "Routes file" value reaches the serve leg as the
+	// routes-file argument, never as a fabricated tx-path fallback.
+	if r.last.routesFile != "/tmp/routes-only.json" || r.last.txPath != "" {
+		t.Fatalf("routes wiring = txPath %q routesFile %q, want \"\" and /tmp/routes-only.json",
+			r.last.txPath, r.last.routesFile)
 	}
 }
 

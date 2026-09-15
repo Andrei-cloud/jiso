@@ -116,7 +116,7 @@ func TestServeLiveStartExchangeSnapshotStop(t *testing.T) {
 	a := serveLiveApp(t)
 	tx := serveLiveTxFile(t, serveLiveTxJSON)
 	// Empty header → binary2 default; "0" → ephemeral port.
-	if err := a.ServeStart("0", "", "", tx); err != nil {
+	if err := a.ServeStart("0", "", "", tx, ""); err != nil {
 		t.Fatalf("ServeStart: %v", err)
 	}
 	if !a.ServeRunning() {
@@ -165,7 +165,7 @@ func TestServeLiveStartExchangeSnapshotStop(t *testing.T) {
 	}
 
 	// A restart builds a fresh engine whose tracker starts at zero.
-	if err := a.ServeStart("0", "binary2", "", tx); err != nil {
+	if err := a.ServeStart("0", "binary2", "", tx, ""); err != nil {
 		t.Fatalf("restart: %v", err)
 	}
 	if snap := a.ServeSnapshot(); snap.TotalServed != 0 {
@@ -178,7 +178,7 @@ func TestServeLiveSpecFallbackAndRoutesFailure(t *testing.T) {
 	tx := serveLiveTxFile(t, serveLiveTxJSON)
 	// An unloadable spec path silently falls back to the default spec —
 	// proven behaviourally: the engine answers a default-spec message.
-	if err := a.ServeStart("0", "binary2", t.TempDir()+"/nope.json", tx); err != nil {
+	if err := a.ServeStart("0", "binary2", t.TempDir()+"/nope.json", tx, ""); err != nil {
 		t.Fatalf("ServeStart with bad spec path: %v", err)
 	}
 	if _, code := serveLiveExchange(t, a, tx, "Purchase"); code != "00" {
@@ -188,7 +188,7 @@ func TestServeLiveSpecFallbackAndRoutesFailure(t *testing.T) {
 	// An unloadable tx path yields zero routes; traffic lands on the
 	// catch-all fallback key, Matched stays 0.
 	a2 := serveLiveApp(t)
-	if err := a2.ServeStart("0", "binary2", "", t.TempDir()+"/missing-tx.json"); err != nil {
+	if err := a2.ServeStart("0", "binary2", "", t.TempDir()+"/missing-tx.json", ""); err != nil {
 		t.Fatalf("ServeStart with bad tx path: %v", err)
 	}
 	if n := len(a2.ServeRoutes()); n != 0 {
@@ -207,14 +207,14 @@ func TestServeLiveSpecFallbackAndRoutesFailure(t *testing.T) {
 func TestServeLiveAlreadyRunningNeverRestarts(t *testing.T) {
 	a := serveLiveApp(t)
 	tx := serveLiveTxFile(t, serveLiveTxJSON)
-	if err := a.ServeStart("0", "binary2", "", tx); err != nil {
+	if err := a.ServeStart("0", "binary2", "", tx, ""); err != nil {
 		t.Fatalf("first start: %v", err)
 	}
 	first, err := a.srv.BoundPort()
 	if err != nil {
 		t.Fatalf("BoundPort: %v", err)
 	}
-	err = a.ServeStart("0", "binary2", "", tx)
+	err = a.ServeStart("0", "binary2", "", tx, "")
 	if err == nil || !strings.Contains(err.Error(), "already running") {
 		t.Fatalf("second start = %v, want already-running error", err)
 	}
@@ -242,12 +242,49 @@ func TestServeSnapshotWithoutServerAndTLSMisconfig(t *testing.T) {
 	cfg.SetTLSConfig(&config.TLSFileConfig{Enabled: true, ServerCert: "missing.pem", ServerKey: "missing.key"})
 	t.Cleanup(func() { cfg.SetTLSConfig(nil) })
 	tx := serveLiveTxFile(t, serveLiveTxJSON)
-	err := a.ServeStart("0", "binary2", "", tx)
+	err := a.ServeStart("0", "binary2", "", tx, "")
 	if err == nil || !strings.Contains(err.Error(), "TLS") {
 		t.Fatalf("ServeStart with broken TLS config = %v, want TLS failure", err)
 	}
 	if a.ServeRunning() {
 		t.Fatal("server running after TLS misconfig")
+	}
+}
+
+// Task 2.2 (finding 1): an explicit routes-only file loads even when the
+// tx file carries no routes — the PAR-309 precedence (routesFile > tx-file
+// mock_routes > none) now reaches the in-process serve path too.
+func TestServeStartLoadsRoutesOnlyFile(t *testing.T) {
+	a := serveLiveApp(t)
+	routesFile := writeTemp(t, "routes.json",
+		`[{"name":"Echo","match_fields":{"0":"0800"},"response_mti":"0810"}]`)
+	// Empty tx file, explicit routes file -> routes must load.
+	if err := a.ServeStart("0", "binary2", "", "", routesFile); err != nil {
+		t.Fatalf("ServeStart with routes-only file: %v", err)
+	}
+	if got := a.ServeRoutes(); len(got) != 1 || got[0].Name != "Echo" {
+		t.Fatalf("ServeRoutes() = %+v, want one Echo route", got)
+	}
+}
+
+// Task 2.2: an explicit routesFile that cannot be parsed is an error naming
+// the path (a *ConfigError), never a silent zero-routes start — §G shows
+// this error instead of pretending the server came up.
+func TestServeStartBadRoutesFileReturnsError(t *testing.T) {
+	a := serveLiveApp(t)
+	bad := writeTemp(t, "routes.json", `[{"name":"Echo","match_fields":`)
+	tx := serveLiveTxFile(t, serveLiveTxJSON)
+
+	err := a.ServeStart("0", "binary2", "", tx, bad)
+	var cfgErr *ConfigError
+	if !errors.As(err, &cfgErr) {
+		t.Fatalf("ServeStart with broken routes file = %v, want *ConfigError", err)
+	}
+	if cfgErr.Path != bad {
+		t.Fatalf("ConfigError.Path = %q, want %q", cfgErr.Path, bad)
+	}
+	if a.ServeRunning() {
+		t.Fatal("a broken explicit routes file must not start a server")
 	}
 }
 
@@ -275,7 +312,7 @@ func TestServeStartOnClosedAppReturnsErrClosed(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	err = a.ServeStart("0", "binary2", "", t.TempDir()+"/tx.json")
+	err = a.ServeStart("0", "binary2", "", t.TempDir()+"/tx.json", "")
 	if !errors.Is(err, ErrClosed) {
 		t.Fatalf("ServeStart on closed App = %v, want errors.Is(ErrClosed)", err)
 	}
@@ -300,7 +337,7 @@ func TestCloseStopsServeEngine(t *testing.T) {
 	}
 	tx := serveLiveTxFile(t, serveLiveTxJSON)
 
-	if err := a.ServeStart("0", "binary2", "", tx); err != nil {
+	if err := a.ServeStart("0", "binary2", "", tx, ""); err != nil {
 		t.Fatalf("ServeStart: %v", err)
 	}
 	if !a.ServeRunning() {

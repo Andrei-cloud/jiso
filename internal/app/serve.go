@@ -3,7 +3,8 @@
 // cobra `serve start` shim (internal/cli/cmd/server.go
 // executeServerStart → command.ServerCommand.StartServer): spec loaded
 // from the given path with a silent fallback to the default spec, mock
-// routes read from the tx file's mock_routes, TLS from the config's
+// routes via ResolveRoutes (PAR-309 precedence: explicit routes file >
+// the tx file's mock_routes > none), TLS from the config's
 // enabled TLS block. The TUI never imports internal/command (fenced), so
 // this in-process accessor is its serve path — and its stats source:
 // ServeSnapshot reads the live engine tracker, no snapshot file is
@@ -71,14 +72,18 @@ func (e *serveBindError) Is(target error) bool { return target == ErrServeBind }
 // ServeStart starts the embedded mock server in-process. Empty port /
 // header fall back to the CLI defaults (9999 / binary2); specPath loads
 // via utils.CreateSpecFromFile with the CLI's silent default-spec fallback;
-// routes come from txPath's mock_routes (a tx-file load failure yields
-// zero routes, again mirroring the CLI shim). A running server is an
+// routes resolve through ResolveRoutes with the PAR-309 precedence
+// (routesFile > txPath's mock_routes > none): a tx-file load failure
+// yields zero routes (silent, as the CLI shim), while an explicit
+// routesFile that cannot be read or parsed returns the *ConfigError
+// naming the path BEFORE any listener opens — frontends (§G) surface it
+// instead of silently serving zero routes. A running server is an
 // error, never a restart.
 //
 // serveMu is held across the closed-check, the already-running-check, and the
 // listener bind, so a concurrent App.Close (which stops the engine under the
 // same lock) can never interleave and leave an orphaned listener behind.
-func (a *App) ServeStart(port, headerType, specPath, txPath string) error {
+func (a *App) ServeStart(port, headerType, specPath, txPath, routesFile string) error {
 	a.serveMu.Lock()
 	defer a.serveMu.Unlock()
 
@@ -108,15 +113,10 @@ func (a *App) ServeStart(port, headerType, specPath, txPath string) error {
 		spec = utils.GetDefaultSpec()
 	}
 
-	var routes []config.MockRouteConfig
-	var tc transactions.Repository
-	if tp := strings.TrimSpace(txPath); tp != "" {
-		if coll, err := transactions.NewTransactionCollection(tp, spec); err == nil {
-			routes = coll.GetMockRoutes()
-			tc = coll
-		}
+	routes, _, err := ResolveRoutes(routesFile, txPath, spec)
+	if err != nil {
+		return err
 	}
-	_ = tc // the CLI shim keeps the repo for the REPL; the engine needs only the routes
 
 	srv := server.NewServer(spec, routes, headerType)
 	if tlsFileCfg := a.cfg.GetTLSConfig(); tlsFileCfg != nil && tlsFileCfg.Enabled {

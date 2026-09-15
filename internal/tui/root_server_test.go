@@ -38,7 +38,7 @@ type serveTestRoot struct {
 	ticks    []func() tea.Msg // serverTickf recordings (mk senders)
 }
 
-type serveStartCall struct{ port, header, spec, routes string }
+type serveStartCall struct{ port, header, spec, txPath, routesFile string }
 
 func serveFixtureStats() *app.ServerStats {
 	return &app.ServerStats{
@@ -98,11 +98,11 @@ func newServeTestRoot(t *testing.T) *serveTestRoot {
 	r := &serveTestRoot{m: NewRootModel(a), tx: txFile, routes: serveFixtureRoutes()}
 	clock := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
 	r.m.now = func() time.Time { return clock }
-	r.m.serveStartFn = func(port, header, spec, routes string) error {
+	r.m.serveStartFn = func(port, header, spec, txPath, routesFile string) error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.starts++
-		r.last = serveStartCall{port, header, spec, routes}
+		r.last = serveStartCall{port, header, spec, txPath, routesFile}
 
 		return r.startErr
 	}
