@@ -281,6 +281,111 @@ func TestServerFormFieldPicker(t *testing.T) {
 	}
 }
 
+// serverFieldIdx resolves one §G field's index in render order (the
+// two-mode tests focus a named field without hard-coding its position).
+func serverFieldIdx(t *testing.T, d *pages.ConnectDialog, key string) int {
+	t.Helper()
+
+	for i, f := range d.State().Fields {
+		if f.Key == key {
+			return i
+		}
+	}
+	t.Fatalf("no §G field %q", key)
+
+	return -1
+}
+
+// TestServerFormTypingLetterFInFieldDoesNotOpenPicker pins the two-mode
+// contract (UAT round 8 finding 2 / D3): in NAVIGATE mode `f` is the
+// file-pick key for the focused browsable field; typing enters EDIT mode
+// (the first printable types itself), and there `f` types literally into
+// the field — the picker must NOT open (the confirmed §G leak: `f` could
+// never be typed into a form field).
+func TestServerFormTypingLetterFInFieldDoesNotOpenPicker(t *testing.T) {
+	r := newServeTestRoot(t)
+	r.upd(tea.WindowSizeMsg{Width: 120, Height: 32})
+	r.key('4')
+	r.key('c')
+	if r.m.serverDlg == nil {
+		t.Fatal("server form did not open")
+	}
+	r.m.serverDlg.SetFocus(serverFieldIdx(t, r.m.serverDlg, serverFieldRoutes))
+	if r.m.serverDlg.Editing() {
+		t.Fatal("the form must open in navigate mode")
+	}
+
+	// Navigate mode: f opens the picker (D3, unchanged).
+	r.key('f')
+	if r.m.filePick == nil {
+		t.Fatal("[f] in navigate mode must open the picker")
+	}
+	r.upd(special(tea.KeyEscape)) // the picker closes; the form stays open
+	if r.m.filePick != nil {
+		t.Fatal("esc must close the picker")
+	}
+	if r.m.serverDlg == nil {
+		t.Fatal("closing the picker closed the form")
+	}
+
+	// Typing enters edit mode (and types the first character itself).
+	r.upd(ch('m'))
+	if !r.m.serverDlg.Editing() {
+		t.Fatal("typing must enter edit mode")
+	}
+
+	// Edit mode: f types literally into the field; the picker stays closed.
+	r.upd(ch('f'))
+	if r.m.filePick != nil {
+		t.Fatal("'f' while editing opened the picker; it must type into the field")
+	}
+	after := r.m.serverDlg.State()
+	if got := serverFormValue(&after, serverFieldRoutes); !strings.HasSuffix(got, "mf") {
+		t.Fatalf("routes field = %q, want the typed suffix \"mf\"", got)
+	}
+}
+
+// TestServerFormEscLeavesFieldBeforeScreen pins the esc order of the
+// two-mode form (D3): the first esc leaves EDIT mode — the field stays
+// focused with its typed value, the form stays open, nothing starts —
+// and only the second esc (navigate mode) leaves the screen.
+func TestServerFormEscLeavesFieldBeforeScreen(t *testing.T) {
+	r := newServeTestRoot(t)
+	r.upd(tea.WindowSizeMsg{Width: 120, Height: 32})
+	r.key('4')
+	r.key('c')
+	r.m.serverDlg.SetFocus(serverFieldIdx(t, r.m.serverDlg, serverFieldRoutes))
+
+	r.upd(ch('x')) // typing enters edit mode
+	if !r.m.serverDlg.Editing() {
+		t.Fatal("typing must enter edit mode")
+	}
+
+	r.upd(special(tea.KeyEscape))
+	if r.m.serverDlg == nil {
+		t.Fatal("esc from edit mode left the screen; it must leave the field first")
+	}
+	if r.m.serverDlg.Editing() {
+		t.Fatal("esc must leave edit mode")
+	}
+	stAfter := r.m.serverDlg.State()
+	if got := focusedFormFieldKey(&stAfter, r.m.serverDlg.Focus()); got != serverFieldRoutes {
+		t.Fatalf("focus after esc = %q, must stay on the routes field", got)
+	}
+	after := r.m.serverDlg.State()
+	if got := serverFormValue(&after, serverFieldRoutes); !strings.HasSuffix(got, "x") {
+		t.Fatalf("esc edited the value %q, must keep it", got)
+	}
+	if r.startCount() != 0 {
+		t.Fatalf("leaving the field started the server %d times", r.startCount())
+	}
+
+	r.upd(special(tea.KeyEscape))
+	if r.m.serverDlg != nil {
+		t.Fatal("esc in navigate mode must leave the screen")
+	}
+}
+
 // TestServerLogStaysOnServerPage: mock-server lines render ONLY inside
 // the §4 page's LOG pane — never the global console strip, never the
 // dashboard or any other screen (UAT round 3: "[SERVER]" fragments

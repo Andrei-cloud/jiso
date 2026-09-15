@@ -168,11 +168,11 @@ type staticErr struct{}
 
 func (staticErr) Error() string { return "boom" }
 
-// TestWorkerWizardHelpEscape: "?" on the wizard's EMPTY filter line
-// opens the §M overlay (the wizard's FreshDraft escape hatch, root
-// modal branch — the wizard's two-mode edit entry lands with Task 4.2);
-// Esc closes the overlay and the wizard stays open under it; once the
-// filter carries text, "?" types into the filter.
+// TestWorkerWizardHelpEscape: "?" while the wizard is in NAVIGATE mode
+// opens the §M overlay (root modal branch); Esc closes the overlay and
+// the wizard stays open under it; once a filter or param row carries the
+// keyboard (edit mode), "?" types into it (UAT round 8: no global hotkey
+// fires while a field is being typed into).
 func TestWorkerWizardHelpEscape(t *testing.T) {
 	r := newFormTestRoot(t)
 	r.key(ch('t'))
@@ -195,6 +195,34 @@ func TestWorkerWizardHelpEscape(t *testing.T) {
 	}
 	if !strings.Contains(r.body(), "x?") {
 		t.Errorf("the ? must have reached the filter:\n%s", r.body())
+	}
+
+	// The param step opens in navigate mode: "?" is still the help key.
+	// Typing enters edit mode, where "?" types literally.
+	r.key(special(tea.KeyEscape)) // leave the filter (navigate mode)
+	if r.m.workerWiz == nil {
+		t.Fatal("leaving the filter must not close the wizard")
+	}
+	r.key(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}) // toggle a row
+	r.key(tea.KeyPressMsg{Code: tea.KeyEnter})            // commit ▸ params
+	if r.m.workerWiz.Step() != pages.WorkerStepParams {
+		t.Fatalf("step = %d, want the params step", r.m.workerWiz.Step())
+	}
+	r.key(ch('?'))
+	if r.m.help == nil {
+		t.Fatal("? on the navigate-mode param step must open the help overlay")
+	}
+	r.key(special(tea.KeyEscape)) // closes the overlay, not the wizard
+	if r.m.workerWiz == nil {
+		t.Fatal("the wizard must survive the overlay")
+	}
+	r.key(ch('7')) // typing enters edit mode
+	if !r.m.workerWiz.Editing() {
+		t.Fatal("typing into a param row must enter edit mode")
+	}
+	r.key(ch('?'))
+	if r.m.help != nil {
+		t.Fatal(`"? while editing must type into the row, not open help`)
 	}
 }
 

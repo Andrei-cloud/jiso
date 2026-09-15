@@ -105,9 +105,16 @@ func (w *WorkerWizard) updateTxStep(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 // updateParams edits step 2: up/down move the row focus (code-only, so
 // j/k stay typeable into duration values), printables extend the
 // focused value, backspace trims it, and Enter advances only when the
-// whole field set resolves.
+// whole field set resolves. The row is two-mode (UAT round 8 / D3):
+// typing enters edit mode, and esc there leaves the row first (focus and
+// value kept) before any later esc backs the step.
 func (w *WorkerWizard) updateParams(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	keys := w.paramKeys()
+	if w.editing && key.Matches(msg, w.nav.Cancel) {
+		w.editing = false // esc leaves the field before it leaves the step
+
+		return w, nil
+	}
 	switch {
 	case key.Matches(msg, w.nav.Cancel):
 		return w.back()
@@ -123,19 +130,23 @@ func (w *WorkerWizard) updateParams(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 		return w, nil
 	case key.Matches(msg, w.nav.FieldUp):
 		w.focus = max(w.focus-1, 0)
+		w.editing = false // a newly-highlighted row starts in navigate mode
 	case key.Matches(msg, w.nav.FieldDown):
 		w.focus = min(w.focus+1, len(keys)-1)
+		w.editing = false
 	case key.Matches(msg, w.nav.Backspace):
 		key := keys[min(w.focus, len(keys)-1)]
 		w.params[key] = dropLastRune(w.params[key])
 		w.paramErr = ""
+		w.editing = true // clearing a value is typing into the row
 	default:
 		// Space never belongs in a number or duration; every other
-		// printable edits the focused row.
+		// printable edits the focused row (and enters edit mode).
 		if r, ok := printableRune(msg.Text); ok && r != ' ' {
 			key := keys[min(w.focus, len(keys)-1)]
 			w.params[key] += string(r)
 			w.paramErr = ""
+			w.editing = true
 		}
 	}
 
@@ -215,12 +226,14 @@ func (w *WorkerWizard) back() (Modal, tea.Cmd) {
 }
 
 // setStep lands on step n and clears the step-local lines (the root's
-// error stamp included — arriving at a step shows it ready, not stale).
+// error stamp included — arriving at a step shows it ready, not stale)
+// and the param row's edit mode (a fresh step starts in navigate mode).
 func (w *WorkerWizard) setStep(n int) {
 	w.step = n
 	w.errLine = ""
 	w.paramErr = ""
 	w.state.Error = ""
+	w.editing = false
 	if n == WorkerStepTx {
 		w.filtering = false
 		w.draft = ""

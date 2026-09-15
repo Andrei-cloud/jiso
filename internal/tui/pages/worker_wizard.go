@@ -17,10 +17,10 @@
 // every leg (tx-file load, StressStart/WorkerStart) runs root-side;
 // the wizard never touches internal/app and never reads the clock (the
 // SCR-501 data-flow contract). The tx step claims the keyboard while
-// its "/" filter is open and the param step always claims it (values
-// carry digits and duration letters that collide with global
-// bindings); the root modal branch keeps "?" opening the §M overlay
-// while no field is being typed into (the wizard's FreshDraft below).
+// its "/" filter is open and the param step claims it only while a row
+// is being typed into (values carry digits and duration letters that
+// collide with global bindings); the root modal branch keeps "?" opening
+// the §M overlay in navigate mode only (the wizard's Editing below).
 package pages
 
 import (
@@ -52,8 +52,11 @@ type WorkerWizard struct {
 	checked   []bool
 	picked    string
 
-	// step 2 (params): focused row and its inline validation line.
+	// step 2 (params): focused row, its inline validation line, and the
+	// two-mode flag (UAT round 8 / D3): the row is highlighted in navigate
+	// mode until a printable enters edit mode; esc leaves the row first.
 	focus    int
+	editing  bool
 	params   map[string]string
 	paramErr string
 
@@ -196,34 +199,28 @@ func (w *WorkerWizard) HomeSelection() {
 	}
 }
 
-// ClaimsKeyboard implements KeyboardClaimer: the tx step owns the
-// keyboard while its "/" filter is open (tx names carry q, digits and
-// ":" that must not quit or jump pages), and the param step owns it
-// for the whole step (duration values type letters like m and s). The
-// run step claims nothing. Ctrl+C stays global.
+// ClaimsKeyboard implements KeyboardClaimer: the claim is the two-mode
+// edit flag (UAT round 8 / D3). The tx step owns the keyboard while its
+// "/" filter is open (tx names carry q, digits and ":" that must not quit
+// or jump pages); the param step owns it only while a row is being typed
+// into (duration values type letters like m and s). Navigate mode claims
+// nothing, so the root modal branch keeps "?" a help key there. Ctrl+C
+// stays global.
 func (w *WorkerWizard) ClaimsKeyboard() bool {
+	return w.Editing()
+}
+
+// Editing reports the two-mode flag of the whole wizard (UAT round 8 /
+// D3): true while the tx step's "/" filter is open or the param step has
+// entered a row. The root modal branch (root_workers_form.go) keeps "?"
+// opening the §M overlay only while this is false; once a field owns the
+// keyboard, "?" types into it (the strict D2 rule).
+func (w *WorkerWizard) Editing() bool {
 	switch w.step {
 	case WorkerStepTx:
 		return w.filtering
 	case WorkerStepParams:
-		return true
-	}
-
-	return false
-}
-
-// FreshDraft reports whether "?" may still mean the §M overlay while
-// this wizard owns the keyboard: only the root modal branch
-// (root_workers_form.go) asks it before forwarding. The param step
-// never takes "?" as a value, so it stays a help key. (Registry pages
-// lost this carve-out in UAT round 8: a claiming page now receives
-// every key; the wizard's two-mode edit entry lands with Task 4.2.)
-func (w *WorkerWizard) FreshDraft() bool {
-	switch w.step {
-	case WorkerStepTx:
-		return w.draft == ""
-	case WorkerStepParams:
-		return true
+		return w.editing
 	}
 
 	return false

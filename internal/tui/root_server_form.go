@@ -216,12 +216,20 @@ func serverPrefill(sp serverFormRow, cfg *config.Config, last *app.LastServerSta
 
 // updateServerFormKey routes one key while the start form owns the
 // keyboard: Esc closes (ignored while a start is in flight — the listen
-// is quick and the engine gives no cancel handle mid-Start), Enter
-// starts, everything else edits the form.
+// is quick and the engine gives no cancel handle mid-Start) — but while
+// a field is being typed into the first Esc leaves the FIELD instead
+// (two-mode form, UAT round 8 / D3), Enter starts, and everything else
+// edits the form. [f] browses only in navigate mode: while editing, f is
+// a literal and reaches the focused field (the confirmed §G leak).
 func (m *RootModel) updateServerFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, connectKeyEsc):
 		if m.serverStarting {
+			return m, nil
+		}
+		if m.serverDlg.Editing() {
+			_, _ = m.serverDlg.Update(msg) // esc leaves the field before the screen
+
 			return m, nil
 		}
 		m.serverDlg = nil
@@ -236,9 +244,11 @@ func (m *RootModel) updateServerFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 
 		return m.startServer()
 
-	case key.Matches(msg, serverFilePickerKey):
+	case key.Matches(msg, serverFilePickerKey) && !m.serverDlg.Editing():
 		// [f] browses the focused path field (spec or routes/tx file);
-		// on port/header it is inert (those are not files).
+		// on port/header it is inert (those are not files). While the
+		// form is being typed into this case does not fire and f falls
+		// through to the field below.
 		st := m.serverDlg.State()
 		var target, value string
 

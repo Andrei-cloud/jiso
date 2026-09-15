@@ -300,7 +300,10 @@ Registered commands: `connect`, `disconnect`, `goto status`, `goto send`,
 
 The connect dialog (`c`) is a modal form: `tab` / `shift+tab` move field
 focus, `up`/`k` and `down`/`j` navigate choices, `enter` starts the attempt
-loop, `esc` cancels (in flight it also aborts the attempt). Fields
+loop, `esc` cancels (in flight it also aborts the attempt). It is a
+two-mode form: typing into a field enters edit mode, where every key is
+literal (`f` and `q` included); `esc` then leaves the field first, and the
+next `esc` cancels the dialog. Fields
 enable/disable by mode and header type (station ID only for `visa`).
 
 The §N1 file picker (spec / tx / pcap / output paths): `up`/`k`,
@@ -318,7 +321,11 @@ send), and `f` opens the §N1 file picker over `.json` tx files — the pick
 reloads the list and keeps selections whose names still exist. The middle
 step takes the parameters as label + input rows (one focused row at a
 time, `up`/`down` moves focus) with inline validation; `enter` advances
-only when every value is valid. The run step summarizes the selection and
+only when every value is valid. The wizards are two-mode forms like the
+dialog above: a step starts in navigate mode (`?` opens the §M help
+overlay there), typing enters edit mode where every key is literal, and
+`esc` leaves the row or filter before a later `esc` backs the step. The
+run step summarizes the selection and
 parameters; `enter` starts, `esc` backs one step (closing from the first).
 
 When a stress run finishes (or its row is inspected), the §H page shows
@@ -332,13 +339,15 @@ it and returns to the worker table.
 
 The mock-server start form (§G, opened by `c` on that page) takes
 parameters as label + input rows with inline validation; `enter` submits,
-`esc` cancels. It carries no fabricated defaults: the fields prefill from
+`esc` cancels. It is a two-mode form: while nothing is typed, `f` on the
+spec-file or routes-file row opens the §N1 file picker (`.json`); typing
+into a row enters edit mode, where `f` types literally and `esc` leaves
+the row before a later `esc` cancels the form. The form carries no
+fabricated defaults: the fields prefill from
 the last successful start (remembered in the state dir), the config fills
 the spec and routes rows until a start has ever run, and an unselected
 header radio falls back to `binary2` only when `enter` starts the server.
-On it, `f` on the spec-file or routes-file row opens the
-§N1 file picker (`.json`); the pick lands in that row and the other fields
-keep their edits.
+The pick lands in that row and the other fields keep their edits.
 
 The mock server's own output (route-match and error notices) renders ONLY
 in the §G page's LOG pane, below the stats card — it never appears on

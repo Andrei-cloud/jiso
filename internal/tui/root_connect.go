@@ -108,10 +108,12 @@ func (m *RootModel) openConnect() (tea.Model, tea.Cmd) {
 }
 
 // updateConnectDialog routes one key while the overlay owns the keyboard:
-// Esc cancels (in flight: cancel the context and close; idle: just close),
-// Enter starts the attempt loop (ignored while one is in flight), and every
-// other key edits the form — after which the root re-stamps the Enabled
-// flags and the TLS note (the data-flow contract).
+// Esc cancels (in flight: cancel the context and close; idle: just close)
+// — but while a field is being typed into the first Esc leaves the FIELD
+// instead (two-mode form, UAT round 8 / D3), Enter starts the attempt
+// loop (ignored while one is in flight), and every other key edits the
+// form — after which the root re-stamps the Enabled flags and the TLS
+// note (the data-flow contract).
 func (m *RootModel) updateConnectDialog(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// The header picker overlay owns Enter/Esc while open (proposal 04
 	// §A.3): pick/close, never connect/cancel.
@@ -124,6 +126,11 @@ func (m *RootModel) updateConnectDialog(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 
 	switch {
 	case key.Matches(msg, connectKeyEsc):
+		if m.connectRun == nil && m.dlg.Editing() {
+			_, _ = m.dlg.Update(msg) // esc leaves the field before the screen
+
+			return m, nil
+		}
 		if m.connectRun != nil {
 			m.debug.logf("connect canceled attempt=%d/%d", m.connectRun.attempt, m.connectRun.total)
 			m.connectRun.cancel()

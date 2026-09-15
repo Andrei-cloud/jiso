@@ -302,3 +302,41 @@ func TestConnectNilSenderTerminal(t *testing.T) {
 		t.Errorf("second connect = InFlight:%v Error:%q, want the same terminal close", st.InFlight, st.Error)
 	}
 }
+
+// TestConnectDialogEscLeavesFieldBeforeClose pins the §E two-mode esc
+// order (UAT round 8 / D3): while a field is being typed into, the first
+// esc leaves the FIELD (the dialog stays open, edit mode clears) and only
+// the next esc in navigate mode closes the dialog — the same order the
+// §G form honours (root_server_form_test.go).
+func TestConnectDialogEscLeavesFieldBeforeClose(t *testing.T) {
+	r := newConnectTestRoot(t)
+	r.openHotkey(t)
+	r.m.dlg.SetFocus(1) // IP (text)
+	if got := r.m.dlg.State().Fields[r.m.dlg.Focus()].Key; got != pages.ConnectFieldIP {
+		t.Fatalf("focus = %q, want ip", got)
+	}
+	if r.m.dlg.Editing() {
+		t.Fatal("the dialog must open in navigate mode")
+	}
+
+	_, _ = r.m.Update(ch('7')) // typing enters edit mode (and types itself)
+	if !r.m.dlg.Editing() {
+		t.Fatal("typing must enter edit mode")
+	}
+
+	_, _ = r.m.Update(special(tea.KeyEscape))
+	if r.m.dlg == nil {
+		t.Fatal("esc from edit mode closed the dialog; it must leave the field first")
+	}
+	if r.m.dlg.Editing() {
+		t.Fatal("esc must leave edit mode")
+	}
+	if got := r.m.dlg.State().Fields[1].Value; !strings.HasSuffix(got, "7") {
+		t.Fatalf("esc edited the IP value %q, must keep the typed text", got)
+	}
+
+	_, _ = r.m.Update(special(tea.KeyEscape))
+	if r.m.dlg != nil {
+		t.Fatal("esc in navigate mode must close the dialog")
+	}
+}

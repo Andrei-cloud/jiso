@@ -84,13 +84,14 @@ func (m *RootModel) closeWorkerWizard() {
 }
 
 // updateWorkerWizKey routes one key while the wizard owns the
-// keyboard. The wizard's help escape hatch stays root-side: "?" on
-// the wizard's EMPTY filter line (or anywhere on the param step,
-// where "?" is never a value byte) opens the §M overlay, and while
-// the overlay is open it owns the keys first (Esc closes the overlay,
-// not the wizard — §N1). Ctrl+C stays global (claimed above).
-// (UAT round 8 scoped the registry-page claim to be total; the wizard
-// modal's two-mode edit entry lands with Task 4.2.)
+// keyboard. The wizard's help escape hatch stays root-side: "?" on the
+// wizard's NAVIGATE mode (filter closed, no param row typed into — or
+// anywhere on the run step, where "?" is never a value byte) opens the
+// §M overlay, and while the overlay is open it owns the keys first (Esc
+// closes the overlay, not the wizard — §N1). Once a filter or param row
+// owns the keyboard (edit mode) "?" types into it (UAT round 8: no
+// global hotkey fires while a field is being typed into). Ctrl+C stays
+// global (claimed above).
 func (m *RootModel) updateWorkerWizKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.help != nil {
 		if keyMatches(msg, m.keys.Help) || msg.Code == tea.KeyEscape {
@@ -100,7 +101,7 @@ func (m *RootModel) updateWorkerWizKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 
 		return m, nil
 	}
-	if keyMatches(msg, m.keys.Help) && m.workerWiz.FreshDraft() {
+	if keyMatches(msg, m.keys.Help) && !m.workerWiz.Editing() {
 		m.openHelp()
 		m.debug.logf("help open from worker wizard")
 

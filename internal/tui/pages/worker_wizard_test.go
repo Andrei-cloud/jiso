@@ -5,7 +5,7 @@
 // multi-select (space toggles + "N selected") versus the bgsend
 // single-select, the step-2 inline validation strings (the exact texts
 // the retired §N2 forms carried), Enter-to-start messages, Esc
-// walking, the keyboard-claim/FreshDraft contract, selection survival
+// walking, the keyboard-claim/Editing contract, selection survival
 // across a tx-file refresh, and the width guarantee (every line
 // clipped, never wrapped). The start legs are root-side
 // (root_stress_form_test.go / root_workers_form_test.go).
@@ -364,37 +364,63 @@ func TestWorkerWizardEscWalksAndCloses(t *testing.T) {
 	}
 }
 
-func TestWorkerWizardClaimAndFreshDraft(t *testing.T) {
+// TestWorkerWizardClaimAndEditing pins the two-mode keyboard contract of
+// the modal (UAT round 8 / D3, the FreshDraft hatch's successor): every
+// step opens in NAVIGATE mode (ClaimsKeyboard false — the root modal
+// branch keeps "?" its §M help key then); opening the "/" filter or
+// typing into a param row enters EDIT mode, which claims the keyboard so
+// "?" types literally; esc leaves the field/first the filter before any
+// step unwinds.
+func TestWorkerWizardClaimAndEditing(t *testing.T) {
 	t.Parallel()
 
 	wz := workerWizardAt(t, WorkerModeStress, 3, 120, 32)
-	if wz.ClaimsKeyboard() || !wz.FreshDraft() {
-		t.Error("a fresh tx step must not claim but must offer help")
+	if wz.ClaimsKeyboard() || wz.Editing() {
+		t.Error("a fresh tx step must be navigate mode: no claim, ? stays a help key")
 	}
 	_, _ = wz.Update(ch('/'))
-	if !wz.ClaimsKeyboard() || !wz.FreshDraft() {
-		t.Error("an opened empty filter claims and still offers help")
+	if !wz.ClaimsKeyboard() || !wz.Editing() {
+		t.Error("an opened filter is edit mode: it claims the keyboard (? types)")
 	}
 	_, _ = wz.Update(ch('x'))
-	if wz.FreshDraft() {
-		t.Error(`typing closes the help draft ("?" becomes a filter byte)`)
+	if !wz.Editing() {
+		t.Error(`typing keeps edit mode ("?" is a filter byte)`)
 	}
 	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
-	if !wz.FreshDraft() {
-		t.Error("backspace re-opens the help draft")
+	if !wz.Editing() {
+		t.Error("backspace keeps edit mode while the filter is open")
 	}
-	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // close the filter (first press)
-	if wz.filtering || wz.draft != "" {
-		t.Error("Esc must close the open filter")
+	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // first esc: close the filter
+	if wz.filtering || wz.draft != "" || wz.Editing() {
+		t.Error("esc must close the filter and land back in navigate mode")
 	}
+
 	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}) // toggle tx-01
 	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeyEnter})            // commit ▸ rate
-	if !wz.ClaimsKeyboard() || !wz.FreshDraft() {
-		t.Error("the param step claims the keyboard and keeps ? a help key")
+	if wz.ClaimsKeyboard() || wz.Editing() {
+		t.Fatal("the param step must open in navigate mode (? stays a help key)")
+	}
+	_, _ = wz.Update(ch('7')) // typing enters edit mode and types itself
+	if !wz.ClaimsKeyboard() || !wz.Editing() {
+		t.Fatal("typing into a param row must enter edit mode")
+	}
+	if got := wz.Param(WorkerParamTps); got != WorkerDefaultTps+"7" {
+		t.Fatalf("tps = %q, want the typed suffix %q", got, WorkerDefaultTps+"7")
+	}
+	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // esc leaves the field first
+	if wz.Editing() {
+		t.Fatal("esc must leave edit mode")
+	}
+	if wz.Step() != WorkerStepParams {
+		t.Fatalf("esc left the step (step %d); it must stay on the param row", wz.Step())
 	}
 	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}) // never types a space
-	if wz.Param(WorkerParamTps) != WorkerDefaultTps {
+	if wz.Param(WorkerParamTps) != WorkerDefaultTps+"7" {
 		t.Error("space must not edit the focused param row")
+	}
+	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeyEscape}) // esc in navigate mode: back one step
+	if wz.Step() != WorkerStepTx {
+		t.Fatalf("esc in navigate mode must back to the tx step, got step %d", wz.Step())
 	}
 }
 

@@ -476,3 +476,79 @@ func optionIndex(options []string, want string, def int) int {
 
 	return 0
 }
+
+// TestConnectDialogTwoModeEditing: the navigate/edit state machine of the
+// dialog itself (UAT round 8 finding 2 / D3). Typing a printable into a
+// text field enters edit mode (and types the character itself); esc
+// leaves edit mode with the field still focused; SetFocus moves the
+// highlight and lands in navigate mode; radios never enter edit mode
+// (their j/k adjust options — there is nothing to type into).
+func TestConnectDialogTwoModeEditing(t *testing.T) {
+	t.Parallel()
+
+	d := connectDialog(t, connectTestState())
+	if d.Editing() {
+		t.Fatal("the dialog must open in navigate mode")
+	}
+
+	d.SetFocus(1) // ip (text)
+	if got := d.State().Fields[d.Focus()].Key; got != ConnectFieldIP {
+		t.Fatalf("SetFocus focus = %q, want ip", got)
+	}
+	_, _ = d.Update(pressKey('9', "9"))
+	if v := d.State().Fields[1].Value; v != "10.0.0.59" {
+		t.Fatalf("typing %q, want \"10.0.0.59\"", v)
+	}
+	if !d.Editing() {
+		t.Fatal("typing into a text field must enter edit mode")
+	}
+	_, _ = d.Update(pressKey('f', "f")) // edit mode: f types literally
+	if v := d.State().Fields[1].Value; !strings.HasSuffix(v, "9f") {
+		t.Fatalf("f while editing %q, want the suffix \"9f\"", v)
+	}
+
+	_, _ = d.Update(special(tea.KeyEsc)) // first esc: leave the field
+	if d.Editing() {
+		t.Fatal("esc must leave edit mode")
+	}
+	if d.Focus() != 1 {
+		t.Fatalf("esc moved focus to %d, must stay on the field", d.Focus())
+	}
+	if v := d.State().Fields[1].Value; !strings.HasSuffix(v, "9f") {
+		t.Fatalf("esc edited the value %q, must keep it", v)
+	}
+	_, _ = d.Update(special(tea.KeyEsc)) // second esc is the router's (close)
+	if d.Focus() != 1 || d.Editing() {
+		t.Fatal("the page side must leave the second esc to the router")
+	}
+
+	// Focus movement returns to navigate mode.
+	_, _ = d.Update(pressKey('5', "5"))
+	if !d.Editing() {
+		t.Fatal("typing must re-enter edit mode")
+	}
+	_, _ = d.Update(special(tea.KeyTab))
+	if d.Editing() {
+		t.Fatal("tabbing to a new field must land in navigate mode")
+	}
+
+	// SetFocus clamps onto the nearest enabled field and lands in
+	// navigate mode (the mouse work takes this contract, Task 8.5).
+	d.SetFocus(4) // station is disabled -> clamp forward to unsolicited
+	if got := d.State().Fields[d.Focus()].Key; got != ConnectFieldUnsolicited {
+		t.Fatalf("SetFocus(4) landed on %q, want unsolicited", got)
+	}
+	if d.Editing() {
+		t.Fatal("SetFocus must land in navigate mode")
+	}
+
+	// A radio never enters edit mode: j adjusts the option, not a draft.
+	d2 := connectDialog(t, connectTestState()) // focus 0 = mode radio
+	_, _ = d2.Update(pressKey('j', "j"))
+	if d2.Editing() {
+		t.Fatal("j/k on a radio adjusts the option; it must not enter edit mode")
+	}
+	if got := d2.State().Fields[0].Value; got != ConnectModeListener {
+		t.Fatalf("mode after j = %q, want the wrap to listener", got)
+	}
+}

@@ -8,6 +8,16 @@
 // the SCR-502 live-filter lesson) and backspace deletes. Enter/esc are
 // intercepted by the router (start connect / cancel) and never reach the
 // edit routing below.
+//
+// The form is two-mode (UAT round 8 finding 2 / D3): NAVIGATE mode
+// highlights a field without typing into it, so the router-level keys
+// keep their meaning (f opens the focused browsable field's picker,
+// enter commits, esc leaves the screen); typing a printable enters EDIT
+// mode and types the character itself, and there every key is literal
+// (f included — the §G form could never type "f"). Esc leaves edit mode
+// first, field still focused; the next esc reaches the router and leaves
+// the screen. Enter commits in both modes (it is the submit key; the
+// enter-to-edit trigger is typing, so nothing collides with submit).
 package pages
 
 import (
@@ -26,6 +36,13 @@ type ConnectDialog struct {
 	th    *theme.Theme
 	state ConnectFormState
 	focus int
+
+	// editing is the two-mode flag (UAT round 8 / D3): false = navigate
+	// mode (the field is highlighted, nothing typed), true = the focused
+	// field is being typed into. Typing a printable enters it; esc and a
+	// focus move (tab / SetFocus) leave it. The root router reads
+	// Editing() to decide whether f browses or types.
+	editing bool
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 	nav           connectNav
@@ -119,12 +136,32 @@ func (d *ConnectDialog) State() ConnectFormState { return d.state.clone() }
 // enabled field exists).
 func (d *ConnectDialog) Focus() int { return d.focus }
 
+// Editing reports whether the focused field is being typed into (the
+// two-mode flag of the form, UAT round 8 / D3). The root router browses
+// with f only while this is false, and lets esc leave the field before it
+// leaves the screen.
+func (d *ConnectDialog) Editing() bool { return d.editing }
+
+// SetFocus moves the highlighted field (the router's click-to-focus and
+// tests): an out-of-range or disabled index clamps onto the nearest
+// enabled field like SetState, and the new field lands in navigate mode
+// (highlighted, not typed into).
+func (d *ConnectDialog) SetFocus(i int) {
+	d.focus = clampFocus(d.state.Fields, i)
+	d.editing = false
+}
+
 // SetState replaces the rendered snapshot, preserving the page-owned focus
 // (kept when the field at that index is still enabled, otherwise moved to
-// the nearest enabled field) and the last size.
+// the nearest enabled field) and the last size. The edit mode survives a
+// root push (the root syncs after every keystroke); it clears when the
+// clamp moves the focus, since a newly-highlighted field starts navigate.
 func (d *ConnectDialog) SetState(state ConnectFormState) {
 	d.state = state
-	d.focus = clampFocus(state.Fields, d.focus)
+	if next := clampFocus(state.Fields, d.focus); next != d.focus {
+		d.focus = next
+		d.editing = false
+	}
 }
 
 // Update routes sizes and keys; everything else is ignored with a nil
@@ -142,6 +179,9 @@ func (d *ConnectDialog) Update(msg tea.Msg) (Modal, tea.Cmd) {
 }
 
 // updateKey is the edit state machine (see file header for the contract).
+// The two-mode esc order (D3): esc while editing leaves the FIELD first
+// (mode flips to navigate, focus and value untouched); the router only
+// sees the esc that leaves the screen.
 func (d *ConnectDialog) updateKey(msg tea.KeyPressMsg) {
 	if d.state.InFlight {
 		return
@@ -165,11 +205,19 @@ func (d *ConnectDialog) updateKey(msg tea.KeyPressMsg) {
 		return
 	}
 
+	if d.editing && key.Matches(msg, key.NewBinding(key.WithKeys(theme.KeyEsc))) {
+		d.editing = false // esc leaves the field before it leaves the screen
+
+		return
+	}
+
 	switch {
 	case key.Matches(msg, d.nav.FocusNext):
 		d.focus = d.moveFocus(+1)
+		d.editing = false // a newly-highlighted field starts in navigate mode
 	case key.Matches(msg, d.nav.FocusPrev):
 		d.focus = d.moveFocus(-1)
+		d.editing = false
 	default:
 		d.editFocused(msg)
 	}
@@ -243,9 +291,11 @@ func (d *ConnectDialog) pickerPick() {
 }
 
 // editFocused routes input to the focused (enabled) field: arrows/j/k
-// adjust radios with wrap, printable runes and backspace edit text fields.
-// Non-printable keys (ctrl chords, enter, esc) do nothing here; the router
-// owns them.
+// adjust radios with wrap, printable runes and backspace edit text fields
+// (and enter edit mode — the first printable types itself, UAT round 8 /
+// D3; radios, checklists and the header picker have nothing to type into
+// and never enter edit mode). Non-printable keys (ctrl chords, enter,
+// esc) do nothing here; the router owns them.
 func (d *ConnectDialog) editFocused(msg tea.KeyPressMsg) {
 	f := d.focused()
 	if f == nil {
@@ -289,9 +339,11 @@ func (d *ConnectDialog) editFocused(msg tea.KeyPressMsg) {
 		if r := []rune(f.Value); len(r) > 0 {
 			f.Value = string(r[:len(r)-1])
 		}
+		d.editing = true // clearing a value is typing into the field
 	default:
 		if r, ok := printableRune(msg.Text); ok {
 			f.Value += string(r)
+			d.editing = true // the first printable enters edit mode (D3)
 		}
 	}
 }
