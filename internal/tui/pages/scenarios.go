@@ -12,6 +12,16 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
+// Pane focus slots for the §F master-detail split (the §I/§K pattern,
+// UAT round 9 F-9e): the router's Tab/shift-Tab PaneFocusMsg cycles the
+// SCENARIOS list ↔ the STEPS pane. Exported like §K's CtfPane* so the
+// root tests can pin the cycle through Pane().
+const (
+	ScenarioPaneList = iota
+	ScenarioPaneSteps
+	scenarioPaneCount
+)
+
 // Scenarios is the §F scenarios page: a master-detail screen — the
 // scenario list (left/top, widgets.List with a live `/` filter) and the
 // STEPS pane (right/bottom) rendering the step stream root pushed for
@@ -31,6 +41,8 @@ type Scenarios struct {
 	list *widgets.List
 	nav  scenNav
 
+	pane int // focused pane (ScenarioPaneList / ScenarioPaneSteps)
+
 	filtering bool
 	filter    string
 
@@ -47,7 +59,11 @@ type Scenarios struct {
 }
 
 // scenNav is the page keymap: filter-mode esc/backspace/enter plus the
-// page-local triggers; list navigation is owned by widgets.List.
+// page-local triggers; list navigation is owned by widgets.List. Pane
+// focus arrives as PaneFocusMsg from the router (the §C contract), so
+// Tab/TabBack are registered for the §M legend only — the page never
+// matches them in updateKey (the router's global keymap.PaneFocus owns
+// the actual Tab→PaneFocusMsg conversion, the §K ctfNav pattern).
 type scenNav struct {
 	Cancel    key.Binding
 	Backspace key.Binding
@@ -55,6 +71,8 @@ type scenNav struct {
 	Filter    key.Binding
 	Export    key.Binding
 	Pop       key.Binding
+	Tab       key.Binding
+	TabBack   key.Binding
 
 	help []HelpEntry // §M registry, built from the bindings above
 }
@@ -67,11 +85,14 @@ func newScenNav() scenNav {
 		Filter:    key.NewBinding(key.WithKeys("/")),
 		Export:    key.NewBinding(key.WithKeys("e")),
 		Pop:       key.NewBinding(key.WithKeys(theme.KeyEsc)),
+		Tab:       key.NewBinding(key.WithKeys(theme.KeyTab)),
+		TabBack:   key.NewBinding(key.WithKeys("shift+tab")),
 	}
 	nav.help = append(tableNavHelp(),
 		actEntry("run", nav.Enter),
 		actEntry("export report", nav.Export),
 		actEntry("filter", nav.Filter),
+		actEntry("pane", nav.Tab, nav.TabBack),
 		actEntry("back", nav.Pop),
 	)
 
@@ -99,6 +120,9 @@ func (s *Scenarios) Theme() *theme.Theme { return s.th }
 
 // Size reports the last terminal size seen via WindowSizeMsg.
 func (s *Scenarios) Size() (width, height int) { return s.width, s.height }
+
+// Pane reports the focused pane (tests; the §I/§K accessor).
+func (s *Scenarios) Pane() int { return s.pane }
 
 // Filter exposes the live filter text and whether filter mode owns the
 // keyboard (root tests and future deep links).
@@ -128,6 +152,11 @@ func (s *Scenarios) SetSelected(id string) {
 // ClaimsKeyboard implements KeyboardClaimer: while the live filter owns
 // the keyboard the router forwards every key (except the global graceful
 // exit) here, so scenario names containing q, digits, or : stay typeable.
+// It deliberately does NOT claim on STEPS-pane focus: the router turns
+// Tab into a PaneFocusMsg only for non-claiming pages (root_keys.go), so
+// claiming while steps holds focus would swallow the very Tab that moves
+// focus back — unlike §K, which compensates by matching Tab locally in
+// updateKey, §F lets the router own Tab end to end.
 func (s *Scenarios) ClaimsKeyboard() bool { return s.filtering }
 
 // SetState replaces the rendered snapshot (root pushes it on boot and on
@@ -198,12 +227,14 @@ func (s *Scenarios) selectAfterRebuild(prevCursor int, rows []ScenarioRow) {
 	s.selectedID = rows[idx].ID
 }
 
-// Update routes sizes and keys; bus events and pane-focus toggles do not
-// concern this page and are ignored with a nil command.
+// Update routes sizes, the router's pane-focus tabs, and keys; bus
+// events are root-side truth and are ignored with a nil command.
 func (s *Scenarios) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		s.width, s.height = msg.Width, msg.Height
+	case PaneFocusMsg:
+		s.pane = (s.pane + scenarioPaneCount + boolToStep(msg.Reverse)) % scenarioPaneCount
 	case tea.KeyPressMsg:
 		return s.updateKey(msg)
 	}
@@ -265,9 +296,15 @@ func (s *Scenarios) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	}
 }
 
-// updateNav forwards navigation to the list and re-syncs the selected
-// identity; unknown keys reach the list and are ignored there.
+// updateNav forwards navigation to the focused pane and re-syncs the
+// tracked identity; unknown keys reach the list and are ignored there.
+// While the STEPS pane holds focus the list cursor stays put: the nav
+// keys are inert here until Task 9.8 gives the step stream its own
+// cursor (the §I updateNav routing-by-pane contract).
 func (s *Scenarios) updateNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
+	if s.pane == ScenarioPaneSteps {
+		return s, nil
+	}
 	next, cmd := s.list.Update(msg)
 	s.list = next
 	if n := len(s.view); n > 0 {
@@ -278,12 +315,14 @@ func (s *Scenarios) updateNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 }
 
 // Hints is the §F context keymap; run/export are primary so the narrow
-// footer keeps them (the router appends the global bindings). Esc pops
-// like the inspector and send pages (no-op at depth 1).
+// footer keeps them (the router appends the global bindings); tab is
+// primary too because pane focus is the finding F-9e entry point (the
+// §I hint). Esc pops like the inspector and send pages (no-op at depth 1).
 func (s *Scenarios) Hints() []frame.KeyHint {
 	return []frame.KeyHint{
 		{Key: theme.KeyEnter, Desc: "run", Primary: true},
 		{Key: "e", Desc: "export report", Primary: true},
+		{Key: theme.KeyTab, Desc: "pane", Primary: true},
 		{Key: "/", Desc: "filter"},
 		{Key: theme.KeyNavJK, Desc: "nav"},
 		{Key: theme.KeyEsc, Desc: "back"},

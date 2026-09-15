@@ -49,6 +49,7 @@
 [page actions] enter	run
 [page actions] e	export report
 [page actions] /	filter
+[page actions] tab or shift+tab	pane
 [page actions] esc	back
 [global] 1-8	pages
 [global] :/ctrl+p	palette

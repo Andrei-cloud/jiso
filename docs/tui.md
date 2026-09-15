@@ -292,6 +292,7 @@ focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
 | Keys | Action |
 |---|---|
 | `enter` | Run the selected scenario (steps stream live; failed steps show the validation diff) |
+| `tab` / `shift+tab` | Switch focus between the SCENARIOS list and the STEPS pane |
 | `e` | Export the JSON report (§N3 overwrite confirm when the path exists) |
 | `/` | Live filter |
 | `esc` | Back |

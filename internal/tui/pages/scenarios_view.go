@@ -4,9 +4,10 @@
 // shared title row at ≥ frame.FullWidth, the steps pane below the list
 // below it (responsive contract). Both panes are titled widgets.Section
 // boxes (ModeStandard, exactly w×h) whose widths plus the gap sum to the
-// content width (UAT round 9 F-9e alignment). The frame owns the
-// surrounding chrome; sizing comes from frame.ContentSize (dashboard
-// layout.go pattern).
+// content width (UAT round 9 F-9e alignment). The focused pane accents
+// its title and lights its border (the §I focus contract). The frame
+// owns the surrounding chrome; sizing comes from frame.ContentSize
+// (dashboard layout.go pattern).
 package pages
 
 import (
@@ -231,15 +232,18 @@ func (s *Scenarios) bannerWidth() int {
 // that draws a box of exactly w×h (h includes the title line), so both
 // panes join flush on the same title row (UAT round 9 F-9e; the old
 // border-only w-2 box staggered the panes). The pane records its
-// section Rect at (x,y) like every other sectioned page, and stays on
-// the neutral border until pane focus lands (Task 9.7).
+// section Rect at (x,y) like every other sectioned page, and the pane
+// holding focus accents its title and lights its border (the §I
+// UAT-round-5 focus rendering contract).
 func (s *Scenarios) listBox(x, y, w, h int) string {
+	focused := s.pane == ScenarioPaneList
 	// Content rows: the section spends one line on its title and two on
 	// the box rules; the body clips to w-4 cells (the Section convention).
 	inner := max(h-3, 1)
 	s.list.SetSize(max(w-4, 2), inner)
 
-	sec := widgets.NewSection(s.th, titleScenarios)
+	sec := widgets.NewSection(s.th, paneTitle(s.th, titleScenarios, focused))
+	sec.Focused = focused
 	out, _ := sec.Render(s.list.View(), x, y, w, h)
 	s.sections = append(s.sections, sectionRect(x, y, out))
 
@@ -252,13 +256,16 @@ func (s *Scenarios) listBox(x, y, w, h int) string {
 // matching the list pane so the two join flush — UAT round 9 F-9e). The
 // step rows arrive pre-clipped to the box's CONTENT width, so the
 // section's own clip is a no-op and the bytes cannot move; the section's
-// Rect is recorded at its content-relative origin.
+// Rect is recorded at its content-relative origin, and the pane holding
+// focus accents its title and lights its border (the §I contract).
 func (s *Scenarios) stepsBox(x, y, w, h int) string {
+	focused := s.pane == ScenarioPaneSteps
 	// Content width: the box is w wide including its two border
 	// columns, so the body gets w-4.
 	inner := s.stepsBody(max(w-4, 1), max(h-3, 1))
 
-	sec := widgets.NewSection(s.th, titleSteps)
+	sec := widgets.NewSection(s.th, paneTitle(s.th, titleSteps, focused))
+	sec.Focused = focused
 	out, _ := sec.Render(inner, x, y, w, h)
 	s.sections = append(s.sections, sectionRect(x, y, out))
 
