@@ -241,8 +241,13 @@ func (s *Sessions) statsBody() string {
 	return strings.Join(lines, "\n")
 }
 
-// statsEmptyText names the missing selection (wireframe empty state).
+// statsEmptyText names the missing selection (wireframe empty state);
+// while a detail load is in flight it shows the loading marker instead
+// (UAT round 9, F-9f: "select a session" is a lie mid-load).
 func (s *Sessions) statsEmptyText() string {
+	if s.state.DetailWait {
+		return s.detailLoadingText()
+	}
 	if s.state.DBPath == "" {
 		return EmptyTextNoSessionDB
 	}

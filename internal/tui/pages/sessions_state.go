@@ -69,6 +69,9 @@ type TxReviewState struct {
 // error rendered as empty-state text (missing DB etc.), never a crash.
 // Stats holds the selected session's overview lines (total/ok/fail/avg/
 // RC dist); History the selected session's tx rows (newest first).
+// DetailWait marks an in-flight stats/history load for SelectedID: the
+// detail panes then render the loading marker instead of the false
+// "no transactions"/"select a session" empty states (UAT round 9, F-9f).
 type SessionsState struct {
 	DBPath     string
 	Note       string
@@ -77,11 +80,19 @@ type SessionsState struct {
 	Stats      []SummaryKV
 	History    []TxHistoryRow
 	Review     *TxReviewState
+	DetailWait bool
 }
 
 // SessionsSelectMsg asks the router to load stats + tx history for the
-// session under the list cursor (Enter in the SESSIONS pane).
+// session under the list cursor (Enter in the SESSIONS pane; in the
+// narrow fallback it also drills in — that Enter meaning is kept).
 type SessionsSelectMsg struct{ ID string }
+
+// SessionsFocusMsg reports the list cursor moved onto a different
+// session (UAT round 9, F-9f): root loads that session's stats + tx
+// history into the detail panes as a live preview — the same data Enter
+// loads, minus the narrow drill (the §K cursor-follow pattern).
+type SessionsFocusMsg struct{ ID string }
 
 // SessionsReviewMsg asks the router to reconstruct one stored tx for the
 // review overlay (Enter/[t] on a TX HISTORY row).

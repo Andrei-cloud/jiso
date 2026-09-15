@@ -423,11 +423,23 @@ func (s *Sessions) emptyHintLine() string {
 
 // historyEmptyText is the TX HISTORY pane's empty-state line.
 func (s *Sessions) historyEmptyText() string {
+	if s.state.DetailWait {
+		return s.detailLoadingText()
+	}
 	if s.state.SelectedID == "" {
 		return "select a session to see its transactions"
 	}
 
 	return "no transactions recorded for this session"
+}
+
+// detailLoadingText is the detail panes' in-flight marker (UAT round 9,
+// F-9f): the cursor moved onto a new session and root is loading its
+// stats/history — claiming "no transactions recorded" while the leg is
+// in flight is a lie (the §K "… computing" pattern; the glyph comes from
+// the theme, so the ASCII profile stays 7-bit).
+func (s *Sessions) detailLoadingText() string {
+	return s.th.Ellipsis() + " loading"
 }
 
 // syncSelID re-reads the list identity after a cursor move.

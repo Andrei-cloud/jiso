@@ -34,6 +34,7 @@ func (m *RootModel) sessionsState() pages.SessionsState {
 		DBPath:     m.sessionsDBPath(),
 		Note:       m.sessionsNote,
 		SelectedID: m.sessionsSelected,
+		DetailWait: m.sessionsDetailWait,
 	}
 	for _, s := range m.sessionsList {
 		st.Sessions = append(st.Sessions, pages.SessionRow{

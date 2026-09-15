@@ -278,6 +278,9 @@ func (m *RootModel) routeSessionsMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.SessionsSelectMsg:
 		return m.handleSessionsSelect(msg)
 
+	case pages.SessionsFocusMsg:
+		return m.handleSessionsFocus(msg.ID)
+
 	case pages.SessionsReviewMsg:
 		return m.handleSessionsReview(msg)
 

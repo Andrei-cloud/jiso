@@ -312,6 +312,124 @@ func TestSessionsEnterSelectLoadsDetail(t *testing.T) {
 	}
 }
 
+// TestSessionsCursorMoveLoadsDetail UAT round 9 (F-9f): a bare down (no
+// Enter) re-points the detail subject at the newly-focused session and
+// loads its stats + history — the §K cursor-follow pattern. A clamped
+// same-row move must not re-fire the load.
+func TestSessionsCursorMoveLoadsDetail(t *testing.T) {
+	fake := fakeSessionsFixture()
+	r := newSessionsTestRoot(t, fake)
+	r.gotoPage()
+	if fake.detailN != 1 {
+		t.Fatalf("entry detail loads = %d, want 1", fake.detailN)
+	}
+	r.pump(tea.KeyPressMsg{Code: tea.KeyDown})
+
+	if got := r.m.sessionsSelected; got != "77b255c9e4d3" {
+		t.Fatalf("sessionsSelected = %q, want the newly-focused session", got)
+	}
+	if fake.detailN != 2 {
+		t.Fatalf("detail loads = %d, want 2 after the cursor move", fake.detailN)
+	}
+	if fake.detailIDs[len(fake.detailIDs)-1] != "77b255c9e4d3" {
+		t.Fatalf("detail ids = %v, want the new session last", fake.detailIDs)
+	}
+
+	// Clamped at the last row: no cursor move, no load.
+	r.pump(tea.KeyPressMsg{Code: tea.KeyDown})
+	if fake.detailN != 2 {
+		t.Fatalf("clamped same-row move re-fired the load: detailN=%d, want 2", fake.detailN)
+	}
+}
+
+// TestSessionsDetailWaitShowsLoadingText UAT round 9 (F-9f): while the
+// detail leg for the newly-focused session is in flight the detail panes
+// show the loading marker, not the false "no transactions recorded"
+// empty state; the fold clears it.
+func TestSessionsDetailWaitShowsLoadingText(t *testing.T) {
+	fake := fakeSessionsFixture()
+	r := newSessionsTestRoot(t, fake)
+	r.gotoPage()
+
+	// Move the cursor and deliver the focus msg to root, but keep the
+	// detail leg unpumped: it is in flight while we inspect the frame.
+	var leg tea.Cmd
+	for _, m := range flattenMsgs(r.upd(tea.KeyPressMsg{Code: tea.KeyDown})) {
+		leg = r.upd(m)
+	}
+	if fake.detailN != 1 {
+		t.Fatalf("the unpumped leg must not have queried yet: detailN=%d", fake.detailN)
+	}
+	body := r.body()
+	if !strings.Contains(body, "loading") {
+		t.Errorf("in-flight detail load must show the loading marker:\n%s", body)
+	}
+	if strings.Contains(body, "no transactions recorded") {
+		t.Errorf("in-flight detail load must not claim \"no transactions\":\n%s", body)
+	}
+
+	for _, m := range flattenMsgs(leg) {
+		r.pump(m)
+	}
+	if strings.Contains(r.body(), "loading") {
+		t.Errorf("loading marker survived the fold:\n%s", r.body())
+	}
+}
+
+// TestSessionsClickLoadsDetail UAT round 9 (F-9f): a click-select on a
+// sessions-list row loads that session's detail through the same seam
+// as the keyboard focus leg (handleSelectMsg reuses handleSessionsFocus).
+func TestSessionsClickLoadsDetail(t *testing.T) {
+	fake := fakeSessionsFixture()
+	r := newSessionsTestRoot(t, fake)
+	r.gotoPage()
+	r.pump(selectMsg{region: pages.RegionSessionsList, index: 1})
+
+	if got := r.m.sessionsSelected; got != "77b255c9e4d3" {
+		t.Fatalf("sessionsSelected = %q, want the clicked session", got)
+	}
+	if fake.detailN != 2 {
+		t.Fatalf("detail loads = %d, want 2 after the click", fake.detailN)
+	}
+}
+
+// TestSessionsLateDetailFoldStaysOffPage UAT round 9 (F-9f): a detail
+// result that lands after the operator jumped away must not fold while
+// another page is current (the applyCtfPreview guard); §I re-arms the
+// leg when it becomes current again.
+func TestSessionsLateDetailFoldStaysOffPage(t *testing.T) {
+	fake := fakeSessionsFixture()
+	r := newSessionsTestRoot(t, fake)
+	r.gotoPage()
+
+	// Arm the focus leg, then jump away while it is still in flight.
+	var leg tea.Cmd
+	for _, m := range flattenMsgs(r.upd(tea.KeyPressMsg{Code: tea.KeyDown})) {
+		leg = r.upd(m)
+	}
+	r.pump(ch('2'))
+	for _, m := range flattenMsgs(leg) {
+		r.pump(m) // the late detail result lands on §B
+	}
+	if r.m.sessionsStats != nil {
+		t.Fatal("a late detail result folded while §I was not current")
+	}
+	if got := r.m.Current().ID(); got != pages.TransactionsPageID {
+		t.Fatalf("current = %q, want still on §B", got)
+	}
+
+	// Back on §I the leg re-arms (the stale flag survived the drop).
+	before := fake.detailN
+	r.gotoPage()
+	if fake.detailN <= before {
+		t.Fatalf("detail leg must re-arm when §I becomes current again: detailN=%d, want >%d",
+			fake.detailN, before)
+	}
+	if !strings.Contains(r.body(), "150") {
+		t.Errorf("stats must show after the re-armed fold:\n%s", r.body())
+	}
+}
+
 func TestSessionsReviewFlow(t *testing.T) {
 	fake := fakeSessionsFixture()
 	r := newSessionsTestRoot(t, fake)

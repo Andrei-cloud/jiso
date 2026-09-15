@@ -149,6 +149,29 @@ func (m *RootModel) handleSessionsSelect(msg pages.SessionsSelectMsg) (tea.Model
 	return m, m.armSessions()
 }
 
+// handleSessionsFocus is the cursor-following detail leg (UAT round 9,
+// F-9f — the §K handleCtfSelect pattern): the list cursor moved onto a
+// different session (keyboard arrow or a click-select), so root
+// re-points the detail subject, drops the cached stats/history, bumps
+// the seq (any in-flight detail/review leg turns stale instead of
+// landing on the wrong row), and arms the new session's query. Unlike
+// Enter (handleSessionsSelect) it never drives the narrow drill, and it
+// runs only while §I is current with a façade leg (the armSessions
+// gates, re-checked here because the mouse seam calls in directly).
+func (m *RootModel) handleSessionsFocus(id string) (tea.Model, tea.Cmd) {
+	if id == "" || m.Current() == nil || m.Current().ID() != pages.SessionsPageID {
+		return m, nil
+	}
+	if m.sessionsSource() == nil {
+		return m, nil
+	}
+	m.sessionsSelected = id
+	m.sessionsStats, m.sessionsHistory = nil, nil
+	m.sessionsSeq++
+
+	return m, m.armSessionsDetail(id)
+}
+
 // handleSessionsReview arms one reconstructed tx review query ([t] /
 // Enter on a history row); the overlay opens when the result arrives.
 func (m *RootModel) handleSessionsReview(msg pages.SessionsReviewMsg) (tea.Model, tea.Cmd) {
@@ -232,10 +255,18 @@ func (m *RootModel) sessionsListCarries(id string) bool {
 }
 
 // applySessionsDetail folds a detail result for the still-selected
-// session (a stale seq or a switched selection is dropped).
+// session (a stale seq or a switched selection is dropped). A result
+// that lands after navigation away is dropped too (UAT round 9, F-9f:
+// the applyCtfPreview page guard) and the leg is left stale, so
+// armSessions re-queries when §I becomes current again.
 func (m *RootModel) applySessionsDetail(msg sessionsDetailLoadedMsg) (tea.Model, tea.Cmd) {
 	m.sessionsDetailWait = false
 	if msg.seq != m.sessionsSeq || msg.id != m.sessionsSelected {
+		return m, nil
+	}
+	if m.Current() == nil || m.Current().ID() != pages.SessionsPageID {
+		m.sessionsDetailStale = true
+
 		return m, nil
 	}
 	if msg.err != nil {

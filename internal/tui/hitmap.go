@@ -441,6 +441,14 @@ func (m *RootModel) handleSelectMsg(msg selectMsg) (tea.Model, tea.Cmd) {
 	}
 	if sl, ok := m.Current().(pages.Selector); ok {
 		sl.SelectRegion(msg.region, msg.index)
+		// UAT round 9 (F-9f): a click on a §I list row is a cursor move —
+		// the detail panes follow it through the same load seam the
+		// keyboard focus msg uses (handleSessionsFocus re-checks the page
+		// and the façade leg itself). Other regions keep select-only
+		// semantics.
+		if msg.region == pages.RegionSessionsList && m.sessions != nil {
+			return m.handleSessionsFocus(m.sessions.SelectedSessionID())
+		}
 	}
 
 	return m, nil

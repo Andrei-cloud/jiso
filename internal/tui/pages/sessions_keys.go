@@ -229,7 +229,15 @@ func (s *Sessions) updateFilter(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 // updateNav forwards navigation to the focused table and re-syncs the
 // tracked identity; unknown keys reach the table and are ignored there.
+// A list-cursor move onto a different session yields the cursor-follow
+// focus leg (UAT round 9, F-9f, the §K updateListNav pattern): root
+// loads the newly-focused session's stats + history into the detail
+// panes. A clamped same-row move yields nothing (no load loop), and the
+// leg stays quiet while filter mode owns the keyboard (updateFilter
+// reaches here for arrows; the review overlay and the drill never do).
+// The TX HISTORY cursor is a different concern and never fires a load.
 func (s *Sessions) updateNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
+	before := s.selID
 	table := s.list
 	if s.pane == paneHistory {
 		table = s.history
@@ -238,10 +246,28 @@ func (s *Sessions) updateNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	if s.pane == paneHistory {
 		s.history = next
 		s.syncTxID()
-	} else {
-		s.list = next
-		s.syncSelID()
+
+		return s, cmd
+	}
+	s.list = next
+	s.syncSelID()
+	if s.selID != before && !s.filtering {
+		cmd = s.focusCmd()
 	}
 
 	return s, cmd
+}
+
+// focusCmd yields the cursor-following detail leg (UAT round 9, F-9f):
+// the list cursor landed on a different session, so root loads its
+// stats + tx history into the detail panes — the same data Enter loads,
+// minus the narrow drill. nil when the view is empty (the §K selectCmd
+// shape).
+func (s *Sessions) focusCmd() tea.Cmd {
+	id := s.SelectedSessionID()
+	if id == "" {
+		return nil
+	}
+
+	return func() tea.Msg { return SessionsFocusMsg{ID: id} }
 }
