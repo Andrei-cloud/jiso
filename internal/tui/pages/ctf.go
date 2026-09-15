@@ -21,6 +21,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -57,6 +58,12 @@ type Ctf struct {
 
 	width  int
 	height int
+
+	// sections records the geom.Rect of every widgets.Section this
+	// page drew during the last render, in draw order and with a
+	// content-relative origin (Phase 8's hit-map finalises the
+	// absolute offsets into the frame chrome).
+	sections []geom.Rect
 }
 
 // ctfNav is the page keymap: pane focus arrives as PaneFocusMsg from

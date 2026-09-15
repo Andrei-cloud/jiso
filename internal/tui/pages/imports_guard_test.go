@@ -96,12 +96,14 @@ func TestPagesForbiddenImports(t *testing.T) {
 
 // allowedSub is the import allow-list for subpackages of the forbidden
 // prefixes: the events taxonomy plus the leaf TUI building blocks pages are
-// assembled from (fence from the SCR-501 ticket).
+// assembled from (fence from the SCR-501 ticket; geom joined the list in
+// Phase 6 when pages started recording their Section rects).
 func allowedSub(imported string) bool {
 	switch imported {
 	case "jiso/internal/app/events",
 		"jiso/internal/tui/theme",
 		"jiso/internal/tui/widgets",
+		"jiso/internal/tui/geom",
 		"jiso/internal/tui/frame",
 		"jiso/internal/tui/palette",
 		"jiso/internal/tui/progress":

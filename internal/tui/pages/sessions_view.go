@@ -47,6 +47,8 @@ func (s *Sessions) View() tea.View {
 // render lays out header (+optional note) + panes (or the drill /
 // review body), clipped to exactly h lines of at most w cells.
 func (s *Sessions) render(w, h int) string {
+	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+
 	head := s.headerLine(w)
 	headH := 1
 	note := s.state.Note
@@ -76,23 +78,23 @@ func (s *Sessions) render(w, h int) string {
 		gap := strings.Repeat(" ", sessionsSectionGap)
 
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			s.listBox(listW, paneH), gap,
-			s.statsBox(statsW, paneH), gap,
-			s.historyBox(histW, paneH))
+			s.listBox(0, headH, listW, paneH), gap,
+			s.statsBox(listW+sessionsSectionGap, headH, statsW, paneH), gap,
+			s.historyBox(listW+statsW+2*sessionsSectionGap, headH, histW, paneH))
 
 		return clipBlockStyled(s.th, head+"\n"+body, h, w)
 	}
 
 	if !s.drill {
-		return clipBlockStyled(s.th, head+"\n"+s.listBox(w, paneH), h, w)
+		return clipBlockStyled(s.th, head+"\n"+s.listBox(0, headH, w, paneH), h, w)
 	}
 
 	statsH := max(paneH/3, 6)
 	histH := max(paneH-statsH-sessionsSectionGap, 4)
 
 	return clipBlockStyled(s.th, head+"\n"+
-		s.statsBox(w, statsH)+"\n"+
-		s.historyBox(w, histH), h, w)
+		s.statsBox(0, headH, w, statsH)+"\n"+
+		s.historyBox(0, headH+statsH+sessionsSectionGap, w, histH), h, w)
 }
 
 // headerLine is the wireframe title row: accent title, the configured
@@ -128,27 +130,28 @@ func (s *Sessions) noteLine(w int) string {
 // holds focus (UAT round 5: two accented titles and two cursor markers
 // made the active pane ambiguous). The table is sized to the box's
 // inner content width (lipgloss v2 Width includes the border, so a
-// table padded to w-2 would word-wrap).
-func (s *Sessions) listBox(w, h int) string {
+// table padded to w-2 would word-wrap). (x,y) is the section's
+// content-relative origin, recorded with its Rect.
+func (s *Sessions) listBox(x, y, w, h int) string {
 	focused := s.pane == paneSessions
 	s.list.SetFocused(focused)
 	s.list.SetWidth(max(w-4, sessionsMinListWidth))
 
-	return s.sectionW(s.paneTitle(titleSessions, focused), s.list.View(), w, h, focused)
+	return s.sectionW(s.paneTitle(titleSessions, focused), s.list.View(), x, y, w, h, focused)
 }
 
 // statsBox renders the STATS card (root-derived label/value lines).
 // STATS is display-only and never takes focus, so its title stays
 // muted — accenting it made two panes look active at once (UAT round 5).
-func (s *Sessions) statsBox(w, h int) string {
-	return s.sectionW(paneTitle(s.th, titleSessionsStats, false), s.statsBody(), w, h, false)
+func (s *Sessions) statsBox(x, y, w, h int) string {
+	return s.sectionW(paneTitle(s.th, titleSessionsStats, false), s.statsBody(), x, y, w, h, false)
 }
 
 // historyBox renders the TX HISTORY pane, titled with the selected
 // session's short id (wireframe: "TX HISTORY (9f3c…a1)"). The focused
 // pane accents its title, lights its border, and is the only table
 // showing a cursor marker (UAT round 5).
-func (s *Sessions) historyBox(w, h int) string {
+func (s *Sessions) historyBox(x, y, w, h int) string {
 	focused := s.pane == paneHistory || s.drill // the drill drives history directly
 	s.history.SetFocused(focused)
 	s.history.SetWidth(max(w-4, sessionsMinHistoryWidth))
@@ -157,7 +160,7 @@ func (s *Sessions) historyBox(w, h int) string {
 		title += " (" + shortDisplayID(s.th, s.state.SelectedID) + ")"
 	}
 
-	return s.sectionW(s.paneTitle(title, focused), s.history.View(), w, h, focused)
+	return s.sectionW(s.paneTitle(title, focused), s.history.View(), x, y, w, h, focused)
 }
 
 // paneTitle accents a focused pane's title and mutes the rest (focus
@@ -254,34 +257,19 @@ func plainBlock(block string) string {
 	return strings.TrimRight(block, "\n")
 }
 
-// sectionW renders "TITLE" + the body clipped into a bordered box of
-// total size w×h (h includes the title line), so joins stay aligned
-// (dashboard/server sectionW idiom). A focused pane's border takes the
-// accent colour (UAT round 5: the active pane must be obvious); the
-// rest keep the neutral border token.
-func (s *Sessions) sectionW(title, body string, w, h int, focused bool) string {
-	inner := max(h-3, 1)
-	box := clipBlockStyled(s.th, body, inner, max(w-4, 1))
-	style := s.boxStyle()
-	if focused {
-		style = style.BorderForeground(s.th.Accent.GetForeground())
-	}
+// sectionW draws a titled bordered box of total size w×h (h includes
+// the title line) through the one shared widgets.Section, so joins stay
+// aligned (the dashboard layout.go convention). A focused pane's border
+// takes the accent colour (UAT round 5: the active pane must be
+// obvious); the rest keep the neutral border token. The section's Rect
+// is recorded on the page at its content-relative origin.
+func (s *Sessions) sectionW(title, body string, x, y, w, h int, focused bool) string {
+	sec := widgets.NewSection(s.th, title)
+	sec.Focused = focused
+	out, r := sec.Render(body, x, y, w, h)
+	s.sections = append(s.sections, r)
 
-	return titleLine(s.th, title) + "\n" +
-		style.Width(max(w, 4)).Height(inner+2).Render(box)
-}
-
-// boxStyle is the pane border: rounded normally, ASCII under
-// theme.ASCII (dashboard boxStyle idiom).
-func (s *Sessions) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if s.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(s.th.Border.GetBorderTopForeground())
+	return out
 }
 
 // sessionsListColumns are the §I list columns (short id + relative

@@ -20,6 +20,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 const (
@@ -48,7 +49,7 @@ func (w *WorkerWizard) View() string {
 	}
 	body += "\n" + w.footer(inner)
 
-	return w.boxStyle().Width(bw).Render(body)
+	return widgets.Border(w.th, false).Width(bw).Render(body)
 }
 
 // errorLine folds the three mutually exclusive inline lines into one
@@ -155,7 +156,7 @@ func (w *WorkerWizard) listBox(shown []int, inner int) string {
 		rows = append(rows, w.dimMarker("v "+strconv.Itoa(below)+" below", inner))
 	}
 
-	return w.boxStyle().Width(inner).Render(strings.Join(rows, "\n"))
+	return widgets.Border(w.th, false).Width(inner).Render(strings.Join(rows, "\n"))
 }
 
 // dimMarker renders one scroll-affordance line (dim, clipped).
@@ -343,17 +344,4 @@ func (w *WorkerWizard) footer(inner int) string {
 	// never overrun the frame (clip, never wrap).
 	keys = clipCells(keys, inner, clipTail(w.th))
 	return keyLine(keys, inner)
-}
-
-// boxStyle is the wizard border: rounded normally, ASCII under
-// theme.ASCII (the send wizard's boxStyle).
-func (w *WorkerWizard) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if w.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(w.th.Border.GetBorderTopForeground())
 }

@@ -77,7 +77,7 @@ func serverFormFieldSpecs() []serverFormRow {
 		},
 		{
 			key: serverFieldRoutes, label: "Routes file", kind: pages.FieldText,
-			note: "(tx file mock_routes)", noteKind: pages.NoteInfo,
+			note: "(routes-only file, optional)", noteKind: pages.NoteInfo,
 		},
 	}
 }

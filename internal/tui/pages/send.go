@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 )
 
@@ -24,6 +25,12 @@ type Send struct {
 	nav sendNav
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
+
+	// sections records the geom.Rect of every widgets.Section this
+	// page drew during the last render, in draw order and with a
+	// content-relative origin (Phase 8's hit-map finalises the
+	// absolute offsets into the frame chrome).
+	sections []geom.Rect
 }
 
 // sendNav is the §D keymap: Esc pops, Enter re-sends through the same

@@ -44,18 +44,20 @@ func (in *Inspector) View() tea.View {
 // clipped to exactly h lines of at most w cells. At split width the
 // FIELDS and right panes sit side by side with validation below.
 func (in *Inspector) render(w, h int) string {
+	in.sections = in.sections[:0] // redraw the section rects alongside the ink
+
 	// The [packed] tab owns the full width: a standard hexdump line is
 	// 78 cells and never fits a side pane at baseline widths (UAT 3b).
 	if w >= inspectorSplitMinWidth && in.tab == viewPacked {
 		block := in.crumbTabs(w) + "\n" +
-			in.sectionW(rightPaneTitle(in.th, viewPacked), in.packedBody(w-4, max(h-5, 1)), w, max(h-2, 0)) + "\n" +
+			in.sectionW(rightPaneTitle(in.th, viewPacked), in.packedBody(w-4, max(h-5, 1)), 0, 1, w, max(h-2, 0)) + "\n" +
 			in.validationLine()
 
 		return clipBlockStyled(in.th, block, h, w)
 	}
 	if w >= inspectorSplitMinWidth {
 		block := in.crumbTabs(w) + "\n" +
-			in.splitBody(w, max(h-2, 0)) + "\n" +
+			in.splitBody(w, 1, max(h-2, 0)) + "\n" +
 			in.validationLine()
 
 		return clipBlockStyled(in.th, block, h, w)

@@ -16,6 +16,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 const (
@@ -59,7 +60,7 @@ func (d *ConnectDialog) View() string {
 	}
 
 	return titleLine(d.th, title) + "\n" +
-		d.boxStyle().Width(bw).Render(body)
+		widgets.Border(d.th, false).Width(bw).Render(body)
 }
 
 // formBody renders the editable form, optional error line, and the
@@ -326,7 +327,7 @@ func (d *ConnectDialog) pickerBox(inner int) string {
 
 	head := titleLine(d.th, title)
 
-	return head + "\n" + d.boxStyle().Width(bw).Render(strings.Join(lines, "\n"))
+	return head + "\n" + widgets.Border(d.th, false).Width(bw).Render(strings.Join(lines, "\n"))
 }
 
 // pickerField returns the field backing the open overlay even while focus
@@ -398,19 +399,6 @@ func (d *ConnectDialog) pick(truecolor, ascii string) string {
 	}
 
 	return truecolor
-}
-
-// boxStyle is the dialog border: rounded normally, ASCII under theme.ASCII
-// (dashboard boxStyle / send paneStyle idiom).
-func (d *ConnectDialog) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if d.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(d.th.Border.GetBorderTopForeground())
 }
 
 // padRight pads s to width w with spaces (labels only; values clip).

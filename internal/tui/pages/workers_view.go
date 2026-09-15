@@ -284,24 +284,16 @@ func summarySep(th *theme.Theme) string {
 
 // summaryBox draws one titled rounded box around pre-styled body lines
 // (the server page's sectionW idiom; body lines are clipped to the box
-// interior).
+// interior). The frame comes from the shared widgets.Border accessor:
+// the summary boxes vary in height with their pre-styled bodies, so
+// they compose the one shared border with their own Width maths rather
+// than a fixed-size Section.
 func (w *Workers) summaryBox(title, body string, wt int) string {
-	box := lipgloss.NewStyle().
-		Border(summaryBorder(w.th)).
-		BorderForeground(w.th.Border.GetBorderTopForeground()).
+	box := widgets.Border(w.th, false).
 		Width(max(wt-2, 1)).
 		Render(strings.TrimRight(body, "\n"))
 
 	return titleLine(w.th, title) + "\n" + box
-}
-
-// summaryBorder picks the rounded/ASCII box border (dashboard idiom).
-func summaryBorder(th *theme.Theme) lipgloss.Border {
-	if th.ASCII {
-		return lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.RoundedBorder()
 }
 
 // kvRows lays label/value pairs one per line, the label column padded

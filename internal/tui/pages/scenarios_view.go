@@ -16,6 +16,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 const (
@@ -49,6 +50,8 @@ func (s *Scenarios) View() tea.View {
 // render lays out title row + panes + banner line, clipped to exactly h
 // lines of at most w cells.
 func (s *Scenarios) render(w, h int) string {
+	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+
 	title := s.titleRow(w)
 
 	if len(s.state.Scenarios) == 0 {
@@ -68,20 +71,22 @@ func (s *Scenarios) render(w, h int) string {
 	if w >= frame.FullWidth {
 		listW := min(max(w/scenListFraction, scenMinListWidth+2), 44)
 		stepsW := w - listW - scenSectionGap
+		panesY := 1 + errLines // the title row, plus the error strip if any
 
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
 			s.listBox(listW, paneH), strings.Repeat(" ", scenSectionGap),
-			s.stepsBox(stepsW, paneH))
+			s.stepsBox(listW+scenSectionGap, panesY, stepsW, paneH))
 
 		return clipBlockStyled(s.th, head+body+"\n"+footer, h, w)
 	}
 
 	lowerH := max(paneH/2, 3)
 	upperH := paneH - lowerH
+	panesY := 1 + errLines
 
 	return clipBlockStyled(s.th, head+
 		s.listBox(w, upperH)+"\n"+
-		s.stepsBox(w, lowerH)+"\n"+footer, h, w)
+		s.stepsBox(0, panesY+upperH+1, w, lowerH)+"\n"+footer, h, w)
 }
 
 // scenErrMaxLines caps the dedicated error strip: two wrapped lines
@@ -202,25 +207,34 @@ func (s *Scenarios) bannerWidth() int {
 
 // listBox renders the master pane: the widgets.List sized into the box.
 // The pane carries no own title (the page title row is its title), so the
-// box fills the full pane height.
+// box fills the full pane height; its frame comes from the shared
+// widgets.Border accessor (a title-less section).
 func (s *Scenarios) listBox(w, h int) string {
 	inner := max(h-2, 1)
 	// The box's total width is w-2 (one gap column), so its content is
 	// w-4; the widget must render to that, not past the border.
 	s.list.SetSize(max(w-4, 2), inner)
 
-	return s.boxStyle().Width(max(w-2, 1)).Height(inner).Render(s.list.View())
+	return widgets.Border(s.th, false).Width(max(w-2, 1)).Height(inner).Render(s.list.View())
 }
 
 // stepsBox renders the detail pane: step rows plus sub-lines, or the
-// "select a scenario" hint when root pushed no rows.
-func (s *Scenarios) stepsBox(w, h int) string {
+// "select a scenario" hint when root pushed no rows, drawn through the
+// one shared widgets.Section (ModeServer: the box is two cells narrower
+// than w). The step rows arrive pre-clipped to the box's CONTENT width,
+// so the section's own clip is a no-op and the bytes cannot move; the
+// section's Rect is recorded at its content-relative origin.
+func (s *Scenarios) stepsBox(x, y, w, h int) string {
 	// Content width: the box is w-2 wide including its two border
 	// columns, so the body gets w-4.
 	inner := s.stepsBody(max(w-4, 1), max(h-3, 1))
 
-	return titleLine(s.th, titleSteps) + "\n" +
-		s.boxStyle().Width(max(w-2, 1)).Height(max(h-3, 1)).Render(inner)
+	sec := widgets.NewSection(s.th, titleSteps)
+	sec.Mode = widgets.ModeServer
+	out, r := sec.Render(inner, x, y, w, h)
+	s.sections = append(s.sections, r)
+
+	return out
 }
 
 // stepsBody renders one line per step with an optional indented sub-line
@@ -349,19 +363,6 @@ func (s *Scenarios) pendingGlyph() string {
 	}
 
 	return scenPendingDot
-}
-
-// boxStyle is the pane border: rounded normally, ASCII under
-// theme.ASCII, coloured by the border token (dashboard pattern).
-func (s *Scenarios) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if s.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(s.th.Border.GetBorderTopForeground())
 }
 
 // emptyStateBody renders "no scenarios — load via :" with the palette

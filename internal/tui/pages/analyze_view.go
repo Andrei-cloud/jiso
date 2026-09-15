@@ -20,6 +20,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 const (
@@ -197,7 +198,7 @@ func (a *Analyze) listBody(w int, items []WizardItem, emptyText, fieldErr string
 			}
 			rows = append(rows, a.itemRow(it, i))
 		}
-		lines = append(lines, a.boxStyle().Width(max(w-2, 4)).Render(strings.Join(rows, "\n")))
+		lines = append(lines, widgets.Border(a.th, false).Width(max(w-2, 4)).Render(strings.Join(rows, "\n")))
 	}
 	if fieldErr != "" {
 		lines = append(lines, clipCells(a.th.Status(theme.KindError, fieldErr), w, clipTail(a.th)))
@@ -410,19 +411,6 @@ func (a *Analyze) statusBlock(w int) string {
 	}
 
 	return strings.TrimRight(b.String(), "\n")
-}
-
-// boxStyle is the candidate-list border: rounded normally, ASCII under
-// theme.ASCII (the send wizard's boxStyle).
-func (a *Analyze) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if a.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(a.th.Border.GetBorderTopForeground())
 }
 
 // baseName is the last path element of a path.

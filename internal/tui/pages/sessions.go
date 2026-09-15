@@ -20,6 +20,7 @@ import (
 	key "charm.land/bubbles/v2/key"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -68,6 +69,12 @@ type Sessions struct {
 	drill  bool // narrow fallback: stats+history for the selected session
 	width  int
 	height int
+
+	// sections records the geom.Rect of every widgets.Section this
+	// page drew during the last render, in draw order and with a
+	// content-relative origin (Phase 8's hit-map finalises the
+	// absolute offsets into the frame chrome).
+	sections []geom.Rect
 }
 
 // sessionsNav is the page keymap: pane focus arrives as PaneFocusMsg

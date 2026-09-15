@@ -14,6 +14,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 // Records-window geometry. The gutter holds the record number, the
@@ -142,7 +143,7 @@ func (c *Ctf) recordsBox(w int) string {
 	body = append(body, c.th.Dim.Render(inner))
 
 	return titleLine(c.th, title) + "\n" +
-		c.boxStyle().Width(max(w, 8)).Height(max(len(body), 1)+2).
+		widgets.Border(c.th, false).Width(max(w, 8)).Height(max(len(body), 1)+2).
 			Render(clipBlockStyled(c.th, strings.Join(body, "\n"), max(len(body), 1), max(w-4, ctfRecGutter+ctfRecCursorC+ctfRecMinCols)))
 }
 

@@ -47,6 +47,8 @@ func (c *Ctf) View() tea.View {
 // (or the preview overlay body), clipped to exactly h lines of at most
 // w cells.
 func (c *Ctf) render(w, h int) string {
+	c.sections = c.sections[:0] // redraw the section rects alongside the ink
+
 	head := c.headerLine(w)
 	headH := 1
 	note := c.state.Note
@@ -77,8 +79,8 @@ func (c *Ctf) render(w, h int) string {
 		gap := strings.Repeat(" ", ctfSectionGap)
 
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			c.listBox(listW, paneH), gap,
-			c.paramsBox(paramsW, paneH))
+			c.listBox(0, headH, listW, paneH), gap,
+			c.paramsBox(listW+ctfSectionGap, headH, paramsW, paneH))
 
 		return clipBlockStyled(c.th, head+"\n"+body+"\n"+footer, h, w)
 	}
@@ -87,8 +89,8 @@ func (c *Ctf) render(w, h int) string {
 	paramsH := max(paneH-listH-ctfSectionGap, 4)
 
 	return clipBlockStyled(c.th, head+"\n"+
-		c.listBox(w, listH)+"\n"+
-		c.paramsBox(w, paramsH)+"\n"+footer, h, w)
+		c.listBox(0, headH, w, listH)+"\n"+
+		c.paramsBox(0, headH+listH+ctfSectionGap, w, paramsH)+"\n"+footer, h, w)
 }
 
 // headerLine is the wireframe title row: the accent title with its
@@ -163,17 +165,17 @@ func (c *Ctf) hintLine(w int) string {
 
 // listBox renders the SESSIONS pane: the filtered list table in a
 // titled box; the title is accented while the pane holds focus.
-func (c *Ctf) listBox(w, h int) string {
+func (c *Ctf) listBox(x, y, w, h int) string {
 	c.list.SetWidth(max(w-4, ctfMinListWidth))
 
-	return c.sectionW(c.paneTitle(titleSessionsK, c.pane == CtfPaneSessions), c.list.View(), w, h)
+	return c.sectionW(c.paneTitle(titleSessionsK, c.pane == CtfPaneSessions), c.list.View(), x, y, w, h)
 }
 
 // paramsBox renders the PARAMETERS form: one label+value row per
 // field, the focus ring (caret + accent label) on the active field
 // while the pane holds focus.
-func (c *Ctf) paramsBox(w, h int) string {
-	return c.sectionW(c.paneTitle(titleParams, c.pane == CtfPaneParams), c.paramsBody(), w, h)
+func (c *Ctf) paramsBox(x, y, w, h int) string {
+	return c.sectionW(c.paneTitle(titleParams, c.pane == CtfPaneParams), c.paramsBody(), x, y, w, h)
 }
 
 // paramsBody renders the four form rows. The unfocused BIN placeholder
@@ -252,28 +254,18 @@ func (c *Ctf) emptyHintLine() string {
 	return "no CTF-eligible sessions in " + c.state.DBPath + ". Record a Visa session first."
 }
 
-// sectionW renders "TITLE" + the body clipped into a bordered box of
-// total size w×h (h includes the title line), so joins stay aligned
-// (the §I sectionW idiom).
-func (c *Ctf) sectionW(title, body string, w, h int) string {
-	inner := max(h-3, 1)
-	box := clipBlockStyled(c.th, body, inner, max(w-4, 1))
+// sectionW draws a titled bordered box of total size w×h (h includes
+// the title line) through the one shared widgets.Section, so joins stay
+// aligned (the §I layout.go convention). The box border always keeps
+// the neutral token (the pane focus reads through the title); the
+// section's Rect is recorded on the page at its content-relative
+// origin.
+func (c *Ctf) sectionW(title, body string, x, y, w, h int) string {
+	sec := widgets.NewSection(c.th, title)
+	out, r := sec.Render(body, x, y, w, h)
+	c.sections = append(c.sections, r)
 
-	return titleLine(c.th, title) + "\n" +
-		c.boxStyle().Width(max(w, 4)).Height(inner+2).Render(box)
-}
-
-// boxStyle is the pane border: rounded normally, ASCII under
-// theme.ASCII (the §I boxStyle idiom).
-func (c *Ctf) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if c.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(c.th.Border.GetBorderTopForeground())
+	return out
 }
 
 // ctfListColumns are the §K list columns (short id + relative time +

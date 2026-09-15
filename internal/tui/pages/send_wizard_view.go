@@ -10,10 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"charm.land/lipgloss/v2"
-
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 const (
@@ -37,7 +36,7 @@ func (w *SendWizard) View() string {
 	}
 	body += "\n" + w.footer(inner)
 
-	return titleLine(w.th, "SEND") + "\n" + w.boxStyle().Width(bw).Render(body)
+	return titleLine(w.th, "SEND") + "\n" + widgets.Border(w.th, false).Width(bw).Render(body)
 }
 
 // rail renders the step line: numbered labels with the current step
@@ -109,7 +108,7 @@ func (w *SendWizard) listBody(items []WizardItem, inner int) string {
 		lines = append(lines, clipCells(line, inner-2, clipTail(w.th)))
 	}
 
-	return head + "\n" + w.boxStyle().Width(inner).Render(strings.Join(lines, "\n"))
+	return head + "\n" + widgets.Border(w.th, false).Width(inner).Render(strings.Join(lines, "\n"))
 }
 
 // templateBody renders the send step: the template list (name, MTI, masked
@@ -159,7 +158,7 @@ func (w *SendWizard) templateBody(inner int) string {
 		target += "  " + w.th.Status(theme.KindError, w.pick("✗ offline", "offline"))
 	}
 
-	return head + "\n" + w.boxStyle().Width(inner).Render(strings.Join(lines, "\n")) +
+	return head + "\n" + widgets.Border(w.th, false).Width(inner).Render(strings.Join(lines, "\n")) +
 		"\n" + clipCells(w.th.Deemphasized.Render(target), inner, clipTail(w.th))
 }
 
@@ -205,16 +204,4 @@ func (w *SendWizard) pick(truecolor, ascii string) string {
 	}
 
 	return truecolor
-}
-
-// boxStyle is the wizard border: rounded normally, ASCII under theme.ASCII.
-func (w *SendWizard) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if w.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(w.th.Border.GetBorderTopForeground())
 }

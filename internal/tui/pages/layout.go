@@ -26,6 +26,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 // Section titles (proposal 05 §3 wireframe). The page renders titles +
@@ -116,6 +117,8 @@ func (d *Dashboard) newCard(id, title string, body func(w, kept int) []string, n
 
 // render picks the responsive shape from the content width.
 func (d *Dashboard) render(w, h int) string {
+	d.sections = d.sections[:0] // redraw the section rects alongside the ink
+
 	switch {
 	case w >= dashWideCols:
 		return d.renderTwoCol(w, h, dashLeftCol(w))
@@ -134,17 +137,18 @@ func dashLeftCol(w int) int {
 	return min(max(w*35/100, 40), 64)
 }
 
-// cardBox renders the plain "TITLE" (no key badge, UAT round 5) + the
+// cardBox renders the plain "TITLE" (no key badge, UAT round 5) over the
 // body clipped into a bordered box of total size w×(bodyH+3), so joins
-// stay aligned. The body clips to the box's CONTENT width (w-4, the
-// §I/§K sectionW convention) so lipgloss never word-wraps a card line
-// into an extra row.
-func (d *Dashboard) cardBox(title, body string, w, bodyH int) string {
-	inner := max(bodyH, 1)
-	box := d.clipBlock(body, inner, max(w-4, 1))
+// stay aligned, through the one shared widgets.Section (the body clips
+// to the box's CONTENT width w-4 so lipgloss never word-wraps a card
+// line into an extra row). The section's Rect is recorded on the page
+// with the grid's content-relative origin.
+func (d *Dashboard) cardBox(title, body string, x, y, w, bodyH int) string {
+	sec := widgets.NewSection(d.th, title)
+	out, r := sec.Render(body, x, y, w, bodyH+3)
+	d.sections = append(d.sections, r)
 
-	return titleLine(d.th, title) + "\n" +
-		d.boxStyle().Width(max(w, 4)).Height(inner+2).Render(box)
+	return out
 }
 
 // titleLine renders one section title (accent: the page's only highlight).
@@ -161,25 +165,6 @@ func paneTitle(th *theme.Theme, title string, focused bool) string {
 	}
 
 	return th.TextMuted.Render(title)
-}
-
-// boxStyle is the card border: rounded normally, ASCII under theme.ASCII,
-// coloured by the border token (identity under a colorless profile).
-func (d *Dashboard) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if d.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(d.th.Border.GetBorderTopForeground())
-}
-
-// clipBlock flattens the body to exactly h lines, each at most maxW cells
-// (truncates, never wraps; empty lines pad).
-func (d *Dashboard) clipBlock(body string, h, maxW int) string {
-	return clipBlockStyled(d.th, body, h, maxW)
 }
 
 // clipCells truncates one styled line to w cells.

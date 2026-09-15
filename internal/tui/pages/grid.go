@@ -231,24 +231,30 @@ func (d *Dashboard) renderStacked(w, h int) string {
 const narrowOff = 0
 
 // renderRows stacks the bands, each band's two cards side by side at the band
-// height, so the boxes of one band share a top and a bottom border.
+// height, so the boxes of one band share a top and a bottom border. The band
+// scan also knows each card's content-relative origin, which is exactly what
+// cardBox records into the page's section rects.
 func (d *Dashboard) renderRows(rows []dashRow, leftW, rightW, gap int) string {
 	bands := make([]string, 0, len(rows))
+
+	y := 0
 	for _, r := range rows {
 		h := r.height()
 
 		left := blankCell(leftW, h+cardOverhead)
 		if r.left != nil {
-			left = d.cardCell(r.left, leftW, h)
+			left = d.cardCell(r.left, 0, y, leftW, h)
 		}
 
 		right := blankCell(rightW, h+cardOverhead)
 		if r.right != nil {
-			right = d.cardCell(r.right, rightW, h)
+			right = d.cardCell(r.right, leftW+gap, y, rightW, h)
 		}
 
 		bands = append(bands, lipgloss.JoinHorizontal(lipgloss.Top,
 			left, strings.Repeat(" ", gap), right))
+
+		y += h + cardOverhead + gap
 	}
 
 	return strings.Join(bands, "\n")
@@ -257,13 +263,13 @@ func (d *Dashboard) renderRows(rows []dashRow, leftW, rightW, gap int) string {
 // cardCell draws one card at the band's height. The body is asked for the band's
 // lines, which is how the log takes the band's full height (newest last) while a
 // card with less to say is padded by cardBox to the same height.
-func (d *Dashboard) cardCell(c *dashCard, w, bandH int) string {
+func (d *Dashboard) cardCell(c *dashCard, x, y, w, bandH int) string {
 	lines := c.body(w, bandH)
 	if c.bottom && len(lines) < bandH {
 		lines = append(blankLines(bandH-len(lines)), lines...)
 	}
 
-	return d.cardBox(c.title, strings.Join(lines, "\n"), w, bandH)
+	return d.cardBox(c.title, strings.Join(lines, "\n"), x, y, w, bandH)
 }
 
 // blankLines is n empty body lines, for a card that aligns to the bottom of its
@@ -285,12 +291,15 @@ func blankCell(w, lines int) string {
 }
 
 // renderColumn renders the fitted cards stacked at width w with gap
-// blank rows between them.
+// blank rows between them, recording each card's stacked origin.
 func (d *Dashboard) renderColumn(cards []*dashCard, w, gap int) string {
 	parts := make([]string, 0, len(cards))
+
+	y := 0
 	for _, c := range cards {
 		body := strings.Join(c.body(w, c.kept), "\n")
-		parts = append(parts, d.cardBox(c.title, body, w, c.kept))
+		parts = append(parts, d.cardBox(c.title, body, 0, y, w, c.kept))
+		y += max(c.kept, 1) + cardOverhead + gap
 	}
 
 	return strings.Join(parts, strings.Repeat("\n", gap+1))

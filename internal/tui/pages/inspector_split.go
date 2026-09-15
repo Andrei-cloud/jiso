@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 // inspectorSplitMinWidth is the content width at which FIELDS and the
@@ -17,11 +18,11 @@ import (
 const inspectorSplitMinWidth = 100
 
 // splitBody is the side-by-side body: FIELDS left, right pane right,
-// one blank column between; h excludes the crumb and validation lines.
-// The right pane keeps a fixed working width (45 inner fits 16-byte hex
-// lines); the left pane gets the rest, never below the masked-row
-// minimum (64).
-func (in *Inspector) splitBody(w, h int) string {
+// one blank column between; h excludes the crumb and validation lines
+// and y is the body's content-relative top line. The right pane keeps a
+// fixed working width (45 inner fits 16-byte hex lines); the left pane
+// gets the rest, never below the masked-row minimum (64).
+func (in *Inspector) splitBody(w, y, h int) string {
 	right := min(max(49, (w-3)*5/16), max(w-3-48, 33))
 	// A packed right pane prefers the 82 columns a standard hexdump
 	// line needs (8 offset + 2 + 47 byte pairs + 2 + 18 ASCII gutter +
@@ -34,8 +35,8 @@ func (in *Inspector) splitBody(w, h int) string {
 	rightTab := in.rightTab()
 	inner := max(h-3, 1) // section title line + box borders
 
-	leftSec := in.sectionW(in.fieldsPaneTitle(), in.fieldsRows(left-4, inner), left, h)
-	rightSec := in.sectionW(rightPaneTitle(in.th, rightTab), in.paneBody(rightTab, right-4, inner), right, h)
+	leftSec := in.sectionW(in.fieldsPaneTitle(), in.fieldsRows(left-4, inner), 0, y, left, h)
+	rightSec := in.sectionW(rightPaneTitle(in.th, rightTab), in.paneBody(rightTab, right-4, inner), left+1, y, right, h)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftSec, " ", rightSec)
 }
@@ -74,26 +75,18 @@ func rightPaneTitle(th *theme.Theme, tab int) string {
 	}
 }
 
-// sectionW renders a pre-styled title above a bordered box of total
-// size w×h (Sessions sectionW idiom; the title is NOT re-styled).
-func (in *Inspector) sectionW(title, body string, w, h int) string {
-	inner := max(h-3, 1)
-	box := clipBlockStyled(in.th, body, inner, max(w-4, 1))
+// sectionW draws a pre-styled title over a bordered box of total size
+// w×h (h includes the title line) through the one shared
+// widgets.Section (the §I sectionW convention; the title is NOT
+// re-styled). The section's Rect is recorded on the page at its
+// content-relative origin.
+func (in *Inspector) sectionW(title, body string, x, y, w, h int) string {
+	sec := widgets.NewSection(in.th, title)
+	sec.TitlePreStyled = true
+	out, r := sec.Render(body, x, y, w, h)
+	in.sections = append(in.sections, r)
 
-	return title + "\n" + in.boxStyle().Width(max(w, 4)).Height(inner+2).Render(box)
-}
-
-// boxStyle is the pane border: rounded normally, ASCII under
-// theme.ASCII (dashboard/sessions boxStyle idiom).
-func (in *Inspector) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if in.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(in.th.Border.GetBorderTopForeground())
+	return out
 }
 
 // fieldsRows renders the windowed field rows (scroll offset clamped to

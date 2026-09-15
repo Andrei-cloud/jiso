@@ -74,7 +74,7 @@ func (s *Section) Render(body string, x, y, w, h int) (string, geom.Rect) {
 	inner := max(h-3, 1) // body rows: total h minus the title line and two border rows
 	box := clipBlock(s.Theme, body, inner, max(w-4, 1))
 
-	style := s.boxStyle()
+	style := s.Border()
 	if s.Mode == ModeServer {
 		style = style.Width(max(w-2, 1)).Height(inner)
 	} else {
@@ -89,22 +89,34 @@ func (s *Section) Render(body string, x, y, w, h int) (string, geom.Rect) {
 	return title + "\n" + style.Render(box), geom.Rect{X: x, Y: y, W: w, H: h}
 }
 
-// boxStyle is the pane border: rounded normally, ASCII under
-// theme.ASCII; the neutral border token, the accent when focused (the
-// pages boxStyle idiom, all 11 copies identical).
-func (s *Section) boxStyle() lipgloss.Style {
-	st := s.Theme.Border
-	if s.Focused {
-		st = s.Theme.BorderFocused()
+// Border is the title-less mode of the shared box: the frame style of a
+// section that carries NO title line (wizard modals, list sub-boxes,
+// summary cards, the §F list pane). Callers compose it with their own
+// Width/Height/clip maths, exactly as the per-page boxStyle()/
+// paneStyle()/summaryBorder() copies did before Phase 6 migrated them
+// here; the bytes it draws are identical to those copies (pinned by the
+// fidelity tests), so a page that swaps its own boxStyle() for this one
+// accessor cannot move a pixel. A titled box goes through
+// Section.Render instead, which draws this border under its title line
+// and returns the section's geom.Rect.
+func Border(th *theme.Theme, focused bool) lipgloss.Style {
+	st := th.Border
+	if focused {
+		st = th.BorderFocused()
 	}
 
 	b := lipgloss.RoundedBorder()
-	if s.Theme.ASCII {
+	if th.ASCII {
 		b = lipgloss.ASCIIBorder()
 	}
 
 	return st.Border(b)
 }
+
+// Border is the Section accessor for the package Border function: this
+// section's frame style (neutral border token, accent when Focused),
+// for callers that need the border alone and lay the box out themselves.
+func (s *Section) Border() lipgloss.Style { return Border(s.Theme, s.Focused) }
 
 // clipBlock flattens a body to exactly h lines of at most maxW cells
 // (truncate, never wrap; short bodies pad with empty lines so joins and

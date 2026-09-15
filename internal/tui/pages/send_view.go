@@ -17,6 +17,7 @@ import (
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
+	"jiso/internal/tui/widgets"
 )
 
 // titleSend is the §D section title.
@@ -42,6 +43,8 @@ func (s *Send) View() tea.View {
 // render lays out title + indicator + panes + status + badge, clipped to
 // exactly h lines of at most w cells.
 func (s *Send) render(w, h int) string {
+	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+
 	st := s.state
 
 	inline := w >= frame.FullWidth
@@ -73,11 +76,15 @@ func (s *Send) render(w, h int) string {
 	var panes string
 	reqTitle := s.paneTitle(true)
 	respTitle := s.paneTitle(false)
+	panesY := 1 // the title line above the panes is one line inline…
+	if !inline {
+		panesY = 2 // …and two once the stage indicator owns its own line
+	}
 	if w >= frame.FullWidth && !s.hexStacks() {
 		colW := (w - 1) / 2
-		panes = s.panesSideBySide(colW, panesH, reqTitle, respTitle)
+		panes = s.panesSideBySide(colW, panesY, panesH, reqTitle, respTitle)
 	} else {
-		panes = s.panesStacked(w, panesH, reqTitle, respTitle)
+		panes = s.panesStacked(w, panesY, panesH, reqTitle, respTitle)
 	}
 
 	return clipBlockStyled(s.th, strings.Join([]string{title, panes, status, badge}, "\n"), h, w)
@@ -180,34 +187,32 @@ func (s *Send) paneTitle(request bool) string {
 }
 
 // panesSideBySide joins the two panes horizontally with a one-column gap.
-func (s *Send) panesSideBySide(colW, h int, reqTitle, respTitle string) string {
+func (s *Send) panesSideBySide(colW, y, h int, reqTitle, respTitle string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		s.pane(reqTitle, s.state.Request, colW, h, true),
+		s.pane(reqTitle, s.state.Request, 0, y, colW, h, true),
 		" ",
-		s.pane(respTitle, s.state.Response, colW, h, false))
+		s.pane(respTitle, s.state.Response, colW+1, y, colW, h, false))
 }
 
 // panesStacked splits the vertical budget between the two panes.
-func (s *Send) panesStacked(w, h int, reqTitle, respTitle string) string {
+func (s *Send) panesStacked(w, y, h int, reqTitle, respTitle string) string {
 	top := (h - 1) / 2
 
 	return strings.Join([]string{
-		s.pane(reqTitle, s.state.Request, w, top, true),
-		s.pane(respTitle, s.state.Response, w, h-top, false),
+		s.pane(reqTitle, s.state.Request, 0, y, w, top, true),
+		s.pane(respTitle, s.state.Response, 0, y+top+1, w, h-top, false),
 	}, "\n")
 }
 
-// pane renders title + a bordered box totaling exactly h lines (lipgloss
-// Height is the inner content height: title 1 + inner h-3 + borders 2),
-// with one line per row in the Display or Hex column (the `h` toggle is
-// pure display over identical rows).
-func (s *Send) pane(title string, rows []ExchangeRow, w, h int, request bool) string {
+// pane renders title + a bordered box totaling exactly h lines (title 1 +
+// inner h-3 + borders 2) through the one shared widgets.Section in
+// ModeServer, with one line per row in the Display or Hex column (the
+// `h` toggle is pure display over identical rows). The rows/dump bodies
+// arrive pre-clipped to the box's CONTENT width, so the section's own
+// clip is a no-op and the bytes cannot move.
+func (s *Send) pane(title string, rows []ExchangeRow, x, y, w, h int, request bool) string {
 	inner := max(h-3, 1)
-	boxW := max(w-2, 1)
-	// The clip width is the box's CONTENT width (border style has no
-	// padding, so content = boxW-2); clipping at boxW overflowed long
-	// Describe lines (and their clip tails) past the right border.
-	contentW := max(boxW-2, 1)
+	contentW := max(max(w-2, 1)-2, 1)
 	// UAT: the h toggle switches the WHOLE pane from the Describe rows
 	// to the standard hexdump of the packed message (and back).
 	if s.state.HexOn {
@@ -216,12 +221,24 @@ func (s *Send) pane(title string, rows []ExchangeRow, w, h int, request bool) st
 			dump = s.state.RequestHex
 		}
 		if len(dump) > 0 {
-			return title + "\n" + s.paneStyle().Width(boxW).Height(inner).Render(s.dumpBody(dump, inner, contentW))
+			return s.sectionBox(title, s.dumpBody(dump, inner, contentW), x, y, w, h)
 		}
 	}
-	body := s.rowsBody(rows, inner, contentW, request)
 
-	return title + "\n" + s.paneStyle().Width(boxW).Height(inner).Render(body)
+	return s.sectionBox(title, s.rowsBody(rows, inner, contentW, request), x, y, w, h)
+}
+
+// sectionBox draws one pre-styled-title pane box with the shared
+// Section (ModeServer: the box is two cells narrower than w) and
+// records its Rect at the content-relative origin.
+func (s *Send) sectionBox(title, body string, x, y, w, h int) string {
+	sec := widgets.NewSection(s.th, title)
+	sec.Mode = widgets.ModeServer
+	sec.TitlePreStyled = true
+	out, r := sec.Render(body, x, y, w, h)
+	s.sections = append(s.sections, r)
+
+	return out
 }
 
 // dumpBody renders standard hexdump lines clipped to the pane: the
@@ -390,17 +407,4 @@ func formatSendBudget(d time.Duration) string {
 	s = strings.TrimSuffix(s, ".0")
 
 	return s + "s"
-}
-
-// paneStyle is the exchange-pane border: rounded normally, ASCII under
-// theme.ASCII, coloured by the border token (dashboard boxStyle idiom).
-func (s *Send) paneStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if s.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(s.th.Border.GetBorderTopForeground())
 }

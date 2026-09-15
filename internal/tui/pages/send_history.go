@@ -15,9 +15,9 @@ import (
 
 	key "charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -49,6 +49,12 @@ type SendHistory struct {
 	nav     sendHistoryNav
 
 	width, height int
+
+	// sections records the geom.Rect of every widgets.Section this
+	// page drew during the last render, in draw order and with a
+	// content-relative origin (Phase 8's hit-map finalises the
+	// absolute offsets into the frame chrome).
+	sections []geom.Rect
 }
 
 // sendHistoryNav: the list owns j/k/pgup/pgdn navigation; Enter opens
@@ -201,28 +207,19 @@ func (s *SendHistory) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 }
 
 // View renders the list in a titled box (sessions listBox idiom: the
-// table is sized to the box's CONTENT width).
+// table is sized to the box's CONTENT width) drawn through the one
+// shared widgets.Section; the section's Rect is recorded at its
+// content-relative origin.
 func (s *SendHistory) View() tea.View {
 	w, h := frame.ContentSize(s.width, s.height)
-	title := titleLine(s.th, "SEND HISTORY")
-	inner := max(h-3, 1)
+	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+
 	s.table.SetWidth(max(w-4, 20))
-	box := clipBlockStyled(s.th, s.table.View(), inner, max(w-4, 1))
 
-	return tea.NewView(clipBlockStyled(s.th, title+"\n"+
-		s.boxStyle().Width(max(w, 4)).Height(inner+2).Render(box), h, w))
-}
+	section, r := widgets.NewSection(s.th, "SEND HISTORY").Render(s.table.View(), 0, 0, w, h)
+	s.sections = append(s.sections, r)
 
-// boxStyle is the pane border (sessions/servers boxStyle idiom).
-func (s *SendHistory) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if s.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(s.th.Border.GetBorderTopForeground())
+	return tea.NewView(clipBlockStyled(s.th, section, h, w))
 }
 
 // Hints is the send-history context keymap.

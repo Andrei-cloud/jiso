@@ -100,10 +100,13 @@ func (s *Server) View() tea.View {
 // render lays out header row + error line + panes (or the detail
 // overlay), clipped to exactly h lines of at most w cells.
 func (s *Server) render(w, h int) string {
+	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+
 	head := s.headerRow(w)
 	if errLine := s.errorLine(w); errLine != "" {
 		head += "\n" + errLine
 	}
+	headH := strings.Count(head, "\n") + 1
 
 	if s.detailOpen && s.detailIdx >= 0 && s.detailIdx < len(s.state.Routes) {
 		return clipBlockStyled(s.th, head+"\n"+s.detailBody(), h, w)
@@ -123,8 +126,8 @@ func (s *Server) render(w, h int) string {
 			routesW := max(w-statsW-serverSectionGap, 20)
 
 			body := lipgloss.JoinHorizontal(lipgloss.Top,
-				s.leftBox(statsW, paneH), strings.Repeat(" ", serverSectionGap),
-				s.routesBox(routesW, paneH))
+				s.leftBox(headH, statsW, paneH), strings.Repeat(" ", serverSectionGap),
+				s.routesBox(statsW+serverSectionGap, headH, routesW, paneH))
 
 			return clipBlockStyled(s.th, head+"\n"+body, h, w)
 		}
@@ -138,9 +141,9 @@ func (s *Server) render(w, h int) string {
 		routesH := min(paneH, max(len(s.state.Routes)+5, 6))
 
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			s.leftBox(statsW, statsH), strings.Repeat(" ", serverSectionGap),
-			s.routesBox(routesW, routesH), strings.Repeat(" ", serverSectionGap),
-			s.logBox(logW, paneH))
+			s.leftBox(headH, statsW, statsH), strings.Repeat(" ", serverSectionGap),
+			s.routesBox(statsW+serverSectionGap, headH, routesW, routesH), strings.Repeat(" ", serverSectionGap),
+			s.logBox(statsW+routesW+2*serverSectionGap, headH, logW, paneH))
 
 		return clipBlockStyled(s.th, head+"\n"+body, h, w)
 	}
@@ -151,17 +154,17 @@ func (s *Server) render(w, h int) string {
 		routesH := max(paneH-statsH-logH-serverSectionGap*2, 4)
 
 		return clipBlockStyled(s.th, head+"\n"+
-			s.leftBox(w, statsH)+"\n"+
-			s.logBox(w, logH)+"\n"+
-			s.routesBox(w, routesH), h, w)
+			s.leftBox(headH, w, statsH)+"\n"+
+			s.logBox(0, headH+statsH+serverSectionGap, w, logH)+"\n"+
+			s.routesBox(0, headH+statsH+logH+2*serverSectionGap, w, routesH), h, w)
 	}
 
 	statsH := max(paneH/2, 6)
 	routesH := max(paneH-statsH-serverSectionGap, 4)
 
 	return clipBlockStyled(s.th, head+"\n"+
-		s.leftBox(w, statsH)+"\n"+
-		s.routesBox(w, routesH), h, w)
+		s.leftBox(headH, w, statsH)+"\n"+
+		s.routesBox(0, headH+statsH+serverSectionGap, w, routesH), h, w)
 }
 
 // headerRow renders the §G status header: accent title plus the
@@ -233,7 +236,7 @@ func logFooterHint(th *theme.Theme) string {
 // CompactServerLog, oldest at the top, honoring the page's logScroll
 // offset (0 = following the newest) and ending with the scroll hint
 // line at the bottom of the box.
-func (s *Server) logBox(w, h int) string {
+func (s *Server) logBox(x, y, w, h int) string {
 	inner := max(h-3, 1)
 	total := len(s.state.Log)
 
@@ -254,12 +257,13 @@ func (s *Server) logBox(w, h int) string {
 
 	// The log pane is the default focus target (j/k scroll it until r
 	// or Tab moves to ROUTES); UAT round 5 makes that visible.
-	return s.sectionW(paneTitle(s.th, titleLog, !s.routesFocused), strings.Join(body, "\n"), w, h, !s.routesFocused)
+	return s.sectionW(paneTitle(s.th, titleLog, !s.routesFocused), strings.Join(body, "\n"), x, y, w, h, !s.routesFocused)
 }
 
 // leftBox renders the STATS card (or the start-form hint before the
-// first snapshot) as a titled bordered box, dashboard sectionW idiom.
-func (s *Server) leftBox(w, h int) string {
+// first snapshot) as a titled bordered box through the shared Section;
+// it is always the leftmost column, so only its top line varies.
+func (s *Server) leftBox(y, w, h int) string {
 	title := titleStats
 	body := s.statsBody()
 	if !s.state.StatsKnown {
@@ -267,7 +271,7 @@ func (s *Server) leftBox(w, h int) string {
 		body = s.startHintBody()
 	}
 
-	return s.sectionW(paneTitle(s.th, title, false), body, w, h, false)
+	return s.sectionW(paneTitle(s.th, title, false), body, 0, y, w, h, false)
 }
 
 // statsBody renders the five wireframe lines; thousands separators via
@@ -310,44 +314,29 @@ func (s *Server) startHintBody() string {
 // The table is sized to the box's inner content width (lipgloss v2
 // Width includes the border, so a table padded to w-2 word-wrapped the
 // right-aligned HITS column — UAT round 5; sessions listBox idiom).
-func (s *Server) routesBox(w, h int) string {
+func (s *Server) routesBox(x, y, w, h int) string {
 	s.table.SetFocused(s.routesFocused)
 	s.table.SetWidth(max(w-4, 4))
 
-	return s.sectionW(paneTitle(s.th, titleRoutes, s.routesFocused), s.table.View(), w, h, s.routesFocused)
+	return s.sectionW(paneTitle(s.th, titleRoutes, s.routesFocused), s.table.View(), x, y, w, h, s.routesFocused)
 }
 
-// sectionW renders "TITLE" + the body clipped into a bordered box of
-// total size w×h (h includes the title line), so joins stay aligned
-// (dashboard layout.go idiom). The body clips to the box's CONTENT
-// width (w-4), not its outer width: UAT round 5, the ROUTES table's
-// full-width lines wrapped two cells past the right border. A focused
-// pane's border takes the accent colour (UAT round 5: the server page
-// had no focus indication at all); the rest keep the neutral border
-// token.
-func (s *Server) sectionW(title, body string, w, h int, focused bool) string {
-	inner := max(h-3, 1)
-	box := clipBlockStyled(s.th, body, inner, max(w-4, 1))
-	style := s.boxStyle()
-	if focused {
-		style = style.BorderForeground(s.th.Accent.GetForeground())
-	}
+// sectionW draws a titled bordered box of total size w×h (h includes
+// the title line) through the one shared widgets.Section in ModeServer:
+// the box renders two cells narrower than w (the UAT round 5 ROUTES
+// table wrap fix) and the body clips to the box's CONTENT width (w-4).
+// A focused pane's border takes the accent colour (UAT round 5: the
+// server page had no focus indication at all); the rest keep the
+// neutral border token. The section's Rect is recorded on the page at
+// its content-relative origin.
+func (s *Server) sectionW(title, body string, x, y, w, h int, focused bool) string {
+	sec := widgets.NewSection(s.th, title)
+	sec.Mode = widgets.ModeServer
+	sec.Focused = focused
+	out, r := sec.Render(body, x, y, w, h)
+	s.sections = append(s.sections, r)
 
-	return titleLine(s.th, title) + "\n" +
-		style.Width(max(w-2, 1)).Height(inner).Render(box)
-}
-
-// boxStyle is the pane border: rounded normally, ASCII under
-// theme.ASCII (dashboard boxStyle idiom).
-func (s *Server) boxStyle() lipgloss.Style {
-	b := lipgloss.RoundedBorder()
-	if s.th.ASCII {
-		b = lipgloss.ASCIIBorder()
-	}
-
-	return lipgloss.NewStyle().
-		Border(b).
-		BorderForeground(s.th.Border.GetBorderTopForeground())
+	return out
 }
 
 // detailBody renders the Enter-on-route detail view: every line is a
