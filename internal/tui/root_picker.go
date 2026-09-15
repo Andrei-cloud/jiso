@@ -135,6 +135,11 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		// The §J capture step: the pick commits through the same
 		// capture-choose leg Enter uses (validate + advance).
 		return m.handleAnalyzeCommitCapture(pages.AnalyzeCommitCaptureMsg{Value: msg.Path})
+	case analyzeSpecPickTarget:
+		// The §J spec step (UAT round 9 F-9d): the pick commits through
+		// the same spec-choose leg Enter uses (stat-validate + advance);
+		// a failure lands as the inline SpecError, never a crash.
+		return m.handleAnalyzeCommitSpec(pages.AnalyzeCommitSpecMsg{Value: msg.Path})
 	case analyzeOutputPickTarget:
 		// The §J run-step output browse: a file pick names the output
 		// file itself (an existing target still passes the §N3 overwrite

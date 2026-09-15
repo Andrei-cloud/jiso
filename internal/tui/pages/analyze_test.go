@@ -140,6 +140,61 @@ func TestAnalyzeSpecStepCommitsSelection(t *testing.T) {
 	}
 }
 
+// TestAnalyzeSpecBrowseTracksEditMode pins the spec step's two-mode
+// browse gate (UAT round 9 F-9d): NAVIGATE mode sends `f` to the
+// root-side picker as AnalyzeBrowseMsg{IsSpec: true} — the
+// discriminator that keeps the spec step out of the .pcap capture
+// picker; typing enters EDIT mode (the first printable types itself)
+// and there `f` types literally into the draft; Esc clears the draft
+// back to navigate mode, where f browses again (the capture step's
+// SCR-502/D3 gate, mirrored).
+func TestAnalyzeSpecBrowseTracksEditMode(t *testing.T) {
+	t.Parallel()
+
+	st := analyzeFixtureState()
+	st.Step = StepSpec
+	a := analyzePage(t, st, 120, 32)
+
+	// Navigate mode: f is the picker key, and it names the spec step.
+	if a.Editing() {
+		t.Fatal("a fresh spec step must be navigate mode")
+	}
+	_, cmd := a.Update(ch('f'))
+	msg, ok := cmdMsg(t, cmd).(AnalyzeBrowseMsg)
+	if !ok {
+		t.Fatalf("navigate-mode f -> %T, want AnalyzeBrowseMsg", cmdMsg(t, cmd))
+	}
+	if !msg.IsSpec {
+		t.Fatal("spec-step browse must carry IsSpec: true, or root reopens the capture picker")
+	}
+
+	// Typing enters edit mode (and types itself, SCR-502 typeahead).
+	_, _ = a.Update(ch('n'))
+	if !a.Editing() {
+		t.Fatal("typing must enter edit mode")
+	}
+
+	// Edit mode: f types literally into the draft; no second browse.
+	_, cmd = a.Update(ch('f'))
+	if got := cmdMsg(t, cmd); got != nil {
+		t.Fatalf("f while editing must not browse, got %#v", got)
+	}
+	if d, _ := a.Draft(); d != "nf" {
+		t.Fatalf("draft = %q, want the typed suffix \"nf\"", d)
+	}
+
+	// Esc clears the draft back to navigate mode, where f browses again.
+	_, _ = a.Update(special(tea.KeyEscape))
+	if a.Editing() {
+		t.Fatal("esc must leave edit mode")
+	}
+	_, cmd = a.Update(ch('f'))
+	msg, ok = cmdMsg(t, cmd).(AnalyzeBrowseMsg)
+	if !ok || !msg.IsSpec {
+		t.Fatalf("f after leaving edit mode -> %#v, want AnalyzeBrowseMsg{IsSpec: true}", cmdMsg(t, cmd))
+	}
+}
+
 func TestAnalyzeHeaderListSpaceSelects(t *testing.T) {
 	t.Parallel()
 

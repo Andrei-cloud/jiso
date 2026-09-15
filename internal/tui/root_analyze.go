@@ -38,6 +38,12 @@ import (
 // back into the capture commit (the wizardPick*Targets pattern).
 const analyzePickTarget = "analyze:capture"
 
+// analyzeSpecPickTarget routes the spec step's [f] picker selection
+// back into the spec commit (UAT round 9 F-9d: every file step opens
+// the picker; the target keeps the .json browse out of the .pcap
+// capture leg, the same split the wizardPick*Targets pair makes).
+const analyzeSpecPickTarget = "analyze:spec"
+
 // analyzeOutputPickTarget routes the run step's [o] picker selection
 // to the output commit (UAT round 8 finding 6: the output path gets the
 // same folder/file browse the capture step always had).
@@ -58,26 +64,48 @@ const (
 // starting at the last used capture's directory (or the working
 // directory). The page stays underneath; Esc returns to it and a
 // selection flows through applyFilePicked.
-func (m *RootModel) handleAnalyzeBrowse() (tea.Model, tea.Cmd) {
+//
+// spec selects the step (UAT round 9 F-9d): the spec step's browse is
+// the same overlay over .json files, starting at the current spec's
+// directory. No PickDirKey there — a directory is not a legal spec,
+// only the engine default ("") is.
+func (m *RootModel) handleAnalyzeBrowse(spec bool) (tea.Model, tea.Cmd) {
 	if m.filePick != nil {
 		return m, nil
+	}
+	if spec {
+		start := analyzePickStart(m.analyzeSpecPath)
+
+		return m.openFilePicker(OpenFilePickerMsg{
+			Target: analyzeSpecPickTarget, Root: "/", RootLabel: start + string(filepath.Separator),
+			Start: start, Exts: []string{jsonExt},
+		})
 	}
 	value := m.analyzeCapturePath
 	if value == "" && len(m.analyzeRecents) > 0 {
 		value = m.analyzeRecents[0]
 	}
-	start := "."
-	if value != "" {
-		start = filepath.Dir(value)
-	}
-	if abs, err := filepath.Abs(start); err == nil {
-		start = abs
-	}
+	start := analyzePickStart(value)
 
 	return m.openFilePicker(OpenFilePickerMsg{
 		Target: analyzePickTarget, Root: "/", RootLabel: start + string(filepath.Separator),
 		Start: start, Exts: []string{".pcap"},
 	})
+}
+
+// analyzePickStart resolves a §J browse's start directory: the picked
+// path's directory, made absolute (the working directory when nothing
+// is picked yet).
+func analyzePickStart(value string) string {
+	start := "."
+	if value != "" {
+		start = filepath.Dir(value)
+	}
+	if abs, err := filepath.Abs(start); err == nil {
+		return abs
+	}
+
+	return start
 }
 
 // outPickDirKey is the output picker's extra "set folder" key (the
@@ -332,7 +360,7 @@ func (m *RootModel) handleAnalyzeCommitCapture(msg pages.AnalyzeCommitCaptureMsg
 
 	if value == "" {
 		if len(m.analyzeCaptureItems()) == 0 {
-			return m.handleAnalyzeBrowse()
+			return m.handleAnalyzeBrowse(false)
 		}
 		m.analyzeCaptureError = analyzeNeedCapture
 

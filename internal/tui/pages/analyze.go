@@ -210,7 +210,7 @@ func newAnalyzeNav() analyzeNav {
 		navEntry("step", nav.PgUp, nav.PgDn, nav.Tab, nav.TabBack),
 		actEntry("next", nav.Enter),
 		actEntry("select", nav.Space),
-		actEntry("browse capture", nav.Browse),
+		actEntry("browse capture/spec", nav.Browse),
 		actEntry("flow filter", nav.Filter),
 		actEntry("goal t/r/s"),
 		actEntry("write report", nav.Write),

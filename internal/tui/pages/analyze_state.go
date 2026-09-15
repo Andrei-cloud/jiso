@@ -211,9 +211,12 @@ type (
 	AnalyzeCommitCaptureMsg struct{ Value string }
 )
 
-// AnalyzeBrowseMsg is [f] on the capture step: open the shared
-// root-owned file picker over .pcap files.
-type AnalyzeBrowseMsg struct{}
+// AnalyzeBrowseMsg is [f] on the capture or spec step: open the shared
+// root-owned file picker (.pcap over the capture step, .json over the
+// spec step). IsSpec is the step discriminator — the same shape as the
+// send wizard's WizardBrowseMsg — without which the root could not tell
+// the two steps apart and every browse would re-pick the capture.
+type AnalyzeBrowseMsg struct{ IsSpec bool }
 
 // AnalyzeOutBrowseMsg is [f] in the freshly opened [o] output editor
 // (UAT round 8 finding 6: "selection of the folder should be

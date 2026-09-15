@@ -126,7 +126,10 @@ func (a *Analyze) footerLine(w int) string {
 	case StepCapture:
 		keys = keySpan(a.th, base, "Enter", "next") + base.Render("   ") +
 			keySpan(a.th, base, "f", "browse") + base.Render("   ") + a.escHint()
-	case StepSpec, StepHeader:
+	case StepSpec:
+		keys = keySpan(a.th, base, "Enter", "next") + base.Render("   ") +
+			keySpan(a.th, base, "f", "browse") + base.Render("   ") + a.escHint()
+	case StepHeader:
 		keys = keySpan(a.th, base, "Enter", "next") + base.Render("   ") + a.escHint()
 	case StepRun:
 		if a.filtering {
@@ -182,13 +185,15 @@ func (a *Analyze) captureBody(w int) string {
 }
 
 // specBody renders step 2: the same list shape over the spec
-// candidates; an empty commit is the engine default spec.
+// candidates; an empty commit is the engine default spec. The empty
+// state advertises both exits (UAT round 9 F-9d): [f] opens the shared
+// .json picker, Enter with nothing chosen keeps the engine default.
 func (a *Analyze) specBody(w int) string {
 	return a.listBody(w, a.state.SpecItems,
 		a.th.Deemphasized.Render(pickGlyph(a.th,
-			"no .json spec files found \u2014 ", "no .json spec files found -- "))+
-			a.th.Key("Enter")+
-			a.th.Deemphasized.Render(" uses the engine default"),
+			"no .json spec files found \u2014 [", "no .json spec files found -- ["))+
+			a.th.Key("f")+
+			a.th.Deemphasized.Render("] browse or Enter for the engine default"),
 		a.state.SpecError)
 }
 

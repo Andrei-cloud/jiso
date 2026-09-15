@@ -79,7 +79,7 @@ func (a *Analyze) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	case StepCapture:
 		return a.updateListStep(msg, len(a.filteredCapture()), true)
 	case StepSpec:
-		return a.updateListStep(msg, len(a.filteredSpec()), false)
+		return a.updateListStep(msg, len(a.filteredSpec()), true)
 	case StepHeader:
 		return a.updateHeader(msg)
 	case StepRun:
@@ -142,12 +142,14 @@ func (a *Analyze) updateEnter() (Page, tea.Cmd) {
 }
 
 // updateListStep edits a candidate list (capture/spec): in NAVIGATE mode
-// j/k/arrows move the cursor and [f] opens the shared picker (capture
-// only); typing enters EDIT mode and from there every printable — f
-// included — goes into the filter/typed path (the SCR-502 lesson plus the
-// two-mode browse gate, Task 5.2). Once typing is in progress the step
-// claims the keyboard whole (UAT round 8 / D2): "?" types too; on the
-// fresh step the global layer still works and "?" opens §M).
+// j/k/arrows move the cursor and [f] opens the shared picker (the
+// capture step over .pcap, the spec step over .json — IsSpec on the
+// message names which, UAT round 9 F-9d); typing enters EDIT mode and
+// from there every printable — f included — goes into the
+// filter/typed path (the SCR-502 lesson plus the two-mode browse gate,
+// Task 5.2). Once typing is in progress the step claims the keyboard
+// whole (UAT round 8 / D2): "?" types too; on the fresh step the global
+// layer still works and "?" opens §M).
 func (a *Analyze) updateListStep(msg tea.KeyPressMsg, n int, browse bool) (Page, tea.Cmd) {
 	switch {
 	case !a.Editing() && key.Matches(msg, a.nav.Up):
@@ -155,7 +157,7 @@ func (a *Analyze) updateListStep(msg tea.KeyPressMsg, n int, browse bool) (Page,
 	case !a.Editing() && key.Matches(msg, a.nav.Down):
 		a.sel = min(a.sel+1, max(n-1, 0))
 	case !a.Editing() && browse && key.Matches(msg, a.nav.Browse):
-		return a, func() tea.Msg { return AnalyzeBrowseMsg{} }
+		return a, func() tea.Msg { return AnalyzeBrowseMsg{IsSpec: a.state.Step == StepSpec} }
 	default:
 		if r, ok := printableRune(msg.Text); ok {
 			a.draft += string(r)

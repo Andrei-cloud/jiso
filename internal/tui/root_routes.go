@@ -324,7 +324,7 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleAnalyzeFlowToggleAllMsg(msg)
 
 	case pages.AnalyzeBrowseMsg:
-		return m.handleAnalyzeBrowse()
+		return m.handleAnalyzeBrowse(msg.IsSpec)
 
 	case pages.AnalyzeOutBrowseMsg:
 		return m.handleAnalyzeOutBrowse(msg.Draft)

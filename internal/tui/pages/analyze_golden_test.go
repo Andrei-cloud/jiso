@@ -43,6 +43,7 @@ func TestAnalyzeGoldens(t *testing.T) {
 		{"analyze_capture", analyzeGoldenCapture(), 120, 32, nil},
 		{"analyze_capture_empty", analyzeGoldenCaptureEmpty(), 120, 32, nil},
 		{"analyze_spec", analyzeGoldenSpec(), 120, 32, nil},
+		{"analyze_spec_empty", analyzeGoldenSpecEmpty(), 120, 32, nil},
 		{"analyze_header", analyzeGoldenHeader(), 120, 32, nil},
 		{"analyze_run", analyzeGoldenRun(), 120, 32, nil},
 		{"analyze_run_done", analyzeGoldenRunDone(preview), 120, 32, nil},
@@ -128,6 +129,19 @@ func analyzeGoldenSpec() AnalyzeState {
 	st := analyzeFixtureState()
 	st.Step = StepSpec
 	st.Status = AnalyzeStatusIdle
+
+	return st
+}
+
+// analyzeGoldenSpecEmpty is step 2 with nothing to offer: the empty
+// state advertises both exits (UAT round 9 F-9d) — [f] opens the .json
+// picker, Enter keeps the engine default.
+func analyzeGoldenSpecEmpty() AnalyzeState {
+	st := analyzeFixtureState()
+	st.Step = StepSpec
+	st.Status = AnalyzeStatusIdle
+	st.SpecItems = nil
+	st.SpecPath = ""
 
 	return st
 }

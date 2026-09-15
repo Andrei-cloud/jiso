@@ -252,7 +252,9 @@ the SERVER LOG as the big right pane — root-timestamped, compacted
 Four steps — `capture` → `spec` → `header` → `run` — advanced with `enter`,
 backed with `esc`, jumped with `pgup`/`pgdown`; `tab`/`shift+tab` revisit a
 previous step. On the first three steps `j`/`k` move, `space` selects, `enter`
-advances (capture also takes a typed path or `f` to browse).
+advances (capture and spec also take a typed path or `f` to browse — the
+spec step's picker offers `.json` files, and `enter` on an empty spec keeps
+the engine default).
 
 On the **run** step the enumerated **dst** (request) and **src** (response) flow
 rows are all cursor-reachable and each shows the peer port (`from`/`to` for

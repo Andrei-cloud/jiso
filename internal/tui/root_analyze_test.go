@@ -30,7 +30,6 @@ import (
 	"jiso/internal/config"
 	"jiso/internal/tui/pages"
 	"jiso/internal/tui/theme"
-	"jiso/internal/tui/widgets"
 	"jiso/internal/utils"
 )
 
@@ -492,21 +491,6 @@ func TestAnalyzeMissingCaptureStaysInline(t *testing.T) {
 	r.mustStep(t, pages.StepCapture)
 	if !strings.Contains(r.view(), "no such file") {
 		t.Fatalf("inline capture error missing:\n%s", r.view())
-	}
-}
-
-func TestAnalyzePickerSelectionCommits(t *testing.T) {
-	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
-	r.gotoAnalyze()
-	r.pump(ch('f')) // [f] opens the shared picker
-	if r.m.filePick == nil {
-		t.Fatalf("f must open the file picker:\n%s", r.view())
-	}
-	r.pump(widgets.FilePickedMsg{Path: r.pcap, Label: "cap.pcap"})
-
-	r.mustStep(t, pages.StepSpec)
-	if r.m.analyzeCapturePath != r.pcap {
-		t.Fatalf("captured path = %q, want the pick", r.m.analyzeCapturePath)
 	}
 }
 

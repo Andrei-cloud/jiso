@@ -127,7 +127,7 @@
 [navigation] pgup or pgdown or tab or shift+tab	step
 [page actions] enter	next
 [page actions] space	select
-[page actions] f	browse capture
+[page actions] f	browse capture/spec
 [page actions] /	flow filter
 [page actions] 	goal t/r/s
 [page actions] w	write report

@@ -130,8 +130,12 @@ func TestAnalyzeCaptureBrowseTracksEditMode(t *testing.T) {
 		t.Fatal("a fresh capture step must be navigate mode")
 	}
 	_, cmd := a.Update(ch('f'))
-	if _, ok := cmdMsg(t, cmd).(AnalyzeBrowseMsg); !ok {
+	msg, ok := cmdMsg(t, cmd).(AnalyzeBrowseMsg)
+	if !ok {
 		t.Fatalf("navigate-mode f -> %T, want AnalyzeBrowseMsg", cmdMsg(t, cmd))
+	}
+	if msg.IsSpec {
+		t.Fatal("capture-step browse must carry IsSpec: false")
 	}
 
 	// Typing enters edit mode (and types itself, SCR-502 typeahead).
