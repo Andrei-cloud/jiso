@@ -6,6 +6,10 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/charmbracelet/x/ansi"
+
+	"jiso/internal/tui/frame"
 )
 
 // scenPress builds a named-key press (esc/enter/backspace/arrows).
@@ -369,6 +373,93 @@ func TestScenariosResponsiveStacking(t *testing.T) {
 		if !c.stacked && stepsLine > listLine {
 			t.Errorf("width %d: panes must be side by side (STEPS@%d step@%d)", c.w, stepsLine, listLine)
 		}
+	}
+}
+
+// TestScenariosPanesAligned pins UAT round 9 finding F-9e: at split
+// widths BOTH §F panes are titled Sections sharing ONE title row with
+// their top and bottom borders flush, and the two pane widths plus the
+// gap sum exactly to the content width (the old border-only list pane
+// staggered the boxes by a row and the -2 width maths left a 4-cell
+// trailing gap). At stacked widths the panes each take the full content
+// width and STEPS starts on its own title row below the list.
+func TestScenariosPanesAligned(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		w, h    int
+		stacked bool
+	}{
+		{"w120", 120, 32, false},
+		{"w200", 200, 40, false},
+		{"w80", 80, 32, true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			st := scenListState()
+			st.SelectedSteps = []StepRow{
+				{Index: 1, Name: "Sign On Step", MTI: "0800", RC: "00", Status: StepPass, Latency: time.Millisecond},
+			}
+			s := scenPage(t, st, c.w, c.h)
+			body := s.View().Content
+
+			contentW, _ := frame.ContentSize(c.w, c.h)
+			lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
+
+			// Both panes record a section Rect: the list pane AND the
+			// steps pane (the guard hit-tests both).
+			if len(s.sections) != 2 {
+				t.Fatalf("recorded %d section rects, want 2 (list + steps):\n%s",
+					len(s.sections), body)
+			}
+			list, steps := s.sections[0], s.sections[1]
+
+			if c.stacked {
+				if list.W != contentW || steps.W != contentW {
+					t.Errorf("stacked panes want the %d-cell content width: list %v steps %v",
+						contentW, list, steps)
+				}
+				if steps.Y != list.Y+list.H {
+					t.Errorf("stacked STEPS must start on its own row below the list: list %v steps %v",
+						list, steps)
+				}
+
+				return
+			}
+
+			if list.Y != steps.Y || list.H != steps.H {
+				t.Errorf("panes not on one grid row: list %v steps %v", list, steps)
+			}
+			if list.W+scenSectionGap+steps.W != contentW {
+				t.Errorf("pane widths %d+%d+%d do not sum to the %d-cell content width",
+					list.W, scenSectionGap, steps.W, contentW)
+			}
+
+			// One shared title row carries both pane titles, and the
+			// rows below/above carry BOTH boxes' borders on the SAME
+			// rows: top-left, top-right of each box, flush.
+			needInk := func(row int, cols []int, why string) {
+				t.Helper()
+				if row < 0 || row >= len(lines) {
+					t.Fatalf("%s: line %d past the %d-line body", why, row, len(lines))
+				}
+
+				cs := cells(lines[row])
+				for _, col := range cols {
+					if col >= len(cs) || cs[col] == ' ' || cs[col] == 0 {
+						t.Errorf("%s: cell %d on line %d is blank: %q",
+							why, col, row, ansi.Strip(lines[row]))
+					}
+				}
+			}
+			needInk(list.Y, []int{list.X, steps.X}, "the shared title row needs both pane titles")
+			needInk(list.Y+1, []int{0, list.W - 1, steps.X, contentW - 1},
+				"the top border row needs both boxes' edges on one row")
+			needInk(list.Y+list.H-1, []int{0, list.W - 1, steps.X, contentW - 1},
+				"the bottom border row needs both boxes' edges flush")
+		})
 	}
 }
 

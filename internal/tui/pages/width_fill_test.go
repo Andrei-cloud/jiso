@@ -4,8 +4,9 @@
 // so no sectioned size shows a trailing gap and nothing clips horizontally.
 // The fixed/clamped splits this replaces: dashLeftCol's 64-cell ceiling,
 // the server stats column's 26..40 clamp and fixed 26 (plus the ModeServer
-// boxes drawing two cells narrower than their layout width), and the
-// sessions list/stats panes capped at a fixed 30 cells.
+// boxes drawing two cells narrower than their layout width), the sessions
+// list/stats panes capped at a fixed 30 cells, and the §F list pane's
+// 44-cell ceiling with its border-only (untitled, w-2) box.
 package pages
 
 import (
@@ -149,6 +150,13 @@ func TestSectionedPagesFillContentWidth(t *testing.T) {
 		{"sessions", func(t *testing.T, th *theme.Theme, w, h int) string {
 			return sessionsPageAt(t, sessionsFixtureState(th), w, h).View().Content
 		}},
+		{"scenarios", func(t *testing.T, th *theme.Theme, w, h int) string {
+			p := NewScenarios(th)
+			p.SetState(scenPassState())
+			_, _ = p.Update(windowSize(w, h))
+
+			return p.View().Content
+		}},
 	}
 
 	for _, v := range views {
@@ -201,6 +209,16 @@ func TestSplitWidthsAreRatiosAtWide(t *testing.T) {
 		// 196/4 = 49 (the pane used to be capped at the fixed 30).
 		if got := firstBoxWidth(t, s.View().Content); got != 49 {
 			t.Errorf("sessions list = %d cells, want 49 (25%% of %d)", got, contentW)
+		}
+	})
+
+	t.Run("scenarios_list_is_33_percent", func(t *testing.T) {
+		p := NewScenarios(asciiTheme(t))
+		p.SetState(scenPassState())
+		_, _ = p.Update(windowSize(w, h))
+		// 196/3 = 65 (the pane used to freeze at the fixed 44-cell clamp).
+		if got := firstBoxWidth(t, p.View().Content); got != 65 {
+			t.Errorf("scenarios list = %d cells, want 65 (33%% of %d)", got, contentW)
 		}
 	})
 }

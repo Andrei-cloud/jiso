@@ -1,9 +1,12 @@
 // scenarios_view.go renders the §F body: a title row (SCENARIOS (N),
 // live filter text, report path) above a master-detail split — the
-// scenario list box and the STEPS box side by side at ≥ frame.FullWidth,
-// the steps pane below the list below it (responsive contract). The
-// frame owns the surrounding chrome; sizing comes from frame.ContentSize
-// (dashboard layout.go pattern).
+// SCENARIOS list section and the STEPS section side by side on one
+// shared title row at ≥ frame.FullWidth, the steps pane below the list
+// below it (responsive contract). Both panes are titled widgets.Section
+// boxes (ModeStandard, exactly w×h) whose widths plus the gap sum to the
+// content width (UAT round 9 F-9e alignment). The frame owns the
+// surrounding chrome; sizing comes from frame.ContentSize (dashboard
+// layout.go pattern).
 package pages
 
 import (
@@ -32,9 +35,11 @@ const (
 	scenASCIIDot    = ".."
 
 	// scenMinListWidth is the List's floor width before the first size
-	// msg; scenListFraction sizes the master column at split widths.
+	// msg; scenListFraction sizes the master column at split widths with
+	// a floor-only clamp (UAT round 8 finding 5: no ceiling — the STEPS
+	// pane absorbs the remainder so the band fills the content width).
 	scenMinListWidth = 24
-	scenListFraction = 3 // list column = content width / 3, clamped
+	scenListFraction = 3 // list column = content width / 3, floored
 
 	// scenSectionGap is the blank row/column between the panes.
 	scenSectionGap = 1
@@ -69,14 +74,19 @@ func (s *Scenarios) render(w, h int) string {
 	paneH := max(h-2-errLines, 4) // title + error strip + banner rows
 
 	if w >= frame.FullWidth {
-		listW := min(max(w/scenListFraction, scenMinListWidth+2), 44)
+		listW := max(w/scenListFraction, scenMinListWidth)
+		// STEPS is the remainder: the two panes plus the gap sum exactly
+		// to the content width (the floor cannot bite at
+		// w >= frame.FullWidth, and the removed 44-cell ceiling used to
+		// freeze the split and leave a trailing gap — UAT round 8
+		// finding 5 / round 9 F-9e, the §I sessions_view.go pattern).
 		stepsW := w - listW - scenSectionGap
 		panesY := 1 + errLines // the title row, plus the error strip if any
 
-		// The border-only list pane draws two cells narrower than its
-		// nominal w, so the STEPS origin advances by the DRAWN list
-		// width, not the nominal column width.
-		listSec := s.listBox(listW, paneH)
+		// Both panes are titled ModeStandard Sections drawing exactly
+		// w×h, so the origins advance by the DRAWN widths the join
+		// actually consumes (measured strings), never by nominal terms.
+		listSec := s.listBox(0, panesY, listW, paneH)
 		stepsSec := s.stepsBox(lipgloss.Width(listSec)+scenSectionGap, panesY, stepsW, paneH)
 
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -89,9 +99,11 @@ func (s *Scenarios) render(w, h int) string {
 	upperH := paneH - lowerH
 	panesY := 1 + errLines
 
-	// Stacked: the list section's "\n" terminator costs no line of its
-	// own; STEPS starts where the drawn list lines end.
-	listSec := s.listBox(w, upperH)
+	// Stacked: both panes are full-content-width titled Sections; the
+	// list section's "\n" terminator costs no line of its own, so the
+	// STEPS title starts on its own row exactly where the drawn list
+	// lines end (§I stacked convention, no gap row).
+	listSec := s.listBox(0, panesY, w, upperH)
 	stepsSec := s.stepsBox(0, panesY+lipgloss.Height(listSec), w, lowerH)
 
 	return clipBlockStyled(s.th, head+listSec+"\n"+stepsSec+"\n"+footer, h, w)
@@ -213,32 +225,40 @@ func (s *Scenarios) bannerWidth() int {
 	return w
 }
 
-// listBox renders the master pane: the widgets.List sized into the box.
-// The pane carries no own title (the page title row is its title), so the
-// box fills the full pane height; its frame comes from the shared
-// widgets.Border accessor (a title-less section).
-func (s *Scenarios) listBox(w, h int) string {
-	inner := max(h-2, 1)
-	// The box's total width is w-2 (one gap column), so its content is
-	// w-4; the widget must render to that, not past the border.
+// listBox renders the master pane as a titled Section (the same shared
+// box as STEPS): the list widget sized to the box's content area, the
+// whole thing drawn through widgets.Section in ModeStandard — the mode
+// that draws a box of exactly w×h (h includes the title line), so both
+// panes join flush on the same title row (UAT round 9 F-9e; the old
+// border-only w-2 box staggered the panes). The pane records its
+// section Rect at (x,y) like every other sectioned page, and stays on
+// the neutral border until pane focus lands (Task 9.7).
+func (s *Scenarios) listBox(x, y, w, h int) string {
+	// Content rows: the section spends one line on its title and two on
+	// the box rules; the body clips to w-4 cells (the Section convention).
+	inner := max(h-3, 1)
 	s.list.SetSize(max(w-4, 2), inner)
 
-	return widgets.Border(s.th, false).Width(max(w-2, 1)).Height(inner).Render(s.list.View())
+	sec := widgets.NewSection(s.th, titleScenarios)
+	out, _ := sec.Render(s.list.View(), x, y, w, h)
+	s.sections = append(s.sections, sectionRect(x, y, out))
+
+	return out
 }
 
 // stepsBox renders the detail pane: step rows plus sub-lines, or the
 // "select a scenario" hint when root pushed no rows, drawn through the
-// one shared widgets.Section (ModeServer: the box is two cells narrower
-// than w). The step rows arrive pre-clipped to the box's CONTENT width,
-// so the section's own clip is a no-op and the bytes cannot move; the
-// section's Rect is recorded at its content-relative origin.
+// one shared widgets.Section (ModeStandard: the box is exactly w wide,
+// matching the list pane so the two join flush — UAT round 9 F-9e). The
+// step rows arrive pre-clipped to the box's CONTENT width, so the
+// section's own clip is a no-op and the bytes cannot move; the section's
+// Rect is recorded at its content-relative origin.
 func (s *Scenarios) stepsBox(x, y, w, h int) string {
-	// Content width: the box is w-2 wide including its two border
+	// Content width: the box is w wide including its two border
 	// columns, so the body gets w-4.
 	inner := s.stepsBody(max(w-4, 1), max(h-3, 1))
 
 	sec := widgets.NewSection(s.th, titleSteps)
-	sec.Mode = widgets.ModeServer
 	out, _ := sec.Render(inner, x, y, w, h)
 	s.sections = append(s.sections, sectionRect(x, y, out))
 
