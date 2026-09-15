@@ -25,6 +25,10 @@ func NewRootModel(application *app.App) *RootModel {
 		resizeWindow: defaultResizeCoalesceWindow,
 		now:          time.Now,
 		dashActions:  palette.DashboardActions(),
+		// UAT round 9 (F-9c): the mouse starts ON so the round-8
+		// wheel/click features keep working; F9 releases the terminal.
+		// Go's zero value would silently disable the whole mouse leg.
+		mouseEnabled: true,
 	}
 	m.newPages()
 	m.registerPages()

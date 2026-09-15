@@ -11,6 +11,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -32,6 +33,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -51,6 +53,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -71,6 +74,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -92,6 +96,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -112,6 +117,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -130,6 +136,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -147,6 +154,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -162,6 +170,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -177,6 +186,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit
@@ -189,6 +199,7 @@
 [global] :/ctrl+p	palette
 [global] c	connect
 [global] tab/shift+tab	focus pane
+[global] f9	toggle mouse / text selection
 [global] ?	this
 [global] q	quit / back
 [global] ctrl+c	graceful quit

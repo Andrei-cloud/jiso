@@ -99,6 +99,17 @@ func (m *RootModel) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
+	case keyMatches(msg, km.MouseToggle):
+		// UAT round 9 (F-9c): release/re-arm terminal mouse reporting so
+		// the user can click-drag select text (e.g. test results) while
+		// the mouse is off, and get the wheel/click features back with
+		// F9 again. The View gates MouseMode/OnMouse and the hit map on
+		// the flag (hitmap_mouse.go / hitmap.go); no navigation here.
+		m.mouseEnabled = !m.mouseEnabled
+		m.debug.logf("mouse enabled=%v", m.mouseEnabled)
+
+		return m, nil
+
 	case keyMatches(msg, km.Help):
 		// SCR-513: `?` opens the §M overlay with the CURRENT page's
 		// context (no longer a help-page push).

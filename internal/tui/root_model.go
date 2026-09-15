@@ -58,17 +58,16 @@ type RootModel struct {
 	conn          *events.ConnectionEvent
 
 	// Resize coalescing (TUI-408): width/height always hold the latest
-	// WindowSizeMsg so View tracks the last size instantly; appliedW/H is the
-	// size pages last saw via forwardAll, and resizePending marks a trailing
-	// resizeFlushCmd in flight that will relayout with the latest size.
+	// WindowSizeMsg so View tracks the last size instantly; appliedW/H is
+	// the size pages last saw via forwardAll, and resizePending marks a
+	// trailing resizeFlushCmd in flight that will relayout with it.
 	appliedW, appliedH int
 	resizePending      bool
 	resizeWindow       time.Duration
 
 	// theme overrides the frame/palette theme when set; nil means
-	// theme.Default(). The golden harness (TUI-407) pins an explicit
-	// colorless theme: theme.Default() is a sync.Once seeded by whichever
-	// test renders first, so ambient env cannot be trusted.
+	// theme.Default(). The golden harness (TUI-407) pins a colorless
+	// theme: Default() is a sync.Once seeded by whichever test renders.
 	theme *theme.Theme
 
 	// debug is the TUI-409 lifecycle logger (nil = off); nil-safe hooks keep
@@ -155,9 +154,8 @@ type RootModel struct {
 	sendHistory      *pages.SendHistory       // send-history overlay page (UAT round 5)
 	sends            []pages.SendHistoryEntry // bounded ring of completed sends
 
-	// console is the bounded ring of NON-TUI system output lines
-	// (connection manager stderr) rendered in the bottom console strip
-	// (UAT: raw stderr writes corrupted the frame).
+	// console: bounded ring of NON-TUI system stderr lines (connection
+	// manager) shown in the bottom strip; raw writes corrupted the frame.
 	console []string
 
 	// serverLog is the bounded ring of internal/server (mock server)
@@ -346,9 +344,8 @@ type RootModel struct {
 	sessionStatsWait  bool
 	sessionStatsDirty bool
 
-	// homeDir caches os.UserHomeDir (resolved once at construction) so
-	// the SESSION card can shorten "~/..." db paths without per-Update
-	// environment work.
+	// homeDir caches os.UserHomeDir (resolved once at construction) so the
+	// SESSION card can shorten "~/..." db paths without per-Update work.
 	homeDir string
 
 	// Analyze wiring (SCR-510): analyze is the canonical §J page instance
@@ -462,14 +459,12 @@ type RootModel struct {
 	// (the changed-only save patch); settingsSaveOpen drives the [w]
 	// confirm overlay; settingsSavedLine/OK the toast-style result.
 	// Picker/toast plumbing (TUI-406b): filePick is the shared FilePicker
-	// modal (nil = closed; owns the keyboard while open, Esc via the widget's
-	// own cancel); filePickTarget is the §L key a selection commits through;
-	// filePickRootFn overrides the picker's virtual root+label (tests;
-	// production roots at "/", see pickTree). toast is the shared
-	// Toast stack (armToastTick prunes by toastTTL; toastTickf overrides it).
-	// txFilePickFromB marks a tx-file pick opened from §B (not the §L grid)
-	// so its result surfaces there; txFileLoadErr is why a picked file did
-	// not load (UAT round 7: never fail the transactions page in silence).
+	// modal (nil = closed; owns the keyboard while open, Esc = its cancel);
+	// filePickTarget is the §L key a selection commits through;
+	// filePickRootFn overrides the virtual root+label (tests; production
+	// roots at "/", see pickTree). toast is the Toast stack
+	// (armToastTick/toastTickf). txFilePickFromB marks a §B-opened pick;
+	// txFileLoadErr is why a picked file failed to load (UAT round 7).
 	filePick        *widgets.FilePicker
 	filePickTarget  string
 	filePickRootFn  func(key, value string) (root, label string)
@@ -497,4 +492,9 @@ type RootModel struct {
 	settingsNote      string
 
 	width, height int
+
+	// mouseEnabled gates the whole mouse leg (UAT round 9, F-9c): true
+	// arms DECSET + hit map; F9 releases the terminal for native text
+	// selection (the arming gates and rationale: hitmap_mouse.go).
+	mouseEnabled bool
 }

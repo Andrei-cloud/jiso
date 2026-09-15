@@ -76,6 +76,7 @@ func globalHelpGroup(km *globalKeyMap) helpGroup {
 		{Group: helpGroupGlobal, Keys: helpKeysOf(km.Palette), Note: "palette"},
 		{Group: helpGroupGlobal, Keys: helpKeysOf(km.Connect), Note: "connect"},
 		{Group: helpGroupGlobal, Keys: pane, Note: "focus pane"},
+		{Group: helpGroupGlobal, Keys: helpKeysOf(km.MouseToggle), Note: "toggle mouse / text selection"},
 		{Group: helpGroupGlobal, Keys: helpKeysOf(km.Help), Note: "this"},
 		{Group: helpGroupGlobal, Keys: helpKeysOf(km.Quit), Note: "quit / back"},
 		{Group: helpGroupGlobal, Keys: helpKeysOf(km.GracefulExit), Note: "graceful quit"},

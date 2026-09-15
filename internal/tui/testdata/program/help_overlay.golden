@@ -4,13 +4,13 @@
 | |no link | c connects                                                      | |
 | +--------------------------------------------------------------------------+ |
 | MOCK SERVER                                                                  |
-| +--------------------------------------------------------------------------+ |
-| |o stopp+- HELP -- context: Dashboard page ------------------------+       | |
-| +-------| navigation   up/k up | down/j down | pgup page up        |-------+ |
-| SERVER L|              pgdown page down | home top | end bottom    |         |
-| +-------| page actions enter run action | D disconnect             |-------+ |
-| |no serv| global       1-8 pages | :/ctrl+p palette | c connect    |       | |
-| +-------|              tab/shift+tab focus pane | ? this           |-------+ |
+| +-------+- HELP -- context: Dashboard page ------------------------+-------+ |
+| |o stopp| navigation   up/k up | down/j down | pgup page up        |       | |
+| +-------|              pgdown page down | home top | end bottom    |-------+ |
+| SERVER L| page actions enter run action | D disconnect             |         |
+| +-------| global       1-8 pages | :/ctrl+p palette | c connect    |-------+ |
+| |no serv|              tab/shift+tab focus pane                    |       | |
+| +-------|              f9 toggle mouse / text selection | ? this   |-------+ |
 | LAST SEN|              q quit / back | ctrl+c graceful quit        |         |
 | +-------+----------------------------------------------------------+-------+ |
 | |no send yet - s sends                                                     | |
@@ -20,5 +20,5 @@
 | |> Connect / reconnect                                                     | |
 | +--------------------------------------------------------------------------+ |
 +------------------------------------------------------------------------------+
-| 1 dash  2 tx  3 scenarios  : cmd  ? help  q quit  c connect  enter run  ~+7  |
+| 1 dash  2 tx  : cmd  ? help  q quit  c connect  enter run  F9 select  ~+8    |
 +------------------------------------------------------------------------------+

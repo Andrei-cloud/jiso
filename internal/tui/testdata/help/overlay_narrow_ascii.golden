@@ -11,6 +11,7 @@
 | 1-8 pages | :/ctrl+p palette   |
 | c connect                      |
 | tab/shift+tab focus pane       |
+| f9 toggle mouse / text select~ |
 | ? this | q quit / back         |
 | ctrl+c graceful quit           |
 +--------------------------------+

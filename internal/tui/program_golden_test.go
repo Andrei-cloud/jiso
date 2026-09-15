@@ -166,6 +166,107 @@ func TestProgMouseClickInert(t *testing.T) {
 	checkProgGolden(t, "boot", r.frame)
 }
 
+// f9Bytes is F9 as the terminal spells it on the wire: ultraviolet's
+// key_table.go decodes "\x1b[20~" to KeyF9 (code "20").
+const f9Bytes = "\x1b[20~"
+
+// TestProgMouseOffReleasesDecset pins the Task 9.2 off-case mirror of
+// TestProgMouseClickInert: a model that starts with the mouse disabled
+// writes NO mouse DECSET to the terminal at all (1002/1006 stay absent,
+// so the terminal keeps native click-drag text selection), and even a
+// hand-typed SGR wheel report changes nothing — the disarmed View has no
+// OnMouse and the hit map is empty.
+func TestProgMouseOffReleasesDecset(t *testing.T) {
+	// Region geometry comes from a plain mouse-on §G run (the published
+	// rect only exists after the page rendered — the baseline pattern of
+	// TestWheelScrollsServerLog).
+	base := newProgSession(t, 80, 24)
+	seedServerLogLines(base.m, 30)
+	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
+	wantClean(t, r0)
+	regions := r0.model.server.ScrollRegions()
+	if len(regions) != 1 || regions[0].ID != pages.RegionServerLog {
+		t.Fatalf("§G must publish exactly the %q region, got %#v", pages.RegionServerLog, regions)
+	}
+	ox, oy := r0.model.contentOrigin()
+	rel := regions[0].Rect
+	wx, wy := rel.X+ox+rel.W/2, rel.Y+oy+rel.H/2
+
+	s := newProgSession(t, 80, 24)
+	s.m.mouseEnabled = false
+	seedServerLogLines(s.m, 30)
+	// Go to §G, wheel UP twice over the log-pane centre, then quit.
+	r := s.runScripted(t, 80*time.Millisecond,
+		"4",
+		sgrWheelUp(wx, wy)+sgrWheelUp(wx, wy),
+		"\x03",
+	)
+	wantClean(t, r)
+
+	for _, seq := range []string{"\x1b[?1002h", "\x1b[?1006h"} {
+		if strings.Contains(r.raw, seq) {
+			t.Errorf("mouse-off session still emitted the DECSET enable %q", seq)
+		}
+	}
+	if got := r.model.server.LogScroll(); got != 0 {
+		t.Fatalf("wheel over §G log with the mouse off moved the offset to %d, want 0 (inert)", got)
+	}
+	if !strings.Contains(r.frame, "log line 30") {
+		t.Errorf("mouse-off frame must still render the newest line (nothing moved):\n%s", r.frame)
+	}
+}
+
+// TestProgF9TogglesDecset pins the toggle end-to-end over the raw
+// stream: the mouse arms at boot (1002h/1006h, round-8 status quo — the
+// wheel moves the §G log), F9 releases the terminal (1002l/1006l written
+// and further wheels inert), and F9 again re-arms (the next wheel moves
+// the log again).
+func TestProgF9TogglesDecset(t *testing.T) {
+	// Region geometry comes from a plain §G run (content-relative rect,
+	// translated by the content origin — the TestWheelScrollsServerLog path).
+	base := newProgSession(t, 80, 24)
+	seedServerLogLines(base.m, 30)
+	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
+	wantClean(t, r0)
+	regions := r0.model.server.ScrollRegions()
+	if len(regions) != 1 || regions[0].ID != pages.RegionServerLog {
+		t.Fatalf("§G must publish exactly the %q region, got %#v", pages.RegionServerLog, regions)
+	}
+	ox, oy := r0.model.contentOrigin()
+	rel := regions[0].Rect
+	wx, wy := rel.X+ox+rel.W/2, rel.Y+oy+rel.H/2
+
+	s := newProgSession(t, 80, 24)
+	seedServerLogLines(s.m, 30)
+	r := s.runScripted(t, 80*time.Millisecond,
+		"4",
+		sgrWheelUp(wx, wy), // mouse on: offset 0 → 1
+		f9Bytes,            // release the terminal
+		sgrWheelUp(wx, wy), // inert: offset stays 1
+		f9Bytes,            // re-arm
+		sgrWheelUp(wx, wy), // mouse on again: offset 1 → 2
+		"\x03",
+	)
+	wantClean(t, r)
+
+	for _, seq := range []string{"\x1b[?1002h", "\x1b[?1006h"} {
+		if !strings.Contains(r.raw, seq) {
+			t.Errorf("mouse-on frames must emit the DECSET enable %q", seq)
+		}
+	}
+	for _, seq := range []string{"\x1b[?1002l", "\x1b[?1006l"} {
+		if !strings.Contains(r.raw, seq) {
+			t.Errorf("F9 must write the DECSET disable %q to release the terminal", seq)
+		}
+	}
+	if got := r.model.Current().ID(); got != "server" {
+		t.Errorf("F9 moved the page to %q, want server (global key, no navigation)", got)
+	}
+	if got := r.model.server.LogScroll(); got != 2 {
+		t.Fatalf("after wheel-on + wheel-off + wheel-on, log offset = %d, want 2 (off step inert)", got)
+	}
+}
+
 // sgrWheelUp/sgrWheelDown encode an SGR (xterm 1006) wheel report at the
 // ABSOLUTE 0-based cell (x,y): the terminal spells rows/columns 1-based,
 // button 64 = wheel up, 65 = wheel down (ultraviolet decodeMouseButton).

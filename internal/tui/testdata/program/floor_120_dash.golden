@@ -20,5 +20,5 @@
 |                                                                                                                      |
 |                                                                                                                      |
 +----------------------------------------------------------------------------------------------------------------------+
-| 1 dash  2 tx  3 scenarios  4 server  5 workers  6 sessions  : cmd  ? help  q quit  c connect  enter run  ~+4         |
+| 1 dash  2 tx  3 scenarios  4 server  5 workers  : cmd  ? help  q quit  c connect  enter run  F9 select  ~+5          |
 +----------------------------------------------------------------------------------------------------------------------+

@@ -250,9 +250,11 @@ func (d *Dashboard) runSelectedAction() tea.Cmd {
 }
 
 // Hints is the §A context keymap; c/enter are primary so the narrow
-// footer keeps them (the router appends the global bindings). D is the
-// §A disconnect quick key (TUI-514): always advertised — pressing it
-// without a connection is the root's sane info no-op, never a dead key.
+// footer keeps them (the router appends the global bindings), and so is
+// the F9 text-selection toggle (UAT round 9: it must survive the 80-col
+// budget to be findable). D is the §A disconnect quick key (TUI-514):
+// always advertised — pressing it without a connection is the root's
+// sane info no-op, never a dead key.
 // The "tab focus pane" hint left with the EVENT FEED pane: the page has
 // one focusable list, so j/k scroll it and no pane toggle exists.
 func (d *Dashboard) Hints() []frame.KeyHint {
@@ -277,6 +279,16 @@ func (d *Dashboard) Hints() []frame.KeyHint {
 	// The wireframe leads the page legend with the connect/disconnect key.
 	lead, run := hints[1], hints[0]
 	hints = append(hints, frame.KeyHint{Key: theme.KeyNavJK, Desc: hintScroll})
+	// UAT round 9 (F-9c): advertise the global F9 mouse/text-selection
+	// toggle here so the obscure key is findable on the landing page.
+	// Spelled "F9" for display (the router's MouseToggle binding owns the
+	// real key); primary like c/enter above because the 80-col footer
+	// budget already drops every trailing non-primary entry and a hint
+	// nobody ever sees is not discoverability. It is a display-only
+	// legend cell for the click hit map (synthKeyPress spells no "F9"),
+	// which is the honest outcome while a mouse-off frame registers no
+	// hits at all.
+	f9 := frame.KeyHint{Key: "F9", Desc: "select", Primary: true}
 
-	return append([]frame.KeyHint{lead, run}, hints[2:]...)
+	return append([]frame.KeyHint{lead, run, f9}, hints[2:]...)
 }

@@ -31,6 +31,14 @@ type globalKeyMap struct {
 	Connect       key.Binding // c: open the §E connect dialog overlay (SCR-505)
 	Send          key.Binding // s: open the send wizard (proposal 04 §B)
 
+	// MouseToggle is the F9 global mouse-mode toggle (UAT round 9,
+	// F-9c): flips RootModel.mouseEnabled so the terminal regains (or
+	// re-releases) native click-drag text selection. The bound spelling
+	// is "f9" because that is what tea.KeyF9.String() reports — the
+	// vocabulary key.Matches compares in (ultraviolet keyTypeString);
+	// docs and the footer legend display it as "F9".
+	MouseToggle key.Binding // f9: toggle mouse reporting / text selection
+
 	PageJumps [pageCount]key.Binding // 1..8: jump to page N
 
 	// Palette-mode keys (esc/enter/backspace/up/down/j/k) live inside
@@ -50,6 +58,7 @@ func newGlobalKeyMap() globalKeyMap {
 		GracefulExit:  key.NewBinding(key.WithKeys("ctrl+c")),
 		Connect:       key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "connect")),
 		Send:          key.NewBinding(key.WithKeys("s")), // help text is contextual (the wizard is dashboard-gated)
+		MouseToggle:   key.NewBinding(key.WithKeys("f9"), key.WithHelp("F9", "select")),
 	}
 
 	for i := range km.PageJumps {

@@ -4,6 +4,7 @@
 | page actions b bgsend | t stress | k stop sel            |
 |              K stop all | enter detail | esc back        |
 | global       1-8 pages | :/ctrl+p palette | c connect    |
-|              tab/shift+tab focus pane | ? this           |
+|              tab/shift+tab focus pane                    |
+|              f9 toggle mouse / text selection | ? this   |
 |              q quit / back | ctrl+c graceful quit        |
 +----------------------------------------------------------+

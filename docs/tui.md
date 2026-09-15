@@ -88,6 +88,7 @@ Evaluated before any page; a pending modal or a page-local text-input mode
 | `:` / `ctrl+p` | Open the command palette |
 | `c` | Open the connect dialog (on the server page, opens the server start form instead) |
 | `tab` / `shift+tab` | Cycle pane focus forward / back |
+| `f9` | Toggle mouse reporting: with the mouse off the terminal regains native text selection; press again to restore wheel/click |
 | `?` | Toggle the help overlay for the current page (`esc` also closes it) |
 | `q` | Back (pop one page); at the root page it quits — with a confirm when workers are active |
 | `ctrl+c` | Graceful exit from anywhere; the runtime restores the terminal |
@@ -159,11 +160,16 @@ and nothing here adds a token to them.
   pointer motion are ignored, so a click never double-fires.
 
 The visible tradeoff: while the TUI owns the screen it captures the
-terminal's mouse reports, so **native text selection now needs a held
-modifier** — hold `shift` (most terminals) or `option` (Terminal.app and
-iTerm2 defaults on macOS) while dragging to select and copy. Frames
-below the minimum width draw the too-small notice with no live click
-zones at all.
+terminal's mouse reports, so native text selection needs either a held
+modifier or the toggle. Hold `shift` (most terminals) or `option`
+(Terminal.app and iTerm2 defaults on macOS) while dragging to select and
+copy without changing anything — or press `F9` to switch the mouse off
+entirely: the TUI releases the terminal's mouse reporting, plain
+click-drag selects text (test results, log lines) again, and every
+wheel/click gesture is inert until `F9` re-arms it. The mouse is ON by
+default; the dashboard footer advertises the key as `F9 select`, and the
+`?` overlay lists it under *global*. Frames below the minimum width draw
+the too-small notice with no live click zones at all.
 
 ## Page actions
 
