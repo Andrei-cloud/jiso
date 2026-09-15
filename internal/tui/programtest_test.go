@@ -156,6 +156,23 @@ func (s *progSession) runTimeout(t *testing.T, keys string, d time.Duration) pro
 	return progResult{err: err, frame: s.finalFrame(), raw: s.out.String(), model: s.m}
 }
 
+// runScripted types chunks with a pause before each one (mouse events
+// resolve against the LAST rendered view, so every event chunk must
+// arrive after the frame it targets has been flushed), then joins Run
+// exactly like run. The final chunk must quit.
+func (s *progSession) runScripted(t *testing.T, gap time.Duration, chunks ...string) progResult {
+	t.Helper()
+
+	go func() {
+		for _, c := range chunks {
+			time.Sleep(gap)
+			_, _ = io.WriteString(s.pw, c) // blocks until v2 reads it
+		}
+	}()
+
+	return s.run(t, "")
+}
+
 // finalFrame renders the model's post-run View with the clock slot
 // normalised: the golden pins layout + text, not wall time.
 func (s *progSession) finalFrame() string {

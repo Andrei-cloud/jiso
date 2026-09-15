@@ -7,13 +7,187 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
 
 	key "charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"jiso/internal/tui/frame"
 	"jiso/internal/tui/geom"
+	"jiso/internal/tui/pages"
 )
+
+// seedServerLogLines fills the §G log ring with n plainly-numbered lines
+// and pushes the snapshot into the page (the same syncServer path the
+// Update wrapper runs after every message).
+func seedServerLogLines(m *RootModel, n int) {
+	for i := 1; i <= n; i++ {
+		m.serverLog = append(m.serverLog, fmt.Sprintf("log line %02d", i))
+	}
+	m.syncServer()
+}
+
+// serverAt opens §G on a fresh root at size (w,h) with an n-line log.
+func serverAt(t *testing.T, w, h, lines int) *RootModel {
+	t.Helper()
+
+	m := NewRootModel(nil)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: w, Height: h})
+	_, _ = m.Update(ch('4'))
+	seedServerLogLines(m, lines)
+
+	return m
+}
+
+// TestBuildHitMapServerLogRegion pins Task 8.2b registration: the §G LOG
+// pane publishes its DRAWN rect into the per-frame hit map, translated
+// from content-relative to ABSOLUTE coords by frame.ContentOrigin, and
+// the wheel over it resolves the scroll region while dead space does not.
+func TestBuildHitMapServerLogRegion(t *testing.T) {
+	m := serverAt(t, 80, 24, 30)
+	_ = m.View() // renders §G (recording the pane) and rebuilds the map
+
+	hm := m.buildHitMap()
+
+	ox, oy := m.contentOrigin()
+	rel := m.server.ScrollRegions()
+	if len(rel) != 1 {
+		t.Fatalf("§G must publish exactly the log region, got %#v", rel)
+	}
+	// The hit-map entry must be the published rect translated by the
+	// content origin — the same addAbs contract the 8.1 tests pinned.
+	want := geom.Rect{X: rel[0].Rect.X + ox, Y: rel[0].Rect.Y + oy, W: rel[0].Rect.W, H: rel[0].Rect.H}
+	act, ok := hm.resolve(want.X+want.W/2, want.Y+want.H/2)
+	if !ok || act.kind != hitScroll || act.region != pages.RegionServerLog {
+		t.Fatalf("log-pane cell = %+v,%v, want a scroll hit on %q", act, ok, pages.RegionServerLog)
+	}
+	// Above the pane (header/stats box): dead space, no phantom scroll.
+	if _, ok := hm.resolve(ox+5, oy); ok {
+		t.Error("a cell above the log pane must not resolve a scroll region")
+	}
+
+	// No log lines: no pane, no region (TestProgPagesReachable's §G golden
+	// depends on §G-without-log registering nothing).
+	bare := serverAt(t, 80, 24, 0)
+	_ = bare.View()
+	if hm := bare.buildHitMap(); len(hm) != 0 {
+		t.Fatalf("§G without log lines registered %d hits, want 0", len(hm))
+	}
+}
+
+// TestBuildHitMapBelowMinWidthInert pins policy (a): the sub-MinWidth
+// frame renders the too-small notice, but pages still record their
+// section Rects — registering them would resolve phantom hits over ink
+// that is not on screen.
+func TestBuildHitMapBelowMinWidthInert(t *testing.T) {
+	m := serverAt(t, frame.MinWidth-1, 24, 30)
+	_ = m.View()
+
+	if hm := m.buildHitMap(); len(hm) != 0 {
+		t.Fatalf("sub-MinWidth frame registered %d hits, want 0 (phantom-hit policy)", len(hm))
+	}
+	// And the pages did record geometry, proving the skip is the policy
+	// and not an accident of the layout.
+	if len(m.server.ScrollRegions()) == 0 {
+		t.Fatal("precondition: the page should still record its panes below MinWidth")
+	}
+}
+
+// TestScrollMsgDispatchServerLog pins the handleScrollMsg seam: the region
+// resolves to the ACTIVE page's scrollable and the content-direction
+// delta passes straight through (no negation) into the same offset the
+// keyboard drives.
+func TestScrollMsgDispatchServerLog(t *testing.T) {
+	m := serverAt(t, 80, 24, 30)
+
+	_, _ = m.Update(scrollMsg{region: pages.RegionServerLog, delta: -3})
+	if got := m.server.LogScroll(); got != 3 {
+		t.Fatalf("delta -3 (wheel up) = logScroll %d, want 3 (content-direction, no negation)", got)
+	}
+	_, _ = m.Update(scrollMsg{region: pages.RegionServerLog, delta: 1})
+	if got := m.server.LogScroll(); got != 2 {
+		t.Fatalf("delta +1 (wheel down) = logScroll %d, want 2", got)
+	}
+	// An unknown region stays inert (no panic, no wrong pane moved).
+	_, _ = m.Update(scrollMsg{region: "nope:region", delta: 1})
+	if got := m.server.LogScroll(); got != 2 {
+		t.Fatalf("unknown region changed logScroll to %d", got)
+	}
+}
+
+// TestScrollMsgDispatchHelpOverlay pins the overlay branch of the seam:
+// with §M open its region dispatches to the overlay's own window offset,
+// never to the page underneath.
+func TestScrollMsgDispatchHelpOverlay(t *testing.T) {
+	m := NewRootModel(nil)
+	// Height 6 leaves the overlay a 2-line canvas: the keymap cannot fit,
+	// so the box is genuinely windowed and scrollable.
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 6})
+	_, _ = m.Update(ch('?'))
+	if m.help == nil {
+		t.Fatal("? must open the §M overlay")
+	}
+	if m.help.maxScroll() <= 0 {
+		t.Fatal("the overlay must get a real pane height on open so ScrollBy is not a no-op")
+	}
+
+	_, _ = m.Update(scrollMsg{region: regionHelp, delta: 1})
+	if m.help.scrollOff != 1 {
+		t.Fatalf("wheel down = scrollOff %d, want 1", m.help.scrollOff)
+	}
+	_, _ = m.Update(scrollMsg{region: regionHelp, delta: -1})
+	if m.help.scrollOff != 0 {
+		t.Fatalf("wheel up = scrollOff %d, want 0", m.help.scrollOff)
+	}
+	// A straggler after the overlay closed must not panic and must not
+	// touch the page: close §M the way the keyboard does (Esc) and re-send.
+	_, _ = m.Update(special(tea.KeyEsc))
+	if m.help != nil {
+		t.Fatal("esc must close the overlay")
+	}
+	if _, cmd := m.Update(scrollMsg{region: regionHelp, delta: 1}); cmd != nil {
+		t.Fatal("a straggler help scrollMsg must be inert, not replayed")
+	}
+}
+
+// TestInstallMouseIgnoresOtherButtons pins policy (b): only the LEFT
+// button replays key hits and only the vertical wheel produces a
+// scrollMsg; middle/right clicks and horizontal wheel steps stay inert so
+// they cannot replay keys or fake a vertical scroll.
+func TestInstallMouseIgnoresOtherButtons(t *testing.T) {
+	m := NewRootModel(nil)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	hm := hitMap{}
+	hm.add(geom.Rect{X: 2, Y: 2, W: 20, H: 10}, keyHit("4"))
+	hm.add(geom.Rect{X: 40, Y: 2, W: 20, H: 10}, scrollHit("page", 0))
+	var v tea.View
+	m.installMouse(&v, hm)
+
+	// Middle/right clicks over a key hit replay nothing.
+	if cmd := v.OnMouse(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseMiddle}); cmd != nil {
+		t.Fatal("middle-button click must stay inert")
+	}
+	if cmd := v.OnMouse(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseRight}); cmd != nil {
+		t.Fatal("right-button click must stay inert")
+	}
+	// Left still replays.
+	if got := v.OnMouse(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft})(); got != ch('4') {
+		t.Fatalf("left click = %#v, want the ch('4') replay", got)
+	}
+	// Horizontal wheel steps over a scroll region scroll nothing.
+	if cmd := v.OnMouse(tea.MouseWheelMsg{X: 45, Y: 5, Button: tea.MouseWheelLeft}); cmd != nil {
+		t.Fatal("wheel-left must not emit a vertical scrollMsg")
+	}
+	if cmd := v.OnMouse(tea.MouseWheelMsg{X: 45, Y: 5, Button: tea.MouseWheelRight}); cmd != nil {
+		t.Fatal("wheel-right must not emit a vertical scrollMsg")
+	}
+	// Vertical wheel still routes.
+	if got := v.OnMouse(tea.MouseWheelMsg{X: 45, Y: 5, Button: tea.MouseWheelDown})(); got != (scrollMsg{region: "page", delta: 1}) {
+		t.Fatalf("wheel down = %#v, want scrollMsg{page +1}", got)
+	}
+}
 
 func TestHitMapResolveTopmost(t *testing.T) {
 	hm := hitMap{}

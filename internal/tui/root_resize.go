@@ -57,8 +57,11 @@ func (m *RootModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd)
 	if m.help != nil {
 		// The §M overlay is pure display state (the page stack cannot
 		// change while it owns the keyboard), so a resize only resizes
-		// the box; the registry snapshot stays authoritative.
+		// the box; the registry snapshot stays authoritative. The pane
+		// budget follows too (Task 8.2b): SetHeight re-clamps the wheel
+		// offset into the new window.
 		m.help.width = inner.Width
+		m.help.SetHeight(max(inner.Height-2, 1))
 	}
 	if m.filePick != nil {
 		// The picker overlay is sized to the modal box's inner width

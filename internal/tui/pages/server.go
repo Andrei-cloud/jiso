@@ -45,7 +45,18 @@ type Server struct {
 	// content-relative origin (Phase 8's hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
+
+	// logRect is the DRAWN SERVER LOG box (content-relative, measured
+	// from the rendered string like every sectionRect) recorded during
+	// the last View; the zero value means the pane was not on screen.
+	// It is the geometry the Task 8.2b hit map registers under
+	// RegionServerLog.
+	logRect geom.Rect
 }
+
+// §G owns one wheel-scrollable region (the SERVER LOG pane) and
+// implements the Task 8.2b region seam.
+var _ Scroller = (*Server)(nil)
 
 // serverNav is the page keymap: stop, routes-pane focus, detail
 // enter/close, and the pop chord.
@@ -117,6 +128,38 @@ func (s *Server) RoutesFocused() bool { return s.routesFocused }
 // DetailOpen reports the route-detail overlay state and its row index
 // (-1 when closed).
 func (s *Server) DetailOpen() (bool, int) { return s.detailOpen, s.detailIdx }
+
+// LogScroll reports the SERVER LOG offset (0 = following the newest
+// line; j/k and the wheel move it) — for root tests and deep links.
+func (s *Server) LogScroll() int { return s.logScroll }
+
+// ScrollRegions publishes the SERVER LOG pane's drawn rect: the region
+// exists exactly while the pane is on screen, so §G before its first log
+// line, the starting line, and the route-detail view publish nothing and
+// the wheel over them stays inert instead of phantom-hitting a box that
+// is not drawn.
+func (s *Server) ScrollRegions() []ScrollRegion {
+	if s.logRect.W <= 0 || s.logRect.H <= 0 {
+		return nil
+	}
+
+	return []ScrollRegion{{ID: RegionServerLog, Rect: s.logRect}}
+}
+
+// ScrollRegion drives the SAME logScroll offset the j/k keys move: the
+// wheel's content-direction delta maps straight onto it (d>0 = viewport
+// down = toward the newest = offset toward 0), clamped exactly like
+// updateKey. The pane's visible window is derived from the real drawn
+// height inside logBox on every render, so no separate SetHeight call
+// can go stale here.
+func (s *Server) ScrollRegion(id string, d int) bool {
+	if id != RegionServerLog || s.detailOpen || s.state.Starting {
+		return false
+	}
+	s.logScroll = min(max(s.logScroll-d, 0), max(len(s.state.Log)-1, 0))
+
+	return true
+}
 
 // SetState replaces the rendered snapshot (root pushes it on boot, on
 // every tick, and on every start/stop transition). The routes table is

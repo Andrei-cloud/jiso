@@ -2,11 +2,14 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"jiso/internal/tui/pages"
 )
 
 // Layer-2 golden program tests (TUI-407): real tea.Program sessions over
@@ -160,6 +163,81 @@ func TestProgMouseClickInert(t *testing.T) {
 	}
 	// The frame itself must not shift a single cell because of the mouse.
 	checkProgGolden(t, "boot", r.frame)
+}
+
+// sgrWheelUp/sgrWheelDown encode an SGR (xterm 1006) wheel report at the
+// ABSOLUTE 0-based cell (x,y): the terminal spells rows/columns 1-based,
+// button 64 = wheel up, 65 = wheel down (ultraviolet decodeMouseButton).
+func sgrWheelUp(x, y int) string   { return fmt.Sprintf("\x1b[<64;%d;%dM", x+1, y+1) }
+func sgrWheelDown(x, y int) string { return fmt.Sprintf("\x1b[<65;%d;%dM", x+1, y+1) }
+
+// TestWheelScrollsServerLog proves the wheel end-to-end (Task 8.2b,
+// finding 9): a real SGR wheel report typed into the input pipe resolves
+// against the §G hit-map region, dispatches scrollMsg at the root, and
+// moves the SAME logScroll offset the j/k keys drive — while a wheel over
+// a cell outside the log pane stays inert. The rendered log window must
+// move with the offset.
+func TestWheelScrollsServerLog(t *testing.T) {
+	// Baseline: §G with a log taller than the pane, following the newest.
+	base := newProgSession(t, 80, 24)
+	seedServerLogLines(base.m, 30)
+	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
+	wantClean(t, r0)
+
+	if got := r0.model.Current().ID(); got != "server" {
+		t.Fatalf("after '4' current page = %q, want server", got)
+	}
+	if !strings.Contains(r0.frame, "log line 30") {
+		t.Fatalf("baseline frame must render the newest log line at the pane bottom:\n%s", r0.frame)
+	}
+	if got := r0.model.server.LogScroll(); got != 0 {
+		t.Fatalf("baseline log offset = %d, want 0 (following the newest)", got)
+	}
+
+	// The wheel cell is the CENTRE of the region the page published from
+	// its last render — absolute terminal coords, exactly what the hit map
+	// registered. The outside cell sits above the log pane (the header
+	// row, over no pane at all in the stacked layout).
+	regions := r0.model.server.ScrollRegions()
+	if len(regions) != 1 || regions[0].ID != pages.RegionServerLog {
+		t.Fatalf("§G must publish exactly the %q region, got %#v", pages.RegionServerLog, regions)
+	}
+	logRect := regions[0].Rect
+	wx, wy := logRect.X+logRect.W/2, logRect.Y+logRect.H/2
+	ox, oy := logRect.X+1, 1
+	if logRect.Contains(ox, oy) {
+		t.Fatalf("outside cell (%d,%d) is inside the log rect %v", ox, oy, logRect)
+	}
+
+	// Wheel session: two wheel-UPs walk the window back through history
+	// (offset 0→2), one wheel-DOWN advances it toward the newest (2→1),
+	// and a wheel-UP over the outside cell must change nothing.
+	s := newProgSession(t, 80, 24)
+	seedServerLogLines(s.m, 30)
+	r := s.runScripted(t, 80*time.Millisecond,
+		"4",
+		sgrWheelUp(wx, wy)+sgrWheelUp(wx, wy),
+		sgrWheelDown(wx, wy),
+		sgrWheelUp(ox, oy),
+		"\x03",
+	)
+	wantClean(t, r)
+
+	if got := r.model.server.LogScroll(); got != 1 {
+		t.Fatalf("after 2x wheel-up + 1x wheel-down + 1x wheel-up outside the pane, log offset = %d, want 1", got)
+	}
+	// The rendered log window moved with the offset: the newest line left
+	// the pane and the row just above the fold is now visible.
+	if strings.Contains(r.frame, "log line 30") {
+		t.Errorf("scrolled frame still shows the newest line:\n%s", r.frame)
+	}
+	if !strings.Contains(r.frame, "log line 29") {
+		t.Errorf("scrolled frame must show the shifted window (log line 29):\n%s", r.frame)
+	}
+	if r.frame == r0.frame {
+		t.Error("the wheel did not change the rendered frame")
+	}
+	checkProgGolden(t, "wheel_server_log", r.frame)
 }
 
 // TestProgPanicExit: a page that panics inside Update takes the program

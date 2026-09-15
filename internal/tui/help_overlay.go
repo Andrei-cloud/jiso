@@ -54,6 +54,12 @@ func (m *RootModel) openHelp() {
 		return
 	}
 	m.help = newHelpOverlay(m.themeOrNil(), m.Current(), &m.keys, m.innerWS().Width)
+	// Task 8.2b: the box gets its real pane budget — the content canvas
+	// minus the box's own two rules — so the wheel (scrollMsg regionHelp,
+	// hitmap.go) has a window to move when the keymap outgrows the pane.
+	// A keymap that still fits renders byte-identically to the unbounded
+	// default the §M goldens were cut against.
+	m.help.SetHeight(max(m.innerWS().Height-2, 1))
 	m.debug.logf("help open context=%s", m.Current().ID())
 }
 

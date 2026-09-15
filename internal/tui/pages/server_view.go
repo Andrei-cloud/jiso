@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -98,6 +99,7 @@ func (s *Server) View() tea.View {
 // overlay), clipped to exactly h lines of at most w cells.
 func (s *Server) render(w, h int) string {
 	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+	s.logRect = geom.Rect{}     // the LOG pane re-publishes below, or not at all
 
 	head := s.headerRow(w)
 	if errLine := s.errorLine(w); errLine != "" {
@@ -269,7 +271,13 @@ func (s *Server) logBox(x, y, w, h int) string {
 
 	// The log pane is the default focus target (j/k scroll it until r
 	// or Tab moves to ROUTES); UAT round 5 makes that visible.
-	return s.sectionW(paneTitle(s.th, titleLog, !s.routesFocused), strings.Join(body, "\n"), x, y, w, h, !s.routesFocused)
+	out := s.sectionW(paneTitle(s.th, titleLog, !s.routesFocused), strings.Join(body, "\n"), x, y, w, h, !s.routesFocused)
+	// Publish the DRAWN box for the wheel hit map (Task 8.2b): measured
+	// from the composed string exactly like every recorded section rect,
+	// so the registered region is the ink the user sees.
+	s.logRect = sectionRect(x, y, out)
+
+	return out
 }
 
 // leftBox renders the STATS card (or the start-form hint before the

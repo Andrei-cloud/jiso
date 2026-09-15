@@ -24,10 +24,13 @@
 package tui
 
 import (
+	"charm.land/lipgloss/v2"
+
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/geom"
+	"jiso/internal/tui/pages"
 )
 
 // hitKind discriminates which hitAction field carries the payload. hitKey
@@ -196,13 +199,58 @@ func (m *RootModel) contentOrigin() (x, y int) {
 	return frame.ContentOrigin(m.width, m.height)
 }
 
-// buildHitMap assembles one frame's cell map. Tasks 8.2–8.5 register the
-// real regions here (footer hint cells, page section rows, scroll regions,
-// select/focus targets); an empty map is legal and is the state this
-// foundation ships with — the mouse is enabled and every click resolves
-// against whatever the map holds, which today is nothing.
+// buildHitMap assembles one frame's cell map. Task 8.2b registered the
+// first real regions — the top page's wheel-scroll regions (published
+// through pages.Scroller, so no page region id is hardcoded here) and the
+// §M overlay's box; footer hint cells and select/focus targets arrive
+// with Tasks 8.3–8.5.
+//
+// Registration order is z-order (page body first, overlays last), and an
+// empty map is legal: it is §G before its first log line, every page
+// without scrollable panes, and — by policy — every frame narrower than
+// frame.MinWidth, where the body is the too-small notice but the pages
+// have still recorded their section Rects, so registering them would
+// resolve phantom hits over ink that is not on screen.
 func (m *RootModel) buildHitMap() hitMap {
-	return hitMap{}
+	hm := hitMap{}
+	if m.width < frame.MinWidth {
+		return hm // too-small frame: no page geometry is truthful
+	}
+	ox, oy := m.contentOrigin()
+	if sc, ok := m.Current().(pages.Scroller); ok {
+		for _, r := range sc.ScrollRegions() {
+			hm.addAbs(ox, oy, r.Rect, scrollHit(r.ID, 0))
+		}
+	}
+	// The §M overlay is root-owned modal state, not a page: its region is
+	// spelled here and dispatched directly in handleScrollMsg. Added last
+	// so the wheel over the box never scrolls the page underneath it.
+	if m.help != nil {
+		hm.add(m.helpHitRect(), scrollHit(regionHelp, 0))
+	}
+
+	return hm
+}
+
+// regionHelp names the §M help box's scroll region (overlay: the box
+// scrolls its own keymap window through helpOverlay.ScrollBy).
+const regionHelp = "help:box"
+
+// helpHitRect is the §M box's ABSOLUTE drawn rect: it re-measures the
+// same View string root_view.go composited and mirrors overlayCenter's
+// centering math (root_overlay.go) on the content canvas, offset by the
+// frame's content origin. The height clamps to the visible canvas so a
+// box taller than the content area never shadows rows below it.
+func (m *RootModel) helpHitRect() geom.Rect {
+	hv := m.help.View()
+	inner := m.innerWS()
+	ox, oy := m.contentOrigin()
+
+	bw, bl := lipgloss.Width(hv), lipgloss.Height(hv)
+	x := max((inner.Width-bw)/2, 0)
+	y := max((inner.Height-bl)/2, 0)
+
+	return geom.Rect{X: ox + x, Y: oy + y, W: bw, H: min(bl, inner.Height-y)}
 }
 
 // installMouse arms the view for mouse input: CellMotion mode makes the
@@ -212,7 +260,11 @@ func (m *RootModel) buildHitMap() hitMap {
 // closure captures that map by value: stale hits cannot outlive their
 // frame, and no RootModel field (or lock) is needed. Clicks replay their
 // hit; the wheel becomes a scrollMsg for the hit's region; releases and
-// motion stay inert so a click never double-fires.
+// motion stay inert so a click never double-fires. Task 8.2b's button
+// policy narrows this further: only the LEFT button replays a hit and
+// only the vertical wheel steps produce a scrollMsg — middle/right
+// clicks and horizontal wheel steps stay inert, so they can neither
+// replay key hits nor fake a vertical scroll.
 //
 // Wheel sign follows the CONTENT-DIRECTION convention shared with
 // pages.Analyze.ScrollPreview (Task 7.3): wheel-DOWN is delta +1 (move the
@@ -228,18 +280,26 @@ func (m *RootModel) installMouse(out *tea.View, hm hitMap) {
 			return nil
 		}
 		if wheel, isWheel := msg.(tea.MouseWheelMsg); isWheel {
+			var delta int
+			switch wheel.Button {
+			case tea.MouseWheelUp:
+				delta = -1
+			case tea.MouseWheelDown:
+				delta = 1
+			default:
+				return nil // horizontal wheel steps scroll nothing vertical
+			}
 			if act.region == "" {
 				return nil // no scroll region under the cursor
-			}
-			delta := 1
-			if wheel.Button == tea.MouseWheelUp {
-				delta = -1
 			}
 
 			return func() tea.Msg { return scrollMsg{region: act.region, delta: delta} }
 		}
 		if _, isClick := msg.(tea.MouseClickMsg); !isClick {
 			return nil // releases and motion replay nothing
+		}
+		if mm.Button != tea.MouseLeft {
+			return nil // middle/right clicks replay no key hit (Task 8.2b policy)
 		}
 
 		return act.cmd()
@@ -267,9 +327,28 @@ type focusMsg struct {
 	index  int
 }
 
-// handleScrollMsg is the scrollMsg seam Tasks 8.2–8.5 fill with per-region
-// scrolling; the routing skeleton exists so mouse msgs never leak to pages.
-func (m *RootModel) handleScrollMsg(scrollMsg) (tea.Model, tea.Cmd) { return m, nil }
+// handleScrollMsg is the scrollMsg seam (filled by Task 8.2b): it
+// resolves the region to the ACTIVE scrollable and applies the delta
+// with the content-direction convention (+1 = down, no negation). The §M
+// overlay is checked first — while open it is the topmost layer, and its
+// region is root-owned — then the delta goes to the top page through
+// pages.Scroller, which reports whether it owns the region. Unknown
+// regions and closed overlays stay inert: a mouse msg never reaches a
+// page as a key.
+func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
+	if msg.region == regionHelp {
+		if m.help != nil { // a straggler after Esc closed the overlay: inert
+			m.help.ScrollBy(msg.delta)
+		}
+
+		return m, nil
+	}
+	if sc, ok := m.Current().(pages.Scroller); ok {
+		sc.ScrollRegion(msg.region, msg.delta)
+	}
+
+	return m, nil
+}
 
 // handleSelectMsg is the selectMsg seam Tasks 8.2–8.5 fill with row
 // selection (click a list row = move the cursor there).
