@@ -138,14 +138,10 @@ func TestClickDroppedFooterHintInert(t *testing.T) {
 
 // advertisesDispatch reports whether the root's full footer hint list (the
 // packer's input, BEFORE width filtering) carries a hint whose dispatch
-// spelling is key.
+// spelling (its Key, the matching vocabulary) is key.
 func advertisesDispatch(m *RootModel, key string) bool {
 	for _, h := range m.footerHints() {
-		d := h.Dispatch
-		if d == "" {
-			d = h.Key
-		}
-		if d == key {
+		if h.Key == key {
 			return true
 		}
 	}
@@ -180,6 +176,9 @@ func TestFooterClickReachesModal(t *testing.T) {
 	rm := sendKey(t, m, pressed)
 	if rm.pal == nil {
 		t.Fatal("the palette must still own the screen after the synthesized key")
+	}
+	if got := rm.pal.Query(); got != "4" {
+		t.Fatalf("the palette did not receive the synthesized key: Query() = %q, want %q", got, "4")
 	}
 	if got := rm.Current().ID(); got != pages.TransactionsPageID {
 		t.Fatalf("the palette leaked the jump key: page = %q, want §B behind the modal", got)

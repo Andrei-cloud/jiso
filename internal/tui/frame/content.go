@@ -86,10 +86,12 @@ func ContentOrigin(width, height int) (x, y int) {
 // disagree mid-shrink. X is borderInset/2 (side rule plus one space, the
 // same wrapRow inset as the content); Y is height-2 whenever the strip is
 // drawn: the bottom rule is the last line and the content area always
-// fills exactly the rows above the footer pair (console strip included).
-// ok=false when no footer row is drawn at all — chromeParts dropped the
-// footer pair under height pressure, or the frame shows the too-small
-// state below MinWidth.
+// fills exactly the rows above the footer pair. The console strip does not
+// move the footer either: when the chrome floor cannot seat it beside
+// MinContentHeight it yields (Render drops the strip line rather than
+// composing taller than the window). ok=false when no footer row is drawn
+// at all — chromeParts dropped the footer pair under height pressure, or
+// the frame shows the too-small state below MinWidth.
 func FooterOrigin(width, height int) (x, y int, ok bool) {
 	if width <= 0 {
 		width = FallbackWidth

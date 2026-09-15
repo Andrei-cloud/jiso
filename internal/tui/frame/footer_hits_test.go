@@ -26,7 +26,11 @@ func footerHintProps(width, height int) Props {
 // must be the absolute row/col Render actually draws the footer strip at —
 // x = side rule + space, y = height-2 while the footer pair survives
 // chromeParts — and report !ok exactly when no footer row is drawn
-// (chrome dropped the pair, or the too-small state).
+// (chrome dropped the pair, or the too-small state). The sweep runs both
+// without and WITH the console strip: the strip yields at the chrome
+// floor (Render never composes taller than the window), so the oracle
+// holds console included too (review Important 1: without this leg the
+// invariant was pinned only where it was true).
 func TestFooterOriginMatchesRender(t *testing.T) {
 	t.Parallel()
 
@@ -43,21 +47,36 @@ func TestFooterOriginMatchesRender(t *testing.T) {
 				t.Errorf("%dx%d: FooterOrigin x=%d, want %d", width, height, x, borderInset/2)
 			}
 
-			// Structural: the Render line carrying the footer hint text
-			// must sit at exactly y — chrome shrink included.
-			out := strings.Split(Render(footerHintProps(width, height)), "\n")
-			first := -1
-			for i, l := range out {
-				if strings.Contains(l, "zzquit") {
-					first = i
-					break
+			for _, console := range []string{"", "clogline"} {
+				p := footerHintProps(width, height)
+				p.Console = console
+				out := strings.Split(Render(p), "\n")
+
+				// Render's own contract: never taller than the window —
+				// the console strip yields at the chrome floor instead
+				// of pushing the frame past the last row.
+				if width >= MinWidth && len(out) > height {
+					t.Errorf("%dx%d console=%q: Render composed %d lines, over the %d-row window",
+						width, height, console, len(out), height)
 				}
-			}
-			if ok != (first >= 0) {
-				t.Errorf("%dx%d: footer drawn=%v, FooterOrigin ok=%v", width, height, first >= 0, ok)
-			}
-			if ok && first != y {
-				t.Errorf("%dx%d: footer drawn at line %d, FooterOrigin y=%d", width, height, first, y)
+
+				// Structural: the Render line carrying the footer hint
+				// text must sit at exactly y — shrink and console included.
+				first := -1
+				for i, l := range out {
+					if strings.Contains(l, "zzquit") {
+						first = i
+						break
+					}
+				}
+				if ok != (first >= 0) {
+					t.Errorf("%dx%d console=%q: footer drawn=%v, FooterOrigin ok=%v",
+						width, height, console, first >= 0, ok)
+				}
+				if ok && first != y {
+					t.Errorf("%dx%d console=%q: footer drawn at line %d, FooterOrigin y=%d",
+						width, height, console, first, y)
+				}
 			}
 		}
 	}
@@ -132,24 +151,25 @@ func TestFooterHitsPackVisibleOnly(t *testing.T) {
 	}
 }
 
-// TestFooterHitsDispatchFallsBackToKey pins the dispatch resolution: a
-// hint carrying an explicit Dispatch is reported with it (display text
-// untouched), and one without falls back to its Key spelling — the same
-// matching vocabulary the bindings use (theme/keys.go).
-func TestFooterHitsDispatchFallsBackToKey(t *testing.T) {
+// TestFooterHitsDispatchIsKeySpelling pins the dispatch resolution the hit
+// map relies on: every published rect carries the hint's Key spelling (the
+// matching vocabulary of the bindings, theme/keys.go), including labels
+// that spell no single key ("j/k") — the caller's synthKeyPress guard
+// makes those inert, frame.FooterHits does not guess.
+func TestFooterHitsDispatchIsKeySpelling(t *testing.T) {
 	t.Parallel()
 
 	hits := FooterHits(nil, []KeyHint{
-		{Key: "PgDn", Desc: "more", Dispatch: "pgdown", Primary: true},
+		{Key: "enter", Desc: "run", Primary: true},
 		{Key: "j/k", Desc: "move", Primary: true},
 	}, 120, 32)
 	if len(hits) != 2 {
 		t.Fatalf("packed %d rects, want 2: %#v", len(hits), hits)
 	}
-	if hits[0].Dispatch != "pgdown" {
-		t.Errorf("explicit Dispatch lost: %q", hits[0].Dispatch)
+	if hits[0].Dispatch != "enter" {
+		t.Errorf("dispatch = %q, want the Key spelling", hits[0].Dispatch)
 	}
 	if hits[1].Dispatch != "j/k" {
-		t.Errorf("fallback dispatch = %q, want the Key spelling", hits[1].Dispatch)
+		t.Errorf("dispatch = %q, want the unspellable Key reported verbatim (caller filters)", hits[1].Dispatch)
 	}
 }

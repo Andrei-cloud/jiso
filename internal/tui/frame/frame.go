@@ -76,18 +76,16 @@ func LevelFor(width int) Level {
 // KeyHint is one footer entry: a key and what it does here. Page.Hints()
 // returns the context-sensitive half; the router appends the global
 // bindings. Primary marks the keys that survive the narrow footer.
+//
+// Key doubles as the click-dispatch spelling: it is written from the same
+// matching vocabulary the bindings use (theme/keys.go), so
+// frame.FooterHits reports it and a footer click replays exactly the typed
+// key; labels that spell no single key ("j/k") are filtered inert by the
+// hit map's synthKeyPress guard rather than firing a wrong press.
 type KeyHint struct {
 	Key     string
 	Desc    string
 	Primary bool
-	// Dispatch is the key spelling the router synthesizes a press for
-	// when a mouse click lands on this hint's footer cell (see
-	// FooterHits). Empty — the norm — means the Key string itself is the
-	// dispatch spelling: pages populate Key from the same matching
-	// vocabulary their bindings use (theme/keys.go), so a click replays
-	// exactly the typed key. Labels that spell no single key ("j/k")
-	// stay inert cells. It never affects the rendered hint text.
-	Dispatch string
 }
 
 // Segment is one header chip token. Plain segments render in the muted
@@ -187,6 +185,15 @@ func Render(p Props) string {
 			consoleLine = th.Status(theme.KindError, label+p.Console)
 		} else {
 			consoleLine = th.Dim.Render(label + p.Console)
+		}
+		// Chrome floor: the strip claims a line only while the content
+		// floor survives alongside it; under extreme height pressure it
+		// YIELDS instead of pushing the frame taller than the window
+		// (UAT round 8 review: at h=4/5 the old composition emitted
+		// height+1 lines, leaving the footer one row below where
+		// FooterOrigin and the footer hit-map say it is).
+		if height-len(top)-len(mid)-len(footer)-len(bottom)-1 < MinContentHeight {
+			consoleLine = ""
 		}
 	}
 	contentH := max(height-len(top)-len(mid)-len(footer)-len(bottom)-b2i(consoleLine != ""), MinContentHeight)

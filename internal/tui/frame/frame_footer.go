@@ -90,10 +90,10 @@ type FooterHit struct {
 // the rendered footer row. Entries hidden by the narrow level filter or
 // the overflow drop (the "…+N" tail) get NO rect — only visible hints are
 // clickable — and a frame that draws no footer row at all (FooterOrigin
-// !ok) publishes nothing. Dispatch resolution: the hint's explicit
-// Dispatch spelling, else its Key (the matching vocabulary of the
-// bindings, theme/keys.go); spellings that name no key stay in the result
-// so callers can decide their own inertness policy.
+// !ok) publishes nothing. Dispatch is the hint's Key spelling (the
+// matching vocabulary of the bindings, theme/keys.go); spellings that name
+// no key stay in the result so callers can decide their own inertness
+// policy.
 func FooterHits(th *theme.Theme, hints []KeyHint, width, height int) []FooterHit {
 	if th == nil {
 		th = theme.Default()
@@ -112,11 +112,7 @@ func FooterHits(th *theme.Theme, hints []KeyHint, width, height int) []FooterHit
 
 	out := make([]FooterHit, 0, len(spans))
 	for _, s := range spans {
-		d := s.hint.Dispatch
-		if d == "" {
-			d = s.hint.Key
-		}
-		out = append(out, FooterHit{Dispatch: d, X: fx + s.x0, Y: fy, W: s.x1 - s.x0})
+		out = append(out, FooterHit{Dispatch: s.hint.Key, X: fx + s.x0, Y: fy, W: s.x1 - s.x0})
 	}
 
 	return out
