@@ -58,10 +58,14 @@ type fileEntry struct {
 // open/descend/back, dirs first then files by name, a `/` name filter,
 // an `h` hidden toggle, gg/G + j/k/↑/↓ navigation (the List
 // conventions), enter selects (directories descend; only Selectable
-// files emit FilePickedMsg), esc cancels. Row rendering delegates to
-// the virtualized List, so a 10k-entry directory still renders
-// `height` lines. View NEVER shows the absolute root — paths display
-// as RootLabel + relative remainder. Long names truncate, never wrap.
+// files emit FilePickedMsg), esc cancels. A synthesized `..` row leads
+// every dir that has a parent (os.ReadDir never yields "."/".."); u or
+// backspace climbs, and the climb floor is the filesystem root — Root
+// anchors the display label, it is not a navigation wall (UAT round 9).
+// Row rendering delegates to the virtualized List, so a 10k-entry
+// directory still renders `height` lines. View NEVER shows the absolute
+// root — paths display as RootLabel + relative remainder. Long names
+// truncate, never wrap.
 //
 // The picker is the widgets package's declared exception to "Update is
 // pure": directory reads happen synchronously in Update (a browser
@@ -88,7 +92,7 @@ type FilePicker struct {
 	pickDirKey string // footer text for the write-target key ("" = unbound)
 
 	nav struct {
-		Up, Down, Filter, Hidden, Back, Enter, Cancel, PickDir key.Binding
+		Up, Down, UpDir, Filter, Hidden, Back, Enter, Cancel, PickDir key.Binding
 	}
 }
 
@@ -114,6 +118,7 @@ func NewFilePicker(th *theme.Theme, width, height int, opts FilePickerOptions) *
 	p.list.SetEmptyMessage("empty directory")
 	p.nav.Up = key.NewBinding(key.WithKeys("up", "k"))
 	p.nav.Down = key.NewBinding(key.WithKeys("down", "j"))
+	p.nav.UpDir = key.NewBinding(key.WithKeys("u"))
 	p.nav.Filter = key.NewBinding(key.WithKeys("/"))
 	p.nav.Hidden = key.NewBinding(key.WithKeys("h"))
 	p.nav.Back = key.NewBinding(key.WithKeys("backspace"))
@@ -156,17 +161,6 @@ func (p *FilePicker) relLabel(path string) string {
 	return base + "/" + filepath.Base(path)
 }
 
-// withinTree reports whether dir is inside root (root "/" is the whole
-// filesystem; backspace may climb anywhere below it).
-func withinTree(root, dir string) bool {
-	rel, err := filepath.Rel(root, dir)
-	if err != nil {
-		return false
-	}
-
-	return rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
 // dirLabel guarantees the trailing "/" that marks a directory path.
 func dirLabel(label string) string {
 	if !strings.HasSuffix(label, "/") {
@@ -191,7 +185,10 @@ func joinLabel(label, rel string) string {
 // refresh re-reads the current directory into entries (dirs first,
 // then files, each by name) and pushes the filtered window into the
 // list. A read failure keeps the previous listing replaced by the
-// error state (never a stale directory).
+// error state (never a stale directory). A climbable dir always leads
+// with the synthesized ".." row: it is built outside the dotfile-skip
+// loop above and exempt from the `/` filter below, so the escape hatch
+// can never be hidden.
 func (p *FilePicker) refresh() {
 	p.err = ""
 	ds, err := os.ReadDir(p.dir)
@@ -221,13 +218,16 @@ func (p *FilePicker) refresh() {
 	// A fresh slice, not dirs' backing array: entries is held across renders while
 	// the picker appends to it, and an alias of the sorted local would let a later
 	// append write through memory the sort above already laid out.
-	p.entries = make([]fileEntry, 0, len(dirs)+len(files))
+	p.entries = make([]fileEntry, 0, 1+len(dirs)+len(files))
+	if parent, ok := p.parentEntry(); ok {
+		p.entries = append(p.entries, parent)
+	}
 	p.entries = append(p.entries, dirs...)
 	p.entries = append(p.entries, files...)
 
 	items := make([]Item, 0, len(p.entries))
 	for _, e := range p.entries {
-		if p.filter != "" && !strings.Contains(strings.ToLower(e.name), strings.ToLower(p.filter)) {
+		if p.filter != "" && e.name != ".." && !strings.Contains(strings.ToLower(e.name), strings.ToLower(p.filter)) {
 			continue
 		}
 		label := e.name
@@ -265,8 +265,9 @@ func (p *FilePicker) visibleEntry() (fileEntry, bool) {
 }
 
 // Update is the state machine: `/` opens filter input, esc closes it
-// (or cancels the picker when empty), h toggles hidden, backspace
-// ascends, gg/G and the List nav keys move, enter descends or selects.
+// (or cancels the picker when empty), h toggles hidden, backspace and
+// u ascend one directory (the same leg the ".." row takes on enter),
+// gg/G and the List nav keys move, enter descends or selects.
 // Any other message is ignored with a nil command.
 func (p *FilePicker) Update(msg tea.Msg) (*FilePicker, tea.Cmd) {
 	km, ok := msg.(tea.KeyPressMsg)
@@ -292,10 +293,9 @@ func (p *FilePicker) Update(msg tea.Msg) (*FilePicker, tea.Cmd) {
 		// selection (the §J output browse), label trailing "/" and all.
 		return p, func() tea.Msg { return FilePickedMsg{Path: p.dir, Label: dirLabel(p.relLabel(p.dir))} }
 	case key.Matches(km, p.nav.Back):
-		if parent := filepath.Dir(p.dir); p.dir != p.root && withinTree(p.root, p.dir) && parent != p.dir {
-			p.dir = parent
-			p.refresh()
-		}
+		p.goUp()
+	case key.Matches(km, p.nav.UpDir):
+		p.goUp()
 	case text == "g":
 		if p.pendingG {
 			p.list.SetCursor(0)
@@ -442,6 +442,10 @@ func (p *FilePicker) View() string {
 	if p.pickDirKey != "" {
 		tail = hk(p.pickDirKey) + base.Render(" set folder"+seps+" ") + tail
 	}
+	// The up leg (UAT round 9 F-9b: the ".." row needs an advertised
+	// key): prepended like the dir-pick hint for the same clipping
+	// reason — u shares the leg with backspace and the ".." row.
+	tail = hk("u") + base.Render(" up"+seps+" ") + tail
 	hints := hk("j/k") + base.Render(" move"+seps+" ") + tail
 
 	return strings.Join(append([]string{head}, linesOf(body)...), "\n") + "\n" +

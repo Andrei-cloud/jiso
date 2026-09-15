@@ -1,7 +1,8 @@
 fixture/
+  ../                                       
   logs/                                     
   specs/                                    
 > a.json                                    
   b.txt                                     
   z.pcap                                    
-j/k move |  gg/G top |  / filter |  h hidde~
+j/k move |  u up |  gg/G top |  / filter | ~

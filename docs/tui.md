@@ -361,8 +361,11 @@ next `esc` cancels the dialog. Fields
 enable/disable by mode and header type (station ID only for `visa`).
 
 The §N1 file picker (spec / tx / pcap / output paths): `up`/`k`,
-`down`/`j` navigate, `/` filters, `h` toggles hidden files, `backspace`
-deletes typed text / goes up a directory, `enter` selects, `esc` cancels.
+`down`/`j` navigate, `/` filters, `h` toggles hidden files, `u` or
+`backspace` goes up a directory (a `..` row always leads the list of a
+climbable directory, and the pickers start at the current file's
+directory but climb the whole filesystem from there), `backspace` also
+deletes typed filter text, `enter` selects, `esc` cancels.
 It remembers the last directory per file type.
 
 The background-send (`b`) and stress (`t`) starts are three-step wizards —

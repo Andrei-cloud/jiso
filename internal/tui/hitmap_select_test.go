@@ -183,11 +183,12 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 		}
 		v := m.View()
 
-		// Entries: dirs first (specs/), then files → "a.json" is data
-		// index 1. The picker rows are published as ABSOLUTE rects.
+		// Entries: the synthesized .. row leads, then dirs (specs/), then
+		// files → "a.json" is data index 2. The picker rows are published
+		// as ABSOLUTE rects (hit = drawn ink, round-8 doctrine).
 		var row geom.Rect
 		for _, rh := range m.pickerRowHits() {
-			if rh.Index == 1 {
+			if rh.Index == 2 {
 				row = rh.Rect
 			}
 		}
@@ -198,10 +199,10 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 		if cmd == nil {
 			t.Fatal("a click on a picker row must emit a select msg")
 		}
-		if got := cmd(); got != (selectMsg{region: regionPicker, index: 1}) {
-			t.Fatalf("picker row click = %#v, want selectMsg{picker:entries 1}", got)
+		if got := cmd(); got != (selectMsg{region: regionPicker, index: 2}) {
+			t.Fatalf("picker row click = %#v, want selectMsg{picker:entries 2}", got)
 		}
-		_, sel := m.Update(selectMsg{region: regionPicker, index: 1})
+		_, sel := m.Update(selectMsg{region: regionPicker, index: 2})
 		if sel == nil {
 			t.Fatal("clicking a selectable file must return the picker's own selection cmd")
 		}
@@ -221,14 +222,35 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 		m.Update(fcmd())
 		_ = m.View()
 
-		// Index 0 is the specs/ directory: the click enters it (like
-		// Enter), no commit cmd.
-		_, cmd := m.Update(selectMsg{region: regionPicker, index: 0})
+		// Index 0 is now the .. parent row; index 1 is the specs/
+		// directory: the click enters it (like Enter), no commit cmd.
+		_, cmd := m.Update(selectMsg{region: regionPicker, index: 1})
 		if cmd != nil {
 			t.Fatalf("a directory click returned %v, want nil (descend, no commit)", cmd())
 		}
 		if got := m.filePick.CurrentDir(); got != filepath.Join(dir, "specs") {
 			t.Fatalf("directory click left the browser at %q, want specs/", got)
+		}
+	})
+
+	t.Run("parent row climbs", func(t *testing.T) {
+		m := NewRootModel(nil)
+		_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+		_, _ = m.Update(ch('2'))
+		dir := pickRootFixture(t)
+		m.filePickRootFn = func(string, string) (string, string) { return dir, "fixture/" }
+		_, fcmd := m.Update(ch('f'))
+		m.Update(fcmd())
+		_ = m.View()
+
+		// Row 0 is the synthesized .. entry (UAT round 9 F-9b): clicking
+		// it climbs above the start dir (like Enter on it), no commit.
+		_, cmd := m.Update(selectMsg{region: regionPicker, index: 0})
+		if cmd != nil {
+			t.Fatalf("the .. row click returned %v, want nil (climb, no commit)", cmd())
+		}
+		if got := m.filePick.CurrentDir(); got != filepath.Dir(dir) {
+			t.Fatalf("the .. row click left the browser at %q, want %q", got, filepath.Dir(dir))
 		}
 	})
 }

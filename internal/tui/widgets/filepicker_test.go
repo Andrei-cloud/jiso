@@ -72,9 +72,110 @@ func TestFilePickerSortDirsFirstThenFiles(t *testing.T) {
 
 	p := newPick(t, asciiTheme(t), pickFixture(t))
 	got := names(t, p)
-	want := []string{"logs/", "specs/", "a.json", "b.txt", "z.pcap"}
+	// The synthesized ".." parent row leads the dirs (UAT round 9 F-9b);
+	// ReadDir's own dirs-first/files-first order follows unchanged.
+	want := []string{"../", "logs/", "specs/", "a.json", "b.txt", "z.pcap"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("order = %v, want %v", got, want)
+	}
+}
+
+// TestFilePickerParentRowClimbs: the ".." row leads any dir with a
+// parent, and Enter on it climbs exactly like the u key and backspace
+// (one shared goUp leg). Root "/" mirrors the production owners (§B/
+// §J/§L/§G/§H): the whole filesystem is browsable above the start.
+func TestFilePickerParentRowClimbs(t *testing.T) {
+	t.Parallel()
+
+	th := asciiTheme(t)
+	root := pickFixture(t)
+	start := filepath.Join(root, "specs")
+	open := func() *FilePicker {
+		return NewFilePicker(th, 44, 6, FilePickerOptions{Root: "/", Start: start})
+	}
+
+	p := open()
+	if got := names(t, p); len(got) == 0 || got[0] != "../" {
+		t.Fatalf("first row = %v, want the ../ row to lead", got)
+	}
+	if cmd := enter(p); cmd != nil {
+		t.Fatalf("the .. row must descend like a dir, cmd %v", cmd)
+	}
+	if p.CurrentDir() != root {
+		t.Fatalf("enter on .. = %q, want %q", p.CurrentDir(), root)
+	}
+
+	p = open()
+	p.Update(ch('u'))
+	if p.CurrentDir() != root {
+		t.Fatalf("u = %q, want %q", p.CurrentDir(), root)
+	}
+
+	p = open()
+	p.Update(special(tea.KeyBackspace))
+	if p.CurrentDir() != root {
+		t.Fatalf("backspace = %q, want %q", p.CurrentDir(), root)
+	}
+}
+
+// TestFilePickerParentRowAbsentAtRoot: "/" has no parent, so the floor
+// carries no .. row and both up keys stay inert (the row's "absent at
+// the floor" half).
+func TestFilePickerParentRowAbsentAtRoot(t *testing.T) {
+	t.Parallel()
+
+	p := NewFilePicker(asciiTheme(t), 40, 6, FilePickerOptions{Root: "/"})
+	if p.CurrentDir() != "/" {
+		t.Fatalf("dir = %q, want /", p.CurrentDir())
+	}
+	for _, l := range names(t, p) {
+		if l == "../" {
+			t.Fatalf("the filesystem root must carry no .. row: %v", names(t, p))
+		}
+	}
+	p.Update(ch('u'))
+	p.Update(special(tea.KeyBackspace))
+	if p.CurrentDir() != "/" {
+		t.Fatalf("both up legs must be inert at the floor: %q", p.CurrentDir())
+	}
+}
+
+// TestFilePickerParentRowSurvivesFilter: the `/` filter may hide every
+// real entry, but never the escape hatch.
+func TestFilePickerParentRowSurvivesFilter(t *testing.T) {
+	t.Parallel()
+
+	start := filepath.Join(pickFixture(t), "specs")
+	p := NewFilePicker(asciiTheme(t), 44, 6, FilePickerOptions{Root: "/", Start: start})
+	p.Update(ch('/'))
+	for _, c := range "zz" {
+		p.Update(ch(c))
+	}
+	if got := names(t, p); strings.Join(got, ",") != "../" {
+		t.Fatalf("filtered rows = %v, want only ../", got)
+	}
+}
+
+// TestFilePickerParentRowEscapesUnreadable: a directory that cannot be
+// read must not be a trap (UAT round 9): the up leg still climbs out.
+func TestFilePickerParentRowEscapesUnreadable(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	file := filepath.Join(root, "notadir")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := NewFilePicker(asciiTheme(t), 40, 4, FilePickerOptions{Root: root, RootLabel: "bad/", Start: file})
+	if body := p.View(); !strings.Contains(body, "cannot read") {
+		t.Fatalf("error state missing:\n%s", body)
+	}
+	p.Update(ch('u'))
+	if p.CurrentDir() != root {
+		t.Fatalf("u must escape the unreadable dir: %q", p.CurrentDir())
+	}
+	if body := p.View(); strings.Contains(body, "cannot read") {
+		t.Fatalf("the parent dir must read clean:\n%s", body)
 	}
 }
 
@@ -89,11 +190,13 @@ func TestFilePickerFilterSlashInput(t *testing.T) {
 	if body := p.View(); !strings.Contains(body, "/pc") {
 		t.Fatalf("filter echo missing:\n%s", body)
 	}
-	if got := names(t, p); strings.Join(got, ",") != "z.pcap" {
-		t.Fatalf("filtered = %v, want z.pcap", got)
+	// The .. row is exempt from the filter (the escape hatch cannot be
+	// filtered away); the match follows it.
+	if got := names(t, p); strings.Join(got, ",") != "../,z.pcap" {
+		t.Fatalf("filtered = %v, want ../ then z.pcap", got)
 	}
 	p.Update(special(tea.KeyEnter)) // keeps the filter, exits input
-	if got := names(t, p); strings.Join(got, ",") != "z.pcap" {
+	if got := names(t, p); strings.Join(got, ",") != "../,z.pcap" {
 		t.Fatalf("filter must persist after enter: %v", got)
 	}
 }
@@ -101,15 +204,15 @@ func TestFilePickerFilterSlashInput(t *testing.T) {
 func TestFilePickerExtPredicate(t *testing.T) {
 	t.Parallel()
 
-	p := newPick(t, asciiTheme(t), pickFixture(t)) // 0 logs/ 1 specs/ 2 a.json 3 b.txt 4 z.pcap
-	p.list.SetCursor(3)
+	p := newPick(t, asciiTheme(t), pickFixture(t)) // 0 ../ 1 logs/ 2 specs/ 3 a.json 4 b.txt 5 z.pcap
+	p.list.SetCursor(4)
 	if visibleFileMust(t, p) != "b.txt" {
 		t.Fatal("cursor must sit on b.txt")
 	}
 	if cmd := enter(p); cmd != nil {
 		t.Fatal("unselectable file must emit no command")
 	}
-	p.list.SetCursor(2)
+	p.list.SetCursor(3)
 	cmd := enter(p)
 	if cmd == nil {
 		t.Fatal("selectable file must emit a command")
@@ -222,8 +325,8 @@ func TestFilePickerVirtualization1k(t *testing.T) {
 		}
 	}
 	p := NewFilePicker(asciiTheme(t), 40, 8, FilePickerOptions{Root: root, RootLabel: "big/"})
-	if p.list.Len() != 1000 {
-		t.Fatalf("entries = %d, want 1000", p.list.Len())
+	if p.list.Len() != 1001 { // 1000 files + the synthesized .. parent row
+		t.Fatalf("entries = %d, want 1001", p.list.Len())
 	}
 	if n := len(lines(p.View())); n != 1+8+1 { // header + window + footer
 		t.Fatalf("rendered lines = %d, want 10", n)
@@ -235,7 +338,7 @@ func TestFilePickerRelativeLabel(t *testing.T) {
 
 	root := pickFixture(t)
 	p := newPick(t, asciiTheme(t), root)
-	p.list.SetCursor(1)              // specs/
+	p.list.SetCursor(2)              // specs/ (the .. row leads at 0)
 	if cmd := enter(p); cmd != nil { // descend specs/
 		t.Fatal("descend must not emit a msg")
 	}
@@ -251,9 +354,18 @@ func TestFilePickerRelativeLabel(t *testing.T) {
 func TestFilePickerEmptyDir(t *testing.T) {
 	t.Parallel()
 
-	p := NewFilePicker(asciiTheme(t), 30, 4, FilePickerOptions{Root: t.TempDir(), RootLabel: "empty/"})
-	if body := p.View(); !strings.Contains(body, "empty directory") {
-		t.Fatalf("empty state missing:\n%s", body)
+	// An empty dir still leads with the ".." parent row (UAT round 9):
+	// the escape hatch is never hidden behind a bare empty message.
+	root := t.TempDir()
+	p := NewFilePicker(asciiTheme(t), 30, 4, FilePickerOptions{Root: root, RootLabel: "empty/"})
+	if got := names(t, p); strings.Join(got, ",") != "../" {
+		t.Fatalf("rows = %v, want only the ../ row", got)
+	}
+	if cmd := enter(p); cmd != nil {
+		t.Fatalf("enter on .. must not emit, got %v", cmd)
+	}
+	if p.CurrentDir() != filepath.Dir(root) {
+		t.Fatalf("enter on an empty dir's .. must climb: %q", p.CurrentDir())
 	}
 }
 
@@ -304,12 +416,12 @@ func TestFilePickerGGAndG(t *testing.T) {
 		t.Fatal("single g must not move")
 	}
 	p.Update(ch('g'))
-	if visibleFileMust(t, p) != "logs" {
-		t.Fatalf("gg = %q, want logs", visibleFileMust(t, p))
+	if visibleFileMust(t, p) != ".." {
+		t.Fatalf("gg = %q, want the .. row (the list's first row)", visibleFileMust(t, p))
 	}
 	p.Update(ch('j')) // any other key drops the pending g
 	p.Update(ch('g'))
-	if visibleFileMust(t, p) != "specs" {
+	if visibleFileMust(t, p) != "logs" {
 		t.Fatalf("pending g must reset: %q", visibleFileMust(t, p))
 	}
 }
@@ -319,8 +431,8 @@ func TestFilePickerDescendAndBackspace(t *testing.T) {
 
 	root := pickFixture(t)
 	p := newPick(t, asciiTheme(t), root)
-	p.list.SetCursor(1)
-	enter(p) // descend specs/
+	p.list.SetCursor(2)
+	enter(p) // descend specs/ (past the .. row leading at 0)
 	if filepath.Base(p.CurrentDir()) != "specs" {
 		t.Fatalf("dir = %q", p.CurrentDir())
 	}
@@ -328,9 +440,12 @@ func TestFilePickerDescendAndBackspace(t *testing.T) {
 	if p.CurrentDir() != root {
 		t.Fatalf("backspace must ascend to root: %q", p.CurrentDir())
 	}
-	p.Update(special(tea.KeyBackspace)) // at root: inert
-	if p.CurrentDir() != root {
-		t.Fatalf("root must clamp: %q", p.CurrentDir())
+	// UAT round 9: the up leg is the filesystem, not the root — a root
+	// passed as a plain dir (this owner shape) still climbs out (the
+	// relLabel basename fallback keeps the absolute path out of View).
+	p.Update(special(tea.KeyBackspace))
+	if want := filepath.Dir(root); p.CurrentDir() != want {
+		t.Fatalf("backspace must climb past the root to %q: %q", want, p.CurrentDir())
 	}
 }
 

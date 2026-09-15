@@ -150,6 +150,31 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 // is JSON; same filter as the §L tx-file field).
 var txPickExts = settingsPickExts(app.SettingTxFile)
 
+// pickTree resolves a file picker's root triple for an owner: the
+// filePickRootFn hook's virtual root+label (tests browse a t.TempDir
+// fixture behind a relative label, no absolute temp path in View), or
+// the §J/§G/§H production pattern — Root "/" with the absolute start
+// dir as both Start and label base (UAT round 9 F-9a: a Root of "."
+// with Start unset pinned p.dir to p.root, so no up leg could ever
+// leave the start dir). relLabel bypasses the label when root is "/",
+// so the header shows the absolute path — as §J/§G/§H already do.
+func (m *RootModel) pickTree(key, value string) (root, label, start string) {
+	if m.filePickRootFn != nil {
+		root, label := m.filePickRootFn(key, value)
+
+		return root, label, "" // the hook owns the whole virtual tree
+	}
+	start = "."
+	if value != "" {
+		start = filepath.Dir(value)
+	}
+	if abs, err := filepath.Abs(start); err == nil {
+		start = abs
+	}
+
+	return "/", start + string(filepath.Separator), start
+}
+
 // handleTxPickFile resolves §B `f` into an OpenFilePickerMsg (E5-FIX/
 // M6: the message pair existed but had no emitter — the §B empty state
 // and the §M registry advertise `f` (UAT round 8 D3; was `t`), and the
@@ -157,7 +182,8 @@ var txPickExts = settingsPickExts(app.SettingTxFile)
 // from §L). Browsing starts at the current tx file's directory (or the
 // filePickRootFn override — tests browse a t.TempDir fixture), and a
 // selection commits the tx-file path through the same settings commit
-// path §L uses.
+// path §L uses. Like the §J/§G/§H owners the production picker roots
+// at "/" so every up leg can leave the start dir (UAT round 9 F-9a).
 func (m *RootModel) handleTxPickFile() (tea.Model, tea.Cmd) {
 	if m.filePick != nil {
 		return m, nil
@@ -168,19 +194,14 @@ func (m *RootModel) handleTxPickFile() (tea.Model, tea.Cmd) {
 			value = cfg.GetFile()
 		}
 	}
-	root, label := ".", ""
-	if m.filePickRootFn != nil {
-		root, label = m.filePickRootFn(app.SettingTxFile, value)
-	} else if value != "" {
-		root = filepath.Dir(value)
-	}
+	root, label, start := m.pickTree(app.SettingTxFile, value)
 
 	// This pick is from §B: mark it so the load result surfaces on the
 	// transactions page (UAT round 7), and drop any prior load error.
 	m.txFilePickFromB, m.txFileLoadErr = true, ""
 
 	return m.openFilePicker(OpenFilePickerMsg{
-		Target: app.SettingTxFile, Root: root, RootLabel: label, Exts: txPickExts,
+		Target: app.SettingTxFile, Root: root, RootLabel: label, Start: start, Exts: txPickExts,
 	})
 }
 
@@ -204,7 +225,9 @@ func settingsPickExts(key string) []string {
 // handleSettingsPickFile resolves a §L `f` into an OpenFilePickerMsg:
 // the picker starts at the field's current value's directory (or the
 // filePickRootFn override — tests browse a t.TempDir fixture), and a
-// selection commits through handleSettingsCommit.
+// selection commits through handleSettingsCommit. Like handleTxPickFile
+// the production picker roots at "/" via pickTree so it climbs above
+// the start dir (UAT round 9 F-9a).
 func (m *RootModel) handleSettingsPickFile(msg pages.SettingsPickFileMsg) (tea.Model, tea.Cmd) {
 	if m.Current().ID() != pages.SettingsPageID || m.filePick != nil {
 		return m, nil
@@ -219,14 +242,9 @@ func (m *RootModel) handleSettingsPickFile(msg pages.SettingsPickFileMsg) (tea.M
 			}
 		}
 	}
-	root, label := ".", ""
-	if m.filePickRootFn != nil {
-		root, label = m.filePickRootFn(msg.Key, value)
-	} else if value != "" {
-		root = filepath.Dir(value)
-	}
+	root, label, start := m.pickTree(msg.Key, value)
 
-	return m.openFilePicker(OpenFilePickerMsg{Target: msg.Key, Root: root, RootLabel: label, Exts: settingsPickExts(msg.Key)})
+	return m.openFilePicker(OpenFilePickerMsg{Target: msg.Key, Root: root, RootLabel: label, Start: start, Exts: settingsPickExts(msg.Key)})
 }
 
 // pushToast appends a root-side toast (timestamped with the injectable

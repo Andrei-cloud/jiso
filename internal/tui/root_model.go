@@ -464,7 +464,8 @@ type RootModel struct {
 	// Picker/toast plumbing (TUI-406b): filePick is the shared FilePicker
 	// modal (nil = closed; owns the keyboard while open, Esc via the widget's
 	// own cancel); filePickTarget is the §L key a selection commits through;
-	// filePickRootFn overrides the start dir (tests). toast is the shared
+	// filePickRootFn overrides the picker's virtual root+label (tests;
+	// production roots at "/", see pickTree). toast is the shared
 	// Toast stack (armToastTick prunes by toastTTL; toastTickf overrides it).
 	// txFilePickFromB marks a tx-file pick opened from §B (not the §L grid)
 	// so its result surfaces there; txFileLoadErr is why a picked file did

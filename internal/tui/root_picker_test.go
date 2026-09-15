@@ -78,9 +78,11 @@ func TestRootPickerSelectCommitsChosenPath(t *testing.T) {
 	r.m.filePickRootFn = func(string, string) (string, string) { return dir, "fixture/" }
 
 	r.pump(pages.SettingsPickFileMsg{Key: app.SettingSpec})
-	// Entries: specs/ (dir), a.json (.json), b.txt (unselectable).
-	r.pump(ch('j')) // cursor onto a.json
-	r.pump(ch('j')) // b.txt: enter below must be inert first... move back
+	// Entries: ../ (the parent row), specs/ (dir), a.json (.json),
+	// b.txt (unselectable).
+	r.pump(ch('j')) // ../ -> specs/
+	r.pump(ch('j')) // specs/ -> a.json
+	r.pump(ch('j')) // a.json -> b.txt: enter below must be inert first... move back
 	r.pump(ch('k'))
 	r.pump(special(tea.KeyEnter))
 
@@ -235,6 +237,68 @@ func TestRootTxPickFileLoadErrorSurfacesOnB(t *testing.T) {
 
 	if body := m.View().Content; !strings.Contains(body, "transaction file rejected") {
 		t.Errorf("the rejected tx-file must surface its reason on §B:\n%s", body)
+	}
+}
+
+// TestRootTxPickFileClimbsAboveStartDir: UAT round 9 F-9a — the §B
+// production picker roots at "/" with the tx file's dir as Start, so
+// the .. row leads the list and every up leg (enter on the row, u,
+// backspace) climbs ABOVE the start dir. No filePickRootFn here: this
+// pins the production wiring itself (start = the real app config's tx
+// file dir).
+func TestRootTxPickFileClimbsAboveStartDir(t *testing.T) {
+	txApp := newTxFileApp(t)
+	m := NewRootModel(txApp)
+	m.settingsSrc = fakeSettingsFixture()
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	_, _ = m.Update(ch('2')) // §B
+
+	start := filepath.Dir(txApp.Config().GetFile())
+	_, cmd := m.Update(pages.TxPickFileMsg{})
+	if cmd != nil {
+		t.Fatalf("opening the picker must yield no cmd, got %v", cmd)
+	}
+	if m.filePick == nil {
+		t.Fatal("f on §B must open the picker")
+	}
+	if got := m.filePick.CurrentDir(); got != start {
+		t.Fatalf("start dir = %q, want the tx file's dir %q", got, start)
+	}
+	if body := m.View().Content; !strings.Contains(body, "../") {
+		t.Fatalf("a climbable picker must lead with the .. row:\n%s", body)
+	}
+
+	_, _ = m.Update(special(tea.KeyEnter)) // the cursor row is the .. row
+	if got, want := m.filePick.CurrentDir(), filepath.Dir(start); got != want {
+		t.Fatalf("enter on .. = %q, want %q", got, want)
+	}
+	_, _ = m.Update(ch('u'))
+	if got, want := m.filePick.CurrentDir(), filepath.Dir(filepath.Dir(start)); got != want {
+		t.Fatalf("u = %q, want %q", got, want)
+	}
+	_, _ = m.Update(special(tea.KeyBackspace))
+	if got := m.filePick.CurrentDir(); got == filepath.Dir(filepath.Dir(start)) {
+		t.Fatalf("backspace must climb too: %q", got)
+	}
+}
+
+// TestRootSettingsPickFileClimbsAboveStartDir: the same leg on §L —
+// the picker may leave the field value's start dir (the fixture hook
+// keeps its relative label; the widget's up leg is the filesystem).
+func TestRootSettingsPickFileClimbsAboveStartDir(t *testing.T) {
+	fake := fakeSettingsFixture()
+	r := newSettingsTestRoot(t, fake)
+	r.gotoPage()
+	dir := pickRootFixture(t)
+	r.m.filePickRootFn = func(string, string) (string, string) { return dir, "fixture/" }
+
+	r.pump(pages.SettingsPickFileMsg{Key: app.SettingSpec})
+	if r.m.filePick == nil {
+		t.Fatal("f on a §L path row must open the picker")
+	}
+	r.pump(ch('u'))
+	if got, want := r.m.filePick.CurrentDir(), filepath.Dir(dir); got != want {
+		t.Fatalf("u above the §L start dir = %q, want %q", got, want)
 	}
 }
 
