@@ -2,16 +2,16 @@
 [38;2;141;150;160mcapture  [mcapture.pcap
 [38;2;141;150;160mspec     [mspec.json
 [38;2;141;150;160mheader   [mbinary2
-[38;2;141;150;160moutput   [m—  [38;2;141;150;160m[[m[1;38;2;68;147;248mo[m[38;2;141;150;160m] change[m
+[38;2;141;150;160moutput>  [m▏ [38;2;141;150;160m[[m[1;38;2;68;147;248menter[m[38;2;141;150;160m] set[m[38;2;141;150;160m  [m[38;2;141;150;160m[[m[1;38;2;68;147;248mesc[m[38;2;141;150;160m] cancel[m
 [38;2;141;150;160mgoal     [m[38;2;68;147;248m● t transactions + datasets[m  [38;2;141;150;160m○ r mock routes[m  [38;2;141;150;160m○ s scenario flow[m
 [38;2;141;150;160msecurity [m[1;38;2;63;185;80m✓ on (mask PAN/track)[m[2;38;2;141;150;160m  [[m[1;38;2;68;147;248mm[m[2;38;2;141;150;160m] toggle[m
-[38;2;141;150;160mflows /  [m[38;2;68;147;248mzzz[m[2;38;2;141;150;160m  no flows match[m
+[38;2;141;150;160mflows /  [m[38;2;68;147;248m(all flows)[m
 [38;2;141;150;160mflows    [m[2;38;2;141;150;160m412 msgs parsed, 3 unparsable[m
-[38;2;141;150;160m  no flows match the filter[m
-[1;38;2;255;123;114m✗ no flows match the filter - clear it or fix it[m
-
-
-
+▸ ● → dst :8080  205 msgs   0200(180) 0800(25)  [38;2;68;147;248msignon[m
+  ○ ← src :8080  184 msgs   0210(178) 0810(6)
+  ○ → dst :9999  23 msgs    0200(23)
+  ○ ← src :9999  23 msgs    0210(23)
+[38;2;141;150;160mready - [m[1;38;2;68;147;248mEnter[m[38;2;141;150;160m starts the analysis[m
 
 
 

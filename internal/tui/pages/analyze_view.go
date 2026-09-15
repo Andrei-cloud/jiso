@@ -324,18 +324,21 @@ func (a *Analyze) summaryRow(label, value string, w int) string {
 
 // outputRow renders the run step's output-file row (UAT round 5): the
 // effective destination with the [o] affordance, or the live one-line
-// editor while [o] is open.
+// editor while [o] is open. UAT round 8: the key tokens go through
+// keySpan so they wear the Theme.Key badge like every other hint.
 func (a *Analyze) outputRow(w int) string {
 	if a.outEditing {
 		line := a.th.Deemphasized.Render(padRight("output>", analyzeListLabelWidth)) +
 			a.th.TextPrimary.Render(a.outDraft+cursorGlyph(a.th)) + " " +
-			a.th.Deemphasized.Render("[enter] set  [esc] cancel")
+			keySpan(a.th, a.th.Deemphasized, "enter", "set") +
+			a.th.Deemphasized.Render("  ") +
+			keySpan(a.th, a.th.Deemphasized, "esc", "cancel")
 
 		return clipCells(line, w, clipTail(a.th)) + "\n"
 	}
 	line := a.th.Deemphasized.Render(padRight("output", analyzeListLabelWidth)) +
 		a.th.TextPrimary.Render(dashIf(a.th, a.state.OutputPath)) + "  " +
-		a.th.Deemphasized.Render("[o] change")
+		keySpan(a.th, a.th.Deemphasized, "o", "change")
 
 	return clipCells(line, w, clipTail(a.th)) + "\n"
 }

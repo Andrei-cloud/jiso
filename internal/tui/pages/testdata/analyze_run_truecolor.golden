@@ -2,7 +2,7 @@
 [38;2;141;150;160mcapture  [mcapture.pcap
 [38;2;141;150;160mspec     [mspec.json
 [38;2;141;150;160mheader   [mbinary2
-[38;2;141;150;160moutput   [m—  [38;2;141;150;160m[o] change[m
+[38;2;141;150;160moutput   [m—  [38;2;141;150;160m[[m[1;38;2;68;147;248mo[m[38;2;141;150;160m] change[m
 [38;2;141;150;160mgoal     [m[38;2;68;147;248m● t transactions + datasets[m  [38;2;141;150;160m○ r mock routes[m  [38;2;141;150;160m○ s scenario flow[m
 [38;2;141;150;160msecurity [m[1;38;2;63;185;80m✓ on (mask PAN/track)[m[2;38;2;141;150;160m  [[m[1;38;2;68;147;248mm[m[2;38;2;141;150;160m] toggle[m
 [38;2;141;150;160mflows /  [m[38;2;68;147;248m(all flows)[m

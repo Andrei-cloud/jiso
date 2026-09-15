@@ -1,14 +1,15 @@
 // analyze_golden_test.go pins the §J wizard body (truecolor + ascii):
 // the rail, the capture/spec candidate lists (populated and empty), the
 // header list, the run step with its folded inline option rows and
-// results preview, the inline field error, the running state, the
-// no-match note, and the narrow render. Fixtures are fixed display
-// strings — no clock, no real paths — so the bytes are deterministic.
-// Regenerate only these with:
+// results preview, the open [o] output editor, the inline field error,
+// the running state, the no-match note, and the narrow render. Fixtures
+// are fixed display strings — no clock, no real paths — so the bytes are
+// deterministic. Regenerate only these with:
 // go test ./internal/tui/pages -run TestAnalyzeGoldens -update
 package pages
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -37,17 +38,19 @@ func TestAnalyzeGoldens(t *testing.T) {
 		st   AnalyzeState
 		w    int
 		h    int
+		keys []tea.Msg
 	}{
-		{"analyze_capture", analyzeGoldenCapture(), 120, 32},
-		{"analyze_capture_empty", analyzeGoldenCaptureEmpty(), 120, 32},
-		{"analyze_spec", analyzeGoldenSpec(), 120, 32},
-		{"analyze_header", analyzeGoldenHeader(), 120, 32},
-		{"analyze_run", analyzeGoldenRun(), 120, 32},
-		{"analyze_run_done", analyzeGoldenRunDone(preview), 120, 32},
-		{"analyze_run_note", analyzeGoldenRunNote(), 120, 32},
-		{"analyze_error", analyzeGoldenError(), 120, 32},
-		{"analyze_running", analyzeGoldenRunning(), 120, 32},
-		{"analyze_narrow", analyzeGoldenRunDone(preview), 80, 24},
+		{"analyze_capture", analyzeGoldenCapture(), 120, 32, nil},
+		{"analyze_capture_empty", analyzeGoldenCaptureEmpty(), 120, 32, nil},
+		{"analyze_spec", analyzeGoldenSpec(), 120, 32, nil},
+		{"analyze_header", analyzeGoldenHeader(), 120, 32, nil},
+		{"analyze_run", analyzeGoldenRun(), 120, 32, nil},
+		{"analyze_run_done", analyzeGoldenRunDone(preview), 120, 32, nil},
+		{"analyze_run_note", analyzeGoldenRunNote(), 120, 32, nil},
+		{"analyze_run_outedit", analyzeGoldenRun(), 120, 32, []tea.Msg{press('o')}},
+		{"analyze_error", analyzeGoldenError(), 120, 32, nil},
+		{"analyze_running", analyzeGoldenRunning(), 120, 32, nil},
+		{"analyze_narrow", analyzeGoldenRunDone(preview), 80, 24, nil},
 	}
 
 	for _, c := range cases {
@@ -56,9 +59,40 @@ func TestAnalyzeGoldens(t *testing.T) {
 				a := NewAnalyze(testTheme(t, p.prof))
 				a.SetState(c.st)
 				_, _ = a.Update(tea.WindowSizeMsg{Width: c.w, Height: c.h})
+				for _, k := range c.keys {
+					_, _ = a.Update(k)
+				}
 				checkGolden(t, c.name+"_"+p.name, a.View().Content)
 			})
 		}
+	}
+}
+
+// TestAnalyzeRunStepKeyBadges pins UAT round-8 finding 3: the run
+// step's [o] affordance and the open output editor's [enter]/[esc]
+// tokens carry the Theme.Key badge (bold accent) like every other key,
+// wrapped in keySpan over the row's Deemphasized base.
+func TestAnalyzeRunStepKeyBadges(t *testing.T) {
+	t.Parallel()
+
+	th := testTheme(t, colorprofile.TrueColor)
+
+	a := NewAnalyze(th)
+	a.SetState(analyzeGoldenRun())
+	_, _ = a.Update(windowSize(120, 32))
+
+	if got := a.View().Content; !strings.Contains(got, keySpan(th, th.Deemphasized, "o", "change")) {
+		t.Errorf("run-step output row: [o] change lacks the Theme.Key badge\ngot: %q", got)
+	}
+
+	_, _ = a.Update(press('o'))
+
+	got := a.View().Content
+	if !strings.Contains(got, keySpan(th, th.Deemphasized, "enter", "set")) {
+		t.Errorf("out-edit row: [enter] set lacks the Theme.Key badge\ngot: %q", got)
+	}
+	if !strings.Contains(got, keySpan(th, th.Deemphasized, "esc", "cancel")) {
+		t.Errorf("out-edit row: [esc] cancel lacks the Theme.Key badge\ngot: %q", got)
 	}
 }
 
