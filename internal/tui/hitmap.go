@@ -209,7 +209,8 @@ func (m *RootModel) contentOrigin() (x, y int) {
 // §M overlay's box; Task 8.3 added the pages' click-selectable rows
 // (pages.Selector, registered over the pane scrollHits) and the file
 // picker's entry rows; Task 8.4 added the footer hint cells (frame.
-// FooterHits); focus targets arrive with Task 8.5.
+// FooterHits); Task 8.5 added the click-to-focus rects
+// (registerFocusHits, hitmap_focus.go).
 //
 // Registration order is z-order (page body first, overlays last), and an
 // empty map is legal: it is §G before its first log line, every page
@@ -237,6 +238,13 @@ func (m *RootModel) buildHitMap() hitMap {
 			hm.addAbs(ox, oy, r.Rect, selectHit(r.ID, r.Index))
 		}
 	}
+	// Task 8.5: click-to-focus. The page-published focus rects (the §J step
+	// rail) join the page body here, and the modal-owned ones (the
+	// connect/server form fields, the send/worker wizard rails) register
+	// AFTER the page geometry — the modals draw over the page — but BEFORE
+	// the §M box and the picker rows below, which draw over the modals and
+	// shadow every cell they cover (registerFocusHits, hitmap_focus.go).
+	m.registerFocusHits(&hm)
 	// The §M overlay is root-owned modal state, not a page: its region is
 	// spelled here and dispatched directly in handleScrollMsg. Added last
 	// so the wheel over the box never scrolls the page underneath it.
@@ -482,6 +490,7 @@ func (m *RootModel) handleSelectMsg(msg selectMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleFocusMsg is the focusMsg seam Tasks 8.2–8.5 fill with pane focus
-// (click a split pane = Tab there).
-func (m *RootModel) handleFocusMsg(focusMsg) (tea.Model, tea.Cmd) { return m, nil }
+// handleFocusMsg is the focusMsg seam, implemented with the Task 8.5
+// click-to-focus leg in hitmap_focus.go (field rows, wizard rails, and
+// the narrow overlayOverForm guard that keeps a form's own fields
+// clickable while an input-owning overlay on top of them does not).

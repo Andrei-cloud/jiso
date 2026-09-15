@@ -15,6 +15,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -61,6 +62,45 @@ func (d *ConnectDialog) View() string {
 
 	return titleLine(d.th, title) + "\n" +
 		widgets.Border(d.th, false).Width(bw).Render(body)
+}
+
+// FieldRowHits reports the DRAWN field rows relative to the dialog's own
+// View origin (the FilePicker.RowHits doctrine, UAT round 8 Task 8.5
+// click-to-focus): every line the field's fieldLine drew belongs to its
+// rect — radio and checklist rows wrap onto continuation lines — while
+// the header picker's overlay lines and the error line belong to no
+// field, and the in-flight progress body draws no fields at all and
+// publishes nothing (hit = drawn ink). The root centers the composed
+// View and translates these into the absolute cells its hit map
+// resolves; §G reuses the same dialog and the same rects.
+func (d *ConnectDialog) FieldRowHits() []widgets.RowHit {
+	if d.state.InFlight || len(d.state.Fields) == 0 {
+		return nil
+	}
+	w := d.width
+	if w <= 0 {
+		w = frame.FallbackWidth
+	}
+	bw := max(min(connectBoxWidth, w-2), connectBoxMin)
+	inner := bw - 2
+
+	out := make([]widgets.RowHit, 0, len(d.state.Fields))
+	y := 2 // the title line and the box's top border sit above the body
+	for i, f := range d.state.Fields {
+		h := lipgloss.Height(d.fieldLine(i == d.focus, f, inner))
+		out = append(out, widgets.RowHit{
+			Rect:  geom.Rect{X: 1, Y: y, W: inner, H: h},
+			Index: i,
+		})
+		y += h
+		if d.pickerOpen && f.Kind == FieldPicker {
+			// The overlay spliced under the picker row is the overlay's
+			// own ink, not a field: its lines publish no focus hit.
+			y += 1 + lipgloss.Height(d.pickerBox(inner))
+		}
+	}
+
+	return out
 }
 
 // formBody renders the editable form, optional error line, and the

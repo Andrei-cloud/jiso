@@ -245,3 +245,16 @@ func (w *WorkerWizard) setStep(n int) {
 		w.clampTop()
 	}
 }
+
+// BackToStep lands on an EARLIER rail step for a rail click (UAT round 8
+// Task 8.5): the same setStep the wizard's own Esc walk uses, so the
+// arrival clears the step-local error lines and the row edit mode. A
+// forward or current index changes nothing — forward transitions are the
+// step's Enter leg with its resolveRun validation, and a rail click must
+// not bypass them.
+func (w *WorkerWizard) BackToStep(n int) {
+	if n < 0 || n >= w.step {
+		return
+	}
+	w.setStep(n)
+}

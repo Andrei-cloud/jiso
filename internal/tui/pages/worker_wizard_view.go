@@ -19,6 +19,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -87,6 +88,33 @@ func (w *WorkerWizard) rail(inner int) string {
 	parts = append(parts, strings.Join(labels, w.pick(" \u25b8 ", " > ")))
 
 	return clipCells(strings.Join(parts, "  "), inner, clipTail(w.th))
+}
+
+// RailRowHits reports the rail's drawn step-label spans relative to the
+// wizard's own View origin (the FilePicker.RowHits doctrine, UAT round 8
+// Task 8.5 click-to-focus): one cell tall on the rail line — the box's
+// top border sits above it, and the rail's own title span to its left —
+// clipped to the width rail clips to (a label past the clip drew no ink
+// and publishes no hit). The root centers the composed View and
+// translates these into the absolute cells its hit map resolves.
+func (w *WorkerWizard) RailRowHits() []widgets.RowHit {
+	width := w.width
+	if width <= 0 {
+		width = frame.FallbackWidth
+	}
+	bw := max(min(workerWizardBoxWidth, width-2), workerWizardBoxMin)
+	inner := bw - 2
+
+	spans := railSpans(titleLine(w.th, w.title()), workerStepNames[w.mode], w.pick(" \u25b8 ", " > "), inner)
+	out := make([]widgets.RowHit, 0, len(spans))
+	for _, s := range spans {
+		out = append(out, widgets.RowHit{
+			Rect:  geom.Rect{X: 1 + s.X, Y: 1, W: s.W, H: 1},
+			Index: s.Index,
+		})
+	}
+
+	return out
 }
 
 // title is the wizard's box title (the retired forms' dialog titles).

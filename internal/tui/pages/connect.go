@@ -145,10 +145,15 @@ func (d *ConnectDialog) Editing() bool { return d.editing }
 // SetFocus moves the highlighted field (the router's click-to-focus and
 // tests): an out-of-range or disabled index clamps onto the nearest
 // enabled field like SetState, and the new field lands in navigate mode
-// (highlighted, not typed into).
+// (highlighted, not typed into). An open header picker closes with the
+// move (UAT round 8 Task 8.5): the overlay draws INSIDE the form under
+// the picker row, so leaving it open would keep a stale overlay drawn
+// over the newly focused field while the keyboard already belongs to
+// that field — the same close-the-overlay rule the Tab move follows.
 func (d *ConnectDialog) SetFocus(i int) {
 	d.focus = clampFocus(d.state.Fields, i)
 	d.editing = false
+	d.pickerOpen = false
 }
 
 // SetState replaces the rendered snapshot, preserving the page-owned focus

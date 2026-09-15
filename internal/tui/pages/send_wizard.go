@@ -338,6 +338,20 @@ func (w *SendWizard) resetStepInput() {
 // item rather than the alphabetically-first one).
 func (w *SendWizard) HomeCursor() { w.resetStepInput() }
 
+// BackToStep lands on an EARLIER rail step for a rail click (UAT round 8
+// Task 8.5): backward revisits are free exactly like the wizard's own Esc
+// walk, and the arrival clears the step-local input (the back() +
+// resetStepInput contract). A forward or current index changes nothing —
+// forward transitions are the step's Enter leg, run through root's
+// validation gates, and a rail click must not bypass them.
+func (w *SendWizard) BackToStep(n int) {
+	if n < 0 || n >= w.step {
+		return
+	}
+	w.step = n
+	w.resetStepInput()
+}
+
 // currentIndexOf returns the index of the first item tagged Current.
 func currentIndexOf(items []WizardItem) int {
 	for i, it := range items {
