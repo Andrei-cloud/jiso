@@ -125,7 +125,9 @@ cover: ## Module coverage from a merged -coverpkg profile
 
 .PHONY: goldens
 goldens: ## Regenerate TUI golden frames (review the diff before committing)
-	@go test $$(go list ./internal/tui/... | grep -v /bridge) -update
+# Packages without a testdata dir (bridge, geom) never register the -update flag,
+# so exclude them or `go test -update ./internal/tui/...` errors on flag parsing.
+	@go test $$(go list ./internal/tui/... | grep -vE '/(bridge|geom)') -update
 
 # The full local gate. The three hygiene guards (7-bit ASCII goldens, file
 # line budget, golden width budget) run as part of ./internal/tui and
