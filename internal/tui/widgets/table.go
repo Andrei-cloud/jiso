@@ -167,11 +167,18 @@ func (m *Table) Len() int { return len(m.rows) }
 func (m *Table) Cursor() int { return m.cursor }
 
 // SetCursor moves the cursor (clamped) and drags the wheel window along
-// so the cursor row stays rendered (List's SetCursor contract).
+// so the cursor row stays rendered (List's SetCursor contract). The
+// drag fires only on an ACTUAL cursor move: pages re-push their state
+// after every root Update (syncPages → SetState → SetCursor with the
+// same index), and re-setting the same cursor must leave the wheel
+// window where the user left it (UAT round 8 Task 8.2c review, C1).
 func (m *Table) SetCursor(i int) {
+	old := m.cursor
 	m.cursor = i
 	m.clampCursor()
-	m.dragWindow()
+	if m.cursor != old {
+		m.dragWindow()
+	}
 }
 
 // Selected returns the row under the cursor; ok is false when empty.
