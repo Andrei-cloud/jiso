@@ -14,6 +14,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 )
 
 const (
@@ -29,15 +30,24 @@ const (
 // keys-side itemsWindow has long conceded the shrink with h-6 rows).
 func itemsPaneH(contentH int) int { return max(contentH-4, 4) }
 
-// itemsWindow is the picker geometry shared by the renderer and the
-// scroll keys: the roster column width and the visible roster rows.
-func (a *Analyze) itemsWindow() (listW, rows int) {
+// itemsWindow is the visible roster rows shared by the renderer and the
+// scroll keys (the roster column width is a pure layout constant,
+// analyzeItemsListW; UAT round 8 Task 8.2c dropped the dead second
+// result).
+func (a *Analyze) itemsWindow() int {
 	_, h := frame.ContentSize(a.width, a.height)
 
-	return analyzeItemsListW, max(h-6, 4)
+	return max(h-6, 4)
 }
 
-// itemsOverlay composes the picker body for the content area.
+// itemsBodyY is the content-relative row where the picker panes start:
+// render pins its own rail line at row 0 and the overlay's two-line head
+// occupies rows 1-2, so both panes (side by side or stacked) begin at
+// row 3 — the offset the wheel hit map records with the pane sizes.
+const itemsBodyY = 3
+
+// itemsOverlay composes the picker body for the content area, recording
+// the two panes' layout rects for the wheel hit map (Task 8.2c).
 func (a *Analyze) itemsOverlay(w, h int) string {
 	included := 0
 	for _, on := range a.itemSel {
@@ -56,13 +66,19 @@ func (a *Analyze) itemsOverlay(w, h int) string {
 		lw := min(analyzeItemsListW, max(w/2, 24))
 		gap := " "
 		pw := max(w-lw-len([]rune(gap)), 24)
-		body = lipgloss.JoinHorizontal(lipgloss.Top,
-			a.itemsRoster(lw, bodyH), gap,
-			a.itemsPreview(pw, bodyH))
+		roster := a.itemsRoster(lw, bodyH)
+		prev := a.itemsPreview(pw, bodyH)
+		a.itemsRect = geom.Rect{X: 0, Y: itemsBodyY, W: lw, H: bodyH}
+		a.previewRect = geom.Rect{X: lw + len([]rune(gap)), Y: itemsBodyY, W: pw, H: bodyH}
+		body = lipgloss.JoinHorizontal(lipgloss.Top, roster, gap, prev)
 	} else {
 		lh := max(bodyH/2, 4)
 		ph := max(bodyH-lh, 3)
-		body = a.itemsRoster(w, lh) + "\n" + a.itemsPreview(w, ph)
+		roster := a.itemsRoster(w, lh)
+		prev := a.itemsPreview(w, ph)
+		a.itemsRect = geom.Rect{X: 0, Y: itemsBodyY, W: w, H: lh}
+		a.previewRect = geom.Rect{X: 0, Y: itemsBodyY + lh, W: w, H: ph}
+		body = roster + "\n" + prev
 	}
 
 	return head + "\n" + body

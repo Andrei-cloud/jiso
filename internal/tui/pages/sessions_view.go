@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -50,6 +51,10 @@ func (s *Sessions) View() tea.View {
 // review body), clipped to exactly h lines of at most w cells.
 func (s *Sessions) render(w, h int) string {
 	s.sections = s.sections[:0] // redraw the section rects alongside the ink
+	// The wheel regions re-publish below, or not at all (a pane that is
+	// not drawn publishes nothing; Task 8.2c).
+	s.listRect = geom.Rect{}
+	s.reviewRect = geom.Rect{}
 
 	head := s.headerLine(w)
 	headH := 1
@@ -149,8 +154,15 @@ func (s *Sessions) listBox(x, y, w, h int) string {
 	focused := s.pane == paneSessions
 	s.list.SetFocused(focused)
 	s.list.SetWidth(max(w-4, sessionsMinListWidth))
+	// The section's body budget is h-3 rows (title + two border rows);
+	// the flat table spends one on its header, so the wheel window takes
+	// the rest and the pane stays exactly full (Task 8.2c fill).
+	s.list.SetHeight(max(h-4, 1))
+	out := s.sectionW(s.paneTitle(titleSessions, focused), s.list.View(), x, y, w, h, focused)
+	// Publish the DRAWN pane box for the wheel hit map (Task 8.2c).
+	s.listRect = sectionRect(x, y, out)
 
-	return s.sectionW(s.paneTitle(titleSessions, focused), s.list.View(), x, y, w, h, focused)
+	return out
 }
 
 // statsBox renders the STATS card (root-derived label/value lines).
@@ -218,6 +230,9 @@ func (s *Sessions) renderReview(head string, headH, h, w int) string {
 	avail := max(h-headH, 1)
 	top := min(max(s.reviewScroll, 0), max(len(body)-avail, 0))
 	window := strings.Join(body[top:min(top+avail, len(body))], "\n")
+	// Publish the review window (everything under the pinned head) for
+	// the wheel hit map (Task 8.2c): the whole area scrolls as one.
+	s.reviewRect = geom.Rect{X: 0, Y: headH, W: w, H: avail}
 
 	return clipBlockStyled(s.th, head+"\n"+window, h, w)
 }

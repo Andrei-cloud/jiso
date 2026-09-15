@@ -17,6 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -48,6 +49,7 @@ func (c *Ctf) View() tea.View {
 // w cells.
 func (c *Ctf) render(w, h int) string {
 	c.sections = c.sections[:0] // redraw the section rects alongside the ink
+	c.recRect = geom.Rect{}     // the RECORDS box re-publishes below, or not at all
 
 	head := c.headerLine(w)
 	headH := 1
@@ -66,7 +68,7 @@ func (c *Ctf) render(w, h int) string {
 	}
 
 	if c.previewOpen && c.state.Preview != nil {
-		return clipBlockStyled(c.th, head+"\n"+c.previewBody(w), h, w)
+		return clipBlockStyled(c.th, head+"\n"+c.previewBody(0, headH, w), h, w)
 	}
 
 	footer := c.summaryLine(w) + "\n" + c.hintLine(w)
@@ -220,14 +222,21 @@ func (c *Ctf) paneTitle(title string, focused bool) string {
 // previewBody renders the record viewer overlay (UAT round 6
 // wireframe): headline lines, EVERY record in a scrollable box with a
 // position ruler above and below, the viewer status line, and the
-// write/close line (the overlay owns the keyboard first).
-func (c *Ctf) previewBody(w int) string {
+// write/close line (the overlay owns the keyboard first). (x, y) is the
+// content-relative origin of the overlay body under the page head; the
+// wheel hit map records the DRAWN records box at its real offset.
+func (c *Ctf) previewBody(x, y, w int) string {
 	p := c.state.Preview
 	var b strings.Builder
 	for _, line := range p.Headline {
 		b.WriteString(c.th.TextPrimary.Render(line) + "\n")
 	}
-	b.WriteString(c.recordsBox(w) + "\n")
+	box := c.recordsBox(w)
+	// Publish the DRAWN box for the wheel hit map (Task 8.2c): measured
+	// from the composed string like every recorded section rect, below
+	// the headline lines the overlay pins first.
+	c.recRect = sectionRect(x, y+len(p.Headline), box)
+	b.WriteString(box + "\n")
 	b.WriteString(c.ctfRecStatus() + "\n")
 	b.WriteString(c.ctfRecWriteLine())
 

@@ -75,6 +75,63 @@ type Sessions struct {
 	// content-relative origin (Phase 8's hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
+
+	// listRect and reviewRect are the DRAWN boxes the wheel hit map
+	// registers under RegionSessionsList / RegionSessionsReview (Task
+	// 8.2c): recorded during the last render, the zero value means the
+	// pane was not on screen (the review overlay replaces the list, and
+	// the narrow drill shows neither list nor review).
+	listRect   geom.Rect
+	reviewRect geom.Rect
+}
+
+// §I owns two wheel-scrollable regions (the SESSIONS pane and the tx
+// review overlay) and implements the Task 8.2c region seam.
+var _ Scroller = (*Sessions)(nil)
+
+// ScrollRegions publishes the regions the last render drew: the
+// SESSIONS list box while the list panes are on screen, and the review
+// window while the tx review overlay is up. They never coexist (the
+// review replaces the body), and a pane that is not drawn publishes
+// nothing.
+func (s *Sessions) ScrollRegions() []ScrollRegion {
+	out := make([]ScrollRegion, 0, 2)
+	if s.listRect.W > 0 && s.listRect.H > 0 {
+		out = append(out, ScrollRegion{ID: RegionSessionsList, Rect: s.listRect})
+	}
+	if s.reviewRect.W > 0 && s.reviewRect.H > 0 {
+		out = append(out, ScrollRegion{ID: RegionSessionsReview, Rect: s.reviewRect})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+
+	return out
+}
+
+// ScrollRegion routes the wheel's content-direction delta (d>0 = down)
+// to the same offset the keyboard drives: the list window through
+// Table.ScrollBy (clamped by the widget), the review overlay through
+// scrollReviewBy (clamped to the scroll extent, exactly like j/k).
+func (s *Sessions) ScrollRegion(id string, d int) bool {
+	switch id {
+	case RegionSessionsList:
+		if s.listRect.W <= 0 {
+			return false
+		}
+		s.list.ScrollBy(d)
+
+		return true
+	case RegionSessionsReview:
+		if s.reviewRect.W <= 0 {
+			return false
+		}
+		s.scrollReviewBy(d)
+
+		return true
+	}
+
+	return false
 }
 
 // sessionsNav is the page keymap: pane focus arrives as PaneFocusMsg

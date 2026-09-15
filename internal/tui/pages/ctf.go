@@ -64,6 +64,13 @@ type Ctf struct {
 	// content-relative origin (Phase 8's hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
+
+	// recRect is the DRAWN RECORDS viewer box (content-relative,
+	// measured from the rendered string like every sectionRect) recorded
+	// during the last render; the zero value means the record viewer was
+	// not on screen. It is the geometry the wheel hit map registers
+	// under RegionCtfRecords.
+	recRect geom.Rect
 }
 
 // ctfNav is the page keymap: pane focus arrives as PaneFocusMsg from
@@ -400,43 +407,6 @@ func (c *Ctf) updateFilter(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 		return c, nil
 	}
-
-	return c, nil
-}
-
-// updatePreviewKeys is the record viewer's keyboard (the overlay owns
-// it wholesale): Esc closes, w writes, ↑↓/j/k walk records, PgUp/PgDn
-// page, ←→/h/l shift the column window (UAT round 6: every record is
-// shown and its character position is readable through the rulers).
-func (c *Ctf) updatePreviewKeys(msg tea.KeyPressMsg) (Page, tea.Cmd) {
-	total := 0
-	if c.state.Preview != nil {
-		total = len(c.state.Preview.Records)
-	}
-	_, pageH := c.viewerSize()
-	vis := max(pageH-2, 1)
-
-	switch {
-	case key.Matches(msg, c.nav.Cancel):
-		c.previewOpen = false
-	case key.Matches(msg, c.nav.Write):
-		return c, func() tea.Msg { return CtfWriteMsg{} }
-	case key.Matches(msg, c.nav.Up):
-		c.recCursor = max(c.recCursor-1, 0)
-	case key.Matches(msg, c.nav.Down):
-		c.recCursor = min(c.recCursor+1, max(total-1, 0))
-	case key.Matches(msg, c.nav.PgUp):
-		c.recCursor = max(c.recCursor-vis, 0)
-	case key.Matches(msg, c.nav.PgDn):
-		c.recCursor = min(c.recCursor+vis, max(total-1, 0))
-	case key.Matches(msg, c.nav.Left):
-		c.colOff = max(c.colOff-c.colStep(), 0)
-	case key.Matches(msg, c.nav.Right):
-		if maxOff := c.maxColOff(); maxOff > 0 {
-			c.colOff = min(c.colOff+c.colStep(), maxOff)
-		}
-	}
-	c.scrollRecordsIntoView(vis)
 
 	return c, nil
 }

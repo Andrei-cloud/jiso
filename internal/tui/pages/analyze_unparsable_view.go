@@ -41,7 +41,12 @@ func (a *Analyze) unparsableOverlay(w, h int) string {
 		" of "+strconv.Itoa(a.state.Unparsable)) + "\n" +
 		a.th.Dim.Render("j/k sample"+sep+"esc close")
 
-	bodyH := max(h-2, 4)
+	// UAT round 8 finding 8 (mirrored from the generated-item picker by
+	// Task 8.2c): render clips this overlay to h-2 lines and its own
+	// two-line head consumes two of them, so the panes get itemsPaneH
+	// rows — the old h-2 budget built two lines past the clip and the
+	// hex pane's last two rows were always unreachable.
+	bodyH := itemsPaneH(h)
 	var body string
 	if w >= frame.FullWidth {
 		lw := min(unparsableListW, max(w/2, 28))

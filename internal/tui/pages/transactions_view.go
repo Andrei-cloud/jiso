@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -56,11 +57,18 @@ func (t *Transactions) View() tea.View {
 	return tea.NewView(t.render(w, h))
 }
 
+// tableGridChrome is the grid renderer's non-data line count (top rule,
+// header row, header rule, bottom rule): the table's row budget is the
+// pane under the title line minus this, so the box fills the pane
+// exactly (UAT round 8 finding 5 fill + Task 8.2c wheel windowing).
+const tableGridChrome = 4
+
 // render lays out title row + table, clipped to exactly h lines of at
 // most w cells (never wraps, never overflows the content area). A failed
 // tx-file load shows the reason instead of the table or the empty state
 // (UAT round 7: silence hid the real error).
 func (t *Transactions) render(w, h int) string {
+	t.txRect = geom.Rect{} // the table re-publishes below, or not at all
 	if t.state.Error != "" {
 		return clipBlockStyled(t.th, t.titleRow(w)+"\n"+t.errorBody(), h, w)
 	}
@@ -68,8 +76,14 @@ func (t *Transactions) render(w, h int) string {
 		return clipBlockStyled(t.th, t.titleRow(w)+"\n"+t.emptyStateBody(), h, w)
 	}
 	t.table.SetWidth(w)
+	t.table.SetHeight(max(h-1-tableGridChrome, 1))
+	body := t.table.View()
+	// Publish the DRAWN table box for the wheel hit map (Task 8.2c):
+	// measured from the composed string like every recorded section
+	// rect, so the registered region is the ink the user sees.
+	t.txRect = sectionRect(0, 1, body)
 
-	return clipBlockStyled(t.th, t.titleRow(w)+"\n"+t.table.View(), h, w)
+	return clipBlockStyled(t.th, t.titleRow(w)+"\n"+body, h, w)
 }
 
 // titleRow renders "TRANSACTIONS  pool.json (12)  filter: …  sort: name ▲"

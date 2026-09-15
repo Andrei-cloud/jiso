@@ -18,8 +18,17 @@ import "jiso/internal/tui/geom"
 
 // RegionServerLog names the §G SERVER LOG pane's scroll region. Region
 // ids are "<page>:<pane>" so one page's ids can never collide with
-// another's.
-const RegionServerLog = "server:log"
+// another's. The Task 8.2c regions follow the same convention.
+const (
+	RegionServerLog      = "server:log"
+	RegionTxTable        = "tx:table"        // §B transactions table
+	RegionWorkersTable   = "workers:table"   // §H workers table
+	RegionSessionsList   = "sessions:list"   // §I SESSIONS pane table
+	RegionSessionsReview = "sessions:review" // §I tx review overlay window
+	RegionAnalyzeItems   = "analyze:items"   // §J generated-item roster
+	RegionAnalyzePreview = "analyze:preview" // §J generated-item preview
+	RegionCtfRecords     = "ctf:records"     // §K record viewer box
+)
 
 // ScrollRegion is one wheel-scrollable area a page published during its
 // last View: a stable region id and the DRAWN rect it occupies at the

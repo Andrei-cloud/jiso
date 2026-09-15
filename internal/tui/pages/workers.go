@@ -17,6 +17,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -36,7 +37,18 @@ type Workers struct {
 	summaryShownID string
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
+
+	// tableRect is the DRAWN workers table box (content-relative,
+	// measured from the rendered string like every sectionRect) recorded
+	// during the last render; the zero value means the table was not on
+	// screen (the stress-summary overlay owns the body). It is the
+	// geometry the wheel hit map registers under RegionWorkersTable.
+	tableRect geom.Rect
 }
+
+// §H owns one wheel-scrollable region (the workers table) and implements
+// the Task 8.2c region seam.
+var _ Scroller = (*Workers)(nil)
 
 // workersNav is the page keymap: start forms, stop, stop-all, and the
 // pop/close chords.
@@ -100,6 +112,32 @@ func (w *Workers) Size() (width, height int) { return w.width, w.height }
 
 // SummaryOpen reports the stress-summary overlay state (tests).
 func (w *Workers) SummaryOpen() bool { return w.summaryOpen }
+
+// ScrollRegions publishes the table's drawn rect: the region exists
+// exactly while the table is on screen, so the stress-summary overlay
+// publishes nothing and the wheel over it stays inert.
+func (w *Workers) ScrollRegions() []ScrollRegion {
+	if w.tableRect.W <= 0 || w.tableRect.H <= 0 {
+		return nil
+	}
+
+	return []ScrollRegion{{ID: RegionWorkersTable, Rect: w.tableRect}}
+}
+
+// ScrollRegion drives the SAME row window the pgup/pgdn keys move (via
+// the table's cursor-dragging navigation and its own wheel window): the
+// wheel's content-direction delta (d>0 = down) passes straight into
+// Table.ScrollBy, which clamps at both ends. The window is sized to the
+// real pane budget (content minus the head, TPS strip, and PROGRESS
+// rows) on every render, so it cannot go stale.
+func (w *Workers) ScrollRegion(id string, d int) bool {
+	if id != RegionWorkersTable || w.tableRect.W <= 0 {
+		return false
+	}
+	w.table.ScrollBy(d)
+
+	return true
+}
 
 // OpenSummary re-arms the stress-summary overlay for the summary the
 // page already carries (proposal 05 §3: the §A LAST STRESS card's

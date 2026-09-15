@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -43,7 +44,18 @@ type Transactions struct {
 	selectedID string  // identity of the row under the cursor
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
+
+	// txRect is the DRAWN table box (content-relative, measured from the
+	// rendered string like every sectionRect) recorded during the last
+	// render; the zero value means the table was not on screen (error or
+	// empty state). It is the geometry the wheel hit map registers under
+	// RegionTxTable.
+	txRect geom.Rect
 }
+
+// §B owns one wheel-scrollable region (the transactions table) and
+// implements the Task 8.2c region seam.
+var _ Scroller = (*Transactions)(nil)
 
 // txNav is the page keymap: filter-mode esc/backspace/enter plus the
 // page-local triggers; navigation itself is owned by widgets.Table.
@@ -128,6 +140,31 @@ func (t *Transactions) SelectedID() string { return t.selectedID }
 // the keyboard the router forwards every key (except the global graceful
 // exit) here, so tx names containing q, digits, or : stay typeable.
 func (t *Transactions) ClaimsKeyboard() bool { return t.filtering }
+
+// ScrollRegions publishes the table's drawn rect: the region exists
+// exactly while the table is on screen, so the error and empty states
+// publish nothing and the wheel over them stays inert.
+func (t *Transactions) ScrollRegions() []ScrollRegion {
+	if t.txRect.W <= 0 || t.txRect.H <= 0 {
+		return nil
+	}
+
+	return []ScrollRegion{{ID: RegionTxTable, Rect: t.txRect}}
+}
+
+// ScrollRegion drives the SAME row window the pgup/pgdn keys move: the
+// wheel's content-direction delta (d>0 = down) passes straight into
+// Table.ScrollBy, which clamps at both ends. The window is sized to the
+// real pane height on every render (tableGridChrome), so it cannot go
+// stale.
+func (t *Transactions) ScrollRegion(id string, d int) bool {
+	if id != RegionTxTable || t.txRect.W <= 0 {
+		return false
+	}
+	t.table.ScrollBy(d)
+
+	return true
+}
 
 // SetState replaces the rendered snapshot (root pushes it on boot and on
 // every Update). Filter, sort, and selection are recomposed over the new

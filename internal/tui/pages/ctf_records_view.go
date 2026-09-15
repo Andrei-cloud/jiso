@@ -12,6 +12,9 @@ import (
 	"strconv"
 	"strings"
 
+	key "charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
@@ -202,4 +205,77 @@ func (c *Ctf) recordBoxWidth() int {
 	w, _ := frame.ContentSize(c.width, c.height)
 
 	return w
+}
+
+// §K owns one wheel-scrollable region (the record viewer box). The
+// region seam and the viewer's keyboard live here, next to the renderer
+// whose geometry they share (ctf.go keeps the page core within its
+// file budget; UAT round 8 Task 8.2c).
+var _ Scroller = (*Ctf)(nil)
+
+// ScrollRegions publishes the RECORDS viewer box's drawn rect: the
+// region exists exactly while the preview overlay is on screen, so the
+// form view publishes nothing and the wheel over it stays inert.
+func (c *Ctf) ScrollRegions() []ScrollRegion {
+	if c.recRect.W <= 0 || c.recRect.H <= 0 {
+		return nil
+	}
+
+	return []ScrollRegion{{ID: RegionCtfRecords, Rect: c.recRect}}
+}
+
+// ScrollRegion walks the record cursor with the wheel's content-
+// direction delta (d>0 = down = later records) and drags the vertical
+// window along — the same offset pair (recCursor/recOff) the ↑↓/j/k keys
+// move. The drag clamps against the DRAWN record rows (viewerGeom, the
+// drawn-ink authority; the keys' vis is two lines generous, a pre-
+// existing quirk noted for follow-up), so the wheel can never park the
+// cursor on an unrendered row.
+func (c *Ctf) ScrollRegion(id string, d int) bool {
+	if id != RegionCtfRecords || c.recRect.W <= 0 || c.state.Preview == nil {
+		return false
+	}
+	total := len(c.state.Preview.Records)
+	_, rows := c.viewerGeom() // the DRAWN record rows (the drawn-ink authority)
+	c.recCursor = min(max(c.recCursor+d, 0), max(total-1, 0))
+	c.scrollRecordsIntoView(rows)
+
+	return true
+}
+
+// updatePreviewKeys is the record viewer's keyboard (the overlay owns
+// it wholesale): Esc closes, w writes, ↑↓/j/k walk records, PgUp/PgDn
+// page, ←→/h/l shift the column window (UAT round 6: every record is
+// shown and its character position is readable through the rulers).
+func (c *Ctf) updatePreviewKeys(msg tea.KeyPressMsg) (Page, tea.Cmd) {
+	total := 0
+	if c.state.Preview != nil {
+		total = len(c.state.Preview.Records)
+	}
+	_, pageH := c.viewerSize()
+	vis := max(pageH-2, 1)
+
+	switch {
+	case key.Matches(msg, c.nav.Cancel):
+		c.previewOpen = false
+	case key.Matches(msg, c.nav.Write):
+		return c, func() tea.Msg { return CtfWriteMsg{} }
+	case key.Matches(msg, c.nav.Up):
+		c.recCursor = max(c.recCursor-1, 0)
+	case key.Matches(msg, c.nav.Down):
+		c.recCursor = min(c.recCursor+1, max(total-1, 0))
+	case key.Matches(msg, c.nav.PgUp):
+		c.recCursor = max(c.recCursor-vis, 0)
+	case key.Matches(msg, c.nav.PgDn):
+		c.recCursor = min(c.recCursor+vis, max(total-1, 0))
+	case key.Matches(msg, c.nav.Left):
+		c.colOff = max(c.colOff-c.colStep(), 0)
+	case key.Matches(msg, c.nav.Right):
+		if maxOff := c.maxColOff(); maxOff > 0 {
+			c.colOff = min(c.colOff+c.colStep(), maxOff)
+		}
+	}
+	c.scrollRecordsIntoView(vis)
+
+	return c, nil
 }

@@ -121,9 +121,39 @@ func (m *Table) SetHeight(h int) {
 // ScrollBy scrolls the visible row window by d rows (d>0 = down, toward
 // later rows), clamped to the row range at the current height. With no
 // height set the table already renders every row, so there is nothing to
-// scroll and the offset stays put.
+// scroll and the offset stays put. The cursor is deliberately NOT dragged
+// (the wheel owns the window); keyboard cursor moves drag it back into
+// view through dragWindow, mirroring List.
 func (m *Table) ScrollBy(d int) {
 	m.scrollOff += d
+	m.clampScroll()
+}
+
+// Window reports the wheel window: the absolute index of the first
+// rendered row and how many rows View draws (List's Window contract,
+// exposed for scroll indicators and page tests). With no height set the
+// window is the full row range.
+func (m *Table) Window() (top, count int) {
+	lo, hi := m.rowWindow()
+
+	return lo, hi - lo
+}
+
+// dragWindow drags the wheel window the least amount that keeps the
+// cursor row rendered (List's clampWindow semantics, Task 8.2c): once a
+// page gives the table a pane height, a keyboard cursor that walks past
+// the window must not disappear into invisible rows. A no-op while no
+// height is set, so the unwindowed default path never moves.
+func (m *Table) dragWindow() {
+	if m.height <= 0 {
+		return
+	}
+	if m.cursor < m.scrollOff {
+		m.scrollOff = m.cursor
+	}
+	if m.cursor >= m.scrollOff+m.height {
+		m.scrollOff = m.cursor - m.height + 1
+	}
 	m.clampScroll()
 }
 
@@ -136,10 +166,12 @@ func (m *Table) Len() int { return len(m.rows) }
 // Cursor reports the absolute cursor row index (0 when empty).
 func (m *Table) Cursor() int { return m.cursor }
 
-// SetCursor moves the cursor (clamped).
+// SetCursor moves the cursor (clamped) and drags the wheel window along
+// so the cursor row stays rendered (List's SetCursor contract).
 func (m *Table) SetCursor(i int) {
 	m.cursor = i
 	m.clampCursor()
+	m.dragWindow()
 }
 
 // Selected returns the row under the cursor; ok is false when empty.
@@ -250,6 +282,7 @@ func (m *Table) Update(msg tea.Msg) (*Table, tea.Cmd) {
 		return m, nil
 	}
 	m.clampCursor()
+	m.dragWindow()
 
 	return m, nil
 }

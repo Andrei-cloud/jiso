@@ -225,9 +225,13 @@ func (a *Analyze) updateRun(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 		return a, func() tea.Msg { return AnalyzeFlowToggleAllMsg{} }
 	case msg.Text == "x":
 		// UAT round 6: reopen the generated-item picker (it also opens
-		// automatically when a run attaches).
+		// automatically when a run attaches). A reopen re-homes the
+		// sub-pane focus like a fresh run does (UAT round 8 Task 8.2c:
+		// the old focus/offset used to survive a close→reopen and the
+		// picker came back scrolled somewhere unseen).
 		if len(a.state.Items) > 0 {
 			a.itemsOpen = true
+			a.previewFocused, a.previewOff = false, 0
 			a.resetItemSel()
 		}
 

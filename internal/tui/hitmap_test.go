@@ -161,7 +161,7 @@ func TestInstallMouseIgnoresOtherButtons(t *testing.T) {
 
 	hm := hitMap{}
 	hm.add(geom.Rect{X: 2, Y: 2, W: 20, H: 10}, keyHit("4"))
-	hm.add(geom.Rect{X: 40, Y: 2, W: 20, H: 10}, scrollHit("page", 0))
+	hm.add(geom.Rect{X: 40, Y: 2, W: 20, H: 10}, scrollHit("page"))
 	var v tea.View
 	m.installMouse(&v, hm)
 
@@ -182,6 +182,11 @@ func TestInstallMouseIgnoresOtherButtons(t *testing.T) {
 	}
 	if cmd := v.OnMouse(tea.MouseWheelMsg{X: 45, Y: 5, Button: tea.MouseWheelRight}); cmd != nil {
 		t.Fatal("wheel-right must not emit a vertical scrollMsg")
+	}
+	// Task 8.2c fix 3: a LEFT CLICK on a scroll region is inert too —
+	// only the wheel acts on a scrollable pane.
+	if cmd := v.OnMouse(tea.MouseClickMsg{X: 45, Y: 5, Button: tea.MouseLeft}); cmd != nil {
+		t.Fatal("a click over a scroll region must stay inert")
 	}
 	// Vertical wheel still routes.
 	if got := v.OnMouse(tea.MouseWheelMsg{X: 45, Y: 5, Button: tea.MouseWheelDown})(); got != (scrollMsg{region: "page", delta: 1}) {
@@ -331,7 +336,6 @@ func TestHitActionCmdNonKeyMsgs(t *testing.T) {
 		act  hitAction
 		want any
 	}{
-		{"scroll", scrollHit("tx-list", -1), scrollMsg{region: "tx-list", delta: -1}},
 		// Index 0 must be routable: the first row is a legal click.
 		{"select", selectHit("tx-list", 0), selectMsg{region: "tx-list", index: 0}},
 		{"focus", focusHit("split", 1), focusMsg{region: "split", index: 1}},
@@ -346,6 +350,12 @@ func TestHitActionCmdNonKeyMsgs(t *testing.T) {
 				t.Fatalf("msg = %#v, want %#v", got, tc.want)
 			}
 		})
+	}
+	// Task 8.2c fix 3: clicking a scroll region is INERT — the wheel is
+	// the only pointer that scrolls, so a left-click on a scrollable pane
+	// must emit nothing (it used to emit a no-op scrollMsg{delta: 0}).
+	if cmd := scrollHit("tx-list").cmd(); cmd != nil {
+		t.Fatal("a click on a scroll region must be inert, not a scrollMsg")
 	}
 }
 
@@ -370,7 +380,7 @@ func TestInstallMouseContract(t *testing.T) {
 	// (real hits arrive with Tasks 8.2–8.5).
 	hm := hitMap{}
 	hm.add(geom.Rect{X: 2, Y: 20, W: 40, H: 1}, keyHit("4"))
-	hm.add(geom.Rect{X: 2, Y: 2, W: 40, H: 10}, scrollHit("page", 0))
+	hm.add(geom.Rect{X: 2, Y: 2, W: 40, H: 10}, scrollHit("page"))
 	var v2 tea.View
 	m.installMouse(&v2, hm)
 
@@ -382,6 +392,12 @@ func TestInstallMouseContract(t *testing.T) {
 	}
 	if got := cmd(); got != ch('4') {
 		t.Fatalf("click msg = %#v, want %#v", got, ch('4'))
+	}
+
+	// Task 8.2c fix 3: a left click over a SCROLL region is inert — the
+	// wheel is the only pointer that scrolls.
+	if cmd := v2.OnMouse(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft}); cmd != nil {
+		t.Fatal("a click over a scroll region must stay inert")
 	}
 
 	// Wheel over the scroll region → scrollMsg with the CONTENT-direction

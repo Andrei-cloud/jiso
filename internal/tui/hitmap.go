@@ -31,6 +31,7 @@ import (
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/geom"
 	"jiso/internal/tui/pages"
+	"jiso/internal/tui/widgets"
 )
 
 // hitKind discriminates which hitAction field carries the payload. hitKey
@@ -40,7 +41,7 @@ type hitKind int
 
 const (
 	hitKey    hitKind = iota // replay a synthetic key press
-	hitScroll                // scrollMsg{region, scroll}
+	hitScroll                // wheel-only: a click on it is inert
 	hitSelect                // selectMsg{region, select}
 	hitFocus                 // focusMsg{region, focus}
 )
@@ -53,7 +54,6 @@ type hitAction struct {
 	kind   hitKind
 	key    string // hitKey: the key as key.Matches spells it ("4", "enter")
 	region string // hitScroll/hitSelect/hitFocus: the region id routed to root
-	scroll int    // hitScroll: content-direction delta (+1 down/forward, -1 up/back)
 	sel    int    // hitSelect: target row index (0 is a legal first row)
 	focus  int    // hitFocus: target pane index
 }
@@ -61,10 +61,12 @@ type hitAction struct {
 // keyHit records a cell that replays a key press.
 func keyHit(key string) hitAction { return hitAction{kind: hitKey, key: key} }
 
-// scrollHit records a cell that scrolls region with the wheel (the delta
-// itself comes from the wheel event, so the payload is filled at resolve).
-func scrollHit(region string, delta int) hitAction {
-	return hitAction{kind: hitScroll, region: region, scroll: delta}
+// scrollHit records a cell whose WHEEL scrolls region. The delta comes
+// from the wheel event itself (installMouse decodes it), so the payload
+// carries only the region id; a left-click on the cell is inert —
+// clicking a scrollable pane does nothing, only the wheel acts.
+func scrollHit(region string) hitAction {
+	return hitAction{kind: hitScroll, region: region}
 }
 
 // selectHit records a cell that selects row index in region.
@@ -91,7 +93,7 @@ func (a hitAction) cmd() tea.Cmd {
 
 		return func() tea.Msg { return kp }
 	case hitScroll:
-		return func() tea.Msg { return scrollMsg{region: a.region, delta: a.scroll} }
+		return nil // clicking a scrollable pane does nothing; only the wheel acts
 	case hitSelect:
 		return func() tea.Msg { return selectMsg{region: a.region, index: a.sel} }
 	case hitFocus:
@@ -219,14 +221,14 @@ func (m *RootModel) buildHitMap() hitMap {
 	ox, oy := m.contentOrigin()
 	if sc, ok := m.Current().(pages.Scroller); ok {
 		for _, r := range sc.ScrollRegions() {
-			hm.addAbs(ox, oy, r.Rect, scrollHit(r.ID, 0))
+			hm.addAbs(ox, oy, r.Rect, scrollHit(r.ID))
 		}
 	}
 	// The §M overlay is root-owned modal state, not a page: its region is
 	// spelled here and dispatched directly in handleScrollMsg. Added last
 	// so the wheel over the box never scrolls the page underneath it.
 	if m.help != nil {
-		hm.add(m.helpHitRect(), scrollHit(regionHelp, 0))
+		hm.add(m.helpHitRect(), scrollHit(regionHelp))
 	}
 
 	return hm
@@ -327,14 +329,18 @@ type focusMsg struct {
 	index  int
 }
 
-// handleScrollMsg is the scrollMsg seam (filled by Task 8.2b): it
-// resolves the region to the ACTIVE scrollable and applies the delta
-// with the content-direction convention (+1 = down, no negation). The §M
-// overlay is checked first — while open it is the topmost layer, and its
-// region is root-owned — then the delta goes to the top page through
-// pages.Scroller, which reports whether it owns the region. Unknown
-// regions and closed overlays stay inert: a mouse msg never reaches a
-// page as a key.
+// handleScrollMsg is the scrollMsg seam (Tasks 8.2b/8.2c): it resolves
+// the region to the ACTIVE scrollable and applies the delta with the
+// content-direction convention (+1 = down, no negation). The §M overlay
+// is checked first — while open it is the topmost layer, and its region
+// is root-owned. Then a modal gate (UAT round 8 Task 8.2c): while ANY
+// root-owned modal is open (palette, dialog/wizard, file picker, a
+// pending confirm, or §M itself) the page branch is inert, so a wheel
+// over the page area behind a modal — or in the margins around the §M
+// box — never scrolls the frozen page underneath. Otherwise the delta
+// goes to the top page through pages.Scroller, which reports whether it
+// owns the region. Unknown regions and closed overlays stay inert: a
+// mouse msg never reaches a page as a key.
 func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
 	if msg.region == regionHelp {
 		if m.help != nil { // a straggler after Esc closed the overlay: inert
@@ -343,11 +349,38 @@ func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	}
+	if m.modalOpen() {
+		return m, nil // the modal owns the screen; the page behind stays frozen
+	}
 	if sc, ok := m.Current().(pages.Scroller); ok {
 		sc.ScrollRegion(msg.region, msg.delta)
 	}
 
 	return m, nil
+}
+
+// modalOpen reports whether a root-owned modal owns the screen: the
+// command palette, the connect/server dialogs, the send/worker wizards,
+// the shared file picker, the §M help overlay, or any pending §N3
+// confirm. This mirrors the modal chain updateKey routes ahead of the
+// page (root_keys.go) and the overlay stack View composes (root_view.go)
+// — a wheel resolved to page geometry while any of these is open must
+// stay inert instead of scrolling the frozen page behind the modal.
+func (m *RootModel) modalOpen() bool {
+	if m.pal != nil || m.dlg != nil || m.wizard != nil || m.serverDlg != nil ||
+		m.workerWiz != nil || m.help != nil || m.filePick != nil {
+		return true
+	}
+	for _, c := range []*widgets.ConfirmDialog{
+		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
+		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
+	} {
+		if c != nil && c.Pending() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // handleSelectMsg is the selectMsg seam Tasks 8.2–8.5 fill with row

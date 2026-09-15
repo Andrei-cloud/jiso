@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/pages"
 )
 
@@ -195,18 +196,25 @@ func TestWheelScrollsServerLog(t *testing.T) {
 	}
 
 	// The wheel cell is the CENTRE of the region the page published from
-	// its last render — absolute terminal coords, exactly what the hit map
-	// registered. The outside cell sits above the log pane (the header
-	// row, over no pane at all in the stacked layout).
+	// its last render — but the published rect is CONTENT-RELATIVE, so
+	// the test translates it by frame.ContentOrigin (the same offset
+	// hitMap.addAbs applies) before typing it as an SGR report: these are
+	// genuinely ABSOLUTE terminal cells. If the translation were dropped
+	// from addAbs the reports would land outside the registered rect and
+	// the wheel would stop moving the log. The outside cell sits one row
+	// ABOVE the box's drawn top border — the row above is page head with
+	// no region registered, so a wheel there must stay inert.
 	regions := r0.model.server.ScrollRegions()
 	if len(regions) != 1 || regions[0].ID != pages.RegionServerLog {
 		t.Fatalf("§G must publish exactly the %q region, got %#v", pages.RegionServerLog, regions)
 	}
-	logRect := regions[0].Rect
-	wx, wy := logRect.X+logRect.W/2, logRect.Y+logRect.H/2
-	ox, oy := logRect.X+1, 1
-	if logRect.Contains(ox, oy) {
-		t.Fatalf("outside cell (%d,%d) is inside the log rect %v", ox, oy, logRect)
+	ox, oy := r0.model.contentOrigin()
+	rel := regions[0].Rect
+	abs := geom.Rect{X: rel.X + ox, Y: rel.Y + oy, W: rel.W, H: rel.H}
+	wx, wy := abs.X+abs.W/2, abs.Y+abs.H/2
+	outX, outY := wx, abs.Y-1
+	if abs.Contains(outX, outY) {
+		t.Fatalf("outside cell (%d,%d) is inside the log rect %v", outX, outY, abs)
 	}
 
 	// Wheel session: two wheel-UPs walk the window back through history
@@ -218,7 +226,7 @@ func TestWheelScrollsServerLog(t *testing.T) {
 		"4",
 		sgrWheelUp(wx, wy)+sgrWheelUp(wx, wy),
 		sgrWheelDown(wx, wy),
-		sgrWheelUp(ox, oy),
+		sgrWheelUp(outX, outY),
 		"\x03",
 	)
 	wantClean(t, r)
@@ -238,6 +246,49 @@ func TestWheelScrollsServerLog(t *testing.T) {
 		t.Error("the wheel did not change the rendered frame")
 	}
 	checkProgGolden(t, "wheel_server_log", r.frame)
+}
+
+// TestWheelFrozenByModal pins Task 8.2c fix 1 end-to-end: with the
+// command palette open over §G, the SAME absolute wheel cell that moves
+// the log in TestWheelScrollsServerLog must leave the page frozen — the
+// palette owns the screen and draws over the page, so the wheel over
+// the page area behind it scrolls nothing.
+func TestWheelFrozenByModal(t *testing.T) {
+	// Baseline: read the region geometry from a plain §G run (the page
+	// publishes it content-relative; the wheel cell is the centre
+	// translated by frame.ContentOrigin, exactly as in the 8.2b test).
+	base := newProgSession(t, 80, 24)
+	seedServerLogLines(base.m, 30)
+	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
+	wantClean(t, r0)
+
+	regions := r0.model.server.ScrollRegions()
+	if len(regions) != 1 || regions[0].ID != pages.RegionServerLog {
+		t.Fatalf("§G must publish exactly the %q region, got %#v", pages.RegionServerLog, regions)
+	}
+	ox, oy := r0.model.contentOrigin()
+	rel := regions[0].Rect
+	wx, wy := rel.X+ox+rel.W/2, rel.Y+oy+rel.H/2
+
+	// Wheel session: the palette opens over §G, then two wheel-UPs land
+	// on the log pane's absolute centre. The page behind stays frozen:
+	// LogScroll must still be 0 when the session ends.
+	s := newProgSession(t, 80, 24)
+	seedServerLogLines(s.m, 30)
+	r := s.runScripted(t, 80*time.Millisecond,
+		"4",
+		":",
+		sgrWheelUp(wx, wy)+sgrWheelUp(wx, wy),
+		"\x03",
+	)
+	wantClean(t, r)
+
+	if r.model.pal == nil {
+		t.Fatal("precondition: the palette must be open when the wheel lands")
+	}
+	if got := r.model.server.LogScroll(); got != 0 {
+		t.Fatalf("wheel over the page behind an open palette moved logScroll to %d, want 0 (modal freeze)", got)
+	}
 }
 
 // TestProgPanicExit: a page that panics inside Update takes the program

@@ -20,7 +20,7 @@ import (
 // roster cursor — the list scroll (itemOff) stays the roster's own.
 func (a *Analyze) updateItemsKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	n := len(a.state.Items)
-	_, rows := a.itemsWindow()
+	rows := a.itemsWindow()
 
 	switch {
 	case key.Matches(msg, a.nav.Cancel):

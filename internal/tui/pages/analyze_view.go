@@ -19,6 +19,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
@@ -45,6 +46,11 @@ func (a *Analyze) View() tea.View {
 func (a *Analyze) render(w, h int) string {
 	head := a.railLine(w)
 	foot := a.footerLine(w)
+
+	// The wheel regions re-publish during the overlay render below, or
+	// not at all (Task 8.2c: a pane that is not drawn publishes nothing).
+	a.itemsRect = geom.Rect{}
+	a.previewRect = geom.Rect{}
 
 	bodyH := max(h-2, 3)
 	body := clipBlockStyled(a.th, a.stepBody(w), bodyH, w)

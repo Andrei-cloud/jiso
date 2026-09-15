@@ -19,6 +19,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/progress"
 	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
@@ -90,6 +91,7 @@ func (w *Workers) render(wt, h int) string {
 	// the PROGRESS rows clipped to the full content width, so a progress row
 	// could run a cell past the right edge of the table it sits under.
 	inner := max(wt-2, 4)
+	w.tableRect = geom.Rect{} // the table re-publishes below, or not at all
 
 	head := titleLine(w.th, titleWorkers)
 	if line := w.statusLine(inner); line != "" {
@@ -100,17 +102,41 @@ func (w *Workers) render(wt, h int) string {
 		return clipBlockStyled(w.th, head+"\n"+w.summaryBody(inner), h, inner)
 	}
 
-	w.table.SetWidth(inner)
-	body := w.table.View()
+	// The TPS strip and PROGRESS rows are pure functions of the state,
+	// so they are measured BEFORE the table: whatever vertical budget the
+	// head, the strip, and the progress rows leave is the table's real
+	// pane (Task 8.2c: the wheel window fills the pane instead of the
+	// table drawing unbounded and being clipped mid-row).
+	strip := w.tpsStrip(inner)
+	rows := w.progressBlock(inner)
+	paneH := max(h-(strings.Count(head, "\n")+1)-strHeight(strip)-strHeight(rows), tableGridChrome+1)
 
-	if strip := w.tpsStrip(inner); strip != "" {
+	w.table.SetWidth(inner)
+	w.table.SetHeight(max(paneH-tableGridChrome, 1))
+	body := w.table.View()
+	// Publish the DRAWN table box for the wheel hit map (Task 8.2c):
+	// measured from the composed string like every recorded section rect.
+	w.tableRect = sectionRect(0, strings.Count(head, "\n")+1, body)
+
+	if strip != "" {
 		body += "\n" + strip
 	}
-	if rows := w.progressBlock(inner); rows != "" {
+	if rows != "" {
 		body += "\n" + rows
 	}
 
 	return clipBlockStyled(w.th, head+"\n"+body, h, inner)
+}
+
+// strHeight is the drawn line count of an optional body block: an empty
+// block draws nothing here (lipgloss.Height("") would count one phantom
+// line and steal a table row from the pane budget).
+func strHeight(s string) int {
+	if s == "" {
+		return 0
+	}
+
+	return lipgloss.Height(s)
 }
 
 // statusLine is the root-stamped action line (no-op notices, stop

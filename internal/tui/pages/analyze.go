@@ -17,6 +17,7 @@ import (
 	key "charm.land/bubbles/v2/key"
 
 	"jiso/internal/tui/frame"
+	"jiso/internal/tui/geom"
 	"jiso/internal/tui/theme"
 )
 
@@ -71,6 +72,68 @@ type Analyze struct {
 	unparsableShownID int
 	unparsableCursor  int
 	unparsableOff     int
+
+	// itemsRect and previewRect are the DRAWN picker panes (content-
+	// relative) recorded during the last render of the generated-item
+	// overlay; the zero value means the pane was not on screen. They are
+	// the geometry the wheel hit map registers under RegionAnalyzeItems /
+	// RegionAnalyzePreview (Task 8.2c).
+	itemsRect   geom.Rect
+	previewRect geom.Rect
+}
+
+// §J owns two wheel-scrollable regions (the generated-item roster and
+// its preview sub-pane) and implements the Task 8.2c region seam.
+var _ Scroller = (*Analyze)(nil)
+
+// ScrollRegions publishes the picker panes' drawn rects: the regions
+// exist exactly while the generated-item overlay is on screen, so the
+// wizard steps and the unparsable reviewer publish nothing and the wheel
+// over them stays inert.
+func (a *Analyze) ScrollRegions() []ScrollRegion {
+	out := make([]ScrollRegion, 0, 2)
+	if a.itemsRect.W > 0 && a.itemsRect.H > 0 {
+		out = append(out, ScrollRegion{ID: RegionAnalyzeItems, Rect: a.itemsRect})
+	}
+	if a.previewRect.W > 0 && a.previewRect.H > 0 {
+		out = append(out, ScrollRegion{ID: RegionAnalyzePreview, Rect: a.previewRect})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+
+	return out
+}
+
+// ScrollRegion routes the wheel's content-direction delta (d>0 = down):
+// the preview sub-pane drives ScrollPreview (the one scroll contract
+// Task 7.3 pinned), and the roster walks the item cursor with the window
+// dragged along — the same offsets the [tab]-focused keys drive, clamped
+// the same way; a new item previews from the top like the keys do.
+func (a *Analyze) ScrollRegion(id string, d int) bool {
+	if !a.itemsOpen || len(a.state.Items) == 0 {
+		return false
+	}
+	switch id {
+	case RegionAnalyzePreview:
+		if a.previewRect.W <= 0 {
+			return false
+		}
+		a.ScrollPreview(d)
+
+		return true
+	case RegionAnalyzeItems:
+		if a.itemsRect.W <= 0 {
+			return false
+		}
+		a.itemCursor = min(max(a.itemCursor+d, 0), max(len(a.state.Items)-1, 0))
+		a.previewOff = 0 // a new item previews from the top (the keys' rule)
+		a.scrollItemsIntoView(a.itemsWindow())
+
+		return true
+	}
+
+	return false
 }
 
 // analyzeNav is the page keymap; Enter/Esc semantics are wizard
