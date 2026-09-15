@@ -79,3 +79,30 @@ func ContentOrigin(width, height int) (x, y int) {
 
 	return borderInset / 2, b2i(top && width >= MinWidth)
 }
+
+// FooterOrigin reports the absolute terminal cell where the footer strip's
+// content starts for a terminal of the given size — the chromeParts twin
+// of ContentOrigin, so the footer hit-map and the drawn frame never
+// disagree mid-shrink. X is borderInset/2 (side rule plus one space, the
+// same wrapRow inset as the content); Y is height-2 whenever the strip is
+// drawn: the bottom rule is the last line and the content area always
+// fills exactly the rows above the footer pair (console strip included).
+// ok=false when no footer row is drawn at all — chromeParts dropped the
+// footer pair under height pressure, or the frame shows the too-small
+// state below MinWidth.
+func FooterOrigin(width, height int) (x, y int, ok bool) {
+	if width <= 0 {
+		width = FallbackWidth
+	}
+	if height <= 0 {
+		height = FallbackHeight
+	}
+	if width < MinWidth {
+		return 0, 0, false
+	}
+	if _, footerPair, _ := chromeParts(height); !footerPair {
+		return 0, 0, false
+	}
+
+	return borderInset / 2, height - 2, true
+}

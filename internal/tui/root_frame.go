@@ -32,7 +32,7 @@ func (m *RootModel) frameProps(content string) frame.Props {
 	// Wireframe footer order: page legend, the always-visible
 	// ": cmd ? help q quit" trio, then the page's context keys
 	// (dropped first under width pressure, see frame.fitHints).
-	props.Hints = append(globalFooterHints(&m.keys), m.Current().Hints()...)
+	props.Hints = m.footerHints()
 
 	if m.app != nil {
 		m.applyAppFrameProps(&props)
@@ -49,6 +49,15 @@ func (m *RootModel) frameProps(content string) frame.Props {
 	}
 
 	return props
+}
+
+// footerHints is the footer strip's full entry list — the packer's INPUT
+// before any width filtering: the wireframe page legend, the always-visible
+// trio, then the current page's context keys. frameProps renders exactly
+// this list and buildHitMap packs exactly this list into click rects, so
+// the cells the user sees and the cells that fire actions can never drift.
+func (m *RootModel) footerHints() []frame.KeyHint {
+	return append(globalFooterHints(&m.keys), m.Current().Hints()...)
 }
 
 // applyAppFrameProps fills the frame props derived from the live app: config

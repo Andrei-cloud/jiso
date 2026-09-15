@@ -208,8 +208,8 @@ func (m *RootModel) contentOrigin() (x, y int) {
 // through pages.Scroller, so no page region id is hardcoded here) and the
 // §M overlay's box; Task 8.3 added the pages' click-selectable rows
 // (pages.Selector, registered over the pane scrollHits) and the file
-// picker's entry rows; footer hint cells and focus targets arrive with
-// Tasks 8.4–8.5.
+// picker's entry rows; Task 8.4 added the footer hint cells (frame.
+// FooterHits); focus targets arrive with Task 8.5.
 //
 // Registration order is z-order (page body first, overlays last), and an
 // empty map is legal: it is §G before its first log line, every page
@@ -252,6 +252,10 @@ func (m *RootModel) buildHitMap() hitMap {
 			hm.add(r.Rect, selectHit(regionPicker, r.Index))
 		}
 	}
+	// Task 8.4: the footer legend (hitmap_footer.go). Added last: the
+	// footer row never overlaps page geometry, but the legend is the
+	// topmost drawn element, mirroring the draw order.
+	m.registerFooterHits(&hm)
 
 	return hm
 }

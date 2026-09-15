@@ -80,6 +80,14 @@ type KeyHint struct {
 	Key     string
 	Desc    string
 	Primary bool
+	// Dispatch is the key spelling the router synthesizes a press for
+	// when a mouse click lands on this hint's footer cell (see
+	// FooterHits). Empty — the norm — means the Key string itself is the
+	// dispatch spelling: pages populate Key from the same matching
+	// vocabulary their bindings use (theme/keys.go), so a click replays
+	// exactly the typed key. Labels that spell no single key ("j/k")
+	// stay inert cells. It never affects the rendered hint text.
+	Dispatch string
 }
 
 // Segment is one header chip token. Plain segments render in the muted

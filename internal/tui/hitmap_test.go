@@ -68,11 +68,16 @@ func TestBuildHitMapServerLogRegion(t *testing.T) {
 	}
 
 	// No log lines: no pane, no region (TestProgPagesReachable's §G golden
-	// depends on §G-without-log registering nothing).
+	// depends on §G-without-log registering nothing). Task 8.4 note: every
+	// MinWidth frame now also registers the footer legend's key hits, so
+	// the truthful §G-without-log assertion is "no PAGE geometry" — every
+	// hit is a footer key hit, none a scroll/select region.
 	bare := serverAt(t, 80, 24, 0)
 	_ = bare.View()
-	if hm := bare.buildHitMap(); len(hm) != 0 {
-		t.Fatalf("§G without log lines registered %d hits, want 0", len(hm))
+	for _, e := range bare.buildHitMap() {
+		if e.act.kind != hitKey {
+			t.Fatalf("§G without log lines registered a non-footer hit: %+v", e)
+		}
 	}
 }
 
