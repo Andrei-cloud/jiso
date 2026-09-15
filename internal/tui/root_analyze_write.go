@@ -6,6 +6,7 @@ package tui
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -168,4 +169,28 @@ func (m *RootModel) handleAnalyzeOutCommit(msg pages.AnalyzeOutCommitMsg) (tea.M
 	m.debug.logf("analyze output set %s", path)
 
 	return m, nil
+}
+
+// applyAnalyzeOutputPick commits a run-step picker selection as the
+// output path (UAT round 8 finding 6). A file names itself; the [s]
+// folder pick names a directory, which the engine cannot write — so
+// the effective output's file name (the config file's base, else the
+// goal's default) is appended and the operator renames it with [o].
+// Either way the commit rides the same [o] leg the typed path uses
+// (absolutize, stale flag, write gate), so a selection is immediately
+// usable.
+func (m *RootModel) applyAnalyzeOutputPick(path string) (tea.Model, tea.Cmd) {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+		base := filepath.Base(m.analyzeOutputDisplay())
+		if base == "" || base == "." || base == string(filepath.Separator) {
+			base = filepath.Base(app.AnalyzeOutputFile(nil, analyzeEngineMode(m.analyzeGoal)))
+		}
+		path = filepath.Join(path, base)
+		m.debug.logf("analyze output folder pick %s -> %s", filepath.Dir(path), path)
+	}
+
+	return m.handleAnalyzeOutCommit(pages.AnalyzeOutCommitMsg{Path: path})
 }

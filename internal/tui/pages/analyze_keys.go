@@ -267,9 +267,11 @@ func (a *Analyze) runMiscKey(msg tea.KeyPressMsg) (Page, tea.Cmd, bool) {
 		return a, func() tea.Msg { return AnalyzeChooseMaskMsg{Raw: !a.state.MaskRaw} }, true
 	case "o":
 		// UAT round 5: [o] edits the output file the generated items
-		// land in (seeded with the current effective path).
+		// land in (seeded with the effective path; the browse gate of
+		// UAT round 8 finding 6 opens fresh).
 		a.outEditing = true
 		a.outDraft = a.state.OutputPath
+		a.outTyped = false
 
 		return a, nil, true
 	case "/":
@@ -285,29 +287,39 @@ func (a *Analyze) runMiscKey(msg tea.KeyPressMsg) (Page, tea.Cmd, bool) {
 }
 
 // updateOutEditKey edits the [o] output-path one-liner (UAT round 5):
-// every printable extends it, backspace trims, Enter commits the typed
-// path, Esc cancels the edit.
+// printables extend it, backspace trims, Enter commits, Esc cancels.
+// UAT round 8 finding 6 adds the capture step's two-mode browse gate:
+// while nothing has been edited yet, [f] closes the editor and hands
+// the output location to the shared root-side picker; once the operator
+// has typed, [f] is a path byte again (the SCR-502/D3 lesson).
 func (a *Analyze) updateOutEditKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	switch {
 	case key.Matches(msg, a.nav.Cancel):
-		a.outEditing, a.outDraft = false, ""
+		a.outEditing, a.outDraft, a.outTyped = false, "", false
 
 		return a, nil
 	case key.Matches(msg, a.nav.Enter):
 		v := strings.TrimSpace(a.outDraft)
-		a.outEditing, a.outDraft = false, ""
+		a.outEditing, a.outDraft, a.outTyped = false, "", false
 		if v == "" {
 			return a, nil
 		}
 
 		return a, func() tea.Msg { return AnalyzeOutCommitMsg{Path: v} }
+	case !a.outTyped && key.Matches(msg, a.nav.Browse):
+		draft := a.outDraft
+		a.outEditing, a.outDraft, a.outTyped = false, "", false
+
+		return a, func() tea.Msg { return AnalyzeOutBrowseMsg{Draft: draft} }
 	case key.Matches(msg, a.nav.Backspace):
 		a.outDraft = dropLastRune(a.outDraft)
+		a.outTyped = true
 
 		return a, nil
 	}
 	if r, ok := printableRune(msg.Text); ok {
 		a.outDraft += string(r)
+		a.outTyped = true
 	}
 
 	return a, nil

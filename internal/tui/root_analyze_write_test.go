@@ -14,6 +14,7 @@ import (
 
 	app "jiso/internal/app"
 	"jiso/internal/tui/pages"
+	"jiso/internal/tui/widgets"
 )
 
 // TestAnalyzeRunOpensItemPickerAndWritesSelected UAT round 6: the run
@@ -157,6 +158,75 @@ func TestAnalyzeWriteOverwriteConfirmFires(t *testing.T) {
 	r.pump(ch('y')) // explicit yes proceeds
 	if f.writeN != 1 || !r.m.analyzeWriteOK {
 		t.Fatalf("after y: writeN=%d writeOK=%v", f.writeN, r.m.analyzeWriteOK)
+	}
+}
+
+// TestAnalyzeOutputOpensPicker: UAT round 8 finding 6 — the run-step
+// [o] output editor is no longer type-only: the browse affordance [f]
+// opens the shared picker with target "analyze:output", a file pick
+// names the output file itself, a folder pick yields a usable
+// <folder>/<effective base name> path, and Esc in the picker leaves the
+// effective path untouched.
+func TestAnalyzeOutputOpensPicker(t *testing.T) {
+	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
+	f := r.fakeSrc(t)
+	r.walkToRun(t)
+	r.enter() // the run attaches the items (the picker auto-opens)
+	r.closePicker()
+
+	r.pump(ch('o')) // the editor opens, seeded with the effective path
+	r.pump(ch('f')) // the browse affordance hands the keyboard to the picker
+	if r.m.filePick == nil {
+		t.Fatalf("[f] in the output editor must open the file picker:\n%s", r.view())
+	}
+	if r.m.filePickTarget != "analyze:output" {
+		t.Fatalf("picker target = %q, want %q", r.m.filePickTarget, "analyze:output")
+	}
+
+	// A folder pick must yield a usable output path: the picked folder
+	// plus the effective output's file name (the engine writes a file,
+	// never a directory).
+	dir := t.TempDir()
+	r.pump(widgets.FilePickedMsg{Path: dir, Label: "fixture/"})
+	wantDir := filepath.Join(dir, "transaction.json")
+	if r.m.analyzeOutputPath != wantDir {
+		t.Fatalf("folder pick path = %q, want %q", r.m.analyzeOutputPath, wantDir)
+	}
+
+	// A file pick names itself; the run goes stale, nothing writes.
+	file := filepath.Join(t.TempDir(), "gen.json")
+	if err := os.WriteFile(file, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	r.pump(ch('o'))
+	r.pump(ch('f'))
+	if r.m.filePick == nil {
+		t.Fatal("the second browse must reopen the picker")
+	}
+	r.pump(widgets.FilePickedMsg{Path: file, Label: "fixture/gen.json"})
+	if r.m.analyzeOutputPath != file {
+		t.Fatalf("file pick path = %q, want %q", r.m.analyzeOutputPath, file)
+	}
+	if !r.m.analyzeRunStale {
+		t.Fatal("an output pick must mark the run stale")
+	}
+	if f.writeN != 0 {
+		t.Fatalf("a pick wrote %d times, want 0", f.writeN)
+	}
+
+	// Esc in the picker commits nothing (the effective path survives).
+	before := r.m.analyzeOutputPath
+	r.pump(ch('o'))
+	r.pump(ch('f'))
+	if r.m.filePick == nil {
+		t.Fatal("the third browse must reopen the picker")
+	}
+	r.pump(widgets.FilePickerCanceledMsg{})
+	if r.m.filePick != nil {
+		t.Fatal("esc must close the picker")
+	}
+	if r.m.analyzeOutputPath != before {
+		t.Fatalf("cancel changed the output path: %q -> %q", before, r.m.analyzeOutputPath)
 	}
 }
 

@@ -36,12 +36,16 @@ const (
 
 // OpenFilePickerMsg opens the picker overlay; Target names the commit
 // seam a selection flows through ("settings:<key>" or a bare §L key).
+// PickDirKey (UAT round 8 finding 6) binds the widget's extra
+// "commit the browsed folder" key for write-target owners; empty binds
+// nothing.
 type OpenFilePickerMsg struct {
-	Target    string
-	Root      string
-	RootLabel string
-	Start     string
-	Exts      []string
+	Target     string
+	Root       string
+	RootLabel  string
+	Start      string
+	Exts       []string
+	PickDirKey string
 }
 
 // CloseFilePickerMsg closes the picker without a selection.
@@ -72,7 +76,8 @@ func (m *RootModel) openFilePicker(msg OpenFilePickerMsg) (tea.Model, tea.Cmd) {
 	// sized to the box's INNER width or every spliced line overruns the
 	// terminal and the frame corrupts.
 	m.filePick = widgets.NewFilePicker(m.themeOrNil(), modalBoxWidth(w)-2, max(h-2, 5), widgets.FilePickerOptions{
-		Root: msg.Root, RootLabel: msg.RootLabel, Start: msg.Start, Selectable: extPredicate(msg.Exts),
+		Root: msg.Root, RootLabel: msg.RootLabel, Start: msg.Start,
+		Selectable: extPredicate(msg.Exts), PickDirKey: msg.PickDirKey,
 	})
 	m.filePickTarget = msg.Target
 	m.debug.logf("picker open target=%s", msg.Target)
@@ -130,6 +135,12 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		// The §J capture step: the pick commits through the same
 		// capture-choose leg Enter uses (validate + advance).
 		return m.handleAnalyzeCommitCapture(pages.AnalyzeCommitCaptureMsg{Value: msg.Path})
+	case analyzeOutputPickTarget:
+		// The §J run-step output browse: a file pick names the output
+		// file itself (an existing target still passes the §N3 overwrite
+		// confirm at w); the [s] folder pick names a directory, which
+		// applyAnalyzeOutputPick resolves to a usable file path.
+		return m.applyAnalyzeOutputPick(msg.Path)
 	}
 
 	return m.commitSettingKey(target, msg.Path)

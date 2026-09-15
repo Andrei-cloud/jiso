@@ -215,6 +215,15 @@ type (
 // root-owned file picker over .pcap files.
 type AnalyzeBrowseMsg struct{}
 
+// AnalyzeOutBrowseMsg is [f] in the freshly opened [o] output editor
+// (UAT round 8 finding 6: "selection of the folder should be
+// available"): it hands the keyboard to the shared root-owned picker so
+// the operator can browse to the output location; Draft carries the
+// seeded/half-typed path so the browse starts there. The editor closes
+// with the message — a pick commits root-side, an Esc leaves the
+// effective path untouched.
+type AnalyzeOutBrowseMsg struct{ Draft string }
+
 type (
 	// AnalyzeChooseGoalMsg is one of the run step's direct keys (t, r, s)
 	// selecting what the analyze run should produce.

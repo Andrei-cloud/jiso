@@ -242,6 +242,49 @@ func TestAnalyzeOutputEditor(t *testing.T) {
 	}
 }
 
+// TestAnalyzeOutEditorBrowseGate: UAT round 8 finding 6 — in a freshly
+// opened [o] editor [f] hands the output location to the shared picker
+// (AnalyzeOutBrowseMsg carrying the seeded draft); once the draft has
+// been edited the two-mode gate closes and [f] is a path byte again, so
+// Enter still commits the whole typed path (the SCR-502 lesson).
+func TestAnalyzeOutEditorBrowseGate(t *testing.T) {
+	t.Parallel()
+
+	st := analyzeFixtureState()
+	st.Step = StepRun
+	st.Status = AnalyzeStatusIdle
+	st.OutputPath = "transactions/transaction.json"
+	a := analyzePage(t, st, 120, 32)
+
+	_, _ = a.Update(ch('o'))
+	_, cmd := a.Update(ch('f'))
+	got, ok := cmdMsg(t, cmd).(AnalyzeOutBrowseMsg)
+	if !ok {
+		t.Fatalf("f in the fresh editor -> %T, want AnalyzeOutBrowseMsg", cmdMsg(t, cmd))
+	}
+	if got.Draft != "transactions/transaction.json" {
+		t.Errorf("browse draft = %q, want the seeded path", got.Draft)
+	}
+
+	// After an edit the gate closes: f types literally and Enter
+	// commits the whole draft (the capture step's D3 idiom).
+	_, _ = a.Update(ch('o'))
+	if _, cmd := a.Update(ch('x')); cmd != nil {
+		t.Fatal("typing in the fresh editor must not emit messages")
+	}
+	if _, cmd := a.Update(ch('f')); cmd != nil {
+		t.Fatalf("f after an edit must type, not browse: %v", cmd())
+	}
+	_, cmd = a.Update(special(tea.KeyEnter))
+	committed, ok := cmdMsg(t, cmd).(AnalyzeOutCommitMsg)
+	if !ok {
+		t.Fatalf("enter must commit AnalyzeOutCommitMsg, got %#v", cmdMsg(t, cmd))
+	}
+	if want := "transactions/transaction.jsonxf"; committed.Path != want {
+		t.Errorf("committed path = %q, want %q", committed.Path, want)
+	}
+}
+
 func TestAnalyzeRunFlowFilterAndEnter(t *testing.T) {
 	t.Parallel()
 

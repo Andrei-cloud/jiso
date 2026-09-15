@@ -35,8 +35,13 @@ type Analyze struct {
 
 	// Output-path editing (UAT round 5): [o] on the run step opens a
 	// one-line editor; Enter commits the typed path, Esc cancels.
+	// outTyped (UAT round 8 finding 6) is the two-mode gate of the
+	// capture step applied here: while nothing has been edited yet, [f]
+	// browses the output location through the shared picker; after the
+	// first edit [f] is a path byte again.
 	outEditing bool
 	outDraft   string
+	outTyped   bool
 
 	// Generated-item picker (UAT round 6): opens automatically when a
 	// run attaches (ItemsID change) and reopens with [x]; space/a toggle

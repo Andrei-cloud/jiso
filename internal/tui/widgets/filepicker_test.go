@@ -129,6 +129,48 @@ func TestFilePickerExtPredicate(t *testing.T) {
 	}
 }
 
+// TestFilePickerDirPickKey: an owner choosing a WRITE target instead of
+// an existing file opts into PickDirKey, which commits the CURRENTLY
+// BROWSED directory through FilePickedMsg (Path = the dir, Label = its
+// virtual label with the trailing "/"). Unbound owners never bind the
+// key and their footer never advertises it.
+func TestFilePickerDirPickKey(t *testing.T) {
+	t.Parallel()
+
+	th := asciiTheme(t)
+	root := pickFixture(t)
+
+	plain := newPick(t, th, root)
+	if _, cmd := plain.Update(ch('s')); cmd != nil {
+		t.Fatal("the default picker must not bind s")
+	}
+	if strings.Contains(plain.View(), "set folder") {
+		t.Fatal("the default footer must not advertise the dir-pick key")
+	}
+
+	p := NewFilePicker(th, 44, 6, FilePickerOptions{
+		Root: root, RootLabel: "fixture/", Start: filepath.Join(root, "specs"),
+		PickDirKey: "s",
+	})
+	_, cmd := p.Update(ch('s'))
+	if cmd == nil {
+		t.Fatal("s must commit the browsed directory")
+	}
+	picked, ok := cmd().(FilePickedMsg)
+	if !ok {
+		t.Fatalf("msg = %T", cmd())
+	}
+	if picked.Path != filepath.Join(root, "specs") {
+		t.Errorf("dir pick path = %q, want the browsed specs dir", picked.Path)
+	}
+	if picked.Label != "fixture/specs/" {
+		t.Errorf("dir pick label = %q, want fixture/specs/", picked.Label)
+	}
+	if body := ansi.Strip(p.View()); !strings.Contains(body, "set folder") {
+		t.Errorf("the footer must advertise the bound key:\n%s", body)
+	}
+}
+
 func visibleFile(t *testing.T, p *FilePicker) (string, bool) {
 	t.Helper()
 	item, ok := p.list.Selected()

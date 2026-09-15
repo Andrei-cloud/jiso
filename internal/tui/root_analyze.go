@@ -38,6 +38,11 @@ import (
 // back into the capture commit (the wizardPick*Targets pattern).
 const analyzePickTarget = "analyze:capture"
 
+// analyzeOutputPickTarget routes the run step's [o] picker selection
+// to the output commit (UAT round 8 finding 6: the output path gets the
+// same folder/file browse the capture step always had).
+const analyzeOutputPickTarget = "analyze:output"
+
 // The §J wizard's gate messages: what the operator reads when a leg cannot start.
 // Each was spelled at three or four sites across the legs, so rewording one meant
 // finding every copy -- and a half-updated pair shows the operator two different
@@ -72,6 +77,43 @@ func (m *RootModel) handleAnalyzeBrowse() (tea.Model, tea.Cmd) {
 	return m.openFilePicker(OpenFilePickerMsg{
 		Target: analyzePickTarget, Root: "/", RootLabel: start + string(filepath.Separator),
 		Start: start, Exts: []string{".pcap"},
+	})
+}
+
+// outPickDirKey is the output picker's extra "set folder" key (the
+// widget binds it only for this owner): it commits the directory being
+// browsed so the operator can choose the output LOCATION without
+// having to find a same-named file to overwrite.
+const outPickDirKey = "s"
+
+// handleAnalyzeOutBrowse opens the shared root file picker over the run
+// step's [o] output editor (UAT round 8 finding 6): mirroring the
+// capture browse it roots at "/" with the start directory spelled in
+// the virtual label, beginning at the draft path's directory (else the
+// effective output's, else the working directory). Unlike the capture
+// picker no extension filter applies — every existing file is a legal
+// write target (the §N3 overwrite confirm still gates the actual w) —
+// and the extra [s] key commits the browsed folder itself, which
+// applyAnalyzeOutputPick turns into a usable file path.
+func (m *RootModel) handleAnalyzeOutBrowse(draft string) (tea.Model, tea.Cmd) {
+	if m.filePick != nil {
+		return m, nil
+	}
+	value := strings.TrimSpace(draft)
+	if value == "" {
+		value = m.analyzeOutputDisplay()
+	}
+	start := "."
+	if value != "" {
+		start = filepath.Dir(value)
+	}
+	if abs, err := filepath.Abs(start); err == nil {
+		start = abs
+	}
+
+	return m.openFilePicker(OpenFilePickerMsg{
+		Target: analyzeOutputPickTarget, Root: "/", RootLabel: start + string(filepath.Separator),
+		Start: start, PickDirKey: outPickDirKey,
 	})
 }
 

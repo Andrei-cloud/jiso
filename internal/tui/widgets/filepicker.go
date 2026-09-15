@@ -32,12 +32,18 @@ type (
 // nil accepts any file. Directories are always enterable. RootLabel is
 // the virtual root shown in View (e.g. "fixture/"); empty falls back to
 // Root, so callers rendering goldens MUST pass a stable label.
+// PickDirKey (UAT round 8 finding 6) opts an owner into an extra bound
+// key that commits the CURRENTLY BROWSED directory through
+// FilePickedMsg — for owners picking a folder to write into rather
+// than an existing file to read. Empty (every reading owner) binds
+// nothing and the footer stays byte-identical.
 type FilePickerOptions struct {
 	Root       string
 	RootLabel  string
 	Start      string
 	Selectable func(name string) bool
 	ShowHidden bool
+	PickDirKey string
 }
 
 // fileEntry is one browsable directory entry.
@@ -78,8 +84,10 @@ type FilePicker struct {
 	filter   string
 	pendingG bool
 
+	pickDirKey string // footer text for the write-target key ("" = unbound)
+
 	nav struct {
-		Up, Down, Filter, Hidden, Back, Enter, Cancel key.Binding
+		Up, Down, Filter, Hidden, Back, Enter, Cancel, PickDir key.Binding
 	}
 }
 
@@ -110,6 +118,10 @@ func NewFilePicker(th *theme.Theme, width, height int, opts FilePickerOptions) *
 	p.nav.Back = key.NewBinding(key.WithKeys("backspace"))
 	p.nav.Enter = key.NewBinding(key.WithKeys(theme.KeyEnter))
 	p.nav.Cancel = key.NewBinding(key.WithKeys(theme.KeyEsc))
+	if opts.PickDirKey != "" {
+		p.pickDirKey = opts.PickDirKey
+		p.nav.PickDir = key.NewBinding(key.WithKeys(opts.PickDirKey))
+	}
 	p.refresh()
 
 	return p
@@ -274,6 +286,10 @@ func (p *FilePicker) Update(msg tea.Msg) (*FilePicker, tea.Cmd) {
 	case key.Matches(km, p.nav.Hidden):
 		p.hidden = !p.hidden
 		p.refresh()
+	case p.pickDirKey != "" && key.Matches(km, p.nav.PickDir):
+		// The write-target leg: the browsed directory itself is the
+		// selection (the §J output browse), label trailing "/" and all.
+		return p, func() tea.Msg { return FilePickedMsg{Path: p.dir, Label: dirLabel(p.relLabel(p.dir))} }
 	case key.Matches(km, p.nav.Back):
 		if parent := filepath.Dir(p.dir); p.dir != p.root && withinTree(p.root, p.dir) && parent != p.dir {
 			p.dir = parent
@@ -373,11 +389,19 @@ func (p *FilePicker) View() string {
 	// spans between glyphs must carry the base themselves).
 	base := p.theme.Dim
 	hk := func(k string) string { return p.theme.Key(k) }
-	hints := hk("j/k") + base.Render(" move"+seps+" ") + hk("gg/G") +
+	// The dir-pick hint leads the tail segments (right after "move"):
+	// the modal is ~58 cells and this footer already clips there, so an
+	// appended hint would never reach the operator's eyes. Owners that
+	// did not bind the key render the byte-identical default footer.
+	tail := hk("gg/G") +
 		base.Render(" top"+seps+" ") + hk("/") +
 		base.Render(" filter"+seps+" ") + hk("h") +
 		base.Render(" hidden"+seps+" ") + hk("enter") +
 		base.Render(" open"+seps+" ") + hk("esc") + base.Render(" cancel")
+	if p.pickDirKey != "" {
+		tail = hk(p.pickDirKey) + base.Render(" set folder"+seps+" ") + tail
+	}
+	hints := hk("j/k") + base.Render(" move"+seps+" ") + tail
 
 	return strings.Join(append([]string{head}, linesOf(body)...), "\n") + "\n" +
 		clip(hints, p.width, truncateTail(p.theme))

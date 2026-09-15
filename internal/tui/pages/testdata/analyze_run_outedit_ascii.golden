@@ -2,7 +2,7 @@ PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run
 capture  capture.pcap
 spec     spec.json
 header   binary2
-output>  | [enter] set  [esc] cancel
+output>  | [enter] set  [f] browse  [esc] cancel
 goal     * t transactions + datasets  [ ] r mock routes  [ ] s scenario flow
 security [ok] on (mask PAN/track)  [m] toggle
 flows /  (all flows)

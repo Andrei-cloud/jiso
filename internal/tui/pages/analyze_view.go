@@ -329,9 +329,13 @@ func (a *Analyze) summaryRow(label, value string, w int) string {
 // keySpan so they wear the Theme.Key badge like every other hint.
 func (a *Analyze) outputRow(w int) string {
 	if a.outEditing {
+		// UAT round 8 finding 6: [f] browses the output location (the
+		// shared picker) while the draft is still the seeded path.
 		line := a.th.Deemphasized.Render(padRight("output>", analyzeListLabelWidth)) +
 			a.th.TextPrimary.Render(a.outDraft+cursorGlyph(a.th)) + " " +
 			keySpan(a.th, a.th.Deemphasized, "enter", "set") +
+			a.th.Deemphasized.Render("  ") +
+			keySpan(a.th, a.th.Deemphasized, "f", "browse") +
 			a.th.Deemphasized.Render("  ") +
 			keySpan(a.th, a.th.Deemphasized, "esc", "cancel")
 

@@ -326,6 +326,9 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.AnalyzeBrowseMsg:
 		return m.handleAnalyzeBrowse()
 
+	case pages.AnalyzeOutBrowseMsg:
+		return m.handleAnalyzeOutBrowse(msg.Draft)
+
 	case pages.AnalyzeWriteMsg:
 		return m.handleAnalyzeWrite()
 
