@@ -111,6 +111,9 @@ func (a hitAction) cmd() tea.Cmd {
 // special key and map to the tea.Key* codes, which String renders back to
 // the same name ("shift+tab" is Tab+ModShift, the shape the terminal
 // delivers). An unknown spelling yields no key (the hit stays inert).
+// Chords beyond "backtab" do not spell here — see the Task 8.4 note on
+// registerFooterHits: a future ctrl/alt footer dispatch stays display-only
+// until this function learns to decode a modifier prefix into a tea.KeyMod.
 func synthKeyPress(key string) (tea.KeyPressMsg, bool) {
 	if len(key) == 1 {
 		r := rune(key[0])

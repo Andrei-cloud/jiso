@@ -189,8 +189,11 @@ func (m *RootModel) analyzeGoalRadios() []pages.AnalyzeRadio {
 // analyzeHeaderList is the length-header list, sourced from the one
 // canonical set the engine accepts (utils.SelectLength; E5-FIX/B2: the
 // old hardcoded list offered "bit31"/"llvm", which SelectLength rejects
-// — a selection the engine could never honor). The current/effective
-// framing leads the list so Enter with no navigation keeps it.
+// — a selection the engine could never honor). Nothing leads the list
+// on entry: UAT round 8 finding 6 dropped the config prefill, so the
+// step starts unchosen and the run legs ride an unchosen framing as ""
+// (the engine's own defaults). The header the operator picked — if any
+// — is marked selected and ordered first, so a revisit keeps it on top.
 func (m *RootModel) analyzeHeaderList() []pages.AnalyzeHeaderItem {
 	headers := utils.LengthTypeOptions()
 	items := make([]pages.AnalyzeHeaderItem, 0, len(headers))

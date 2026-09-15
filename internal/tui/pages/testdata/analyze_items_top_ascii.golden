@@ -25,4 +25,4 @@ space toggle | a all/none | enter apply | esc close
                                                line-20                              
                                                line-21                              
                                                line-22                              
-[space] include | [a] all/none | [tab] preview | [enter] apply | [esc] close (discard)
+[space] include | [a] all/none | [tab] preview | [enter] apply | [esc] close (apply)

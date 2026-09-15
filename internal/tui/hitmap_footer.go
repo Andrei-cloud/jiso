@@ -21,6 +21,14 @@ import (
 // the keyboard the key reaches the MODAL (root_keys.go's modal chain) —
 // the footer adds no modalOpen() swallow, because that would wrongly keep
 // the key from the overlay that must receive it.
+//
+// Limitation (Task 8.4, pinned for future authors): synthKeyPress spells
+// single runes and named UNMODIFIED special keys (its one chord is
+// backtab's shift) — it cannot spell ctrl/alt chords. A future footer
+// entry dispatched as e.g. "ctrl+r" therefore renders but stays
+// click-inert through this filter, never a wrong press; making chords
+// clickable means teaching synthKeyPress to decode a modifier prefix
+// into a tea.KeyMod, not loosening the !ok filter below.
 func (m *RootModel) registerFooterHits(hm *hitMap) {
 	for _, hh := range frame.FooterHits(m.themeOrNil(), m.footerHints(), m.width, m.height) {
 		if _, ok := synthKeyPress(hh.Dispatch); !ok {

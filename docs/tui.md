@@ -114,6 +114,54 @@ sessions, scenarios, ctf).
 | `home` | Jump to top |
 | `end` | Jump to bottom |
 
+## Mouse
+
+The mouse overlays the keyboard; it is not a command surface of its own.
+Every gesture resolves to exactly the state change the keyboard path
+makes — a resolved click replays the same dispatch the typed key would —
+and no gesture is a bound key. That is why this section is prose: the
+*Keys* tables in this guide stay exactly the §M registry's bound keys,
+and nothing here adds a token to them.
+
+- **Wheel** scrolls the pane under the cursor: the transactions and
+  workers tables, the sessions list and the tx review window, the §G
+  SERVER LOG, the §K records viewer, the §J generated-item roster and
+  its file preview, and the §M help box. A notch steps the same window
+  the page keys drive, clamped at both ends; horizontal wheel steps
+  scroll nothing vertical. While a modal is open the wheel over the
+  page behind it is inert — the modal owns the screen and the frozen
+  page stays frozen — except over the §M box itself, which scrolls
+  whenever it is open.
+- **Click a row** to move the cursor to it: the transactions and
+  workers tables, the sessions list and tx history, the §G routes
+  pane, the §J generated-item roster, and the file picker's entries.
+  A click only selects, exactly like the arrow keys — it never opens
+  or toggles; `enter` and `space` still act. A file-picker row click
+  additionally runs the picker's own selection: descend into a
+  directory, or commit a selectable file into the field that opened
+  it.
+- **Click a footer hotkey** to fire that key at the cell its label is
+  drawn in. The click dispatches through the same router as typing, so
+  when a modal owns the keyboard the key reaches the modal. Entries the
+  footer elided for width (the `…+N` tail) have no cell to click, and
+  display-only legends (labels that spell no single key) fire nothing.
+- **Click a form field or a wizard-rail step** to focus it. A field row
+  (connect dialog, mock-server start form) takes field focus in
+  navigate mode — typing still enters edit mode. A rail step (send and
+  worker wizards, the §J wizard rail) walks the keyboard's own
+  transitions: earlier steps are free revisits, a forward click replays
+  the current step's `enter` leg with its validation — and only for the
+  immediately next step; a larger forward gap is inert.
+- Only the **left button** acts; middle/right clicks, releases, and
+  pointer motion are ignored, so a click never double-fires.
+
+The visible tradeoff: while the TUI owns the screen it captures the
+terminal's mouse reports, so **native text selection now needs a held
+modifier** — hold `shift` (most terminals) or `option` (Terminal.app and
+iTerm2 defaults on macOS) while dragging to select and copy. Frames
+below the minimum width draw the too-small notice with no live click
+zones at all.
+
 ## Page actions
 
 ### status — Dashboard
