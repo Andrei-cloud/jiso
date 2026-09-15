@@ -351,6 +351,14 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 // root-owned msgs, consumed here so they never reach a page. The handlers
 // are the Task 8.2–8.5 seams (hitmap.go); the routing skeleton is pinned
 // by TestMouseMsgsRouteAtRoot.
+//
+// The raw tea.MouseMsg case is load-bearing, not defensive: bubbletea
+// v2.0.9 hands every mouse event to View.OnMouse (via renderer.onMouse)
+// AND then to model.Update (tea.go:808-816 falls through, no continue).
+// Swallowing it here makes "the synthetic msgs are the only mouse truth"
+// an enforced invariant — without it, any future mouse-aware consumer on
+// a page (a native bubbles viewport/list handles MouseWheelMsg) would act
+// on the raw wheel *and* the synthetic scrollMsg, double-firing.
 func (m *RootModel) routeMouseMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case scrollMsg:
@@ -361,6 +369,11 @@ func (m *RootModel) routeMouseMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case focusMsg:
 		return m.handleFocusMsg(msg)
+
+	case tea.MouseMsg:
+		// Raw terminal mouse: already resolved by View.OnMouse against the
+		// last rendered frame; replaying it into Update would double-handle.
+		return m, nil
 
 	default:
 		return nil, nil

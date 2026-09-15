@@ -50,7 +50,7 @@ type hitAction struct {
 	kind   hitKind
 	key    string // hitKey: the key as key.Matches spells it ("4", "enter")
 	region string // hitScroll/hitSelect/hitFocus: the region id routed to root
-	scroll int    // hitScroll: wheel-style delta (+1 up / back, -1 down / forward)
+	scroll int    // hitScroll: content-direction delta (+1 down/forward, -1 up/back)
 	sel    int    // hitSelect: target row index (0 is a legal first row)
 	focus  int    // hitFocus: target pane index
 }
@@ -211,8 +211,14 @@ func (m *RootModel) buildHitMap() hitMap {
 // goroutine — resolves the cell against the map View just built. The
 // closure captures that map by value: stale hits cannot outlive their
 // frame, and no RootModel field (or lock) is needed. Clicks replay their
-// hit; the wheel becomes a scrollMsg for the hit's region (down = -1,
-// up = +1); releases and motion stay inert so a click never double-fires.
+// hit; the wheel becomes a scrollMsg for the hit's region; releases and
+// motion stay inert so a click never double-fires.
+//
+// Wheel sign follows the CONTENT-DIRECTION convention shared with
+// pages.Analyze.ScrollPreview (Task 7.3): wheel-DOWN is delta +1 (move the
+// window down through the content), wheel-UP is -1 — so every scroll
+// consumer (8.2–8.5) calls ScrollPreview(msg.delta)-style APIs directly
+// with no negation.
 func (m *RootModel) installMouse(out *tea.View, hm hitMap) {
 	out.MouseMode = tea.MouseModeCellMotion
 	out.OnMouse = func(msg tea.MouseMsg) tea.Cmd {
@@ -225,9 +231,9 @@ func (m *RootModel) installMouse(out *tea.View, hm hitMap) {
 			if act.region == "" {
 				return nil // no scroll region under the cursor
 			}
-			delta := -1
+			delta := 1
 			if wheel.Button == tea.MouseWheelUp {
-				delta = 1
+				delta = -1
 			}
 
 			return func() tea.Msg { return scrollMsg{region: act.region, delta: delta} }
@@ -240,9 +246,10 @@ func (m *RootModel) installMouse(out *tea.View, hm hitMap) {
 	}
 }
 
-// scrollMsg selects a region's scroll position by delta rows (+1 back/up,
-// -1 forward/down). Routed at the root; the handler owns what the
-// region id means.
+// scrollMsg moves a region's scroll position by delta rows in the
+// CONTENT direction (+1 = down/forward, matching pages.Analyze.ScrollPreview;
+// -1 = up/back). Routed at the root; the handler owns what the region id
+// means.
 type scrollMsg struct {
 	region string
 	delta  int

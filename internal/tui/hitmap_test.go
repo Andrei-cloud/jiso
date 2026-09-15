@@ -210,15 +210,16 @@ func TestInstallMouseContract(t *testing.T) {
 		t.Fatalf("click msg = %#v, want %#v", got, ch('4'))
 	}
 
-	// Wheel down over the scroll region → scrollMsg (delta convention:
-	// down = -1); wheel up → +1.
+	// Wheel over the scroll region → scrollMsg with the CONTENT-direction
+	// delta (the ScrollPreview convention, Task 7.3): wheel-down = +1
+	// (window moves down through the content), wheel-up = -1.
 	down := tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelDown}
-	if got := v2.OnMouse(down)(); got != (scrollMsg{region: "page", delta: -1}) {
-		t.Fatalf("wheel down = %#v, want scrollMsg{page -1}", got)
+	if got := v2.OnMouse(down)(); got != (scrollMsg{region: "page", delta: 1}) {
+		t.Fatalf("wheel down = %#v, want scrollMsg{page +1} (content-direction convention)", got)
 	}
 	up := tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelUp}
-	if got := v2.OnMouse(up)(); got != (scrollMsg{region: "page", delta: 1}) {
-		t.Fatalf("wheel up = %#v, want scrollMsg{page 1}", got)
+	if got := v2.OnMouse(up)(); got != (scrollMsg{region: "page", delta: -1}) {
+		t.Fatalf("wheel up = %#v, want scrollMsg{page -1} (content-direction convention)", got)
 	}
 
 	// Release and motion must NOT replay (press+release would double-fire).
@@ -238,7 +239,11 @@ func TestInstallMouseContract(t *testing.T) {
 func TestMouseMsgsRouteAtRoot(t *testing.T) {
 	// The three synthetic msgs are owned by the root router: Update must
 	// consume them (the routing skeleton 8.2–8.5 flesh out) without
-	// panicking and without forwarding to the page.
+	// panicking and without forwarding to the page. The RAW terminal mouse
+	// msgs belong here too: bubbletea v2.0.9 delivers every mouse event to
+	// View.OnMouse AND then to model.Update (tea.go:808-816, no continue),
+	// so Update must swallow them — otherwise a future mouse-aware page
+	// consumer would act on the raw event and the synthetic msg at once.
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.Replace(recordingPage{id: "spy"})
@@ -248,6 +253,8 @@ func TestMouseMsgsRouteAtRoot(t *testing.T) {
 		scrollMsg{region: "page", delta: -1},
 		selectMsg{region: "page", index: 0},
 		focusMsg{region: "split", index: 1},
+		tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelDown},
+		tea.MouseClickMsg{X: 5, Y: 20, Button: tea.MouseLeft},
 	} {
 		model, cmd := m.Update(msg)
 		if model != m {
@@ -259,5 +266,10 @@ func TestMouseMsgsRouteAtRoot(t *testing.T) {
 	}
 	if seen := seenOf(m); len(seen) != baseline {
 		t.Fatalf("mouse msgs reached the page (%d new msgs); the root must own them", len(seen)-baseline)
+	}
+	// And the raw swallow must not have eaten real keys on the way.
+	_, _ = m.Update(ch('7'))
+	if got := m.Current().ID(); got != PageIDs[6] {
+		t.Fatalf("after a typed key the page = %q, want %q (mouse case must not shadow keys)", got, PageIDs[6])
 	}
 }
