@@ -57,6 +57,13 @@ type Table struct {
 	// background) so a multi-pane page shows one obvious cursor (UAT
 	// round 5). Single-table pages keep the default true.
 	focused bool
+	// height is the visible row count once SetHeight has been called;
+	// 0 keeps the unbounded render (every row) that predates the scroll
+	// primitives, so goldens stay byte-identical until a caller opts in
+	// (Task 8.2b/pages). scrollOff is the wheel window offset ScrollBy
+	// moves; both zero values are the historical default path.
+	height    int
+	scrollOff int
 }
 
 // NewTable builds an empty table with the given total width.
@@ -98,6 +105,26 @@ func (m *Table) SetWidth(width int) {
 		m.width = width
 	}
 	m.clampCursor()
+}
+
+// SetHeight gives the table a visible row count: View then renders the
+// window [scrollOff, scrollOff+h) and the pgup/pgdn step follows the
+// height. Until it is set every row renders and the step stays 10, which
+// is the shape the existing goldens were cut against.
+func (m *Table) SetHeight(h int) {
+	if h >= 1 {
+		m.height = h
+	}
+	m.clampCursor()
+}
+
+// ScrollBy scrolls the visible row window by d rows (d>0 = down, toward
+// later rows), clamped to the row range at the current height. With no
+// height set the table already renders every row, so there is nothing to
+// scroll and the offset stays put.
+func (m *Table) ScrollBy(d int) {
+	m.scrollOff += d
+	m.clampScroll()
 }
 
 // SetEmptyMessage overrides the empty-state line.
@@ -162,6 +189,39 @@ func (m *Table) clampCursor() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+	m.clampScroll()
+}
+
+// clampScroll keeps the wheel window inside the rows at the current
+// height (the same maxTop rule List uses: the window stays full at the
+// bottom end).
+func (m *Table) clampScroll() {
+	if maxOff := max(0, len(m.rows)-m.visibleRows()); m.scrollOff > maxOff {
+		m.scrollOff = maxOff
+	}
+	if m.scrollOff < 0 {
+		m.scrollOff = 0
+	}
+}
+
+// visibleRows is the rendered row count: the height SetHeight gave the
+// table, or every row while no height is set.
+func (m *Table) visibleRows() int {
+	if m.height > 0 && m.height < len(m.rows) {
+		return m.height
+	}
+	return len(m.rows)
+}
+
+// rowWindow is the absolute [lo, hi) row range the renderers draw. With
+// no height set it is the full range, so the default path never windows.
+func (m *Table) rowWindow() (lo, hi int) {
+	lo = m.scrollOff
+	hi = len(m.rows)
+	if m.height > 0 && lo+m.height < hi {
+		hi = lo + m.height
+	}
+	return lo, hi
 }
 
 // Update advances the table for a message it understands: the navigation keys
@@ -194,9 +254,15 @@ func (m *Table) Update(msg tea.Msg) (*Table, tea.Cmd) {
 	return m, nil
 }
 
-// rowsPerPageHint keeps pgup/pgdn meaningful without a height field;
-// pages that track height can call SetCursor themselves.
-func (m *Table) rowsPerPageHint() int { return 10 }
+// rowsPerPageHint is the pgup/pgdn step: the height the table was given,
+// or 10 while no caller has set one (the pre-scroll default the goldens
+// were cut against).
+func (m *Table) rowsPerPageHint() int {
+	if m.height > 0 {
+		return m.height
+	}
+	return 10
+}
 
 // resolvedWidths applies the flex rule: flexible columns give first
 // (right to left, floor 4), then the remaining deficit is taken from
@@ -235,63 +301,6 @@ func (m *Table) resolvedWidths() []int {
 	return ws
 }
 
-// gridGlyphs are the table's border runes for the theme's glyph mode.
-type gridGlyphs struct {
-	topLeft, topMid, topRight string
-	midLeft, midMid, midRight string
-	botLeft, botMid, botRight string
-	vert, horiz               string
-}
-
-var (
-	gridRounded = gridGlyphs{"┌", "┬", "┐", "├", "┼", "┤", "└", "┴", "┘", "│", "─"}
-	gridASCII   = gridGlyphs{"+", "+", "+", "+", "+", "+", "+", "+", "+", "|", "-"}
-)
-
-func (m *Table) gridGlyphs() gridGlyphs {
-	if m.theme.ASCII {
-		return gridASCII
-	}
-
-	return gridRounded
-}
-
-// border styles the grid runes with the subtle border colour (identity
-// render under a colorless profile).
-func (m *Table) border(s string) string {
-	return lipgloss.NewStyle().Foreground(m.theme.SubtleBorder.GetBorderTopForeground()).Render(s)
-}
-
-// rule builds a horizontal grid line (top/mid/bottom) over the fields
-// (field widths already include their padding).
-func (m *Table) rule(g gridGlyphs, left, mid, right string, fields []int) string {
-	var b strings.Builder
-	b.WriteString(left)
-	for i, w := range fields {
-		b.WriteString(strings.Repeat(g.horiz, w))
-		if i == len(fields)-1 {
-			b.WriteString(right)
-		} else {
-			b.WriteString(mid)
-		}
-	}
-
-	return m.border(b.String())
-}
-
-// gridRow joins already-padded field contents with border columns:
-// "│" field "│" field "│".
-func (m *Table) gridRow(g gridGlyphs, cells []string) string {
-	var b strings.Builder
-	b.WriteString(m.border(g.vert))
-	for _, c := range cells {
-		b.WriteString(c)
-		b.WriteString(m.border(g.vert))
-	}
-
-	return b.String()
-}
-
 // View renders the grid (wireframe tables) or the flat list (boxed
 // panes), clipped line-by-line so nothing ever overflows or wraps.
 func (m *Table) View() string {
@@ -324,7 +333,9 @@ func (m *Table) renderFlat() string {
 	lines := make([]string, 1, 1+len(m.rows))
 	lines[0] = m.theme.TextMuted.Render(pad(m.fit("  "+strings.Join(header, " ")), m.width))
 
-	for i, r := range m.rows {
+	lo, hi := m.rowWindow()
+	for i := lo; i < hi; i++ {
+		r := m.rows[i]
 		cells := make([]string, len(m.cols))
 		for j := range m.cols {
 			var raw string
@@ -339,74 +350,6 @@ func (m *Table) renderFlat() string {
 			line = m.theme.Selection.Render(line)
 		}
 		lines = append(lines, line)
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// renderGrid draws the wireframe grid: top rule, header row, header
-// rule, data rows (selector ▸ inside the first cell, theme selection
-// background), bottom rule. Cells truncate with an ellipsis and never
-// wrap; the sort caret is NOT rendered here (pages put it in their
-// title).
-func (m *Table) renderGrid() string {
-	ws := m.resolvedWidths()
-	g := m.gridGlyphs()
-	tail := truncateTail(m.theme)
-
-	fields := make([]int, len(m.cols))
-	for i := range m.cols {
-		fields[i] = ws[i] + 2
-		if i == 0 {
-			fields[0] += 2
-		}
-	}
-
-	header := make([]string, len(m.cols))
-	for i, c := range m.cols {
-		text := clip(c.Title, max(1, ws[i]), tail)
-		if c.AlignRight {
-			// The last cell of the header has to sit over the last cell of its
-			// numbers, so the header cannot keep the space it would otherwise
-			// wear on the right.
-			header[i] = c.padCell(text, fields[i])
-
-			continue
-		}
-
-		header[i] = pad(" "+text+" ", fields[i])
-	}
-
-	// top rule, header, mid rule, one per row, bottom rule
-	lines := make([]string, 1, 3+len(m.rows)+1)
-	lines[0] = m.rule(g, g.topLeft, g.topMid, g.topRight, fields)
-	lines = append(lines, m.gridRow(g, header))
-	lines = append(lines, m.rule(g, g.midLeft, g.midMid, g.midRight, fields))
-
-	for i, r := range m.rows {
-		cells := make([]string, len(m.cols))
-		for j := range m.cols {
-			var raw string
-			if j < len(r) {
-				raw = r[j]
-			}
-			field := " "
-			if j == 0 {
-				field = m.theme.Selector(m.focused && i == m.cursor)
-			}
-			field += clip(raw, ws[j], tail)
-			field = m.cols[j].padCell(field, fields[j])
-			if m.focused && i == m.cursor {
-				field = m.theme.Selection.Render(field)
-			}
-			cells[j] = field
-		}
-		lines = append(lines, m.gridRow(g, cells))
-	}
-	lines = append(lines, m.rule(g, g.botLeft, g.botMid, g.botRight, fields))
-
-	for i, l := range lines {
-		lines[i] = m.fit(l)
 	}
 
 	return strings.Join(lines, "\n")

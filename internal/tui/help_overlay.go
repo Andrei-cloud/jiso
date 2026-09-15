@@ -25,10 +25,18 @@ type helpOverlay struct {
 	context string
 	groups  []helpGroup
 	width   int
+	// height is the pane budget in CONTENT lines between the box rules;
+	// 0 (the default) means unbounded and renders the whole keymap, the
+	// shape the §M goldens were cut against. scrollOff is the wheel
+	// window offset ScrollBy moves into the content lines; newHelpOverlay
+	// always constructs it at 0, so every fresh open starts at the top.
+	height    int
+	scrollOff int
 }
 
 // newHelpOverlay snapshots the CURRENT page's registry plus the global
 // group; the overlay is pure display state (no page mutation, no cmds).
+// A fresh overlay is a fresh open: scrollOff starts at 0.
 func newHelpOverlay(th *theme.Theme, p Page, km *globalKeyMap, width int) *helpOverlay {
 	return &helpOverlay{
 		th:      th,
@@ -62,9 +70,48 @@ func (h *helpOverlay) boxWidth() int {
 	}
 }
 
-// View renders the box: title rule, one block per group, closing rule.
-// Lines are packed at segment boundaries and truncated, never wrapped.
-func (h *helpOverlay) View() string {
+// SetHeight tells the overlay how many content lines fit between its
+// rules; 0 (default) means unbounded and renders the whole keymap. It
+// re-clamps a stale scroll offset the way Table.SetHeight does.
+func (h *helpOverlay) SetHeight(height int) {
+	if height >= 1 {
+		h.height = height
+	}
+	if maxOff := h.maxScroll(); h.scrollOff > maxOff {
+		h.scrollOff = maxOff
+	}
+}
+
+// ScrollBy moves the content window by d lines (d>0 scrolls DOWN toward
+// later groups), clamped to 0..max(0, contentH-paneH). With no pane
+// height set the whole keymap already renders, so there is nothing to
+// scroll and the offset stays 0.
+func (h *helpOverlay) ScrollBy(d int) {
+	h.scrollOff += d
+	if h.scrollOff < 0 {
+		h.scrollOff = 0
+	}
+	if maxOff := h.maxScroll(); h.scrollOff > maxOff {
+		h.scrollOff = maxOff
+	}
+}
+
+// maxScroll is the deepest offset that keeps the pane full; 0 while no
+// pane height is set or the content still fits.
+func (h *helpOverlay) maxScroll() int {
+	total := len(h.contentLines())
+	visible := total
+	if h.height > 0 && h.height < total {
+		visible = h.height
+	}
+	return max(0, total-visible)
+}
+
+// contentLines lays out the box's inner lines (between the rules), each
+// padded to the inner width and wrapped in the side borders. View
+// windows this slice and ScrollBy clamps against its length, so both see
+// one layout.
+func (h *helpOverlay) contentLines() []string {
 	boxW := h.boxWidth()
 	innerW := max(boxW-4, 8)
 	compact := innerW < helpCompactInner
@@ -76,28 +123,53 @@ func (h *helpOverlay) View() string {
 		}
 	}
 
-	dash, vbar := "─", "│"
+	vbar := "│"
+	if h.th.ASCII {
+		vbar = "|"
+	}
+	box := lipgloss.NewStyle().Foreground(h.th.Border.GetBorderTopForeground())
+
+	var out []string
+	for _, g := range h.groups {
+		for _, l := range h.groupLines(g, innerW, labelW, compact) {
+			pad := strings.Repeat(" ", max(innerW-lipgloss.Width(l), 0))
+			out = append(out, box.Render(vbar)+" "+l+pad+" "+box.Render(vbar))
+		}
+	}
+
+	return out
+}
+
+// View renders the box: title rule, the visible window of the content
+// lines, closing rule. Lines are packed at segment boundaries and
+// truncated, never wrapped. With no pane height set (the golden default)
+// the window is the whole keymap.
+func (h *helpOverlay) View() string {
+	boxW := h.boxWidth()
+
+	dash := "─"
 	// four corners: the bottom rule must use boxBL (└) at the left and
 	// boxBR (┘) at the right (UAT round 6 QA: it used boxBR then boxTR,
 	// so the bottom-left drew a ┘ and the bottom-right a ┐).
 	boxTL, boxTR, boxBL, boxBR := "┌", "┐", "└", "┘"
 	if h.th.ASCII {
-		dash, vbar = "-", "|"
+		dash = "-"
 		boxTL, boxTR, boxBL, boxBR = "+", "+", "+", "+"
 	}
 
 	box := lipgloss.NewStyle().Foreground(h.th.Border.GetBorderTopForeground())
 	rule := lipgloss.NewStyle().Foreground(h.th.SubtleBorder.GetBorderTopForeground())
 
-	lines := []string{h.titleLine(box, rule, dash, boxW, boxTL, boxTR)}
-
-	for _, g := range h.groups {
-		for _, l := range h.groupLines(g, innerW, labelW, compact) {
-			pad := strings.Repeat(" ", max(innerW-lipgloss.Width(l), 0))
-			lines = append(lines, box.Render(vbar)+" "+l+pad+" "+box.Render(vbar))
-		}
+	content := h.contentLines()
+	hi := len(content)
+	if h.height > 0 && h.scrollOff+h.height < hi {
+		hi = h.scrollOff + h.height
 	}
+	lo := min(max(h.scrollOff, 0), hi) // defensive against a stale offset
 
+	lines := make([]string, 0, 1+(hi-lo)+1)
+	lines = append(lines, h.titleLine(box, rule, dash, boxW, boxTL, boxTR))
+	lines = append(lines, content[lo:hi]...)
 	lines = append(lines, box.Render(boxBL+strings.Repeat(dash, boxW-2)+boxBR))
 
 	return strings.Join(lines, "\n")

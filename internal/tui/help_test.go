@@ -385,3 +385,107 @@ func helpRegistryDump(registry []Page, km *globalKeyMap) string {
 
 	return b.String()
 }
+
+// TestHelpOverlayScrollByWindowsContent pins the Task 8.2a primitive:
+// with a pane height set the overlay renders a window of its content
+// lines between the rules, and ScrollBy moves that window (d>0 = down)
+// clamped to 0..max(0, contentH-paneH). Without a pane height — and at
+// scrollOff 0 in every case — the box renders exactly as before scrolling
+// (the goldens' byte-identical default).
+func TestHelpOverlayScrollByWindowsContent(t *testing.T) {
+	t.Parallel()
+
+	m := NewRootModel(nil)
+	th := helpGoldenTheme(colorprofile.ASCII)
+	m.theme = th
+	h := newHelpOverlay(th, m.pageByIDForTest(pages.TransactionsPageID), &m.keys, 100)
+
+	full := h.View()
+	fullLines := strings.Split(full, "\n")
+	content := len(fullLines) - 2 // everything between the top and bottom rules
+	if content < 4 {
+		t.Fatalf("fixture too small to window: %d content lines\n%s", content, full)
+	}
+
+	// No pane height: everything fits, the wheel is a no-op, and the
+	// unscrolled render is untouched.
+	h.ScrollBy(3)
+	if h.scrollOff != 0 {
+		t.Fatalf("unbounded overlay must not scroll: scrollOff=%d", h.scrollOff)
+	}
+	if h.View() != full {
+		t.Fatal("ScrollBy with no pane height must not change the render")
+	}
+
+	// A pane as tall as the content renders the box unchanged.
+	h.SetHeight(content)
+	if h.View() != full {
+		t.Fatal("a pane that fits the content must render it unchanged")
+	}
+
+	// A pane two lines shorter than the content windows the box and can
+	// scroll exactly two lines.
+	h.SetHeight(content - 2)
+	if got := len(strings.Split(h.View(), "\n")); got != len(fullLines)-2 {
+		t.Fatalf("pane height must cap the box: %d lines, want %d", got, len(fullLines)-2)
+	}
+
+	h.ScrollBy(1)
+	if h.scrollOff != 1 {
+		t.Fatalf("ScrollBy(1): scrollOff=%d, want 1", h.scrollOff)
+	}
+
+	h.ScrollBy(100)
+	if h.scrollOff != 2 {
+		t.Fatalf("ScrollBy must clamp at contentH-paneH: scrollOff=%d, want 2", h.scrollOff)
+	}
+	win := strings.Split(h.View(), "\n")
+	if len(win) != len(fullLines)-2 {
+		t.Fatalf("windowed box must keep its pane height: %d lines, want %d", len(win), len(fullLines)-2)
+	}
+	if win[0] != fullLines[0] || win[len(win)-1] != fullLines[len(fullLines)-1] {
+		t.Fatal("the top and bottom rules must survive the window")
+	}
+	if win[1] != fullLines[3] {
+		t.Fatalf("scrolled box must start at content line 3:\nwant %q\ngot  %q", fullLines[3], win[1])
+	}
+	if strings.Contains(h.View(), "\x1b") {
+		t.Fatal("the ASCII profile overlay must stay escape-free while scrolled")
+	}
+
+	// Clamping at the top returns the first content line first.
+	h.ScrollBy(-100)
+	if h.scrollOff != 0 {
+		t.Fatalf("ScrollBy must clamp at 0: scrollOff=%d", h.scrollOff)
+	}
+	if top := strings.Split(h.View(), "\n"); top[1] != fullLines[1] {
+		t.Fatalf("scrolling back to the top must render the first content line first:\nwant %q\ngot  %q", fullLines[1], top[1])
+	}
+}
+
+// TestHelpOpenResetsScrollOffset pins the Task 8.2a convention that a
+// fresh open of the §M overlay starts at the top of the keymap.
+func TestHelpOpenResetsScrollOffset(t *testing.T) {
+	t.Parallel()
+
+	m := NewRootModel(nil)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
+	_, _ = m.Update(ch('?'))
+	if m.help == nil {
+		t.Fatal("'?' must open the overlay")
+	}
+	m.help.SetHeight(2)
+	m.help.ScrollBy(2)
+	if m.help.scrollOff == 0 {
+		t.Fatal("fixture: the overlay must be scrollable at pane height 2")
+	}
+
+	_, _ = m.Update(special(tea.KeyEscape)) // close
+	_, _ = m.Update(ch('?'))                // fresh open
+	if m.help == nil {
+		t.Fatal("'?' must reopen the overlay")
+	}
+	if m.help.scrollOff != 0 {
+		t.Fatalf("a fresh open must reset scrollOff, got %d", m.help.scrollOff)
+	}
+}

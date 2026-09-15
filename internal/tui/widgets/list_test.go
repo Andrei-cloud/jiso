@@ -285,3 +285,50 @@ func TestListSetSizeReclamps(t *testing.T) {
 
 // strip removes ANSI styling for glyph assertions.
 func strip(s string) string { return ansi.Strip(s) }
+
+// TestListScrollByMovesCursorAndClamps pins the Task 8.2a primitive:
+// ScrollBy(d) is the wheel step over SetCursor (d>0 scrolls the content
+// DOWN, cursor toward later items), so SetCursor's existing clamping
+// bounds both ends and drags the window along.
+func TestListScrollByMovesCursorAndClamps(t *testing.T) {
+	t.Parallel()
+
+	m := NewList(asciiTheme(t), 20, 4)
+	m.SetItems(items(10))
+
+	m.ScrollBy(1)
+	if m.Cursor() != 1 {
+		t.Fatalf("ScrollBy(1): cursor %d, want 1", m.Cursor())
+	}
+	m.ScrollBy(2)
+	if m.Cursor() != 3 {
+		t.Fatalf("ScrollBy(2): cursor %d, want 3", m.Cursor())
+	}
+	checkListInvariants(t, m)
+
+	m.ScrollBy(-100)
+	if m.Cursor() != 0 {
+		t.Fatalf("under-clamp: cursor %d, want 0", m.Cursor())
+	}
+	if top, _ := m.Window(); top != 0 {
+		t.Fatalf("under-clamp: window top %d, want 0", top)
+	}
+
+	m.ScrollBy(100)
+	if m.Cursor() != 9 {
+		t.Fatalf("over-clamp: cursor %d, want 9", m.Cursor())
+	}
+	top, count := m.Window()
+	if top != 6 || count != 4 {
+		t.Fatalf("over-clamp: window (%d,%d), want (6,4)", top, count)
+	}
+	checkListInvariants(t, m)
+
+	// An empty list absorbs the wheel: no panic, no phantom cursor.
+	e := NewList(asciiTheme(t), 20, 4)
+	e.ScrollBy(3)
+	e.ScrollBy(-3)
+	if e.Cursor() != 0 {
+		t.Fatalf("empty list: cursor %d, want 0", e.Cursor())
+	}
+}

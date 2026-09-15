@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -344,6 +345,112 @@ func TestTableAlignRight(t *testing.T) {
 				t.Errorf("grid=%v: %q ends at cell %d but its header ends at %d; a numeric column lines its units up under the title\n%s",
 					grid, v, ends[v], ends["LATENCY"], strings.Join(lines, "\n"))
 			}
+		}
+	}
+}
+
+// tallTableFixture is a 25-row table (labels r00..r24) in either render
+// mode, used by the Task 8.2a scroll-primitive tests.
+func tallTableFixture(t *testing.T, grid bool) *Table {
+	t.Helper()
+
+	m := NewTable(asciiTheme(t), 40)
+	m.SetGrid(grid)
+	m.SetColumns([]Column{{Title: "K", Width: 4}})
+	rows := make([]Row, 0, 25)
+	for i := 0; i < 25; i++ {
+		rows = append(rows, Row{fmt.Sprintf("r%02d", i)})
+	}
+	m.SetRows(rows)
+	return m
+}
+
+// TestTableSetHeightWindowsRows pins the Task 8.2a primitive: an unset
+// height keeps today's unbounded render (every row, hint 10) so the
+// goldens stay byte-identical, and SetHeight switches View to a row
+// window and the pgup/pgdn step to that height.
+func TestTableSetHeightWindowsRows(t *testing.T) {
+	t.Parallel()
+
+	for _, grid := range []bool{true, false} {
+		m := tallTableFixture(t, grid)
+
+		if got := m.rowsPerPageHint(); got != 10 {
+			t.Fatalf("grid=%v: hint %d, want the unset fallback 10", grid, got)
+		}
+		// Unset height renders every row: grid adds top/header/header-rule
+		// and bottom rules, flat adds the header line.
+		wantLines := 26
+		if grid {
+			wantLines = 29
+		}
+		if got := len(lines(strip(m.View()))); got != wantLines {
+			t.Fatalf("grid=%v: unset height must render every row: %d lines, want %d", grid, got, wantLines)
+		}
+
+		m.SetHeight(5)
+		if got := m.rowsPerPageHint(); got != 5 {
+			t.Fatalf("grid=%v: hint after SetHeight %d, want 5", grid, got)
+		}
+		wantLines = 6
+		if grid {
+			wantLines = 9
+		}
+		view := strip(m.View())
+		if got := len(lines(view)); got != wantLines {
+			t.Fatalf("grid=%v: height 5 must render 5 rows: %d lines, want %d\n%s", grid, got, wantLines, view)
+		}
+		if !strings.Contains(view, "r00") || !strings.Contains(view, "r04") || strings.Contains(view, "r05") {
+			t.Fatalf("grid=%v: fresh window must be [0,5):\n%s", grid, view)
+		}
+	}
+}
+
+// TestTableScrollByClampsToWindow pins the Task 8.2a primitive:
+// ScrollBy(d) moves the visible row window (d>0 = down, later rows),
+// clamped at both ends by the row range and the current height.
+func TestTableScrollByClampsToWindow(t *testing.T) {
+	t.Parallel()
+
+	for _, grid := range []bool{true, false} {
+		m := tallTableFixture(t, grid)
+
+		// With no height set every row is already visible, so there is
+		// nothing to scroll and the first row cannot scroll away.
+		m.ScrollBy(3)
+		if !strings.Contains(strip(m.View()), "r00") {
+			t.Fatalf("grid=%v: an unwindowed table must not scroll its first row away", grid)
+		}
+
+		m.SetHeight(5)
+
+		m.ScrollBy(2)
+		view := strip(m.View())
+		if !strings.Contains(view, "r02") || !strings.Contains(view, "r06") {
+			t.Fatalf("grid=%v: window after ScrollBy(2) must span r02..r06:\n%s", grid, view)
+		}
+		if strings.Contains(view, "r01") || strings.Contains(view, "r07") {
+			t.Fatalf("grid=%v: ScrollBy(2) must window to [2,7):\n%s", grid, view)
+		}
+
+		m.ScrollBy(-100)
+		view = strip(m.View())
+		if !strings.Contains(view, "r00") || strings.Contains(view, "r05") {
+			t.Fatalf("grid=%v: ScrollBy must clamp at the top:\n%s", grid, view)
+		}
+
+		m.ScrollBy(100)
+		view = strip(m.View())
+		if !strings.Contains(view, "r24") || strings.Contains(view, "r19") {
+			t.Fatalf("grid=%v: ScrollBy must clamp at the bottom window [20,25):\n%s", grid, view)
+		}
+
+		// Growing the height over a scrolled window pulls the stale
+		// offset back so the window stays full (List's maxTop rule).
+		m.SetHeight(10)
+		view = strip(m.View())
+		if !strings.Contains(view, "r15") || strings.Contains(view, "r14") || !strings.Contains(view, "r24") {
+			t.Fatalf("grid=%v: SetHeight must re-clamp a stale offset to [15,25):\n%s", grid, view)
 		}
 	}
 }

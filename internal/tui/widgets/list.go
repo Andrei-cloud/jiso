@@ -80,6 +80,12 @@ func (m *List) SetCursor(i int) {
 	m.clampCursor()
 }
 
+// ScrollBy moves the cursor by d rows: d>0 scrolls the content DOWN
+// (cursor toward later items), d<0 up. It is the wheel step for Task
+// 8.2b and deliberately just wraps SetCursor, so the existing clamping
+// bounds both ends and drags the window along; an empty list absorbs it.
+func (m *List) ScrollBy(d int) { m.SetCursor(m.cursor + d) }
+
 // Selected returns the item under the cursor; ok is false when empty.
 func (m *List) Selected() (Item, bool) {
 	if len(m.items) == 0 {
