@@ -190,6 +190,6 @@ func (in *Inspector) Hints() []frame.KeyHint {
 		{Key: theme.KeyEnter, Desc: "compose", Primary: true},
 		{Key: theme.KeyEsc, Desc: "back", Primary: true},
 		{Key: theme.KeyNavJK, Desc: hintScroll},
-		{Key: "r", Desc: "preview"},
+		{Key: "r", Desc: hintPreview},
 	}
 }

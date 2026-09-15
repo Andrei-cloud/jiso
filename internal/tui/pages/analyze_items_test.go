@@ -2,6 +2,7 @@ package pages
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -200,5 +201,148 @@ func TestAnalyzeItemsPickerColumnsAlign(t *testing.T) {
 		if c := strings.Index(row, it.Kind); c != kindCol {
 			t.Errorf("kind %q (%s) starts at col %d, want the header col %d:\n%s", it.Kind, it.Name, c, kindCol, row)
 		}
+	}
+}
+
+// --- UAT round 8 finding 8: the generated-item preview scrolls ----------
+
+// tallPreview builds an n-line file form with a uniquely-named row per
+// line (line-00 .. line-99, zero-padded so no name prefixes another).
+func tallPreview(n int) string {
+	lines := make([]string, n)
+	for i := range lines {
+		lines[i] = "line-" + strconv.Itoa(i/10%10) + strconv.Itoa(i%10)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// analyzeItemsTallState is a picker roster whose previews overflow the
+// pane at 120x32, so the preview window is observable (finding 8: the
+// captured transactions and data sets must scroll when they do not fit).
+func analyzeItemsTallState() AnalyzeState {
+	st := analyzeFixtureState()
+	st.Step = StepRun
+	st.Status = AnalyzeStatusDone
+	st.ItemsID = 1
+	st.Items = []AnalyzeItemRow{
+		{Key: "transaction|tall", Name: "tall", Kind: "transaction", Included: true, Preview: tallPreview(100)},
+		{Key: "mock_route|wide", Name: "wide", Kind: "mock_route", Included: true, Preview: tallPreview(60)},
+	}
+
+	return st
+}
+
+// TestPreviewScrollsWhenOverflowing UAT round 8 finding 8: with a tall
+// preview in a short pane, ScrollPreview moves the visible window and
+// clamps at both ends; the keyboard routes the scroll keys to the
+// preview only while the preview sub-pane is focused ([tab]/[shift+tab]
+// move that focus), the roster cursor keys stay distinct, and selecting
+// a different item restarts the preview at the top.
+func TestPreviewScrollsWhenOverflowing(t *testing.T) {
+	t.Parallel()
+
+	a := analyzePage(t, analyzeItemsTallState(), 120, 32)
+	paneH := a.previewWindow()
+	contentH := a.previewContentHeight()
+	maxOff := contentH - paneH
+	if maxOff <= 0 {
+		t.Fatalf("fixture must overflow the pane: %d content rows, %d visible", contentH, paneH)
+	}
+
+	// At the top the window starts at the first line and cannot reach
+	// the last (the old clip had no way down).
+	if body := ansi.Strip(a.View().Content); !strings.Contains(body, "line-00") || strings.Contains(body, "line-99") {
+		t.Fatalf("top window wrong (want line-00 visible, line-99 hidden):\n%s", body)
+	}
+
+	// +1 moves the window down one row: the first line scrolls out.
+	a.ScrollPreview(1)
+	if a.previewOff != 1 {
+		t.Fatalf("ScrollPreview(+1): previewOff = %d, want 1", a.previewOff)
+	}
+	if body := ansi.Strip(a.View().Content); strings.Contains(body, "line-00") {
+		t.Fatalf("scrolled window still shows the first line:\n%s", body)
+	}
+
+	// Clamps at the bottom, and the bottom window shows the last line.
+	a.ScrollPreview(maxOff)
+	if a.previewOff != maxOff {
+		t.Fatalf("ScrollPreview: previewOff = %d, want the bottom clamp %d", a.previewOff, maxOff)
+	}
+	a.ScrollPreview(4)
+	if a.previewOff != maxOff {
+		t.Fatalf("ScrollPreview past the bottom must clamp at %d, got %d", maxOff, a.previewOff)
+	}
+	if body := ansi.Strip(a.View().Content); !strings.Contains(body, "line-99") {
+		t.Fatalf("bottom window must show the last line:\n%s", body)
+	}
+
+	// Clamps at the top.
+	a.ScrollPreview(-4 * maxOff)
+	if a.previewOff != 0 {
+		t.Fatalf("ScrollPreview past the top must clamp at 0, got %d", a.previewOff)
+	}
+
+	// [tab] focuses the preview sub-pane; from there j/k and the arrows
+	// scroll the preview, leaving the roster cursor alone.
+	_, _ = a.Update(special(tea.KeyTab))
+	if !a.previewFocused {
+		t.Fatal("[tab] must focus the preview sub-pane")
+	}
+	_, _ = a.Update(ch('j'))
+	if a.previewOff != 1 || a.itemCursor != 0 {
+		t.Fatalf("j over the preview: off %d cursor %d, want 1/0", a.previewOff, a.itemCursor)
+	}
+	_, _ = a.Update(special(tea.KeyDown))
+	if a.previewOff != 2 || a.itemCursor != 0 {
+		t.Fatalf("down over the preview: off %d cursor %d, want 2/0", a.previewOff, a.itemCursor)
+	}
+	_, _ = a.Update(special(tea.KeyPgDown))
+	if a.previewOff != 2+paneH {
+		t.Fatalf("pgdn must page the preview by one window: off %d, want %d", a.previewOff, 2+paneH)
+	}
+	_, _ = a.Update(special(tea.KeyPgUp))
+	if a.previewOff != 2 {
+		t.Fatalf("pgup must page the preview back: off %d, want 2", a.previewOff)
+	}
+	_, _ = a.Update(ch('k'))
+	if a.previewOff != 1 {
+		t.Fatalf("k over the preview: off %d, want 1", a.previewOff)
+	}
+	_, _ = a.Update(special(tea.KeyUp))
+	if a.previewOff != 0 {
+		t.Fatalf("up at the top must clamp: off %d, want 0", a.previewOff)
+	}
+	_, _ = a.Update(special(tea.KeyUp))
+	if a.previewOff != 0 {
+		t.Fatalf("up past the top must clamp: off %d, want 0", a.previewOff)
+	}
+
+	// [shift+tab] returns the focus to the roster: from there the cursor
+	// keys move the LIST again (itemOff stays the roster's own scroll).
+	_, _ = a.Update(modKey(tea.KeyTab, tea.ModShift))
+	if a.previewFocused {
+		t.Fatal("[shift+tab] must return the focus to the roster")
+	}
+
+	// Selecting a different item restarts its preview at the top.
+	a.ScrollPreview(3)
+	_, _ = a.Update(ch('j'))
+	if a.itemCursor != 1 {
+		t.Fatalf("j over the roster must move the item cursor, got %d", a.itemCursor)
+	}
+	if a.previewOff != 0 {
+		t.Fatalf("a new item must restart its preview at the top, got off %d", a.previewOff)
+	}
+
+	// Closing (Esc applies) and reopening with [x] starts fresh.
+	_, cmd := a.Update(special(tea.KeyEscape))
+	if _, ok := cmdMsg(t, cmd).(AnalyzeItemsApplyMsg); !ok {
+		t.Fatalf("esc must still apply the selection, got %v", cmd)
+	}
+	_, _ = a.Update(ch('x'))
+	if a.previewOff != 0 || a.previewFocused {
+		t.Fatalf("reopening must reset the preview sub-pane: off %d focused %v", a.previewOff, a.previewFocused)
 	}
 }

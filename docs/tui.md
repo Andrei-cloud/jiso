@@ -220,8 +220,11 @@ After a run the **generated-item picker** auto-presents: `space` toggles a row,
 `a` all-or-none, `enter` applies the selection, `esc` applies it too and closes,
 `x` reopens — a transaction and its dataset share a toggle group so they move
 together, and `w` then writes exactly the selected set (no separate dry-run step;
-an all-deselected picker is an error). The **unparsable viewer** (`u`) is
-read-only: `j`/`k` walk samples, `PgUp`/`PgDn` page, `esc` closes.
+an all-deselected picker is an error). `tab`/`shift+tab` move the picker focus
+between the item list and the file-form **preview**; while the preview holds the
+focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
+(the title shows the visible window, e.g. `3-25/100`). The **unparsable viewer**
+(`u`) is read-only: `j`/`k` walk samples, `PgUp`/`PgDn` page, `esc` closes.
 
 ### scenarios — Scenarios
 

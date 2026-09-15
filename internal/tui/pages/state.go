@@ -38,6 +38,7 @@ const (
 	colTransaction = "TRANSACTION"
 	colStatus      = "STATUS"
 	hintScroll     = "scroll"
+	hintPreview    = "preview"
 )
 
 // ConnStatus is the connection-card state, mapped by root from the event

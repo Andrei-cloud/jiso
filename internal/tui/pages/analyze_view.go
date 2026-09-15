@@ -73,11 +73,16 @@ func (a *Analyze) unparsableFooterLine(w int) string {
 }
 
 // pickerFooterLine is the picker's key line (replaces the step footer
-// while the overlay is open).
+// while the overlay is open). The [tab] hint names the sub-pane the key
+// focuses (UAT round 8 finding 8: the preview scroll must be findable).
 func (a *Analyze) pickerFooterLine(w int) string {
 	sep := a.th.Separator()
+	pane := hintPreview
+	if a.previewFocused {
+		pane = "list"
+	}
 	line := "[" + "space" + "] include" + sep + "[a] all/none" + sep +
-		"[enter] apply" + sep + "[esc] close (discard)"
+		"[tab] " + pane + sep + "[enter] apply" + sep + "[esc] close (discard)"
 
 	return clipCells(a.th.Dim.Render(line), w, clipTail(a.th))
 }

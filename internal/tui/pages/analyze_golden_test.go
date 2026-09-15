@@ -51,6 +51,13 @@ func TestAnalyzeGoldens(t *testing.T) {
 		{"analyze_error", analyzeGoldenError(), 120, 32, nil},
 		{"analyze_running", analyzeGoldenRunning(), 120, 32, nil},
 		{"analyze_narrow", analyzeGoldenRunDone(preview), 80, 24, nil},
+		// UAT round 8 finding 8: the generated-item preview window —
+		// the roster focused at the top vs the preview sub-pane focused
+		// and scrolled two rows (the goldens must differ).
+		{"analyze_items_top", analyzeItemsTallState(), 120, 32, nil},
+		{"analyze_items_scrolled", analyzeItemsTallState(), 120, 32, []tea.Msg{
+			special(tea.KeyTab), special(tea.KeyDown), special(tea.KeyDown),
+		}},
 	}
 
 	for _, c := range cases {

@@ -1,0 +1,28 @@
+PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run
+ITEMS  2 of 2 included
+space toggle | a all/none | enter apply | esc close
+    NAME                          KIND         PREVIEW  tall (transaction)  1-23/100
+> x tall                          transaction  line-00                              
+  x wide                          mock_route   line-01                              
+                                               line-02                              
+                                               line-03                              
+                                               line-04                              
+                                               line-05                              
+                                               line-06                              
+                                               line-07                              
+                                               line-08                              
+                                               line-09                              
+                                               line-10                              
+                                               line-11                              
+                                               line-12                              
+                                               line-13                              
+                                               line-14                              
+                                               line-15                              
+                                               line-16                              
+                                               line-17                              
+                                               line-18                              
+                                               line-19                              
+                                               line-20                              
+                                               line-21                              
+                                               line-22                              
+[space] include | [a] all/none | [tab] preview | [enter] apply | [esc] close (discard)

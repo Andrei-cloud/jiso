@@ -53,6 +53,16 @@ type Analyze struct {
 	itemOff      int // roster window offset
 	itemSel      []bool
 
+	// Generated-item preview sub-pane (UAT round 8 finding 8: "it
+	// should be possible to scroll content if it does not fit into
+	// screen"): the picker's preview is a window over the item's file
+	// form, not a clip. [tab]/[shift+tab] move the picker focus between
+	// the roster and the preview; while the preview is focused the
+	// scroll keys drive previewOff instead of the roster cursor. The
+	// mouse wheel (Phase 8) calls ScrollPreview directly.
+	previewFocused bool
+	previewOff     int // preview window offset (rows from the top)
+
 	// Unparsable-message viewer (UAT round 6): opened on demand with
 	// [u] on the run step (never auto-opens); a read-only hexdump
 	// browser over the failure samples. UnparsableID change re-seats
@@ -145,6 +155,17 @@ func (a *Analyze) Draft() (string, bool) { return a.draft, a.editingStep() }
 // ListCursor exposes the local list cursor (tests).
 func (a *Analyze) ListCursor() int { return a.sel }
 
+// ScrollPreview moves the generated-item preview window by d rows: a
+// positive d moves the window down through the content (revealing later
+// lines), a negative d moves it up. The offset is clamped to
+// 0..max(0, contentH-paneH), so calling it on a preview that fits is a
+// no-op. This is the one scroll contract: the keyboard route (preview
+// sub-pane focused) and the Phase 8 mouse wheel both call it.
+func (a *Analyze) ScrollPreview(d int) {
+	maxOff := max(a.previewContentHeight()-a.previewWindow(), 0)
+	a.previewOff = min(max(a.previewOff+d, 0), maxOff)
+}
+
 // Editing reports the two-mode flag of the page (UAT round 8 / D3,
 // Task 5.2): the capture/spec steps are in EDIT mode while a typed
 // path/filter draft is in progress, the run step while the "/" flow
@@ -228,6 +249,7 @@ func (a *Analyze) SetState(state AnalyzeState) {
 		a.itemsShownID = state.ItemsID
 		a.itemCursor = 0
 		a.itemSel = nil
+		a.previewFocused, a.previewOff = false, 0 // a fresh roster previews from the top
 		for _, it := range state.Items {
 			a.itemSel = append(a.itemSel, it.Included)
 		}
@@ -260,6 +282,7 @@ func (a *Analyze) Hints() []frame.KeyHint {
 		return []frame.KeyHint{
 			{Key: "space", Desc: "include", Primary: true},
 			{Key: "a", Desc: "all/none"},
+			{Key: theme.KeyTab, Desc: hintPreview},
 			{Key: theme.KeyEnter, Desc: "apply", Primary: true},
 			{Key: theme.KeyEsc, Desc: "close", Primary: true},
 		}
