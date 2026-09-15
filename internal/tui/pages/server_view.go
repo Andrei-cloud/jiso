@@ -125,9 +125,14 @@ func (s *Server) render(w, h int) string {
 			statsW := min(max(w/serverStatsFraction, serverStatsMin), serverStatsMax)
 			routesW := max(w-statsW-serverSectionGap, 20)
 
+			// A ModeServer box draws two cells narrower than its nominal
+			// w, so the next column's origin advances by the DRAWN width
+			// of the segment the join consumes, not by statsW.
+			leftSec := s.leftBox(headH, statsW, paneH)
+			routesSec := s.routesBox(lipgloss.Width(leftSec)+serverSectionGap, headH, routesW, paneH)
+
 			body := lipgloss.JoinHorizontal(lipgloss.Top,
-				s.leftBox(headH, statsW, paneH), strings.Repeat(" ", serverSectionGap),
-				s.routesBox(statsW+serverSectionGap, headH, routesW, paneH))
+				leftSec, strings.Repeat(" ", serverSectionGap), routesSec)
 
 			return clipBlockStyled(s.th, head+"\n"+body, h, w)
 		}
@@ -140,31 +145,46 @@ func (s *Server) render(w, h int) string {
 		statsH := min(serverStatsBoxH, paneH)
 		routesH := min(paneH, max(len(s.state.Routes)+5, 6))
 
+		leftSec := s.leftBox(headH, statsW, statsH)
+		routesX := lipgloss.Width(leftSec) + serverSectionGap
+		routesSec := s.routesBox(routesX, headH, routesW, routesH)
+		logSec := s.logBox(routesX+lipgloss.Width(routesSec)+serverSectionGap, headH, logW, paneH)
+
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			s.leftBox(headH, statsW, statsH), strings.Repeat(" ", serverSectionGap),
-			s.routesBox(statsW+serverSectionGap, headH, routesW, routesH), strings.Repeat(" ", serverSectionGap),
-			s.logBox(statsW+routesW+2*serverSectionGap, headH, logW, paneH))
+			leftSec, strings.Repeat(" ", serverSectionGap),
+			routesSec, strings.Repeat(" ", serverSectionGap),
+			logSec)
 
 		return clipBlockStyled(s.th, head+"\n"+body, h, w)
 	}
 
 	if len(s.state.Log) > 0 {
-		statsH := min(serverStatsBoxH, max(paneH-serverNarrowLogH-serverSectionGap*2, 6))
-		logH := min(serverNarrowLogH+4, max(paneH-statsH-serverSectionGap*2, serverLogMinBoxH))
-		routesH := max(paneH-statsH-logH-serverSectionGap*2, 4)
-
-		return clipBlockStyled(s.th, head+"\n"+
-			s.leftBox(headH, w, statsH)+"\n"+
-			s.logBox(0, headH+statsH+serverSectionGap, w, logH)+"\n"+
-			s.routesBox(0, headH+statsH+logH+2*serverSectionGap, w, routesH), h, w)
+		return s.narrowStackedLogs(head, headH, w, h, paneH)
 	}
 
 	statsH := max(paneH/2, 6)
 	routesH := max(paneH-statsH-serverSectionGap, 4)
 
-	return clipBlockStyled(s.th, head+"\n"+
-		s.leftBox(headH, w, statsH)+"\n"+
-		s.routesBox(0, headH+statsH+serverSectionGap, w, routesH), h, w)
+	leftSec := s.leftBox(headH, w, statsH)
+	routesSec := s.routesBox(0, headH+lipgloss.Height(leftSec), w, routesH)
+
+	return clipBlockStyled(s.th, head+"\n"+leftSec+"\n"+routesSec, h, w)
+}
+
+// narrowStackedLogs renders the narrow with-log stack: STATS over LOG over
+// ROUTES. Each section's "\n" terminator costs no line of its own, and a
+// ModeServer box draws short of its nominal height, so the stacked origins
+// chain off the measured section strings.
+func (s *Server) narrowStackedLogs(head string, headH, w, h, paneH int) string {
+	statsH := min(serverStatsBoxH, max(paneH-serverNarrowLogH-serverSectionGap*2, 6))
+	logH := min(serverNarrowLogH+4, max(paneH-statsH-serverSectionGap*2, serverLogMinBoxH))
+	routesH := max(paneH-statsH-logH-serverSectionGap*2, 4)
+
+	leftSec := s.leftBox(headH, w, statsH)
+	logSec := s.logBox(0, headH+lipgloss.Height(leftSec), w, logH)
+	routesSec := s.routesBox(0, headH+lipgloss.Height(leftSec)+lipgloss.Height(logSec), w, routesH)
+
+	return clipBlockStyled(s.th, head+"\n"+leftSec+"\n"+logSec+"\n"+routesSec, h, w)
 }
 
 // headerRow renders the §G status header: accent title plus the
@@ -333,8 +353,8 @@ func (s *Server) sectionW(title, body string, x, y, w, h int, focused bool) stri
 	sec := widgets.NewSection(s.th, title)
 	sec.Mode = widgets.ModeServer
 	sec.Focused = focused
-	out, r := sec.Render(body, x, y, w, h)
-	s.sections = append(s.sections, r)
+	out, _ := sec.Render(body, x, y, w, h)
+	s.sections = append(s.sections, sectionRect(x, y, out))
 
 	return out
 }

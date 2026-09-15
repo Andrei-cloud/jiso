@@ -77,10 +77,15 @@ func (s *Sessions) render(w, h int) string {
 		histW := max(w-listW-statsW-2*sessionsSectionGap, sessionsMinHistoryWidth)
 		gap := strings.Repeat(" ", sessionsSectionGap)
 
+		// Origins advance by the DRAWN widths the join actually consumes
+		// (measured strings), never by nominal pane widths.
+		listSec := s.listBox(0, headH, listW, paneH)
+		statsX := lipgloss.Width(listSec) + sessionsSectionGap
+		statsSec := s.statsBox(statsX, headH, statsW, paneH)
+		histSec := s.historyBox(statsX+lipgloss.Width(statsSec)+sessionsSectionGap, headH, histW, paneH)
+
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			s.listBox(0, headH, listW, paneH), gap,
-			s.statsBox(listW+sessionsSectionGap, headH, statsW, paneH), gap,
-			s.historyBox(listW+statsW+2*sessionsSectionGap, headH, histW, paneH))
+			listSec, gap, statsSec, gap, histSec)
 
 		return clipBlockStyled(s.th, head+"\n"+body, h, w)
 	}
@@ -92,9 +97,12 @@ func (s *Sessions) render(w, h int) string {
 	statsH := max(paneH/3, 6)
 	histH := max(paneH-statsH-sessionsSectionGap, 4)
 
-	return clipBlockStyled(s.th, head+"\n"+
-		s.statsBox(0, headH, w, statsH)+"\n"+
-		s.historyBox(0, headH+statsH+sessionsSectionGap, w, histH), h, w)
+	statsSec := s.statsBox(0, headH, w, statsH)
+	// The stacked "\n" is a line terminator, not a gap row: history's
+	// top line is exactly where the stats section's drawn lines end.
+	histSec := s.historyBox(0, headH+lipgloss.Height(statsSec), w, histH)
+
+	return clipBlockStyled(s.th, head+"\n"+statsSec+"\n"+histSec, h, w)
 }
 
 // headerLine is the wireframe title row: accent title, the configured
@@ -266,8 +274,8 @@ func plainBlock(block string) string {
 func (s *Sessions) sectionW(title, body string, x, y, w, h int, focused bool) string {
 	sec := widgets.NewSection(s.th, title)
 	sec.Focused = focused
-	out, r := sec.Render(body, x, y, w, h)
-	s.sections = append(s.sections, r)
+	out, _ := sec.Render(body, x, y, w, h)
+	s.sections = append(s.sections, sectionRect(x, y, out))
 
 	return out
 }

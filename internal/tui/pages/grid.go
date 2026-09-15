@@ -246,15 +246,21 @@ func (d *Dashboard) renderRows(rows []dashRow, leftW, rightW, gap int) string {
 			left = d.cardCell(r.left, 0, y, leftW, h)
 		}
 
+		// The right column starts where the drawn left segment ends plus
+		// the gap column (measured, not nominal: the hit-map origin must
+		// land on ink), and the next band where this band's drawn lines
+		// end (bands join on a single "\n" with no gap rows).
+		rightX := lipgloss.Width(left) + gap
 		right := blankCell(rightW, h+cardOverhead)
 		if r.right != nil {
-			right = d.cardCell(r.right, leftW+gap, y, rightW, h)
+			right = d.cardCell(r.right, rightX, y, rightW, h)
 		}
 
-		bands = append(bands, lipgloss.JoinHorizontal(lipgloss.Top,
-			left, strings.Repeat(" ", gap), right))
+		band := lipgloss.JoinHorizontal(lipgloss.Top,
+			left, strings.Repeat(" ", gap), right)
+		bands = append(bands, band)
 
-		y += h + cardOverhead + gap
+		y += lipgloss.Height(band)
 	}
 
 	return strings.Join(bands, "\n")
@@ -298,8 +304,13 @@ func (d *Dashboard) renderColumn(cards []*dashCard, w, gap int) string {
 	y := 0
 	for _, c := range cards {
 		body := strings.Join(c.body(w, c.kept), "\n")
-		parts = append(parts, d.cardBox(c.title, body, 0, y, w, c.kept))
-		y += max(c.kept, 1) + cardOverhead + gap
+		card := d.cardBox(c.title, body, 0, y, w, c.kept)
+		parts = append(parts, card)
+		// The column joins cards with gap+1 newlines: the terminator
+		// costs no line of its own, only the gap blank rows do (and the
+		// narrow stack passes gap 0 — the phantom +1 there was exactly
+		// the drift this measurement removes).
+		y += lipgloss.Height(card) + gap
 	}
 
 	return strings.Join(parts, strings.Repeat("\n", gap+1))

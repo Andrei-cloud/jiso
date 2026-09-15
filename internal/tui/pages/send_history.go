@@ -216,8 +216,8 @@ func (s *SendHistory) View() tea.View {
 
 	s.table.SetWidth(max(w-4, 20))
 
-	section, r := widgets.NewSection(s.th, "SEND HISTORY").Render(s.table.View(), 0, 0, w, h)
-	s.sections = append(s.sections, r)
+	section, _ := widgets.NewSection(s.th, "SEND HISTORY").Render(s.table.View(), 0, 0, w, h)
+	s.sections = append(s.sections, sectionRect(0, 0, section))
 
 	return tea.NewView(clipBlockStyled(s.th, section, h, w))
 }

@@ -73,9 +73,14 @@ func (s *Scenarios) render(w, h int) string {
 		stepsW := w - listW - scenSectionGap
 		panesY := 1 + errLines // the title row, plus the error strip if any
 
+		// The border-only list pane draws two cells narrower than its
+		// nominal w, so the STEPS origin advances by the DRAWN list
+		// width, not the nominal column width.
+		listSec := s.listBox(listW, paneH)
+		stepsSec := s.stepsBox(lipgloss.Width(listSec)+scenSectionGap, panesY, stepsW, paneH)
+
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			s.listBox(listW, paneH), strings.Repeat(" ", scenSectionGap),
-			s.stepsBox(listW+scenSectionGap, panesY, stepsW, paneH))
+			listSec, strings.Repeat(" ", scenSectionGap), stepsSec)
 
 		return clipBlockStyled(s.th, head+body+"\n"+footer, h, w)
 	}
@@ -84,9 +89,12 @@ func (s *Scenarios) render(w, h int) string {
 	upperH := paneH - lowerH
 	panesY := 1 + errLines
 
-	return clipBlockStyled(s.th, head+
-		s.listBox(w, upperH)+"\n"+
-		s.stepsBox(0, panesY+upperH+1, w, lowerH)+"\n"+footer, h, w)
+	// Stacked: the list section's "\n" terminator costs no line of its
+	// own; STEPS starts where the drawn list lines end.
+	listSec := s.listBox(w, upperH)
+	stepsSec := s.stepsBox(0, panesY+lipgloss.Height(listSec), w, lowerH)
+
+	return clipBlockStyled(s.th, head+listSec+"\n"+stepsSec+"\n"+footer, h, w)
 }
 
 // scenErrMaxLines caps the dedicated error strip: two wrapped lines
@@ -231,8 +239,8 @@ func (s *Scenarios) stepsBox(x, y, w, h int) string {
 
 	sec := widgets.NewSection(s.th, titleSteps)
 	sec.Mode = widgets.ModeServer
-	out, r := sec.Render(inner, x, y, w, h)
-	s.sections = append(s.sections, r)
+	out, _ := sec.Render(inner, x, y, w, h)
+	s.sections = append(s.sections, sectionRect(x, y, out))
 
 	return out
 }

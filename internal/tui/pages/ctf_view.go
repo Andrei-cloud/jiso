@@ -78,9 +78,11 @@ func (c *Ctf) render(w, h int) string {
 		paramsW := max(min(ctfParamsPaneW, w-listW-ctfSectionGap), ctfMinParamsBoxW)
 		gap := strings.Repeat(" ", ctfSectionGap)
 
-		body := lipgloss.JoinHorizontal(lipgloss.Top,
-			c.listBox(0, headH, listW, paneH), gap,
-			c.paramsBox(listW+ctfSectionGap, headH, paramsW, paneH))
+		// Origins advance by the drawn widths the join consumes.
+		listSec := c.listBox(0, headH, listW, paneH)
+		paramsSec := c.paramsBox(lipgloss.Width(listSec)+ctfSectionGap, headH, paramsW, paneH)
+
+		body := lipgloss.JoinHorizontal(lipgloss.Top, listSec, gap, paramsSec)
 
 		return clipBlockStyled(c.th, head+"\n"+body+"\n"+footer, h, w)
 	}
@@ -88,9 +90,12 @@ func (c *Ctf) render(w, h int) string {
 	listH := max(paneH/2, 4)
 	paramsH := max(paneH-listH-ctfSectionGap, 4)
 
-	return clipBlockStyled(c.th, head+"\n"+
-		c.listBox(0, headH, w, listH)+"\n"+
-		c.paramsBox(0, headH+listH+ctfSectionGap, w, paramsH)+"\n"+footer, h, w)
+	// The stacked "\n" terminates the list section's last line; the
+	// params section starts on the very next line (no phantom gap row).
+	listSec := c.listBox(0, headH, w, listH)
+	paramsSec := c.paramsBox(0, headH+lipgloss.Height(listSec), w, paramsH)
+
+	return clipBlockStyled(c.th, head+"\n"+listSec+"\n"+paramsSec+"\n"+footer, h, w)
 }
 
 // headerLine is the wireframe title row: the accent title with its
@@ -262,8 +267,8 @@ func (c *Ctf) emptyHintLine() string {
 // origin.
 func (c *Ctf) sectionW(title, body string, x, y, w, h int) string {
 	sec := widgets.NewSection(c.th, title)
-	out, r := sec.Render(body, x, y, w, h)
-	c.sections = append(c.sections, r)
+	out, _ := sec.Render(body, x, y, w, h)
+	c.sections = append(c.sections, sectionRect(x, y, out))
 
 	return out
 }

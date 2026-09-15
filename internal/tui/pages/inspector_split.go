@@ -36,7 +36,9 @@ func (in *Inspector) splitBody(w, y, h int) string {
 	inner := max(h-3, 1) // section title line + box borders
 
 	leftSec := in.sectionW(in.fieldsPaneTitle(), in.fieldsRows(left-4, inner), 0, y, left, h)
-	rightSec := in.sectionW(rightPaneTitle(in.th, rightTab), in.paneBody(rightTab, right-4, inner), left+1, y, right, h)
+	// The right pane starts where the FIELDS section's drawn lines end
+	// plus the one blank column (measured, not nominal).
+	rightSec := in.sectionW(rightPaneTitle(in.th, rightTab), in.paneBody(rightTab, right-4, inner), lipgloss.Width(leftSec)+1, y, right, h)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftSec, " ", rightSec)
 }
@@ -83,8 +85,8 @@ func rightPaneTitle(th *theme.Theme, tab int) string {
 func (in *Inspector) sectionW(title, body string, x, y, w, h int) string {
 	sec := widgets.NewSection(in.th, title)
 	sec.TitlePreStyled = true
-	out, r := sec.Render(body, x, y, w, h)
-	in.sections = append(in.sections, r)
+	out, _ := sec.Render(body, x, y, w, h)
+	in.sections = append(in.sections, sectionRect(x, y, out))
 
 	return out
 }

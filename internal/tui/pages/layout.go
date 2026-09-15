@@ -145,8 +145,8 @@ func dashLeftCol(w int) int {
 // with the grid's content-relative origin.
 func (d *Dashboard) cardBox(title, body string, x, y, w, bodyH int) string {
 	sec := widgets.NewSection(d.th, title)
-	out, r := sec.Render(body, x, y, w, bodyH+3)
-	d.sections = append(d.sections, r)
+	out, _ := sec.Render(body, x, y, w, bodyH+3)
+	d.sections = append(d.sections, sectionRect(x, y, out))
 
 	return out
 }

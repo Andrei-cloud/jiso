@@ -187,21 +187,24 @@ func (s *Send) paneTitle(request bool) string {
 }
 
 // panesSideBySide joins the two panes horizontally with a one-column gap.
+// The RESPONSE pane's origin advances by the REQUEST pane's drawn width
+// (a ModeServer pane draws two cells narrower than its nominal w), not
+// by the nominal column width.
 func (s *Send) panesSideBySide(colW, y, h int, reqTitle, respTitle string) string {
-	return lipgloss.JoinHorizontal(lipgloss.Top,
-		s.pane(reqTitle, s.state.Request, 0, y, colW, h, true),
-		" ",
-		s.pane(respTitle, s.state.Response, colW+1, y, colW, h, false))
+	reqSec := s.pane(reqTitle, s.state.Request, 0, y, colW, h, true)
+	respSec := s.pane(respTitle, s.state.Response, lipgloss.Width(reqSec)+1, y, colW, h, false)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, reqSec, " ", respSec)
 }
 
-// panesStacked splits the vertical budget between the two panes.
+// panesStacked splits the vertical budget between the two panes; the
+// second pane's origin chains off the first pane's measured height.
 func (s *Send) panesStacked(w, y, h int, reqTitle, respTitle string) string {
 	top := (h - 1) / 2
+	reqSec := s.pane(reqTitle, s.state.Request, 0, y, w, top, true)
+	respSec := s.pane(respTitle, s.state.Response, 0, y+lipgloss.Height(reqSec), w, h-top, false)
 
-	return strings.Join([]string{
-		s.pane(reqTitle, s.state.Request, 0, y, w, top, true),
-		s.pane(respTitle, s.state.Response, 0, y+top+1, w, h-top, false),
-	}, "\n")
+	return strings.Join([]string{reqSec, respSec}, "\n")
 }
 
 // pane renders title + a bordered box totaling exactly h lines (title 1 +
@@ -235,8 +238,8 @@ func (s *Send) sectionBox(title, body string, x, y, w, h int) string {
 	sec := widgets.NewSection(s.th, title)
 	sec.Mode = widgets.ModeServer
 	sec.TitlePreStyled = true
-	out, r := sec.Render(body, x, y, w, h)
-	s.sections = append(s.sections, r)
+	out, _ := sec.Render(body, x, y, w, h)
+	s.sections = append(s.sections, sectionRect(x, y, out))
 
 	return out
 }
