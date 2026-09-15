@@ -65,9 +65,9 @@ func newTxNav() txNav {
 		Backspace: key.NewBinding(key.WithKeys("backspace")),
 		Enter:     key.NewBinding(key.WithKeys(theme.KeyEnter)),
 		Filter:    key.NewBinding(key.WithKeys("/")),
-		Sort:      key.NewBinding(key.WithKeys("f")),
+		Sort:      key.NewBinding(key.WithKeys("o")),
 		Send:      key.NewBinding(key.WithKeys("s")),
-		PickFile:  key.NewBinding(key.WithKeys("t")),
+		PickFile:  key.NewBinding(key.WithKeys("f")),
 	}
 	nav.help = append(tableNavHelp(),
 		actEntry("detail", nav.Enter),
@@ -81,7 +81,8 @@ func newTxNav() txNav {
 	return nav
 }
 
-// sortCycle is the `f` order (ticket): name → mti → description, ascending
+// sortCycle is the `o` order (UAT round 8 D3 moved it off `f`, which now
+// picks the tx file everywhere): name → mti → description, ascending
 // then descending per column, then wrapping.
 var sortCycle = [6]struct {
 	col int
@@ -304,11 +305,13 @@ func (t *Transactions) yieldSelected(msgFor func(string) tea.Msg) tea.Cmd {
 }
 
 // Hints is the §B context keymap; detail/send are primary so the narrow
-// footer keeps them (the router appends the global bindings).
+// footer keeps them (the router appends the global bindings). UAT round 8
+// D3: `f` picks the tx file (the universal file key), `o` cycles the sort.
 func (t *Transactions) Hints() []frame.KeyHint {
 	return []frame.KeyHint{
 		{Key: "/", Desc: "filter"},
-		{Key: "f", Desc: "sort"},
+		{Key: "o", Desc: "sort"},
+		{Key: "f", Desc: "file"},
 		{Key: theme.KeyEnter, Desc: "detail", Primary: true},
 		{Key: "s", Desc: "send", Primary: true},
 		{Key: theme.KeyNavJK, Desc: "nav"},

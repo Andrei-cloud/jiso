@@ -138,9 +138,9 @@ worker events; the DB read never runs on the UI thread.
 |---|---|
 | `enter` | Open detail (Message Inspector) |
 | `s` | Open the send exchange for the selected tx |
-| `t` | Pick a tx file (file picker) |
+| `f` | Pick a tx file (file picker) |
 | `/` | Live filter (claims the keyboard; `esc` exits the filter first) |
-| `f` | Cycle sort column |
+| `o` | Cycle sort column |
 | `esc` | Back |
 
 ### scenario — Message Inspector

@@ -161,7 +161,7 @@ registry) is [docs/tui.md](docs/tui.md).
 | Hotkey | Screen | Contents |
 |---|---|---|
 | `1` | **Dashboard** (§A) | Connection / server / session cards, last send & stress cards, quick actions, server log |
-| `2` | **Transactions** (§B) | Tx table from the loaded tx file, filter and sort; `t` picks a file and a rejected load names its reason |
+| `2` | **Transactions** (§B) | Tx table from the loaded tx file, filter and sort; `f` picks a file and a rejected load names its reason |
 | `3` | **Message Inspector** (§C) | Fields tree, bitmap, packed hex, raw JSON tabs (opened by `enter` on a tx) |
 | `4` | **Mock Server** (§G) | Serve stats, route table, live SERVER LOG, start form |
 | `5` | **Workers & Stress** (§H) | Worker table, TPS sparkline, per-worker progress |

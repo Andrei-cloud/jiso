@@ -42,18 +42,18 @@ func TestTxSendYieldsSendMsg(t *testing.T) {
 	}
 }
 
-// TestTxPickFileMsg: t yields TxPickFileMsg (file picker is
-// TUI-406b/M5-later; root no-ops it), even in the empty state.
+// TestTxPickFileMsg: f yields TxPickFileMsg (UAT round 8 D3: `f` is the
+// file-pick key on every surface), even in the empty state.
 func TestTxPickFileMsg(t *testing.T) {
 	t.Parallel()
 
 	for _, state := range []TransactionsState{{}, populatedState()} {
-		_, cmd := txPage(t, state, 120, 32).Update(press('t'))
+		_, cmd := txPage(t, state, 120, 32).Update(press('f'))
 		if cmd == nil {
-			t.Fatalf("t returned no cmd (state %+v)", state.FileName)
+			t.Fatalf("f returned no cmd (state %+v)", state.FileName)
 		}
 		if _, ok := cmd().(TxPickFileMsg); !ok {
-			t.Errorf("t dispatched %T, want TxPickFileMsg", cmd())
+			t.Errorf("f dispatched %T, want TxPickFileMsg", cmd())
 		}
 	}
 }
@@ -133,7 +133,9 @@ func TestTxUnknownKeysIgnored(t *testing.T) {
 	_, _ = p.Update(press('j'))
 
 	type stranger struct{ N int }
-	for _, msg := range []tea.Msg{press('x'), press('q'), stranger{1}, nil} {
+	// t is deliberately in the list: UAT round 8 D3 unbound it on §B
+	// (the picker moved to f), so it must now be an ignored key.
+	for _, msg := range []tea.Msg{press('x'), press('q'), press('t'), stranger{1}, nil} {
 		next, cmd := p.Update(msg)
 		if cmd != nil {
 			t.Errorf("Update(%T) returned a cmd", msg)

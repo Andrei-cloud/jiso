@@ -24,9 +24,9 @@
 [navigation] end	bottom
 [page actions] enter	detail
 [page actions] s	send
-[page actions] t	pick tx file
+[page actions] f	pick tx file
 [page actions] /	filter
-[page actions] f	sort
+[page actions] o	sort
 [page actions] esc	back
 [global] 1-8	pages
 [global] :/ctrl+p	palette

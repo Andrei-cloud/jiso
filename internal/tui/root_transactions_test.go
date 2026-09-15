@@ -72,7 +72,7 @@ func TestRootTxEmptyWithoutApp(t *testing.T) {
 	_, _ = m.Update(ch('2'))
 
 	content := m.View().Content
-	if !strings.Contains(content, "no tx file loaded - t to pick file") {
+	if !strings.Contains(content, "no tx file loaded - f to pick file") {
 		t.Errorf("frame lacks the empty state:\n%s", content)
 	}
 }
@@ -93,7 +93,31 @@ func TestRootTxStateFromApp(t *testing.T) {
 	}
 }
 
-// TestRootTxRowMsgsAreNoOps: s/t (send/picker) and the §C compose msg
+// TestTransactionsFOpenPickerOSort: UAT round 8 D3 — on §B `f` opens the
+// shared tx-file picker (the same key every other file surface uses) and
+// `o` cycles the sort (the key `f` used to own).
+func TestTransactionsFOpenPickerOSort(t *testing.T) {
+	m := NewRootModel(newTxFileApp(t))
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	_, _ = m.Update(ch('2')) // §B
+
+	pumpKey(m, ch('f')) // f opens the tx-file picker (was t)
+	if m.filePick == nil {
+		t.Fatal("'f' must open the tx-file picker")
+	}
+	pumpKey(m, special(tea.KeyEscape))
+	if m.filePick != nil {
+		t.Fatal("esc must close the picker back to §B")
+	}
+
+	before := m.View().Content
+	pumpKey(m, ch('o')) // o cycles the sort (was f)
+	if m.View().Content == before {
+		t.Fatal("'o' must cycle the sort")
+	}
+}
+
+// TestRootTxRowMsgsAreNoOps: s/f (send/picker) and the §C compose msg
 // reach root, change nothing, and run no command (SCR-504/picker land
 // later). Enter (TxDetailMsg) is wired since SCR-503 and lives in
 // root_inspector_test.go.

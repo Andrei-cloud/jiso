@@ -19,11 +19,11 @@ import (
 // it doubles as the slot's frame-visible title).
 const titleTransactions = "TRANSACTIONS"
 
-// txEmptyHint is the §B empty state (wireframe: "no tx file loaded — `t`
-// to pick file"; file picker lands in TUI-406b/M5-later).
+// txEmptyHint is the §B empty state (wireframe line; UAT round 8 D3: the
+// key is the universal `f`, not `t`).
 const txEmptyHint = "no tx file loaded"
 
-// txPickFileSuffix completes the empty hint: "<dash> <t> to pick file".
+// txPickFileSuffix completes the empty hint: "<dash> <f> to pick file".
 const txPickFileSuffix = "to pick file"
 
 // GlyphCursor marks the live-filter caret ("▏"); ASCII fallback "|".
@@ -97,11 +97,13 @@ func (t *Transactions) titleRow(w int) string {
 }
 
 // emptyStateBody renders the wireframe empty line: "no tx file loaded —
-// t to pick file" (dash per glyph mode; the key itself is accent-styled,
-// the suffix muted — no duplicated key token).
+// f to pick file" (dash per glyph mode; the key itself is accent-styled,
+// the suffix muted — no duplicated key token). The key is read from the
+// page's own PickFile binding, so the hint can never drift from the key
+// the page matches on (the §M drift-pin rule, applied to the empty state).
 func (t *Transactions) emptyStateBody() string {
 	return t.th.TextMuted.Render(txEmptyHint+" "+dashIf(t.th, "")+" ") +
-		t.th.Accent.Render("t") + " " + t.th.TextMuted.Render(txPickFileSuffix)
+		t.th.Accent.Render(t.nav.PickFile.Keys()[0]) + " " + t.th.TextMuted.Render(txPickFileSuffix)
 }
 
 // errorBody renders why the last tx-file pick did not load (UAT round 7):

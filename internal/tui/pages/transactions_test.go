@@ -106,7 +106,7 @@ func TestTxEmptyStateText(t *testing.T) {
 	p := txPage(t, TransactionsState{}, 120, 32)
 	body := txBody(t, p)
 
-	if !strings.Contains(body, "no tx file loaded - t to pick file") {
+	if !strings.Contains(body, "no tx file loaded - f to pick file") {
 		t.Errorf("empty state lacks the wireframe line:\n%s", body)
 	}
 	if !strings.Contains(body, "TRANSACTIONS") || !strings.Contains(body, "- (0)") {
@@ -161,12 +161,12 @@ func TestTxFilterNarrowsLive(t *testing.T) {
 }
 
 // TestTxFilterComposesWithSort: the filter narrows the sorted view and
-// keeps the sort order (name desc active via one f press).
+// keeps the sort order (name desc active via one o press).
 func TestTxFilterComposesWithSort(t *testing.T) {
 	t.Parallel()
 
 	p := txPage(t, populatedState(), 120, 32)
-	_, _ = p.Update(press('f')) // name desc
+	_, _ = p.Update(press('o')) // name desc
 	typeFilter(t, p, "ar")      // card_pool + mastercard rows only
 
 	equalIDs(t, p, txReversal, txPurchase, txEchoMC)
@@ -266,7 +266,7 @@ func TestTxFilterEnterKeepsFilter(t *testing.T) {
 	}
 }
 
-// TestTxSortCycleOrderPerColumn: f walks name asc → name desc → mti asc →
+// TestTxSortCycleOrderPerColumn: o walks name asc → name desc → mti asc →
 // mti desc → description asc → description desc → wraps to name asc.
 func TestTxSortCycleOrderPerColumn(t *testing.T) {
 	t.Parallel()
@@ -288,7 +288,7 @@ func TestTxSortCycleOrderPerColumn(t *testing.T) {
 	}
 	for i, s := range steps {
 		if i > 0 {
-			_, _ = p.Update(press('f'))
+			_, _ = p.Update(press('o'))
 		}
 		if p.table.SortCol() != s.col || p.table.SortAsc() != s.asc {
 			t.Fatalf("step %d: sortCol=%d sortAsc=%v", i, p.table.SortCol(), p.table.SortAsc())
@@ -302,8 +302,8 @@ func TestTxSortStable(t *testing.T) {
 	t.Parallel()
 
 	p := txPage(t, populatedState(), 120, 32)
-	_, _ = p.Update(press('f'))
-	_, _ = p.Update(press('f')) // mti asc
+	_, _ = p.Update(press('o'))
+	_, _ = p.Update(press('o')) // mti asc
 
 	ids := viewIDs(p)
 	if ids[2] != txSignOn || ids[3] != txEchoMC {

@@ -1,8 +1,8 @@
 +- HELP -- context: Transactions page ---------------------+
 | navigation   up/k up | down/j down | pgup page up        |
 |              pgdown page down | home top | end bottom    |
-| page actions enter detail | s send | t pick tx file      |
-|              / filter | f sort | esc back                |
+| page actions enter detail | s send | f pick tx file      |
+|              / filter | o sort | esc back                |
 | global       1-8 pages | :/ctrl+p palette | c connect    |
 |              tab/shift+tab focus pane | ? this           |
 |              q quit / back | ctrl+c graceful quit        |

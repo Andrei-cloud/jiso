@@ -154,9 +154,10 @@ func TestRootToastAppearsThenPrunesOnTickedAge(t *testing.T) {
 
 // --- E5-FIX/M6 regression tests --------------------------------------
 
-// TestRootTxPickFileOpensPickerAndCommitsPath: `t` on §B (the logged
-// no-op the §B empty state and the §M registry advertise) opens the
-// shared picker through the OpenFilePickerMsg seam with the .json
+// TestRootTxPickFileOpensPickerAndCommitsPath: `f` on §B (the key the §B
+// empty state and the §M registry advertise; UAT round 8 D3 moved it from
+// `t`) opens the shared picker through the OpenFilePickerMsg seam with the
+// .json
 // filter, and a selection commits the tx-file path through the same
 // settings commit path §L uses.
 func TestRootTxPickFileOpensPickerAndCommitsPath(t *testing.T) {

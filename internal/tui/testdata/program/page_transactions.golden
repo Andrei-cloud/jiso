@@ -1,6 +1,6 @@
 +- jiso dev --------------------------------------- [x] offline - [!] no spec -+
 | TRANSACTIONS  - (0)  filter: |  sort: name ^                                 |
-| no tx file loaded - t to pick file                                           |
+| no tx file loaded - f to pick file                                           |
 |                                                                              |
 |                                                                              |
 |                                                                              |
@@ -20,5 +20,5 @@
 |                                                                              |
 |                                                                              |
 +------------------------------------------------------------------------------+
-| 1 dash  2 tx  3 scenarios  : cmd  ? help  q quit  enter detail  s send  ~+8  |
+| 1 dash  2 tx  3 scenarios  : cmd  ? help  q quit  enter detail  s send  ~+9  |
 +------------------------------------------------------------------------------+

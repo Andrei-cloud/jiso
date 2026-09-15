@@ -90,8 +90,9 @@ func mtiFromFields(fieldsJSON string) string {
 // SCR-504 s on §B (and Enter on the §D page — the same TxSendMsg path)
 // starts the live exchange: root pushes the §D page and launches the
 // stage goroutine; a send while one is in flight is ignored (no queue, no
-// retry). Since E5-FIX/M6 t on §B (TxPickFileMsg — advertised by the §B
-// empty state and the §M registry) opens the shared file picker through
+// retry). Since E5-FIX/M6 f on §B (TxPickFileMsg — advertised by the §B
+// empty state and the §M registry; UAT round 8 D3 moved it from `t`)
+// opens the shared file picker through
 // the OpenFilePickerMsg seam (giving that message a real emitter), and a
 // selection commits the tx-file path through the same settings commit
 // path §L uses. The compose-with-dataset run lands later: it stays a

@@ -139,9 +139,10 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 // is JSON; same filter as the §L tx-file field).
 var txPickExts = settingsPickExts(app.SettingTxFile)
 
-// handleTxPickFile resolves §B `t` into an OpenFilePickerMsg (E5-FIX/
+// handleTxPickFile resolves §B `f` into an OpenFilePickerMsg (E5-FIX/
 // M6: the message pair existed but had no emitter — the §B empty state
-// and the §M registry advertise `t`, and the picker only ever opened
+// and the §M registry advertise `f` (UAT round 8 D3; was `t`), and the
+// picker only ever opened
 // from §L). Browsing starts at the current tx file's directory (or the
 // filePickRootFn override — tests browse a t.TempDir fixture), and a
 // selection commits the tx-file path through the same settings commit
