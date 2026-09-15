@@ -28,11 +28,13 @@ const (
 	// Pane/table floors.
 	sessionsMinListWidth    = 20
 	sessionsMinHistoryWidth = 40
-	// sessionsListPaneW/sessionsStatsPaneW size the two fixed panes at
-	// split widths; TX HISTORY takes the rest.
-	sessionsListPaneW  = 30
-	sessionsStatsPaneW = 30
-	sessionsSectionGap = 1
+	// The list and stats panes are ratios of the content width at split
+	// widths (UAT round 8 finding 5: the old fixed 30-cell caps froze the
+	// split on wide terminals); TX HISTORY absorbs the remainder.
+	sessionsListFraction  = 4
+	sessionsStatsFraction = 4
+	sessionsMinStatsWidth = 20
+	sessionsSectionGap    = 1
 	// sessionsStatsLabelCol is the stats card's label column.
 	sessionsStatsLabelCol = 10
 )
@@ -72,8 +74,11 @@ func (s *Sessions) render(w, h int) string {
 	paneH := max(h-headH, 4)
 
 	if w >= frame.FullWidth {
-		listW := min(sessionsListPaneW, max(w/4, sessionsMinListWidth))
-		statsW := min(sessionsStatsPaneW, max(w/4, 20))
+		listW := max(w/sessionsListFraction, sessionsMinListWidth)
+		statsW := max(w/sessionsStatsFraction, sessionsMinStatsWidth)
+		// TX HISTORY is the remainder: the three panes plus the two gaps
+		// sum exactly to the content width (the floor cannot bite at
+		// w >= frame.FullWidth, so it never opens a trailing gap).
 		histW := max(w-listW-statsW-2*sessionsSectionGap, sessionsMinHistoryWidth)
 		gap := strings.Repeat(" ", sessionsSectionGap)
 

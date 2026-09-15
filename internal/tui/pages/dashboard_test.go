@@ -91,16 +91,17 @@ func TestFailedState(t *testing.T) {
 }
 
 // TestDashLeftColIsRelative: UAT round 5 — the wide-grid left column
-// grows with the terminal (clamped 40..64), it is no longer a fixed
-// 46-cell column at every wide width.
+// grows with the terminal; UAT round 8 finding 5 — it keeps growing at
+// its 35% ratio (floor 40 only): the old 64-cell ceiling froze the split
+// and starved the ratio on wide terminals.
 func TestDashLeftColIsRelative(t *testing.T) {
 	t.Parallel()
 
 	if dashLeftCol(200) <= dashLeftCol(140) {
 		t.Errorf("left column does not grow: 200→%d, 140→%d", dashLeftCol(200), dashLeftCol(140))
 	}
-	if got := dashLeftCol(1000); got != 64 {
-		t.Errorf("left column must clamp at 64, got %d", got)
+	if got := dashLeftCol(1000); got != 350 {
+		t.Errorf("left column must keep its 35%% ratio, got %d (want 350)", got)
 	}
 	if got := dashLeftCol(130); got < 40 {
 		t.Errorf("left column must floor at 40, got %d", got)
@@ -108,17 +109,26 @@ func TestDashLeftColIsRelative(t *testing.T) {
 }
 
 // TestServer3ColRoutesRelative: UAT round 5 — the wide-layout ROUTES
-// column is relative (clamped 36..64), not a fixed 44.
+// column is relative; UAT round 8 finding 5 — it keeps its 28% ratio at
+// every width (floor 36 only): the old 64-cell ceiling froze the split
+// and left a trailing gap. The three columns plus the two gaps must
+// always sum exactly to the content width.
 func TestServer3ColRoutesRelative(t *testing.T) {
 	t.Parallel()
 
-	_, r140 := server3ColWidths(140)
-	_, r240 := server3ColWidths(240)
+	s140, l140, r140 := server3ColWidths(140)
+	s240, l240, r240 := server3ColWidths(240)
 	if r240 <= r140 {
 		t.Errorf("routes column does not grow: 240→%d, 140→%d", r240, r140)
 	}
-	if _, got := server3ColWidths(1000); got != 64 {
-		t.Errorf("routes column must clamp at 64, got %d", got)
+	if _, _, got := server3ColWidths(1000); got != 280 {
+		t.Errorf("routes column must keep its 28%% ratio, got %d (want 280)", got)
+	}
+	if s140+l140+r140 != 140-2*serverSectionGap {
+		t.Errorf("140: stats %d + log %d + routes %d does not fill the width", s140, l140, r140)
+	}
+	if s240+l240+r240 != 240-2*serverSectionGap {
+		t.Errorf("240: stats %d + log %d + routes %d does not fill the width", s240, l240, r240)
 	}
 }
 

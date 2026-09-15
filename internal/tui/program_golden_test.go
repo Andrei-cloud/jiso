@@ -27,6 +27,7 @@ func TestProgBootGolden(t *testing.T) {
 		// Wireframe A1: the app label is embedded in the rounded top rule.
 		t.Errorf("boot frame must open with the app label in the top rule:\n%s", r.frame)
 	}
+	assertSectionsFillFrameWidth(t, r, 80)
 	checkProgGolden(t, "boot", r.frame)
 }
 

@@ -129,12 +129,14 @@ func (d *Dashboard) render(w, h int) string {
 	}
 }
 
-// dashLeftCol sizes the wide-grid left column relative to the terminal
-// (UAT round 5: panes adopt to the terminal size), clamped so the
-// compact cards neither starve below 40 cells nor stretch past
-// readability at 64.
+// dashLeftCol sizes the wide-grid left column as its 35% ratio of the
+// content width (UAT round 5: panes adopt to the terminal size; UAT
+// round 8 finding 5: the 64-cell ceiling froze the split on wide
+// terminals, so the ratio keeps only its floor clamp). The right column
+// absorbs the remainder (renderTwoCol), so one band sums exactly to the
+// content width.
 func dashLeftCol(w int) int {
-	return min(max(w*35/100, 40), 64)
+	return max(w*35/100, 40)
 }
 
 // cardBox renders the plain "TITLE" (no key badge, UAT round 5) over the

@@ -36,16 +36,13 @@ const (
 	serverLogMinBoxH = 4
 	serverNarrowLogH = 6
 
-	// serverWideCols is the width at which ROUTES keeps a wider (relative,
-	// clamped) column and the LOG owns the rest (proposal 05 §1); below it
-	// (but still >= frame.FullWidth) the LOG takes ~45% and ROUTES the
-	// middle.
-	serverWideCols = 140
-
-	// serverStatsFraction sizes the STATS column at split widths.
+	// serverStatsFraction sizes the STATS column at the two-column
+	// (no-log) split: one third of the content width, floored only (UAT
+	// round 8 finding 5: the old 26..40 clamp froze the split and left a
+	// trailing gap). The three-column split sizes STATS at one fifth
+	// (server3ColWidths).
 	serverStatsFraction = 3
 	serverStatsMin      = 26
-	serverStatsMax      = 40
 	serverSectionGap    = 1
 	// serverStatsLabelCol is the stats card's label column.
 	serverStatsLabelCol = 10
@@ -120,14 +117,15 @@ func (s *Server) render(w, h int) string {
 
 	if w >= frame.FullWidth {
 		if len(s.state.Log) == 0 {
-			// No server output yet: the pre-proposal-05 two-column
-			// layout stays byte-identical (goldens).
-			statsW := min(max(w/serverStatsFraction, serverStatsMin), serverStatsMax)
-			routesW := max(w-statsW-serverSectionGap, 20)
+			// Two columns by ratio: STATS keeps its third (floor only)
+			// and ROUTES absorbs the remainder, so the join sums exactly
+			// to the content width (UAT round 8 finding 5).
+			statsW := max(w/serverStatsFraction, serverStatsMin)
+			routesW := w - statsW - serverSectionGap
 
-			// A ModeServer box draws two cells narrower than its nominal
-			// w, so the next column's origin advances by the DRAWN width
-			// of the segment the join consumes, not by statsW.
+			// A sectionW box draws at its layout width, so the next
+			// column's origin advances by the DRAWN width of the segment
+			// the join consumes (measured, not nominal).
 			leftSec := s.leftBox(headH, statsW, paneH)
 			routesSec := s.routesBox(lipgloss.Width(leftSec)+serverSectionGap, headH, routesW, paneH)
 
@@ -140,8 +138,7 @@ func (s *Server) render(w, h int) string {
 		// Proposal 05 §1: the LOG is the live signal and owns the big
 		// right pane at full height; STATS and ROUTES keep their
 		// natural (short) heights, top-aligned (JoinHorizontal pads).
-		statsW := serverStatsMin
-		logW, routesW := server3ColWidths(w)
+		statsW, logW, routesW := server3ColWidths(w)
 		statsH := min(serverStatsBoxH, paneH)
 		routesH := min(paneH, max(len(s.state.Routes)+5, 6))
 
@@ -224,24 +221,19 @@ func (s *Server) errorLine(w int) string {
 	return clipCells(s.th.Status(theme.KindError, s.state.Error), w, clipTail(s.th))
 }
 
-// server3ColWidths sizes the proposal-05 three-column body: the LOG
-// owns the rest at >= serverWideCols and takes ~45% between
-// frame.FullWidth and it. The ROUTES column is relative to the terminal
-// (UAT round 5: panes adopt to the size), clamped 36..64 so the match
-// expressions stay readable without starving the live log.
-func server3ColWidths(w int) (logW, routesW int) {
-	if w >= serverWideCols {
-		routesW = min(max(w*28/100, 36), 64)
-		logW = max(w-serverStatsMin-routesW-serverSectionGap*2, 24)
+// server3ColWidths sizes the proposal-05 three-column body by ratio of
+// the content width (UAT round 8 finding 5: the old fixed 26-cell STATS
+// column and the 36..64 ROUTES clamp left a trailing gap on every wide
+// terminal): STATS keeps a fifth (floor 26), ROUTES keeps 28% (floor 36
+// so match expressions stay readable) and the LOG — the live signal and
+// always the widest column at full width — absorbs the remainder, so the
+// three columns plus the two gaps sum exactly to w.
+func server3ColWidths(w int) (statsW, logW, routesW int) {
+	statsW = max(w/5, serverStatsMin)
+	routesW = max(w*28/100, 36)
+	logW = w - statsW - routesW - serverSectionGap*2
 
-		return logW, routesW
-	}
-
-	logW = max(w*45/100, 30)
-	routesW = max(w-serverStatsMin-logW-serverSectionGap*2, 20)
-	logW = max(w-serverStatsMin-routesW-serverSectionGap*2, 24)
-
-	return logW, routesW
+	return statsW, logW, routesW
 }
 
 // logFooterHint is the dim last line inside the LOG box (proposal 05
@@ -268,12 +260,12 @@ func (s *Server) logBox(x, y, w, h int) string {
 
 	body := make([]string, 0, inner)
 	for _, l := range s.state.Log[start:end] {
-		body = append(body, clipCells(s.th.TextMuted.Render(CompactServerLog(s.th, l)), max(w-4, 8), clipTail(s.th)))
+		body = append(body, clipCells(s.th.TextMuted.Render(CompactServerLog(s.th, l)), max(w-2, 8), clipTail(s.th)))
 	}
 	for len(body) < avail {
 		body = append(body, "")
 	}
-	body = append(body, clipCells(s.th.Deemphasized.Render(logFooterHint(s.th)), max(w-4, 8), clipTail(s.th)))
+	body = append(body, clipCells(s.th.Deemphasized.Render(logFooterHint(s.th)), max(w-2, 8), clipTail(s.th)))
 
 	// The log pane is the default focus target (j/k scroll it until r
 	// or Tab moves to ROUTES); UAT round 5 makes that visible.
@@ -331,29 +323,32 @@ func (s *Server) startHintBody() string {
 }
 
 // routesBox renders the titled ROUTES table box sized into the pane.
-// The table is sized to the box's inner content width (lipgloss v2
-// Width includes the border, so a table padded to w-2 word-wrapped the
+// The table is sized to the box's inner content width (the drawn box is
+// w wide with two border cells, so a wider table word-wraps the
 // right-aligned HITS column — UAT round 5; sessions listBox idiom).
 func (s *Server) routesBox(x, y, w, h int) string {
 	s.table.SetFocused(s.routesFocused)
-	s.table.SetWidth(max(w-4, 4))
+	s.table.SetWidth(max(w-2, 4))
 
 	return s.sectionW(paneTitle(s.th, titleRoutes, s.routesFocused), s.table.View(), x, y, w, h, s.routesFocused)
 }
 
-// sectionW draws a titled bordered box of total size w×h (h includes
-// the title line) through the one shared widgets.Section in ModeServer:
-// the box renders two cells narrower than w (the UAT round 5 ROUTES
-// table wrap fix) and the body clips to the box's CONTENT width (w-4).
-// A focused pane's border takes the accent colour (UAT round 5: the
-// server page had no focus indication at all); the rest keep the
+// sectionW draws a titled bordered box occupying exactly w×h in the page
+// layout (h includes the title line) through the one shared
+// widgets.Section in ModeServer: the shared box draws two cells narrower
+// than the nominal width it is handed (its pinned ModeServer contract),
+// so sectionW hands it w+2 and the DRAWN box lands its right border on
+// the layout edge — the joins then sum exactly to the content width
+// (UAT round 8 finding 5). The body clips to the box's CONTENT width
+// (w-2). A focused pane's border takes the accent colour (UAT round 5:
+// the server page had no focus indication at all); the rest keep the
 // neutral border token. The section's Rect is recorded on the page at
-// its content-relative origin.
+// its content-relative origin, measured from the drawn string.
 func (s *Server) sectionW(title, body string, x, y, w, h int, focused bool) string {
 	sec := widgets.NewSection(s.th, title)
 	sec.Mode = widgets.ModeServer
 	sec.Focused = focused
-	out, _ := sec.Render(body, x, y, w, h)
+	out, _ := sec.Render(body, x, y, w+2, h)
 	s.sections = append(s.sections, sectionRect(x, y, out))
 
 	return out

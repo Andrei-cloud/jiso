@@ -154,7 +154,7 @@ func TestServerRoutesTableRender(t *testing.T) {
 			t.Errorf("routes table lacks %q", want)
 		}
 	}
-	// Proposal 05 §1: below serverWideCols the compact column set drops
+	// Proposal 05 §1: the compact routes column set never carries
 	// LATENCY (it lives in the route detail overlay instead).
 	if strings.Contains(body, "LATENCY") {
 		t.Errorf("compact routes table must not carry the LATENCY column at 120:\n%s", body)
