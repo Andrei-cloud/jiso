@@ -220,8 +220,15 @@ func TestLastSendCardBody(t *testing.T) {
 		!strings.Contains(body, "[ok] correlation") {
 		t.Errorf("last-send elapsed/validation line missing:\n%s", body)
 	}
-	if !strings.Contains(body, "enter") || !strings.Contains(body, "hexdump") {
-		t.Errorf("last-send affordance missing:\n%s", body)
+	if !strings.Contains(body, "enter") {
+		t.Errorf("last-send reopen affordance missing:\n%s", body)
+	}
+	// UAT round 9 (F-9g): the card must NOT advertise "h hexdump" — h
+	// toggles the §D send exchange's panes only after you enter open it;
+	// on the dashboard there is no view to hexdump, so the glyph was a
+	// displayed-but-dead key.
+	if strings.Contains(body, "hexdump") {
+		t.Errorf("last-send card advertises the unbacked h hexdump glyph:\n%s", body)
 	}
 }
 
@@ -339,6 +346,25 @@ func TestEnterDispatchesActionMsg(t *testing.T) {
 	}
 	if got, ok := cmd().(gotoMsg); !ok || got != "send" {
 		t.Errorf("enter dispatched %T %v, want gotoMsg send", cmd(), cmd())
+	}
+}
+
+// TestStressWizardKeyDispatch: UAT round 9 (F-9g) — the LAST STRESS
+// card's "no stress run · t starts one" glyph must be a real page
+// binding: t dispatches the very WorkersOpenFormMsg{stress} the §H page
+// emits, so root opens the same wizard from either page (the pages
+// package never opens the wizard itself — the import fence holds).
+func TestStressWizardKeyDispatch(t *testing.T) {
+	t.Parallel()
+
+	d := dashDashboard(t, DashboardState{}, 120, 32)
+
+	_, cmd := d.Update(press('t'))
+	if cmd == nil {
+		t.Fatal("t on the dashboard returned no cmd")
+	}
+	if m, ok := cmd().(WorkersOpenFormMsg); !ok || m.Kind != "stress" {
+		t.Errorf("t msg = %#v, want WorkersOpenFormMsg{stress}", cmd())
 	}
 }
 

@@ -175,18 +175,20 @@ the too-small notice with no live click zones at all.
 
 ### status — Dashboard
 
-Information grid: CONNECTION (c), LAST SEND (s) and LAST STRESS (5) left;
-MOCK SERVER (4), SERVER LOG, SESSION (6) and QUICK ACTIONS right (single
-column on narrow terminals). Empty states teach the key
-(`no send yet · s sends`, `no stress run · t starts one`,
-`○ stopped · 4 starts the form`, `no server output yet`). SESSION
-counters refresh on a 2 s tick that is dirtied by send completions and
-worker events; the DB read never runs on the UI thread.
+Information grid: CONNECTION, LAST SEND and LAST STRESS left; MOCK
+SERVER, SERVER LOG, SESSION and QUICK ACTIONS right (single column on
+narrow terminals). Card titles carry no key badges; empty states teach
+the key (`no send yet · s sends`, `no stress run · t starts one`,
+`○ stopped · 4 opens the server page` — a page jump; the start form
+opens there — `no server output yet`). SESSION counters refresh on a
+2 s tick that is dirtied by send completions and worker events; the DB
+read never runs on the UI thread.
 
 | Keys | Action |
 |---|---|
 | `enter` | Run the highlighted quick action (`View last send` reopens §D, `Stress summary` opens the run summary) |
 | `D` | Disconnect — §N3 confirm while workers or the mock server run; sane no-op toast otherwise |
+| `t` | Open the stress wizard — the same wizard §H's `t` opens |
 | `esc` | No-op — the dashboard is home |
 
 ### send — Transactions

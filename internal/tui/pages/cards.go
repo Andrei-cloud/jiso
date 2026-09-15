@@ -154,8 +154,11 @@ func (d *Dashboard) sendCardBodyLines() []string {
 		d.th.Dim.Render(dashIf(d.th, s.Time)) + " " + d.value(s.TxName),
 		line2,
 		line3,
-		keyGlyph(d.th, "enter") + d.muted(" open · ") +
-			keyGlyph(d.th, "h") + d.muted(" hexdump"),
+		// UAT round 9 (F-9g): the old " · h hexdump" span was a
+		// displayed-but-dead key — h toggles the §D panes only inside
+		// the send exchange, and a dashboard hexdump has no target
+		// view. The honest affordance is the enter row alone.
+		keyGlyph(d.th, "enter") + d.muted(" open"),
 	}
 }
 

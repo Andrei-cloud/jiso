@@ -8,7 +8,7 @@ LAST SEND                                                 SERVER LOG
 |12:04:09 Echo                                          | |                                                        |
 |0200 -> 0210 | RC 00 APPROVED                          | |                                                        |
 |1.9ms | [ok] validated | [ok] correlation              | |                                                        |
-|enter open - h hexdump                                 | |no server output yet                                    |
+|enter open                                             | |no server output yet                                    |
 +-------------------------------------------------------+ +--------------------------------------------------------+
 LAST STRESS                                               SESSION                                                   
 +-------------------------------------------------------+ +--------------------------------------------------------+

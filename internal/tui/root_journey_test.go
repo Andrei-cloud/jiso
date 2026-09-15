@@ -161,6 +161,24 @@ func TestJourneySendWizardLadder(t *testing.T) {
 	})
 }
 
+// TestJourneyDashboardStressWizard: UAT round 9 (F-9g) — t pressed on
+// the dashboard (the LAST STRESS card's taught key) opens the SAME
+// stress wizard §H's t opens, as a modal over the untouched dashboard.
+func TestJourneyDashboardStressWizard(t *testing.T) {
+	escLadder(t, func(t *testing.T, r *sendTestRoot) {
+		pumpKey(r.m, ch('t'))
+		if r.m.workerWiz == nil {
+			t.Fatal("t on the dashboard must open the stress wizard")
+		}
+		if got := r.m.workerWiz.Mode(); got != pages.WorkerModeStress {
+			t.Fatalf("wizard mode = %q, want %q", got, pages.WorkerModeStress)
+		}
+		if r.m.Current().ID() != pages.DashboardPageID {
+			t.Fatalf("the wizard must be a modal over %q", r.m.Current().ID())
+		}
+	})
+}
+
 // TestJourneyConnectDialogLadder: dashboard c → connect dialog → esc
 // closes → dashboard.
 func TestJourneyConnectDialogLadder(t *testing.T) {

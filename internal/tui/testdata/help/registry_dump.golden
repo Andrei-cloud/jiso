@@ -7,6 +7,7 @@
 [navigation] end	bottom
 [page actions] enter	run action
 [page actions] D	disconnect
+[page actions] t	stress run
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect

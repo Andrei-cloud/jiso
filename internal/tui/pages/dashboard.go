@@ -77,27 +77,33 @@ type Dashboard struct {
 }
 
 // dashNav is the page's keymap: the enter binding that runs the selected
-// quick action and the 'D' quick key that drops the live connection
+// quick action, the 'D' quick key that drops the live connection
 // (TUI-514 — uppercase counterpart of the global 'c' connect hotkey;
-// nothing on this page or in the global keymap binds it). The feed
-// scroll bindings left with the EVENT FEED pane; j/k reach the
-// quick-actions list through the shared widgets nav keys (registered via
-// tableNavHelp, the drift-pinned source).
+// nothing on this page or in the global keymap binds it), and the 't'
+// quick key that opens the stress wizard (UAT round 9 F-9g: the LAST
+// STRESS card's "no stress run · t starts one" glyph was displayed-but-
+// dead — the key only lived on §H). The feed scroll bindings left with
+// the EVENT FEED pane; j/k reach the quick-actions list through the
+// shared widgets nav keys (registered via tableNavHelp, the drift-pinned
+// source).
 type dashNav struct {
-	Run        key.Binding
-	Disconnect key.Binding
+	Run          key.Binding
+	Disconnect   key.Binding
+	StressWizard key.Binding
 
 	help []HelpEntry // §M registry, built from the bindings above
 }
 
 func newDashNav() dashNav {
 	nav := dashNav{
-		Run:        key.NewBinding(key.WithKeys(theme.KeyEnter)),
-		Disconnect: key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "disconnect")),
+		Run:          key.NewBinding(key.WithKeys(theme.KeyEnter)),
+		Disconnect:   key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "disconnect")),
+		StressWizard: key.NewBinding(key.WithKeys("t")),
 	}
 	nav.help = append(tableNavHelp(),
 		actEntry("run action", nav.Run),
 		actEntry("disconnect", nav.Disconnect),
+		actEntry("stress run", nav.StressWizard),
 	)
 
 	return nav
@@ -206,10 +212,12 @@ func (d *Dashboard) Update(msg tea.Msg) (Page, tea.Cmd) {
 
 // updateKey is the page-local keymap: enter runs the selected action, D
 // emits the disconnect Msg (root decides: leg, confirm, or sane info
-// no-op), and every other key (j/k, g/G, home/end) scrolls the
-// quick-actions list. The page-local "c parks the cursor on the connect
-// row" handler is gone (UAT round 5): the global c binding always claims
-// the key first, so the handler was production-dead.
+// no-op), t emits the stress-wizard open Msg (the same message §H's t
+// emits — the router's openWorkersForm path owns the modal; the page
+// never opens anything itself), and every other key (j/k, g/G, home/end)
+// scrolls the quick-actions list. The page-local "c parks the cursor on
+// the connect row" handler is gone (UAT round 5): the global c binding
+// always claims the key first, so the handler was production-dead.
 func (d *Dashboard) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	switch {
 	case key.Matches(msg, d.nav.Run):
@@ -218,6 +226,12 @@ func (d *Dashboard) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 		out := palette.DisconnectMsg{}
 
 		return d, func() tea.Msg { return out }
+	case key.Matches(msg, d.nav.StressWizard):
+		// UAT round 9 (F-9g): the LAST STRESS card's taught t is now
+		// real — the exact message Workers.updateKey emits for its own
+		// t (WorkerModeStress is the documented Kind value), so root
+		// opens the identical wizard from either page.
+		return d, func() tea.Msg { return WorkersOpenFormMsg{Kind: WorkerModeStress} }
 	default:
 		var cmd tea.Cmd
 		d.actions, cmd = d.actions.Update(msg)
