@@ -140,18 +140,15 @@ func (a *Analyze) Draft() (string, bool) { return a.draft, a.editingStep() }
 // ListCursor exposes the local list cursor (tests).
 func (a *Analyze) ListCursor() int { return a.sel }
 
-// ClaimsKeyboard implements KeyboardClaimer with the UAT round 8 (D2)
-// scoping: the claim is EDIT mode, not "a step that has an editable
-// field". The capture/spec steps claim only while a typed path is in
-// progress (the first byte reaches them through the global layer, the
-// SCR-502 typeahead); the run step claims while the "/" flow filter or
-// the [o] output-path editor is open. The generated-item picker and
-// the unparsable-message viewer are overlays: they own the keyboard
-// wholesale while open. Ctrl+C stays global.
-func (a *Analyze) ClaimsKeyboard() bool {
-	if a.itemsOpen || a.unparsableOpen {
-		return true
-	}
+// Editing reports the two-mode flag of the page (UAT round 8 / D3,
+// Task 5.2): the capture/spec steps are in EDIT mode while a typed
+// path/filter draft is in progress, the run step while the "/" flow
+// filter or the [o] output-path editor is open. This is the predicate
+// ClaimsKeyboard delegates to and the [f] browse gate reads: navigate
+// mode sends f to the root-side picker, edit mode types f literally into
+// the draft (the §G server-form pattern). It is the mode proper, not the
+// weaker step-level caret question of editingStep.
+func (a *Analyze) Editing() bool {
 	switch a.state.Step {
 	case StepCapture, StepSpec:
 		return a.draft != ""
@@ -160,6 +157,22 @@ func (a *Analyze) ClaimsKeyboard() bool {
 	}
 
 	return false
+}
+
+// ClaimsKeyboard implements KeyboardClaimer with the UAT round 8 (D2)
+// scoping: the claim is EDIT mode (Editing), not "a step that has an
+// editable field". The capture/spec steps claim only while a typed path
+// is in progress (the first byte reaches them through the global layer,
+// the SCR-502 typeahead); the run step claims while the "/" flow filter
+// or the [o] output-path editor is open. The generated-item picker and
+// the unparsable-message viewer are overlays: they own the keyboard
+// wholesale while open. Ctrl+C stays global.
+func (a *Analyze) ClaimsKeyboard() bool {
+	if a.itemsOpen || a.unparsableOpen {
+		return true
+	}
+
+	return a.Editing()
 }
 
 // editingStep reports whether the current step is a text-editing

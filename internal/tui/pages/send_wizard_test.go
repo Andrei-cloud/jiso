@@ -155,6 +155,63 @@ func TestWizardBrowseKeyOnlyOnEmptyFilter(t *testing.T) {
 	}
 }
 
+// TestWizardFileStepBrowseTracksEditMode pins the two-mode browse contract
+// (UAT round 8 finding 2 / D3, Task 5.2) on the spec and file list steps:
+// NAVIGATE mode treats `f` as the file-picker key, typing enters EDIT mode
+// (the first printable types itself), and there `f` types literally into
+// the filter — the picker must not reopen (the §G
+// TestServerFormTypingLetterFInFieldDoesNotOpenPicker pattern; the gate is
+// the Editing() mode, not an ad-hoc "empty filter" check).
+func TestWizardFileStepBrowseTracksEditMode(t *testing.T) {
+	t.Parallel()
+
+	st := wizardState(asciiTheme(t))
+	st.Steps = []string{WizardStepSpec, WizardStepFile, WizardStepSend}
+	w := newWizard(t, st, false)
+
+	// Navigate mode on the spec step: f is the picker key.
+	if w.Editing() {
+		t.Fatal("a fresh spec step must be navigate mode")
+	}
+	if got, ok := wizardMsg(t, w, ch('f')).(WizardBrowseMsg); !ok || !got.IsSpec {
+		t.Fatalf("spec-step f in navigate mode: %#v %v, want WizardBrowseMsg{IsSpec:true}", got, ok)
+	}
+
+	// The file step opens the same way (f means the same thing on every step).
+	w.AdvanceStep() // → file step
+	if w.Editing() {
+		t.Fatal("the file step must open in navigate mode")
+	}
+	if got, ok := wizardMsg(t, w, ch('f')).(WizardBrowseMsg); !ok || got.IsSpec {
+		t.Fatalf("file-step f in navigate mode: %#v %v, want IsSpec:false", got, ok)
+	}
+
+	// Typing enters edit mode (and types itself).
+	_, _ = w.Update(ch('x'))
+	if !w.Editing() {
+		t.Fatal("typing must enter edit mode")
+	}
+
+	// Edit mode: f types literally into the filter; no second browse.
+	if got := wizardMsg(t, w, ch('f')); got != nil {
+		t.Fatalf("f while editing must not browse, got %#v", got)
+	}
+	if !strings.Contains(w.View(), "xf") {
+		t.Fatalf("f must land in the filter:\n%s", w.View())
+	}
+
+	// Esc clears the draft and lands back in navigate mode, where f is
+	// again the picker key (Editing() is the mode, and the mode is what
+	// the browse gate reads).
+	_, _ = w.Update(special(tea.KeyEsc))
+	if w.Editing() {
+		t.Fatal("esc must leave edit mode")
+	}
+	if got, ok := wizardMsg(t, w, ch('f')).(WizardBrowseMsg); !ok || got.IsSpec {
+		t.Fatalf("f after leaving edit mode: %#v %v, want WizardBrowseMsg{IsSpec:false}", got, ok)
+	}
+}
+
 func TestWizardBackStepsThenCancels(t *testing.T) {
 	t.Parallel()
 

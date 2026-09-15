@@ -96,6 +96,10 @@ func (w *WorkerWizard) updateTxStep(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	case key.Matches(msg, w.nav.Filter):
 		w.filtering = true
 	case key.Matches(msg, w.nav.Browse):
+		// [f] in NAVIGATE mode opens the root-owned file picker; the
+		// edit-mode branch above already consumed any f into the draft
+		// (the two-mode gate, Task 5.2: filtering IS Editing() here,
+		// the §G server-form pattern made uniform).
 		return w, emitMsg(WorkerWizardBrowseMsg{})
 	}
 

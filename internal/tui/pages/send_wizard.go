@@ -126,6 +126,20 @@ func (w *SendWizard) Step() int { return w.step }
 // CurrentStepID reports the id at the cursor ("spec", "file", "send").
 func (w *SendWizard) CurrentStepID() string { return w.currentStep() }
 
+// Editing reports the two-mode flag of the wizard (UAT round 8 / D3,
+// Task 5.2): the list steps (spec/file/send) are in EDIT mode while a
+// filter draft is in progress, and the connect step delegates to the
+// embedded dialog. The [f] browse gate reads this predicate — navigate
+// mode sends f to the root-owned file picker, edit mode types f
+// literally into the filter (the §G server-form pattern made uniform).
+func (w *SendWizard) Editing() bool {
+	if w.currentStep() == WizardStepConnect {
+		return w.dlg != nil && w.dlg.Editing()
+	}
+
+	return w.filter != ""
+}
+
 // ConnectForm returns the embedded step-0 dialog (nil when the wizard
 // started connected); the root syncs its Enabled flags and TLS note
 // exactly like the standalone §E overlay.
@@ -214,13 +228,14 @@ func (w *SendWizard) updateKey(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 		return w.advance()
 	case key.Matches(msg, wizardKeyEsc):
 		return w.back()
-	case w.filter == "" && key.Matches(msg, w.nav.Up):
+	case !w.Editing() && key.Matches(msg, w.nav.Up):
 		w.sel = max(w.sel-1, 0)
-	case w.filter == "" && key.Matches(msg, w.nav.Down):
+	case !w.Editing() && key.Matches(msg, w.nav.Down):
 		w.sel = min(w.sel+1, max(w.filteredCount()-1, 0))
-	case w.filter == "" && key.Matches(msg, wizardKeyBrowse):
-		// [f] on an empty filter opens the root-owned file picker
-		// (browse wins over typing; once typing, all printables filter).
+	case !w.Editing() && key.Matches(msg, wizardKeyBrowse):
+		// [f] in NAVIGATE mode opens the root-owned file picker; once
+		// typing has entered edit mode every printable — f included —
+		// goes into the filter (the two-mode contract, Task 5.2).
 		return w, emitMsg(WizardBrowseMsg{IsSpec: w.currentStep() == WizardStepSpec})
 	default:
 		// j/k/arrows navigate only on an empty filter; once the user

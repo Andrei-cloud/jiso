@@ -1,11 +1,11 @@
 // analyze_test.go covers the §J wizard page units (SCR-510): the rail
-// labels and current-step highlight, the capture/spec candidate lists
-// (cursor, typed path, filter, empty state, [f] browse), the header
-// list selection, the run step's folded inline options (goal t/r/s, the
-// security toggle, the "/" flow filter) with Enter-to-run, the
-// step-delta keys, Esc ownership, and the width guarantee (every line
-// clipped, never wrapped). The wizard state machine and async legs are
-// root-side (root_analyze_test.go).
+// labels and current-step highlight, the spec candidate list (cursor,
+// typed path, filter), the header list selection, the run step's folded
+// inline options (goal t/r/s, the security toggle, the "/" flow filter)
+// with Enter-to-run, the step-delta keys, Esc ownership, and the width
+// guarantee (every line clipped, never wrapped). The capture-step units
+// moved to analyze_capture_test.go. The wizard state machine and async
+// legs are root-side (root_analyze_test.go).
 package pages
 
 import (
@@ -99,102 +99,6 @@ func TestAnalyzeRailLabelsAllSteps(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("rail lacks %q:\n%s", want, body)
 		}
-	}
-}
-
-func TestAnalyzeCaptureListCursorAndFilter(t *testing.T) {
-	t.Parallel()
-
-	st := analyzeFixtureState()
-	st.Step = StepCapture
-	a := analyzePage(t, st, 120, 32)
-
-	// The cursor places on the current pick, and the list shows labels.
-	if a.ListCursor() != 1 {
-		t.Errorf("cursor = %d, want the current item at 1", a.ListCursor())
-	}
-	body := ansi.Strip(a.View().Content)
-	if !strings.Contains(body, "capture.pcap") || !strings.Contains(body, "night.pcap") {
-		t.Errorf("candidate list missing labels:\n%s", body)
-	}
-
-	// Typing filters (j/k become text once typing).
-	_, _ = a.Update(ch('n'))
-	draft, editing := a.Draft()
-	if !editing || draft != "n" {
-		t.Fatalf("draft = %q/%v, want n editing", draft, editing)
-	}
-	body = ansi.Strip(a.View().Content)
-	if !strings.Contains(body, "night.pcap") || strings.Contains(body, "capture.pcap") {
-		t.Errorf("filter n must keep only night:\n%s", body)
-	}
-
-	// Enter commits the filtered candidate under the cursor.
-	_, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	msg, ok := cmdMsg(t, cmd).(AnalyzeCommitCaptureMsg)
-	if !ok || msg.Value != "/captures/night.pcap" {
-		t.Errorf("Enter -> %T %+v, want CommitCapture /captures/night.pcap", cmdMsg(t, cmd), cmdMsg(t, cmd))
-	}
-}
-
-// TestAnalyzeCursorSurvivesResync UAT round 6: root's syncPages pushes
-// SetState after every Update, and re-seeding the cursor onto the
-// "current" row on every push snapped arrow moves back — the capture and
-// spec arrows looked dead. The seed belongs to step ENTRY only.
-func TestAnalyzeCaptureTypedPathBeatsList(t *testing.T) {
-	t.Parallel()
-
-	st := analyzeFixtureState()
-	st.Step = StepCapture
-	a := analyzePage(t, st, 120, 32)
-
-	for _, r := range "/tmp/x.pcap" {
-		_, _ = a.Update(ch(r))
-	}
-	_, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	msg, ok := cmdMsg(t, cmd).(AnalyzeCommitCaptureMsg)
-	if !ok || msg.Value != "/tmp/x.pcap" {
-		t.Errorf("typed path Enter -> %T %+v, want CommitCapture /tmp/x.pcap", cmdMsg(t, cmd), cmdMsg(t, cmd))
-	}
-}
-
-func TestAnalyzeCaptureEmptyStateAndBrowse(t *testing.T) {
-	t.Parallel()
-
-	st := analyzeFixtureState()
-	st.Step = StepCapture
-	st.CaptureItems = nil
-	st.CapturePath = ""
-	a := analyzePage(t, st, 120, 32)
-
-	if body := ansi.Strip(a.View().Content); !strings.Contains(body, "no .pcap") {
-		t.Errorf("empty-state line missing:\n%s", body)
-	}
-
-	// [f] opens the shared picker (root-side).
-	_, cmd := a.Update(ch('f'))
-	if _, ok := cmdMsg(t, cmd).(AnalyzeBrowseMsg); !ok {
-		t.Errorf("f -> %T, want AnalyzeBrowseMsg", cmdMsg(t, cmd))
-	}
-
-	// Enter with an empty list and empty draft still commits "":
-	// root intercepts it to the file picker.
-	_, cmd = a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	msg, ok := cmdMsg(t, cmd).(AnalyzeCommitCaptureMsg)
-	if !ok || msg.Value != "" {
-		t.Errorf("empty Enter -> %T %+v, want CommitCapture \"\"", cmdMsg(t, cmd), cmdMsg(t, cmd))
-	}
-}
-
-func TestAnalyzeCaptureInlineError(t *testing.T) {
-	t.Parallel()
-
-	st := analyzeFixtureState()
-	st.Step = StepCapture
-	st.CaptureError = "no such file: /tmp/gone.pcap"
-	a := analyzePage(t, st, 120, 32)
-	if body := ansi.Strip(a.View().Content); !strings.Contains(body, "no such file") {
-		t.Errorf("inline field error missing:\n%s", body)
 	}
 }
 

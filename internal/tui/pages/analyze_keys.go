@@ -141,20 +141,20 @@ func (a *Analyze) updateEnter() (Page, tea.Cmd) {
 	return a, nil
 }
 
-// updateListStep edits a candidate list (capture/spec): j/k/arrows move
-// the cursor on an empty filter, [f] opens the shared picker (capture
-// only), and every printable types into the filter/typed path (the
-// SCR-502 lesson: once typing, all printables — j and k included — go
-// into the filter). Once typing is in progress the step claims the
-// keyboard whole (UAT round 8 / D2): "?" types too; on the fresh step
-// the global layer still works and "?" opens §M).
+// updateListStep edits a candidate list (capture/spec): in NAVIGATE mode
+// j/k/arrows move the cursor and [f] opens the shared picker (capture
+// only); typing enters EDIT mode and from there every printable — f
+// included — goes into the filter/typed path (the SCR-502 lesson plus the
+// two-mode browse gate, Task 5.2). Once typing is in progress the step
+// claims the keyboard whole (UAT round 8 / D2): "?" types too; on the
+// fresh step the global layer still works and "?" opens §M).
 func (a *Analyze) updateListStep(msg tea.KeyPressMsg, n int, browse bool) (Page, tea.Cmd) {
 	switch {
-	case a.draft == "" && key.Matches(msg, a.nav.Up):
+	case !a.Editing() && key.Matches(msg, a.nav.Up):
 		a.sel = max(a.sel-1, 0)
-	case a.draft == "" && key.Matches(msg, a.nav.Down):
+	case !a.Editing() && key.Matches(msg, a.nav.Down):
 		a.sel = min(a.sel+1, max(n-1, 0))
-	case a.draft == "" && browse && key.Matches(msg, a.nav.Browse):
+	case !a.Editing() && browse && key.Matches(msg, a.nav.Browse):
 		return a, func() tea.Msg { return AnalyzeBrowseMsg{} }
 	default:
 		if r, ok := printableRune(msg.Text); ok {

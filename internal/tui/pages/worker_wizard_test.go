@@ -233,6 +233,47 @@ func TestWorkerWizardBrowseMsg(t *testing.T) {
 	}
 }
 
+// TestWorkerWizardBrowseMsgNavigateVsEditMode pins the tx step's two-mode
+// browse contract (UAT round 8 finding 2 / D3, Task 5.2): NAVIGATE mode
+// treats `f` as the file-picker key; "/" opens the filter, which IS edit
+// mode (Editing()), and there `f` types literally into the draft — the
+// picker must not reopen (the §G server-form pin's tx-step mirror).
+func TestWorkerWizardBrowseMsgNavigateVsEditMode(t *testing.T) {
+	t.Parallel()
+
+	wz := workerWizardAt(t, WorkerModeStress, 2, 120, 32)
+	if wz.Editing() {
+		t.Fatal("a fresh tx step must be navigate mode")
+	}
+	_, cmd := wz.Update(ch('f'))
+	if _, ok := cmdMsg(t, cmd).(WorkerWizardBrowseMsg); !ok {
+		t.Fatalf("navigate-mode f -> %T, want WorkerWizardBrowseMsg", cmdMsg(t, cmd))
+	}
+
+	// "/" opens the filter: that is edit mode, and there f is a filter byte.
+	_, _ = wz.Update(ch('/'))
+	if !wz.Editing() {
+		t.Fatal("the open filter is edit mode")
+	}
+	_, cmd = wz.Update(ch('f'))
+	if got := cmdMsg(t, cmd); got != nil {
+		t.Fatalf("f while filtering must not browse, got %#v", got)
+	}
+	if wz.draft != "f" {
+		t.Fatalf("draft = %q, want the typed \"f\"", wz.draft)
+	}
+
+	// Esc closes the filter (back to navigate mode), where f browses again.
+	_, _ = wz.Update(special(tea.KeyEscape))
+	if wz.Editing() {
+		t.Fatal("esc must close the filter and land back in navigate mode")
+	}
+	_, cmd = wz.Update(ch('f'))
+	if _, ok := cmdMsg(t, cmd).(WorkerWizardBrowseMsg); !ok {
+		t.Fatal("f in navigate mode must open the picker again")
+	}
+}
+
 // TestWorkerWizardStepTwoValidation drives the inline rows end-to-end
 // (tps=0 through Enter) and pins the exact validation strings of both
 // modes through the resolvers.
