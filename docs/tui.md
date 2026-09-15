@@ -147,11 +147,14 @@ and nothing here adds a token to them.
   display-only legends (labels that spell no single key) fire nothing.
 - **Click a form field or a wizard-rail step** to focus it. A field row
   (connect dialog, mock-server start form) takes field focus in
-  navigate mode — typing still enters edit mode. A rail step (send and
-  worker wizards, the §J wizard rail) walks the keyboard's own
-  transitions: earlier steps are free revisits, a forward click replays
-  the current step's `enter` leg with its validation — and only for the
-  immediately next step; a larger forward gap is inert.
+  navigate mode — typing still enters edit mode. A rail step walks the
+  keyboard's own transitions. On the send and worker wizards earlier
+  steps are free revisits, and a forward click replays the current
+  step's `enter` leg with its validation — but only for the
+  immediately next step; a larger forward gap is inert. The §J wizard
+  rail follows its PgUp/PgDn shape instead: any forward click advances
+  at most one gated step, and backward jumps stay free except while a
+  write is in flight, when the rail notes the wait and stays put.
 - Only the **left button** acts; middle/right clicks, releases, and
   pointer motion are ignored, so a click never double-fires.
 
