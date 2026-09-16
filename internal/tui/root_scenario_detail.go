@@ -22,11 +22,13 @@
 // loaded spec — the same sections `jiso db tx` prints (utils.HexDump +
 // DoNotFilterFields describe, per db.Reconstruct's raw-HEX path). A step that
 // never ran previews the honest raw composition of its declared template
-// (TransactionCollection.ComposeRaw — no dataset row drawn and no sequence
-// number consumed, the engine's own base path); the response only ever comes
-// from a real capture, so the overlay names the missing reply instead of
-// inventing one. Errors fold an honest Note into the preview; no message is
-// ever fabricated.
+// (TransactionCollection.ComposeRaw, the engine's own base path: no dataset
+// row is drawn, but NOTE auto-keyword fields still advance the persisted STAN
+// counter via setAutoFields, so previewing a $stan step consumes a sequence
+// value and previews a STAN the real send will not reuse); the response only
+// ever comes from a real capture, so the overlay names the missing reply
+// instead of inventing one. Errors fold an honest Note into the preview; no
+// message is ever fabricated.
 package tui
 
 import (
@@ -68,6 +70,9 @@ type scenarioStepDetailLoadedMsg struct {
 	request    *pages.TxReviewMessage
 	response   *pages.TxReviewMessage
 	err        error
+	// composed echoes the load's honest marker: the request is a fresh
+	// template composition of a never-run step, not a capture (F1).
+	composed bool
 }
 
 // handleScenarioStepDetail arms one step-preview load: ignored while one is
@@ -110,6 +115,7 @@ func (m *RootModel) handleScenarioStepDetail(msg pages.ScenarioStepDetailMsg) (t
 		return scenarioStepDetailLoadedMsg{
 			seq: seq, scenarioID: id, stepIndex: idx,
 			request: res.request, response: res.response, err: res.err,
+			composed: res.composed,
 		}
 	}
 }
@@ -130,6 +136,7 @@ func (m *RootModel) applyScenarioStepDetail(msg scenarioStepDetailLoadedMsg) (te
 		ScenarioID: msg.scenarioID,
 		Request:    msg.request,
 		Response:   msg.response,
+		Composed:   msg.composed,
 	}
 	if msg.err != nil {
 		p.Note = msg.err.Error()
@@ -147,6 +154,10 @@ type scenarioStepMessages struct {
 	request  *pages.TxReviewMessage
 	response *pages.TxReviewMessage
 	err      error
+	// composed marks a request produced by the never-run step's ComposeRaw
+	// preview path (honest composition, no capture); a report payload
+	// leaves it false (UAT round 9 F1).
+	composed bool
 }
 
 // loadScenarioStepMessages loads one step's request/response for the preview
@@ -201,7 +212,8 @@ func loadScenarioStepMessages(
 	}
 
 	return scenarioStepMessages{
-		request: &pages.TxReviewMessage{HEX: utils.HexDump(packed), Describe: describeMessage(msg)},
+		request:  &pages.TxReviewMessage{HEX: utils.HexDump(packed), Describe: describeMessage(msg)},
+		composed: true,
 	}
 }
 

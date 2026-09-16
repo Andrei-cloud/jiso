@@ -119,11 +119,17 @@ func TestRootScenarioStepDetailLoadsRunPayload(t *testing.T) {
 	if !m.scenarios.StepPreviewOpen() {
 		t.Fatal("the fold must arm the overlay")
 	}
+	if p.Composed {
+		t.Error("a captured run payload must not be marked composed (UAT round 9 F1)")
+	}
 	content := m.View().Content
 	for _, want := range []string{"STEP 1", "REQUEST HEX", "RESPONSE HEX"} {
 		if !strings.Contains(content, want) {
 			t.Errorf("final frame lacks %q:\n%s", want, content)
 		}
+	}
+	if strings.Contains(content, "request composed from template") {
+		t.Errorf("a captured payload must not carry the composed label:\n%s", content)
 	}
 }
 
@@ -166,8 +172,10 @@ func TestRootScenarioStepDetailReArmsAfterEsc(t *testing.T) {
 
 // TestRootScenarioStepDetailPendingComposesRequest: a step that never ran
 // previews the honest raw composition of its declared template (the §C
-// compose path, nothing consumed), never a response and never a fabricated
-// payload; the overlay names the missing reply.
+// compose path — no dataset row drawn, though a $stan auto field still
+// advances the persisted counter, see the F2 note on ComposeRaw), never a
+// response and never a fabricated payload; the overlay names the missing
+// reply and labels the composed request "not sent yet" (UAT round 9 F1).
 func TestRootScenarioStepDetailPendingComposesRequest(t *testing.T) {
 	m := NewRootModel(newScenarioApp(t))
 	_, _ = m.Update(palette.GoToPageMsg{ID: "scenarios"})
@@ -195,9 +203,15 @@ func TestRootScenarioStepDetailPendingComposesRequest(t *testing.T) {
 	if !strings.Contains(p.Request.Describe, "0200") { // the Purchase template MTI
 		t.Errorf("composed request = %q", p.Request.Describe)
 	}
+	if !p.Composed {
+		t.Error("a never-run composition must fold Composed:true so the overlay labels it")
+	}
 	content := m.View().Content
 	if !strings.Contains(content, "no response - run the scenario") {
 		t.Errorf("the honest no-response section is missing:\n%s", content)
+	}
+	if !strings.Contains(content, "request composed from template - not sent yet") {
+		t.Errorf("the pending preview must label the composed request as not sent:\n%s", content)
 	}
 }
 

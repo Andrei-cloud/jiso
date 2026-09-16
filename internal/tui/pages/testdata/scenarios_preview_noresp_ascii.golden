@@ -1,5 +1,6 @@
 SCENARIOS (3)  filter: -  report: scenario-report.json
 STEP 3 - E2E Purchase and Reversal
+request composed from template - not sent yet
 REQUEST HEX
 00000000  02 00 f2 38 80 18 00 00 00 00 00 00 00 00  
 00000010  00 00 00 00 00 00 00 00
@@ -10,7 +11,6 @@ MTI : 0200
 RESPONSE
 no response - run the scenario
 j | k scroll | esc close
-
 
 
 

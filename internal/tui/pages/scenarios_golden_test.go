@@ -97,14 +97,14 @@ func scenPreviewLoadingState() ScenariosState {
 }
 
 // scenPreviewNoResponseState pins the overlay's honest half-frame (task
-// 9.8b): a step with a request but no captured response (the pending
-// template composition, or a step that never got a reply) shows the
-// reconstructed REQUEST and names the missing RESPONSE — the hex follows the
-// utils.HexDump shape root actually produces.
+// 9.8b): a pending step's composed request (Composed:true, UAT round 9 F1)
+// shows the reconstructed REQUEST under the muted "not sent yet" label and
+// names the missing RESPONSE — the hex follows the utils.HexDump shape root
+// actually produces.
 func scenPreviewNoResponseState() ScenariosState {
 	st := scenPassState()
 	st.Preview = &ScenarioStepPreview{
-		StepIndex: 3, ScenarioID: "E2E Purchase and Reversal",
+		StepIndex: 3, ScenarioID: "E2E Purchase and Reversal", Composed: true,
 		Request: &TxReviewMessage{
 			HEX:      "00000000  02 00 f2 38 80 18 00 00 00 00 00 00 00 00  \n00000010  00 00 00 00 00 00 00 00",
 			Describe: "ISO 8583 Message:\nMTI : 0200\n 2  \"4242424242424242\"",

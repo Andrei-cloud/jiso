@@ -20,6 +20,11 @@ const (
 	scenPreviewLoadingWord    = "loading"
 	scenPreviewEmptyText      = "run the scenario to capture the message"
 	scenPreviewNoResponseText = "no response - run the scenario"
+	// scenPreviewComposedText labels a REQUEST the page shows for a step
+	// that never ran (UAT round 9 F1): the payload is ComposeRaw's honest
+	// composition, not a capture, and the label says so next to the
+	// REQUEST title. ASCII-only, so the 7-bit goldens stay clean.
+	scenPreviewComposedText = "request composed from template - not sent yet"
 )
 
 // renderStepPreview draws the message-preview overlay: the page title
@@ -72,6 +77,13 @@ func (s *Scenarios) stepPreviewBody() string {
 			b.WriteString(s.th.TextMuted.Render(scenPreviewEmptyText) + "\n")
 		}
 	default:
+		if p.Composed {
+			// A pending step's REQUEST is a composition, not a capture
+			// (UAT round 9 F1): the muted label sits right above the
+			// REQUEST title so the operator can always tell a previewed
+			// message from real traffic.
+			b.WriteString(s.th.TextMuted.Render(scenPreviewComposedText) + "\n")
+		}
 		b.WriteString(s.stepPreviewMessage("REQUEST", p.Request))
 		if p.Response != nil {
 			b.WriteString(s.stepPreviewMessage("RESPONSE", p.Response))

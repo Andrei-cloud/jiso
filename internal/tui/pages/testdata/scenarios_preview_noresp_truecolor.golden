@@ -1,5 +1,6 @@
 [38;2;68;147;248mSCENARIOS (3)[m  [38;2;141;150;160mfilter:[m —  [38;2;141;150;160mreport:[m scenario-report.json
 STEP 3 · E2E Purchase and Reversal
+[38;2;141;150;160mrequest composed from template - not sent yet[m
 [38;2;68;147;248mREQUEST HEX[m
 [2;38;2;141;150;160m00000000  02 00 f2 38 80 18 00 00 00 00 00 00 00 00  [m
 [2;38;2;141;150;160m00000010  00 00 00 00 00 00 00 00[m                    
@@ -10,7 +11,6 @@ MTI : 0200
 [38;2;68;147;248mRESPONSE[m
 [38;2;141;150;160mno response - run the scenario[m
 [38;2;141;150;160mj · k scroll · esc close[m
-
 
 
 

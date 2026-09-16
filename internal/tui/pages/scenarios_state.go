@@ -84,6 +84,13 @@ type ScenarioStepPreview struct {
 	Note     string
 	Request  *TxReviewMessage
 	Response *TxReviewMessage
+	// Composed marks the Request as a template composition of a step that
+	// has NOT run (root's ComposeRaw preview path) rather than an
+	// engine-captured payload: the overlay then labels the REQUEST section
+	// "composed from template - not sent yet", so a pending preview is
+	// never mistaken for the real message (UAT round 9 F1). A captured
+	// run payload keeps it false — the bytes speak for themselves.
+	Composed bool
 }
 
 // ScenariosState is the immutable snapshot root pushes into the page.

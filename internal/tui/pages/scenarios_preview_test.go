@@ -313,6 +313,44 @@ func TestScenariosStepPreviewErrorNote(t *testing.T) {
 	}
 }
 
+// TestScenariosStepPreviewComposedLabel pins the UAT round 9 F1 honesty
+// fix: a pending step's preview (Composed:true — the ComposeRaw
+// composition root folds for a never-run step) labels its REQUEST
+// "composed from template - not sent yet" right above the REQUEST title,
+// while a run step's captured payload (Composed:false) shows no such
+// label — the operator can always tell a previewed message from real
+// traffic.
+func TestScenariosStepPreviewComposedLabel(t *testing.T) {
+	t.Parallel()
+
+	st := scenStepsState()
+	st.Preview = &ScenarioStepPreview{
+		StepIndex: 3, ScenarioID: "Decline matrix", Composed: true,
+		Request: &TxReviewMessage{HEX: "00000000  02 00 f0 00 00 00 00 00", Describe: "MTI : 0200"},
+	}
+	body := ansi.Strip(scenPage(t, st, 120, 32).View().Content)
+	if !strings.Contains(body, scenPreviewComposedText) {
+		t.Fatalf("a composed (pending) request must carry the composed label:\n%s", body)
+	}
+	labelAt := strings.Index(body, scenPreviewComposedText)
+	hexAt := strings.Index(body, "REQUEST HEX")
+	if hexAt < 0 || labelAt > hexAt {
+		t.Errorf("the label must sit next to the REQUEST title (label@%d, hex title@%d)", labelAt, hexAt)
+	}
+
+	// Captured run payload (same overlay shape, Composed:false): the real
+	// bytes need no disclaimer and must not claim to be composed.
+	st2 := scenStepsState()
+	st2.Preview = &ScenarioStepPreview{
+		StepIndex: 2, ScenarioID: "E2E Purchase and Reversal",
+		Request:  &TxReviewMessage{HEX: "0200F2388018", Describe: ` 2  "4242424242424242"`},
+		Response: &TxReviewMessage{HEX: "0210F2388018", Describe: `39  "00"`},
+	}
+	if body := ansi.Strip(scenPage(t, st2, 120, 32).View().Content); strings.Contains(body, scenPreviewComposedText) {
+		t.Errorf("a captured run payload must not carry the composed label:\n%s", body)
+	}
+}
+
 // TestScenariosStepPreviewScrolls: an overlay taller than the window
 // stays reachable (finding 8 doctrine) — j scrolls its top line down
 // until the esc hint (the last body line) comes into view, the scroll
