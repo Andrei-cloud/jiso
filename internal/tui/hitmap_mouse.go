@@ -1,4 +1,4 @@
-// hitmap_arm.go is the arming leg of the hit map (split out of hitmap.go
+// hitmap_mouse.go is the arming leg of the hit map (split out of hitmap.go
 // for the repohealth line budget): View hands the freshly built map to
 // installMouse, which decides whether the frame talks to the terminal's
 // mouse at all (the UAT round 9 F9 toggle) and wires the cell→action
