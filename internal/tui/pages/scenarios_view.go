@@ -60,6 +60,13 @@ func (s *Scenarios) render(w, h int) string {
 
 	title := s.titleRow(w)
 
+	// The message-preview overlay replaces the panes while it is up (the
+	// §I review body-swap pattern): the panes are not drawn, so they
+	// publish no section rects this frame.
+	if s.stepPreviewOpen {
+		return s.renderStepPreview(title, h, w)
+	}
+
 	if len(s.state.Scenarios) == 0 {
 		return clipBlockStyled(s.th, title+"\n"+s.emptyStateBody(), h, w)
 	}
@@ -275,7 +282,10 @@ func (s *Scenarios) stepsBox(x, y, w, h int) string {
 // stepsBody renders one line per step with an optional indented sub-line
 // (extract/validate notes, validation diff). Rows beyond the visible
 // window are dropped (truncate-never-wrap; the list owns scrolling, the
-// step pane shows what fits).
+// step pane shows what fits) — but the window slides just far enough to
+// keep the row under the step cursor visible, and that row carries the
+// theme's two-cell selector marker (the widgets.List cursor rendering,
+// UAT round 9 F-9e c; ascii keeps it 7-bit).
 func (s *Scenarios) stepsBody(w, h int) string {
 	if len(s.state.SelectedSteps) == 0 {
 		return s.th.TextMuted.Render("select a scenario - enter runs it")
@@ -283,11 +293,12 @@ func (s *Scenarios) stepsBody(w, h int) string {
 
 	lines := make([]string, 0, h)
 
-	for _, st := range s.state.SelectedSteps {
+	for i := s.stepWindow(h); i < len(s.state.SelectedSteps); i++ {
+		st := s.state.SelectedSteps[i]
 		if len(lines) >= h {
 			break
 		}
-		lines = append(lines, clipCells(s.stepLine(st, w), w, clipTail(s.th)))
+		lines = append(lines, clipCells(s.stepLine(st, w, i == s.stepCursor), w, clipTail(s.th)))
 		if st.Note == "" {
 			continue
 		}
@@ -304,9 +315,39 @@ func (s *Scenarios) stepsBody(w, h int) string {
 	return strings.Join(lines, "\n")
 }
 
+// stepWindow is the step index the STEPS body starts drawing from: 0
+// while the whole stream fits (the historic truncate-never-wrap view),
+// else the latest window start that still keeps the step cursor's line
+// inside the visible window.
+func (s *Scenarios) stepWindow(h int) int {
+	steps := s.state.SelectedSteps
+	cur := min(s.stepCursor, len(steps)-1)
+
+	starts := make([]int, len(steps))
+	line := 0
+	for i, st := range steps {
+		starts[i] = line
+		line++
+		if st.Note != "" {
+			line++ // the indented sub-line costs one more
+		}
+	}
+	if line <= h {
+		return 0
+	}
+	target := starts[cur] - h + 1
+	top := 0
+	for top < len(starts) && starts[top] < target {
+		top++
+	}
+
+	return top
+}
+
 // stepLine renders " 1  Purchase Authorization  0200 → RC 00 ✓ 3ms" (or
 // the running/pending variants; the arrow + dash keep unknowns honest).
-func (s *Scenarios) stepLine(st StepRow, w int) string {
+// The cursor row swaps the leading blank for the theme's selector.
+func (s *Scenarios) stepLine(st StepRow, w int, cursor bool) string {
 	idx := padLeft(strconv.Itoa(st.Index), 2)
 	budget := stepNameBudget(w)
 	name := padTo(clipCells(st.Name, budget, clipTail(s.th)), budget)
@@ -314,7 +355,7 @@ func (s *Scenarios) stepLine(st StepRow, w int) string {
 
 	tail := s.stepTail(st)
 
-	return s.th.TextMuted.Render(" "+idx+"  ") + name + " " +
+	return s.th.Selector(cursor) + s.th.TextMuted.Render(idx+"  ") + name + " " +
 		s.th.Deemphasized.Render(mti) + " " +
 		s.th.Deemphasized.Render(scenArrow(s.th)) + " " + tail
 }
@@ -409,10 +450,10 @@ func (s *Scenarios) emptyStateBody() string {
 }
 
 // stepNameBudget is the step-row name column width for a pane of total
-// width w (the " 1  " prefix, the MTI cell, the arrow, and the
-// "RC 00 ✓ 3ms" tail keep a fixed reserve).
+// width w (the two-cell selector + " 1  " prefix, the MTI cell, the
+// arrow, and the "RC 00 ✓ 3ms" tail keep a fixed reserve).
 func stepNameBudget(w int) int {
-	return max(w-29, 8)
+	return max(w-30, 8)
 }
 
 // padLeft left-pads s with spaces to width n (already-wide s is kept).

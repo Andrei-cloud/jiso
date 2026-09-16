@@ -1,0 +1,27 @@
+SCENARIOS (3)  filter: -  report: scenario-report.json
+STEP 2 - E2E Purchase and Reversal
+REQUEST HEX
+0200 F2 3B 38 30 31 38 30 30 30 30 30 30 30 30 30 30
+REQUEST FIELDS
+ 2  "4242424242424242"
+ 3  "000000"
+11  "0916120000"
+RESPONSE HEX
+0210 F2 3B 38 30 31 38 30 30 30 30 30 30 30 30 30 30
+RESPONSE FIELDS
+ 2  "4242424242424242"
+39  "00"
+j | k scroll | esc close
+
+
+
+
+
+
+
+
+
+
+
+
+

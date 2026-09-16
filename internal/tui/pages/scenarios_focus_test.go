@@ -41,7 +41,8 @@ func TestScenariosPaneFocusCycle(t *testing.T) {
 
 // TestScenariosStepsFocusKeepsListCursorInert: with the STEPS pane
 // focused the navigation keys must NOT move the list cursor (the pane
-// switch has effect; the step cursor itself lands in Task 9.8). Tab back
+// switch has effect; the keys now drive the step cursor, pinned by
+// TestScenariosStepCursorMovesInStepsPane). Tab back
 // restores list navigation, and Enter on the list pane still yields the
 // run msg (semantics unchanged).
 func TestScenariosStepsFocusKeepsListCursorInert(t *testing.T) {
@@ -121,13 +122,19 @@ func TestScenariosFocusedPaneAccent(t *testing.T) {
 }
 
 // TestScenariosHintsAdvertiseTab: the §F footer advertises the pane
-// toggle (the §I/§K hint pattern).
+// toggle as a primary hint (the §I/§K hint pattern; Task 9.7 Minor: the
+// test must pin Primary:true, not just the key's presence — the narrow
+// footer drops non-primary hints).
 func TestScenariosHintsAdvertiseTab(t *testing.T) {
 	t.Parallel()
 
 	s := NewScenarios(asciiTheme(t))
 	for _, h := range s.Hints() {
 		if h.Key == theme.KeyTab {
+			if !h.Primary {
+				t.Fatalf("the tab pane hint must be primary (the narrow footer drops it): %+v", h)
+			}
+
 			return
 		}
 	}

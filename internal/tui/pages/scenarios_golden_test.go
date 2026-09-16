@@ -61,6 +61,41 @@ func scenFailState() ScenariosState {
 	return st
 }
 
+// scenPreviewLoadedState pins the step message-preview overlay with a
+// reconstructed request/response payload (UAT round 9 F-9e c): the
+// overlay replaces the panes and the step cursor marker is visible
+// again on the next plain frame.
+func scenPreviewLoadedState() ScenariosState {
+	st := scenPassState()
+	st.Preview = &ScenarioStepPreview{
+		StepIndex: 2, ScenarioID: "E2E Purchase and Reversal",
+		Request: &TxReviewMessage{
+			HEX: "0200 F2 3B 38 30 31 38 30 30 30 30 30 30 30 30 30 30",
+			Describe: " 2  \"4242424242424242\"\n" +
+				" 3  \"000000\"\n" +
+				"11  \"0916120000\"",
+		},
+		Response: &TxReviewMessage{
+			HEX:      "0210 F2 3B 38 30 31 38 30 30 30 30 30 30 30 30 30 30",
+			Describe: " 2  \"4242424242424242\"\n39  \"00\"",
+		},
+	}
+
+	return st
+}
+
+// scenPreviewLoadingState pins the overlay's in-flight frame: root
+// armed the detail load (Loading:true) but the payload has not
+// arrived — the honest ".. loading" marker, never an empty pane.
+func scenPreviewLoadingState() ScenariosState {
+	st := scenPassState()
+	st.Preview = &ScenarioStepPreview{
+		StepIndex: 3, ScenarioID: "E2E Purchase and Reversal", Loading: true,
+	}
+
+	return st
+}
+
 func TestScenariosGoldens(t *testing.T) {
 	t.Parallel()
 
@@ -71,6 +106,8 @@ func TestScenariosGoldens(t *testing.T) {
 		{"scenarios_pass", scenPassState()},
 		{"scenarios_running", scenRunningState()},
 		{"scenarios_faildiff", scenFailState()},
+		{"scenarios_steppreview", scenPreviewLoadedState()},
+		{"scenarios_preview_loading", scenPreviewLoadingState()},
 	}
 	profiles := []struct {
 		name string

@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"strconv"
 	"strings"
 
 	key "charm.land/bubbles/v2/key"
@@ -49,6 +50,22 @@ type Scenarios struct {
 	view       []ScenarioRow // filtered rows, parallel to list items
 	selectedID string        // identity of the row under the cursor
 
+	// stepCursor is the STEPS pane's cursor (index into
+	// state.SelectedSteps; 0 when the stream is empty). It re-homes
+	// when the selected scenario changes and clamps when the stream
+	// shrinks (the list cursor's identity pattern; UAT round 9 F-9e c
+	// gives the step stream its own cursor instead of inert nav).
+	stepCursor int
+
+	// stepPreviewOpen arms the step message-preview overlay from the
+	// pushed state: a Preview whose identity (scenario + step index)
+	// differs from the last shown one opens it, a nil Preview clears
+	// it, and Esc closes it first (the §I reviewOpen re-arm contract,
+	// sessions.go). stepPreviewScroll is the overlay's top line.
+	stepPreviewOpen    bool
+	stepPreviewScroll  int
+	stepPreviewShownID string
+
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 
 	// sections records the geom.Rect of every widgets.Section this
@@ -59,7 +76,9 @@ type Scenarios struct {
 }
 
 // scenNav is the page keymap: filter-mode esc/backspace/enter plus the
-// page-local triggers; list navigation is owned by widgets.List. Pane
+// page-local triggers; list navigation is owned by widgets.List, while
+// the STEPS-pane cursor (UAT round 9 F-9e c) mirrors the same shared
+// widgets navKeys set so both panes answer the same keys. Pane
 // focus arrives as PaneFocusMsg from the router (the §C contract), so
 // Tab/TabBack are registered for the §M legend only — the page never
 // matches them in updateKey (the router's global keymap.PaneFocus owns
@@ -74,6 +93,17 @@ type scenNav struct {
 	Tab       key.Binding
 	TabBack   key.Binding
 
+	// STEPS-pane step cursor: the shared widgets navKeys set (arrows
+	// always, vim aliases, pgup/pgdn, home/end). The list pane's same
+	// keys are already listed in the §M navigation group by
+	// tableNavHelp, so these need no extra legend lines.
+	Up       key.Binding
+	Down     key.Binding
+	PageUp   key.Binding
+	PageDown key.Binding
+	Top      key.Binding
+	Bottom   key.Binding
+
 	help []HelpEntry // §M registry, built from the bindings above
 }
 
@@ -87,9 +117,17 @@ func newScenNav() scenNav {
 		Pop:       key.NewBinding(key.WithKeys(theme.KeyEsc)),
 		Tab:       key.NewBinding(key.WithKeys(theme.KeyTab)),
 		TabBack:   key.NewBinding(key.WithKeys("shift+tab")),
+
+		Up:       key.NewBinding(key.WithKeys("up", "k")),
+		Down:     key.NewBinding(key.WithKeys("down", "j")),
+		PageUp:   key.NewBinding(key.WithKeys("pgup")),
+		PageDown: key.NewBinding(key.WithKeys("pgdown")),
+		Top:      key.NewBinding(key.WithKeys("home")),
+		Bottom:   key.NewBinding(key.WithKeys("end")),
 	}
 	nav.help = append(tableNavHelp(),
 		actEntry("run", nav.Enter),
+		actEntry("preview step", nav.Enter),
 		actEntry("export report", nav.Export),
 		actEntry("filter", nav.Filter),
 		actEntry("pane", nav.Tab, nav.TabBack),
@@ -161,11 +199,39 @@ func (s *Scenarios) ClaimsKeyboard() bool { return s.filtering }
 
 // SetState replaces the rendered snapshot (root pushes it on boot and on
 // every Update). Filter and selection are recomposed over the new list:
-// selection is preserved by ID when the row still matches.
+// selection is preserved by ID when the row still matches. The step
+// cursor re-homes when the selected scenario changes (the list cursor's
+// identity pattern) and clamps when the stream shrinks, and a pushed
+// Preview with a new identity re-arms the message-preview overlay (the
+// §I reviewOpen contract).
 func (s *Scenarios) SetState(state ScenariosState) {
 	prev := s.list.Cursor()
+	prevSel := s.selectedID
 	s.state = state
 	s.rebuild(prev)
+
+	if s.selectedID != prevSel {
+		s.stepCursor = 0
+	}
+	s.stepCursor = min(s.stepCursor, max(len(state.SelectedSteps)-1, 0))
+
+	switch {
+	case state.Preview == nil:
+		s.stepPreviewOpen = false
+		s.stepPreviewShownID = ""
+		s.stepPreviewScroll = 0
+	case previewIdentity(*state.Preview) != s.stepPreviewShownID:
+		s.stepPreviewOpen = true
+		s.stepPreviewShownID = previewIdentity(*state.Preview)
+		s.stepPreviewScroll = 0
+	}
+}
+
+// previewIdentity is the overlay's Preview identity: scenario + step
+// index. The same identity re-pushed (e.g. a Loading payload replaced by
+// the loaded one) keeps the overlay open without resetting its scroll.
+func previewIdentity(p ScenarioStepPreview) string {
+	return p.ScenarioID + "#" + strconv.Itoa(p.StepIndex)
 }
 
 // rebuild recomposes the filtered view and re-places the cursor.
@@ -228,13 +294,17 @@ func (s *Scenarios) selectAfterRebuild(prevCursor int, rows []ScenarioRow) {
 }
 
 // Update routes sizes, the router's pane-focus tabs, and keys; bus
-// events are root-side truth and are ignored with a nil command.
+// events are root-side truth and are ignored with a nil command. While
+// the step preview overlay is up it owns the keyboard, so the router's
+// Tab does not move pane focus underneath it (the §I Update gate).
 func (s *Scenarios) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		s.width, s.height = msg.Width, msg.Height
 	case PaneFocusMsg:
-		s.pane = (s.pane + scenarioPaneCount + boolToStep(msg.Reverse)) % scenarioPaneCount
+		if !s.stepPreviewOpen {
+			s.pane = (s.pane + scenarioPaneCount + boolToStep(msg.Reverse)) % scenarioPaneCount
+		}
 	case tea.KeyPressMsg:
 		return s.updateKey(msg)
 	}
@@ -242,9 +312,14 @@ func (s *Scenarios) Update(msg tea.Msg) (Page, tea.Cmd) {
 	return s, nil
 }
 
-// updateKey is the page-local keymap: filter-mode editing first (the live
-// filter owns the keyboard), then the page triggers, then list nav.
+// updateKey is the page-local keymap: the step preview overlay owns the
+// keyboard first (Esc closes before anything else, the §I updateReview
+// contract), then the live filter, then the page triggers, then the
+// focused pane's navigation.
 func (s *Scenarios) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
+	if s.stepPreviewOpen {
+		return s.updateStepPreview(msg)
+	}
 	if s.filtering {
 		switch {
 		case key.Matches(msg, s.nav.Cancel):
@@ -281,6 +356,13 @@ func (s *Scenarios) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 		return s, nil
 	case key.Matches(msg, s.nav.Enter):
+		// Enter is pane-bound (UAT round 9 F-9e c, the Task 9.7 Minor):
+		// on the STEPS pane it asks root for the step's message preview
+		// — it must NOT run the list scenario; on the list pane it runs
+		// the scenario under the cursor (semantics unchanged).
+		if s.pane == ScenarioPaneSteps {
+			return s.stepDetail()
+		}
 		if len(s.view) == 0 {
 			return s, nil
 		}
@@ -298,11 +380,14 @@ func (s *Scenarios) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 // updateNav forwards navigation to the focused pane and re-syncs the
 // tracked identity; unknown keys reach the list and are ignored there.
-// While the STEPS pane holds focus the list cursor stays put: the nav
-// keys are inert here until Task 9.8 gives the step stream its own
-// cursor (the §I updateNav routing-by-pane contract).
+// While the STEPS pane holds focus the nav keys drive the step cursor
+// over the pushed stream (Task 9.8, replacing the round-9 inert
+// routing), never the list cursor (the §I updateNav routing-by-pane
+// contract).
 func (s *Scenarios) updateNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	if s.pane == ScenarioPaneSteps {
+		s.moveStepCursor(msg)
+
 		return s, nil
 	}
 	next, cmd := s.list.Update(msg)
@@ -312,6 +397,54 @@ func (s *Scenarios) updateNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	}
 
 	return s, cmd
+}
+
+// moveStepCursor moves the STEPS-pane cursor over the pushed step
+// stream on the shared nav key set (j/k + arrows one step, pgup/pgdn a
+// viewport, home/end the ends). The cursor is clamped into the stream;
+// a stream-less pane stays inert. Unknown keys do nothing.
+func (s *Scenarios) moveStepCursor(msg tea.KeyPressMsg) {
+	n := len(s.state.SelectedSteps)
+	if n == 0 {
+		return
+	}
+	page := max(s.stepViewport()-1, 1) // one line of context, like widgets.List
+	switch {
+	case key.Matches(msg, s.nav.Up):
+		s.stepCursor--
+	case key.Matches(msg, s.nav.Down):
+		s.stepCursor++
+	case key.Matches(msg, s.nav.PageUp):
+		s.stepCursor -= page
+	case key.Matches(msg, s.nav.PageDown):
+		s.stepCursor += page
+	case key.Matches(msg, s.nav.Top):
+		s.stepCursor = 0
+	case key.Matches(msg, s.nav.Bottom):
+		s.stepCursor = n - 1
+	default:
+		return
+	}
+	s.stepCursor = min(max(s.stepCursor, 0), n-1)
+}
+
+// stepViewport is the STEPS pane's visible line count, the page size
+// for pgup/pgdn. It mirrors render's pane geometry (title row, optional
+// error strip, banner row, and the section's title + two rules; the
+// stacked band gives the steps pane the lower half) so the page step
+// matches what is actually drawn.
+func (s *Scenarios) stepViewport() int {
+	w, h := frame.ContentSize(s.width, s.height)
+	errLines := 0
+	if strip := s.errorStrip(w); strip != "" {
+		errLines = strings.Count(strip, "\n") + 1
+	}
+	paneH := max(h-2-errLines, 4)
+	if w < frame.FullWidth {
+		paneH = max(paneH/2, 3)
+	}
+
+	return max(paneH-3, 1)
 }
 
 // Hints is the §F context keymap; run/export are primary so the narrow

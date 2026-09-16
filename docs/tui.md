@@ -292,10 +292,12 @@ focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
 | Keys | Action |
 |---|---|
 | `enter` | Run the selected scenario (steps stream live; failed steps show the validation diff) |
+| `enter` | On a STEPS-pane row: preview the step's request/response message overlay |
+| `j` / `k` | Move the STEPS-pane cursor (STEPS focused) / scroll the message preview (overlay open) |
 | `tab` / `shift+tab` | Switch focus between the SCENARIOS list and the STEPS pane |
 | `e` | Export the JSON report (§N3 overwrite confirm when the path exists) |
 | `/` | Live filter |
-| `esc` | Back |
+| `esc` | Back (closes the message preview overlay first when it is open) |
 
 ### ctf — CTF Export
 

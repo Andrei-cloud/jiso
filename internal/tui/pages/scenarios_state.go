@@ -59,6 +59,26 @@ type StepRow struct {
 	Status  StepStatus
 }
 
+// ScenarioStepPreview is the message preview root pushes for one step of
+// the selected scenario (§F overlay, UAT round 9 F-9e c). The step
+// identity is ScenarioID + StepIndex (StepRow.Index, the declaration
+// index the pane displays); a pushed Preview whose identity differs from
+// the last shown one arms the overlay, a nil Preview clears it (the §I
+// TxReviewState re-arm contract). Request/Response reuse the §I
+// TxReviewMessage shape (the same `jiso db tx`-style reconstruction:
+// packed hex + parsed fields). Loading marks an in-flight detail load
+// (root arms it when ScenarioStepDetailMsg arrives, UAT round 9 Task
+// 9.8b): the overlay then renders the loading marker instead of the
+// empty state. Request/Response stay nil until the step actually
+// captured a message — the page never invents one.
+type ScenarioStepPreview struct {
+	StepIndex  int // StepRow.Index of the previewed step
+	ScenarioID string
+	Loading    bool
+	Request    *TxReviewMessage
+	Response   *TxReviewMessage
+}
+
 // ScenariosState is the immutable snapshot root pushes into the page.
 // Scenarios is the full list (the page filters it locally);
 // SelectedSteps holds the step rows for the scenario under the page's
@@ -68,6 +88,8 @@ type StepRow struct {
 // given, default scenario-report.json in cwd — the CLI flag itself has
 // no default); StatusLine is the toast-less export feedback line
 // (`report → path` / `no report yet`, TUI-406b will add real toasts).
+// Preview is the step message preview overlay's payload (nil = nothing
+// to preview; the page arms its overlay from a new Preview identity).
 type ScenariosState struct {
 	Scenarios     []ScenarioRow
 	SelectedSteps []StepRow
@@ -75,6 +97,7 @@ type ScenariosState struct {
 	Summary       string
 	ReportPath    string
 	StatusLine    string
+	Preview       *ScenarioStepPreview
 }
 
 // matchText is the filter haystack: the lowercased display fields, so
@@ -88,6 +111,21 @@ func (r ScenarioRow) matchText() string {
 // one is in flight is ignored (no queue — the send pattern).
 type ScenarioRunMsg struct {
 	ID string
+}
+
+// ScenarioStepDetailMsg asks the router to load the message one step
+// captured (Enter on a step row while the STEPS pane holds focus; UAT
+// round 9 F-9e c). StepIndex is the step's declaration index
+// (StepRow.Index, the number the pane displays) and ScenarioID is the
+// scenario under the list cursor. Root owns the async load: it first
+// clears ScenariosState.Preview (which re-arms the overlay for a
+// re-request of the same step after Esc — the §I handleSessionsReview
+// doctrine), then arms the payload (Loading first, then the
+// reconstructed request/response), and the page opens its overlay when
+// the pushed Preview identity changes.
+type ScenarioStepDetailMsg struct {
+	StepIndex  int
+	ScenarioID string
 }
 
 // ScenarioExportMsg asks the router to write the last completed report

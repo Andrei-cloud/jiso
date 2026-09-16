@@ -47,6 +47,7 @@
 [navigation] home	top
 [navigation] end	bottom
 [page actions] enter	run
+[page actions] enter	preview step
 [page actions] e	export report
 [page actions] /	filter
 [page actions] tab or shift+tab	pane
