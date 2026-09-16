@@ -174,6 +174,14 @@ func (m *RootModel) routeScenarioMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.ScenarioExportMsg:
 		return m.exportScenarioReport()
 
+	case pages.ScenarioStepDetailMsg:
+		m.debug.logf("scenario step detail id=%s step=%d", msg.ScenarioID, msg.StepIndex)
+
+		return m.handleScenarioStepDetail(msg)
+
+	case scenarioStepDetailLoadedMsg:
+		return m.applyScenarioStepDetail(msg)
+
 	case pages.ScenarioPopMsg:
 		// Esc on the §F page (same pop rule as the inspector and the
 		// §D exchange view: at depth 1 the stack never empties).

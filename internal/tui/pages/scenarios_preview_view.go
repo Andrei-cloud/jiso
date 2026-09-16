@@ -17,8 +17,9 @@ import (
 // pendingGlyph degrades to ".." under the ascii theme, so goldens stay
 // 7-bit).
 const (
-	scenPreviewLoadingWord = "loading"
-	scenPreviewEmptyText   = "run the scenario to capture the message"
+	scenPreviewLoadingWord    = "loading"
+	scenPreviewEmptyText      = "run the scenario to capture the message"
+	scenPreviewNoResponseText = "no response - run the scenario"
 )
 
 // renderStepPreview draws the message-preview overlay: the page title
@@ -63,11 +64,23 @@ func (s *Scenarios) stepPreviewBody() string {
 	case p.Request == nil && p.Response == nil && p.Loading:
 		b.WriteString(s.th.TextMuted.Render(s.pendingGlyph()+" "+scenPreviewLoadingWord) + "\n")
 	case p.Request == nil && p.Response == nil:
-		b.WriteString(s.th.TextMuted.Render(scenPreviewEmptyText) + "\n")
+		if p.Note != "" {
+			// A folded load failure names its cause (task 9.8b); the note is
+			// root-stamped text, the page adds only the error styling.
+			b.WriteString(s.th.Status(theme.KindError, p.Note) + "\n")
+		} else {
+			b.WriteString(s.th.TextMuted.Render(scenPreviewEmptyText) + "\n")
+		}
 	default:
 		b.WriteString(s.stepPreviewMessage("REQUEST", p.Request))
 		if p.Response != nil {
 			b.WriteString(s.stepPreviewMessage("RESPONSE", p.Response))
+		} else {
+			// The missing half is named, not invented (task 9.8b): the
+			// pending template composition and a run step that captured no
+			// reply both show the title plus an honest cause line.
+			b.WriteString(titleLine(s.th, "RESPONSE") + "\n" +
+				s.th.TextMuted.Render(scenPreviewNoResponseText) + "\n")
 		}
 	}
 	b.WriteString(s.previewHintLine())

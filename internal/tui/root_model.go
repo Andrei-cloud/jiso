@@ -190,23 +190,21 @@ type RootModel struct {
 	disconnectFn      func() error
 
 	// Scenarios wiring (SCR-506): scenarios is the §F page — a registry
-	// entry after the 8 hotkey slots, reachable via the palette
-	// ":scenarios" (the wire-compat slot id "scenario" stays with the
-	// merged §C inspector; §F steals no hotkey). scenarioRun is the
-	// live-run truth (nil = never run); the goroutine reports
-	// scenarioStepMsg/scenarioDoneMsg values through scenarioSender
-	// (run wires program.Send through wireSenders — run.go; tests
-	// inject a collector — the bridge pattern), and runScenario
-	// overrides the engine leg (nil = the
-	// production transactions.ScenarioRunner, the SAME engine the CLI
-	// scenario run uses). scenarioLastReport holds the last completed
-	// report for `e`; scenarioStatusLine is the toast-less export line.
+	// entry after the 8 hotkey slots; the wiring rationale (registry slot,
+	// sender seam, engine override, export seams) is documented at the head
+	// of root_scenario_run.go / root_scenario_export.go, the files that own
+	// those ops. scenarioDetail is the step message-preview payload and the
+	// seq-token lifecycle of its async load (UAT round 9 F-9e c, task 9.8b;
+	// the §I sessionsReviewWait/sessionsSeq pattern — the arm clears the
+	// preview first so a same-step re-request after Esc re-arms the overlay;
+	// the type and its contract: scenarioDetailState in root_scenario_detail.go).
 	scenarios          *pages.Scenarios
 	scenarioRun        *scenarioRun
 	scenarioSender     bridge.Sender
 	runScenario        scenarioEngine
 	scenarioLastReport *transactions.TestReport
 	scenarioStatusLine string
+	scenarioDetail     scenarioDetailState
 
 	// Scenario export single-flight (E5-FIX/M6): scenarioWriteWait
 	// marks an in-flight `e` leg (stat or write — two rapid `e` must

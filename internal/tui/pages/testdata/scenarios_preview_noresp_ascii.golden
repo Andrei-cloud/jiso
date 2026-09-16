@@ -1,0 +1,27 @@
+SCENARIOS (3)  filter: -  report: scenario-report.json
+STEP 3 - E2E Purchase and Reversal
+REQUEST HEX
+00000000  02 00 f2 38 80 18 00 00 00 00 00 00 00 00  
+00000010  00 00 00 00 00 00 00 00
+REQUEST FIELDS
+ISO 8583 Message:
+MTI : 0200
+ 2  "4242424242424242"
+RESPONSE
+no response - run the scenario
+j | k scroll | esc close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

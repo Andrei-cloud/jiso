@@ -262,6 +262,57 @@ func TestScenariosStepPreviewEmptyState(t *testing.T) {
 	}
 }
 
+// TestScenariosStepPreviewNoResponseSection: a preview with a request but
+// no response (the pending-step composition, or a run step that captured no
+// reply) renders the REQUEST sections plus an honest "no response" line under
+// the RESPONSE title — the missing half is named, never invented (task 9.8b).
+func TestScenariosStepPreviewNoResponseSection(t *testing.T) {
+	t.Parallel()
+
+	st := scenStepsState()
+	st.Preview = &ScenarioStepPreview{
+		StepIndex: 3, ScenarioID: "Decline matrix",
+		Request: &TxReviewMessage{HEX: "00000000  02 00 f0 00 00 00 00 00", Describe: "MTI : 0200"},
+	}
+	s := scenPage(t, st, 120, 32)
+
+	body := ansi.Strip(s.View().Content)
+	for _, want := range []string{
+		"REQUEST HEX", "00000000  02 00 f0 00 00 00 00 00", "REQUEST FIELDS", "MTI : 0200",
+		"RESPONSE", "no response - run the scenario",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("no-response preview missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "RESPONSE HEX") {
+		t.Errorf("a missing response must not fake a hex block:\n%s", body)
+	}
+}
+
+// TestScenariosStepPreviewErrorNote: a preview folded from a failed load shows
+// the honest error note verbatim instead of the generic run hint, and never a
+// fabricated message (task 9.8b).
+func TestScenariosStepPreviewErrorNote(t *testing.T) {
+	t.Parallel()
+
+	note := `no scenario named "Decline matrix"`
+	st := scenStepsState()
+	st.Preview = &ScenarioStepPreview{StepIndex: 9, ScenarioID: "Decline matrix", Note: note}
+	s := scenPage(t, st, 120, 32)
+
+	body := ansi.Strip(s.View().Content)
+	if !strings.Contains(body, note) {
+		t.Errorf("the error preview must show the note verbatim:\n%s", body)
+	}
+	if strings.Contains(body, scenPreviewEmptyText) {
+		t.Errorf("a known failure must not show the generic hint:\n%s", body)
+	}
+	if strings.Contains(body, "REQUEST HEX") {
+		t.Errorf("a failed load must not fake message sections:\n%s", body)
+	}
+}
+
 // TestScenariosStepPreviewScrolls: an overlay taller than the window
 // stays reachable (finding 8 doctrine) — j scrolls its top line down
 // until the esc hint (the last body line) comes into view, the scroll

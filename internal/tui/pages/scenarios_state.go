@@ -69,14 +69,21 @@ type StepRow struct {
 // packed hex + parsed fields). Loading marks an in-flight detail load
 // (root arms it when ScenarioStepDetailMsg arrives, UAT round 9 Task
 // 9.8b): the overlay then renders the loading marker instead of the
-// empty state. Request/Response stay nil until the step actually
-// captured a message — the page never invents one.
+// empty state. Request/Response stay nil until root loads a message —
+// the captured payload for a step of a completed run, the honest raw
+// composition of the step's template for a never-run step — the page
+// never invents one.
 type ScenarioStepPreview struct {
 	StepIndex  int // StepRow.Index of the previewed step
 	ScenarioID string
 	Loading    bool
-	Request    *TxReviewMessage
-	Response   *TxReviewMessage
+	// Note is an honest load-failure line root folds when the detail load
+	// produced no message at all (unknown scenario, template compose error):
+	// the overlay shows it verbatim instead of the generic run hint, and
+	// never a fabricated message (task 9.8b).
+	Note     string
+	Request  *TxReviewMessage
+	Response *TxReviewMessage
 }
 
 // ScenariosState is the immutable snapshot root pushes into the page.

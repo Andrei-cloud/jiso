@@ -13,6 +13,18 @@
 // Each hook event rides straight into a scenarioStepMsg; a fake engine
 // without the hook still lands correctly because applyScenarioDone
 // backfills any unresolved rows from the final app.ScenarioReport.
+//
+// Wiring rationale (moved out of the root_model.go field block at its
+// repohealth line budget): scenarios is the §F page — a registry entry after
+// the 8 hotkey slots, reachable via the palette ":scenarios" (the wire-compat
+// slot id "scenario" stays with the merged §C inspector; §F steals no hotkey).
+// scenarioRun is the live-run truth (nil = never run); the goroutine reports
+// scenarioStepMsg/scenarioDoneMsg values through scenarioSender (run wires
+// program.Send through wireSenders — run.go; tests inject a collector — the
+// bridge pattern), and runScenario overrides the engine leg (nil = the
+// production transactions.ScenarioRunner, the SAME engine the CLI scenario
+// run uses). scenarioLastReport holds the last completed report for `e`;
+// scenarioStatusLine is the toast-less export line.
 package tui
 
 import (
@@ -87,6 +99,11 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 
 	m.scenarioRun = &scenarioRun{id: id, steps: m.declaredSteps(id)}
 	m.scenarioStatusLine = ""
+	// A new run invalidates the step-detail leg: the old preview describes a
+	// previous report, and an in-flight fold must turn stale instead of
+	// re-opening the overlay over the fresh stream (the §I seq lifecycle).
+	m.scenarioDetail.seq++
+	m.scenarioDetail.preview = nil
 
 	if m.Current().ID() != pages.ScenariosPageID {
 		m.Push(m.scenarios)

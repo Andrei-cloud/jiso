@@ -70,6 +70,7 @@ func (m *RootModel) scenariosState() pages.ScenariosState {
 	st := pages.ScenariosState{
 		ReportPath: m.scenarioReportPath(),
 		StatusLine: m.scenarioStatusLine,
+		Preview:    m.scenarioDetail.preview,
 	}
 	tc := m.scenarioCollection()
 	if tc != nil {
