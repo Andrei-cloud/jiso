@@ -66,8 +66,8 @@ func (m *RootModel) routeExchangeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case pages.SendHistoryPickMsg:
-		// Enter on a send-history row: freeze §D on that run (UAT round 5;
-		// the §D h toggle is the detail ↔ hex view).
+		// Enter on a send-history row: freeze §D on that run
+		// (its h toggle is the detail ↔ hex view).
 		return m.sendHistoryDetail(msg)
 
 	case pages.SendHistoryPopMsg:
@@ -93,15 +93,15 @@ func (m *RootModel) routeSendConsoleMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case consoleLineMsg:
 		// System output from the connection manager: stamped into the
-		// bottom console strip, never stderr (UAT).
+		// bottom console strip, never stderr.
 		m.appendConsoleLine(msg.text)
 
 		return m, nil
 
 	case serverLineMsg:
-		// Mock-server output stays inside the §4 page's LOG ring; it
-		// never reaches the global strip (UAT round 3). Lines are
-		// receipt-timestamped so the §4 log reads as a timeline.
+		// Mock-server output stays inside the server page's own LOG
+		// ring, never the global strip; lines are receipt-timestamped
+		// so the log reads as a timeline.
 		m.serverLog = append(m.serverLog, m.stampLine(msg.text))
 		if len(m.serverLog) > consoleRingMax {
 			m.serverLog = m.serverLog[len(m.serverLog)-consoleRingMax:]
@@ -115,28 +115,27 @@ func (m *RootModel) routeSendConsoleMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openConnect()
 
 	case palette.DisconnectMsg:
-		// TUI-514: palette ":disconnect" and the §A "D" quick key land
-		// here — the router decides (leg, §N3 confirm, or sane no-op).
+		// Palette ":disconnect" and the §A "D" quick key land here —
+		// the router decides (leg, confirm, or sane no-op).
 		return m.handleDisconnect()
 
 	case palette.QuitRequestMsg:
-		// UAT: ":quit" confirms before the application exits.
+		// ":quit" confirms before the application exits.
 		return m.requestQuit()
 
 	case palette.LastSendViewMsg:
-		// UAT: reopen the last completed §D snapshot (Enter there
-		// resends through the normal TxSendMsg path).
+		// Reopen the last completed §D snapshot (Enter there resends
+		// through the normal TxSendMsg path).
 		return m.viewLastSend()
 
 	case palette.SendHistoryMsg:
-		// UAT round 5: open the session send-history overlay (Enter
-		// freezes §D on a row; the router toasts when nothing sent yet).
+		// Open the session send-history overlay (Enter freezes §D on
+		// a row; the router toasts when nothing sent yet).
 		return m.openSendHistory()
 
 	case palette.LastStressSummaryMsg:
-		// Proposal 05 §3: reopen the last completed stress run's summary
-		// overlay (the §A LAST STRESS card's row; the router lands on the
-		// existing §H overlay path and toasts when no run completed).
+		// Reopen the last completed stress run's summary overlay
+		// (the §A LAST STRESS card's row; toasts when none completed).
 		return m.viewLastStressSummary()
 
 	default:
@@ -357,19 +356,15 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// routeMouseMsg routes the mouse hit-map message family (UAT round 8
-// finding 9): cells resolved by the per-frame hitMap arrive as these small
-// root-owned msgs, consumed here so they never reach a page. The handlers
-// are the Task 8.2–8.5 seams (hitmap.go); the routing skeleton is pinned
-// by TestMouseMsgsRouteAtRoot.
+// routeMouseMsg routes the mouse hit-map message family: cells resolved
+// by the per-frame hitMap arrive as these root-owned msgs and are
+// consumed here, never reaching a page.
 //
 // The raw tea.MouseMsg case is load-bearing, not defensive: bubbletea
-// v2.0.9 hands every mouse event to View.OnMouse (via renderer.onMouse)
-// AND then to model.Update (tea.go:808-816 falls through, no continue).
-// Swallowing it here makes "the synthetic msgs are the only mouse truth"
-// an enforced invariant — without it, any future mouse-aware consumer on
-// a page (a native bubbles viewport/list handles MouseWheelMsg) would act
-// on the raw wheel *and* the synthetic scrollMsg, double-firing.
+// hands every mouse event to View.OnMouse and then to Update too.
+// Swallowing the raw msg here keeps the synthetic msgs the only mouse
+// truth — otherwise a mouse-aware page consumer would act on the raw
+// wheel *and* the synthetic scrollMsg, double-firing.
 func (m *RootModel) routeMouseMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case scrollMsg:

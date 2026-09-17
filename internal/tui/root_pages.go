@@ -26,8 +26,8 @@ func (m *RootModel) newPages() {
 	m.workerRuns = map[string]workerRunParams{}
 	m.toastTTL = toastDefaultTTL
 	m.homeDir, _ = os.UserHomeDir()
-	// SCR-512: the §L snapshot loads on first entry (dirty until the
-	// first settingsLoadedMsg folds).
+	// The §L snapshot loads on first entry (dirty until the first
+	// settingsLoadedMsg folds).
 	m.settingsDirty = true
 	m.settingsErrs = map[string]string{}
 	m.settingsChanged = map[string]string{}
@@ -58,9 +58,8 @@ func (m *RootModel) registerPages() {
 			m.registry = append(m.registry, m.ctf)
 		}
 	}
-	// ...then the pages that claim no digit: the §C inspector (entered
-	// with Enter on a transactions row) and the §L settings page
-	// (palette ":settings" jump via jumpToID).
+	// ...then the pages that claim no digit: the §C inspector and
+	// the §L settings page (palette ":settings" jump via jumpToID).
 	m.registry = append(m.registry, m.inspector, m.settings)
 	m.stack = []Page{m.registry[0]}
 }
@@ -124,39 +123,37 @@ func (m *RootModel) armBatches(cmd tea.Cmd) tea.Cmd {
 	if arm := m.armBridgeCmd(); arm != nil {
 		cmd = tea.Batch(arm, cmd)
 	}
-	// The §G stats tick runs while a snapshot consumer (§A dashboard or
-	// the §G server page) is current and the server is running;
-	// arm/disarm bookkeeping lives in armServerTick.
+	// The §G stats tick runs while a snapshot consumer is current and
+	// the server is running (armServerTick).
 	if tick := m.armServerTick(); tick != nil {
 		cmd = tea.Batch(tick, cmd)
 	}
-	// The §H runtime-refresh tick runs only while the page is current
-	// and a worker is active (the same seq-token lifecycle).
+	// The §H runtime tick runs while the page is current and a worker
+	// is active.
 	if tick := m.armWorkersTick(); tick != nil {
 		cmd = tea.Batch(tick, cmd)
 	}
 	// The §I queries run only while the page is current, off the UI
-	// thread (tea.Cmd), on entry / after r / after a DB-writing event.
+	// thread, on entry / after r / after a DB-writing event.
 	if load := m.armSessions(); load != nil {
 		cmd = tea.Batch(load, cmd)
 	}
-	// The §K queries run only while the page is current, off the UI
-	// thread (tea.Cmd), on entry and after r.
+	// The §K queries run only while the page is current, off the UI thread.
 	if load := m.armCtf(); load != nil {
 		cmd = tea.Batch(load, cmd)
 	}
-	// The §L snapshot load runs only while the page is current, off
-	// the UI thread (tea.Cmd), on entry / after r / after an apply.
+	// The §L snapshot load runs only while the page is current, off the
+	// UI thread, on entry / after r / after an apply.
 	if load := m.armSettings(); load != nil {
 		cmd = tea.Batch(load, cmd)
 	}
-	// The toast prune tick runs only while toasts are visible (TUI-406b).
+	// The toast prune tick runs only while toasts are visible.
 	if tick := m.armToastTick(); tick != nil {
 		cmd = tea.Batch(tick, cmd)
 	}
-	// The §A SESSION stats read runs off the UI thread (tea.Cmd) on the
-	// ~2s tick — re-armed only while the dashboard is current or a
-	// DB-writing event dirtied it (the §G seq-token lifecycle).
+	// The §A SESSION stats read runs off the UI thread on the ~2s
+	// tick, re-armed while the dashboard is current or a DB-writing
+	// event dirtied it.
 	if tick := m.armSessionStatsTick(); tick != nil {
 		cmd = tea.Batch(tick, cmd)
 	}

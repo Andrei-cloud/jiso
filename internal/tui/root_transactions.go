@@ -11,10 +11,8 @@ import (
 
 // syncTransactions pushes a fresh TransactionsState snapshot into the
 // canonical §B page instance. It runs from NewRootModel and after every
-// Update (the SCR-501 dashboard pattern): root owns all App access and
-// derives every display string here, so the page never imports
-// internal/app and never reads the clock. A nil app (tests, pre-wire)
-// yields the empty snapshot → the page renders its empty state.
+// Update: root owns all App access and derives the display strings, so
+// the page never imports internal/app and never reads the clock.
 func (m *RootModel) syncTransactions() {
 	if m.tx == nil {
 		return
@@ -23,11 +21,9 @@ func (m *RootModel) syncTransactions() {
 }
 
 // transactionsState derives the §B snapshot from the app's loaded tx
-// file: the file's base name, the repository's row count, and one row per
-// transaction (name, MTI parsed from field 0 of the template, description).
-// Dataset and Spec stay empty — the transactions.Repository does not
-// expose them per transaction yet — and render as the dash (unknown ≠
-// zero) until a later ticket plumbs them.
+// file: base name, row count, and one row per transaction (name, MTI
+// parsed from field 0 of the template, description). Dataset and Spec
+// stay empty — the Repository does not expose them per transaction yet.
 func (m *RootModel) transactionsState() pages.TransactionsState {
 	if m.app == nil {
 		return pages.TransactionsState{}
@@ -85,18 +81,13 @@ func mtiFromFields(fieldsJSON string) string {
 }
 
 // handleTxMsg interprets the §B/§C pages' row messages. Enter on §B
-// (TxDetailMsg) opens the §C inspector with state built for that tx
-// (SCR-503 — the real transition the wireframe breadcrumb implies). Since
-// SCR-504 s on §B (and Enter on the §D page — the same TxSendMsg path)
-// starts the live exchange: root pushes the §D page and launches the
-// stage goroutine; a send while one is in flight is ignored (no queue, no
-// retry). Since E5-FIX/M6 f on §B (TxPickFileMsg — advertised by the §B
-// empty state and the §M registry; UAT round 8 D3 moved it from `t`)
-// opens the shared file picker through
-// the OpenFilePickerMsg seam (giving that message a real emitter), and a
-// selection commits the tx-file path through the same settings commit
-// path §L uses. The compose-with-dataset run lands later: it stays a
-// logged no-op — the stack never changes and no command runs for it.
+// opens the §C inspector with state built for that tx. s on §B (and
+// Enter on the §D page — same TxSendMsg path) starts the live exchange:
+// root pushes §D and launches the stage goroutine; a send while one is
+// in flight is ignored (no queue, no retry). f on §B (TxPickFileMsg)
+// opens the shared file picker, and a selection commits the tx-file
+// path through the same settings commit path §L uses. The compose-
+// with-dataset run stays a logged no-op.
 func (m *RootModel) handleTxMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case pages.TxDetailMsg:

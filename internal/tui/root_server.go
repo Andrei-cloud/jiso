@@ -1,18 +1,13 @@
-// root_server.go owns the §G live operation (SCR-507). The page stays a
+// root_server.go owns the §G live operation: the page stays a
 // presentation-only consumer of ServerState snapshots while root drives
-// the embedded mock server through the app's in-process serve façade
-// (internal/app serve.go — the same engine + config resolution the
-// cobra `serve start` shim runs) and polls the engine's stats tracker
-// back into Update as a root-internal serverStatsTickMsg — the same
-// injectable-sender/cancellable-tick pattern the send elapsed timer uses.
+// the embedded mock server through the app's in-process serve façade and
+// polls stats back into Update as the root-internal serverStatsTickMsg.
 //
-// Tick lifecycle contract: the ~1s tick is armed while a page that RENDERS
-// the snapshot (§A dashboard, §G server page — see serverStatsConsumer) is
-// current AND the server runs; leaving both pages or stopping the server
-// bumps the tick sequence so an in-flight tea.Tick (which cannot be
-// cancelled) becomes a stale, ignored message and no new tick is
-// scheduled. Stats freeze at the stop-time snapshot — nothing ever
-// auto-restarts the server (project rule).
+// The ~1s tick is armed while a snapshot-rendering page (§A or §G, see
+// serverStatsConsumer) is current and the server runs; leaving the page
+// or stopping the server bumps the seq, so an in-flight (uncancellable)
+// tick turns stale and ignored. Stats freeze at the stop-time snapshot;
+// nothing ever auto-restarts the server.
 package tui
 
 import (
@@ -65,9 +60,7 @@ func defaultServerTick(d time.Duration, mk func() tea.Msg) tea.Cmd {
 func (m *RootModel) serverRunning() bool { return !m.serverStartAt.IsZero() }
 
 // serveStatsSnapshot reads the stats truth: the injected reader, else
-// the app's in-process accessor (never a snapshot file — the PAR-304
-// side-channel only serves out-of-process `serve stats` queries and
-// lives on another branch).
+// the app's in-process accessor (never a snapshot file).
 func (m *RootModel) serveStatsSnapshot() *app.ServerStats {
 	if m.serveStatsFn != nil {
 		return m.serveStatsFn()
@@ -93,10 +86,7 @@ func (m *RootModel) serveRoutesList() []config.MockRouteConfig {
 
 // serverStatsConsumer reports the pages that render the live mock-server
 // snapshot and so need the ~1s poll armed while the server runs: the §G
-// server page AND the §A dashboard. UAT round 5: the tick was once armed
-// ONLY on §G, so the dashboard's MOCK SERVER card kept showing the
-// start-time snapshot — `conns 0` while a client was connected — because
-// nothing refreshed serverSnap while the operator sat on §A.
+// server page AND the §A dashboard.
 func serverStatsConsumer(id string) bool {
 	return id == pages.ServerPageID || id == pages.DashboardPageID
 }
@@ -150,13 +140,10 @@ func (m *RootModel) applyServerStatsTick(msg serverStatsTickMsg) (tea.Model, tea
 }
 
 // handleServerStop is the `s` path: with live connections it opens the
-// widgets.ConfirmDialog first (default No — only y confirms), otherwise
-// it stops directly as a Cmd. The connection truth is decided from a
-// FRESH snapshot (E5-FIX/M4): the ~1s tick is the only refresh while
-// running, so after re-entering §G the cached serverSnap can be stale
-// (showing 0 conns while conns are live) — reading it alone let `s`
-// stop WITH live connections and no confirm (fail-open). performStop
-// already re-snapshots; the decision must too.
+// confirm dialog first (default No), otherwise it stops directly as a
+// Cmd. The connection truth is decided from a FRESH snapshot — the
+// cached serverSnap can be stale after re-entering §G, and reading it
+// alone would stop with live connections and no confirm.
 func (m *RootModel) handleServerStop() (tea.Model, tea.Cmd) {
 	if !m.serverRunning() {
 		m.debug.logf("server stop ignored (not running)")
@@ -239,10 +226,8 @@ func (m *RootModel) updateServerConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.
 }
 
 // applyServerStopResult flips the running truth; the stats snapshot stays
-// frozen (uptime renders from it while stopped) and nothing re-arms. A
-// FAILED stop keeps the running truth (E5-FIX/M4): the engine is still
-// up, so serverStartAt stays set, the tick keeps refreshing, and the
-// error is named — only a successful stop clears the running state.
+// frozen (uptime renders from it) and nothing re-arms. A FAILED stop keeps
+// the running truth — only a successful stop clears it.
 func (m *RootModel) applyServerStopResult(msg serverStopResultMsg) (tea.Model, tea.Cmd) {
 	m.serverStarting = false
 	if msg.err != nil {
@@ -298,8 +283,8 @@ func (m *RootModel) serverState() pages.ServerState {
 }
 
 // serveStatsCard derives the §G stats card (reused by the §A MOCK
-// SERVER card, proposal 05 §3): the matched-vs-fallback split the
-// tracker already carries, with the match percent root-formatted.
+// SERVER card): the matched-vs-fallback split the tracker already
+// carries, with the match percent root-formatted.
 func serveStatsCard(snap *app.ServerStats) pages.StatsCard {
 	return pages.StatsCard{
 		Served:    int(snap.TotalServed),

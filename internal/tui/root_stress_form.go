@@ -1,17 +1,11 @@
-// root_stress_form.go owns the §H stress start leg (SCR-508, reworked
-// into the worker wizard by UAT round 4: "the option for background
-// and for stress testing probably should be in a form of wizard
-// rather than on empty pane two options as now"). The wizard page
-// (pages.WorkerWizard) collects the tx multi-select and the PAR-306
-// parameters (tps 10, ramp 30s, duration 1m, workers 1 — the same
-// `jiso stress` flag defaults internal/cli/cmd/stress.go carries, now
-// prefilled by pages.WorkerDefault*); the root keeps the start leg:
-// the shim's own bounds re-check (pages.StressBoundsError mirrors
-// validateStressNumbers, so an invalid start never reaches the App)
-// and StressStart through the injectable leg (the same entry the
-// cobra shim and the CLI worker shim drive). A failure keeps the
-// wizard open with the error line; success closes it and stamps the
-// ETA bookkeeping — the workers table underneath owns the row.
+// root_stress_form.go owns the §H stress start leg: the wizard page
+// collects the tx multi-select and the stress parameters (the same
+// `jiso stress` flag defaults, prefilled via pages.WorkerDefault*);
+// root keeps the start leg — its bounds re-check (pages.StressBoundsError,
+// so an invalid start never reaches the App) and StressStart through
+// the injectable leg. A failure keeps the wizard open with the error
+// line; success closes it and stamps the ETA bookkeeping — the workers
+// table underneath owns the row.
 package tui
 
 import (
@@ -26,7 +20,7 @@ import (
 )
 
 // stressPickFileTarget routes the stress wizard's [f] tx-file pick
-// through applyFilePicked (UAT: an empty checklist was a dead end).
+// through applyFilePicked.
 const stressPickFileTarget = "stress:file"
 
 // stressStartResultMsg is the terminal verdict of a stress start; the
@@ -38,11 +32,9 @@ type stressStartResultMsg struct {
 	err error
 }
 
-// startStressWorker gates Enter on the wizard's run step: the resolved
-// parameters pass the shim's own bounds first (the retired form's
-// contract: an invalid run never reaches the App), then the wizard
-// flips into its in-flight line and the start runs through the
-// injectable leg (nil = app.StressStart).
+// startStressWorker gates Enter on the wizard's run step: resolved
+// parameters pass the shim's own bounds first (an invalid run never
+// reaches the App), then the start runs through the injectable leg.
 func (m *RootModel) startStressWorker(run pages.WorkerRun) (tea.Model, tea.Cmd) {
 	if len(run.Names) == 0 {
 		return m.workerWizError("select at least one transaction")

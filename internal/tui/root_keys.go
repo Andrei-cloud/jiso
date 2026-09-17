@@ -1,10 +1,7 @@
-// root_keys.go is the keyboard: which key does what, in priority order. It is a
-// long switch on purpose (the wireframe's keymap is a flat table and the order the
-// keys are tested in is part of the behaviour), which is also why it is on its own:
-// reading the keymap should not require scrolling past message routing.
-//
-// Anything a key starts that outlives the keypress hands the work to the file that
-// owns that flow (connect, send, workers, settings) rather than growing here.
+// root_keys.go is the keyboard: which key does what, in priority order.
+// The long switch is deliberate — the order keys are tested in is part of
+// the behaviour. Flows that outlive the keypress live in their own file
+// (connect, send, workers, settings).
 package tui
 
 import (
@@ -28,36 +25,25 @@ func (m *RootModel) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.updatePalette(msg)
 	}
 
-	// The §E connect dialog is a root-owned modal overlay (like the
-	// palette): while open it owns the keyboard wholesale — typing "q" or
-	// a digit into a form field must not quit or jump pages. Ctrl+C was
-	// claimed above and stays global.
+	// Root-owned modal overlays take the keyboard in the order below:
+	// while one is open its keys edit the form, never quit or jump
+	// pages. The file picker, opened from a form's [f] browse, sits on
+	// top of its form and owns the keys first.
 	if m.dlg != nil {
 		return m.updateConnectDialog(msg)
 	}
 
-	// The send wizard (proposal 04 §B) is the same root-owned modal: while
-	// open it owns the keyboard wholesale (j/k, filters and the typed
-	// path override must not scroll pages or quit). The file picker
-	// opened from it ([f] browse) sits on top and owns the keys first.
+	// The send wizard.
 	if m.wizard != nil && m.filePick == nil {
 		return m.updateWizardKey(msg)
 	}
 
-	// The §G server start form is the same root-owned modal (SCR-507):
-	// while open it owns the keyboard wholesale (typing into port/spec
-	// fields must not quit or jump pages). The file picker opened from
-	// a form ([f] browse) sits on top and owns the keys first (UAT:
-	// the stress form froze the picker's j/k).
+	// The §G server start form.
 	if m.serverDlg != nil && m.filePick == nil {
 		return m.updateServerFormKey(msg)
 	}
 
-	// The §H worker start wizard (UAT round 4) is the same root-owned
-	// modal: while open it owns the keyboard wholesale (tx names and
-	// duration values type digits, q, and letters that would otherwise
-	// jump pages). The file picker opened from its [f] browse sits on
-	// top and owns the keys first.
+	// The §H worker start wizard.
 	if m.workerWiz != nil && m.filePick == nil {
 		return m.updateWorkerWizKey(msg)
 	}
@@ -70,13 +56,9 @@ func (m *RootModel) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	// A page in a page-local text-input mode (SCR-502 live filter) owns
-	// the keyboard exactly like the palette does: keys that collide with
-	// global bindings (q, digits, :, ?) must reach the filter instead of
-	// quitting, jumping pages, or opening overlays. Ctrl+C was claimed
-	// above and stays global. UAT round 8 (D2): there is no "?"-on-empty
-	// escape hatch anymore — while a field is being typed into the page
-	// claims EVERY key; esc leaves the field before any global key works.
+	// A page in a page-local text-input mode claims EVERY key while a
+	// field is being typed into — no global may fire mid-typing (esc
+	// leaves the field first). Ctrl+C was claimed above and stays global.
 	if kc, ok := m.Current().(pages.KeyboardClaimer); ok && kc.ClaimsKeyboard() {
 		return m.forward(msg)
 	}
@@ -100,19 +82,16 @@ func (m *RootModel) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case keyMatches(msg, km.MouseToggle):
-		// UAT round 9 (F-9c): release/re-arm terminal mouse reporting so
-		// the user can click-drag select text (e.g. test results) while
-		// the mouse is off, and get the wheel/click features back with
-		// F9 again. The View gates MouseMode/OnMouse and the hit map on
-		// the flag (hitmap_mouse.go / hitmap.go); no navigation here.
+		// Release/re-arm terminal mouse reporting so text can be
+		// click-drag selected (gates: hitmap_mouse.go / hitmap.go). F9
+		// is global here, but edit-mode fields claim it first above.
 		m.mouseEnabled = !m.mouseEnabled
 		m.debug.logf("mouse enabled=%v", m.mouseEnabled)
 
 		return m, nil
 
 	case keyMatches(msg, km.Help):
-		// SCR-513: `?` opens the §M overlay with the CURRENT page's
-		// context (no longer a help-page push).
+		// `?` opens the §M overlay with the current page's context.
 		m.openHelp()
 
 		return m, nil
@@ -124,17 +103,13 @@ func (m *RootModel) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case keyMatches(msg, km.Connect):
-		// SCR-505: the hotkey opens the modal on the CURRENT page (the
-		// dialog owns the flow; the §A page-local 'c' preselect was
-		// removed as production-dead, UAT round 5).
-		// SCR-507 exception: on the §G page "c" is the wireframe's
-		// configure key and opens the server start form instead.
+		// "c" opens the modal on the current page.
+		// Exception: on the §G page it opens the server start form.
 		if m.Current().ID() == pages.ServerPageID {
 			return m.openServerForm()
 		}
-		// Proposal 04: while a connection is live the quick link reads
-		// "Disconnect (c)" — the key drops the link instead of opening
-		// the connect form (reconnect = disconnect, then c again).
+		// While a connection is live "c" drops it instead
+		// (reconnect = disconnect, then c again).
 		if m.connectionLive() {
 			return m.handleDisconnect()
 		}
@@ -143,11 +118,8 @@ func (m *RootModel) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case keyMatches(msg, km.Send) && m.Current().ID() == pages.DashboardPageID:
 		// "s" on the dashboard sends directly when the session config is
-		// complete (UAT round 5: the operator stays on the dashboard and
-		// the LAST SEND tile carries the outcome) and opens the send
-		// wizard otherwise. Everywhere else "s" stays page-local
-		// (§B send-of-selection, §G stop, §K step pick); the palette
-		// reaches the wizard from any page.
+		// complete, otherwise opens the send wizard; everywhere else "s"
+		// stays page-local (§B send, §G stop, §K step pick).
 		return m.directSend()
 
 	case keyMatches(msg, km.PaneFocus):
@@ -162,8 +134,8 @@ func (m *RootModel) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		}
-		// UAT (generalizing §N3): quitting always confirms first
-		// (default No); Ctrl+C stays the immediate graceful exit.
+		// Quitting always confirms first (default No);
+		// Ctrl+C stays the immediate graceful exit.
 		return m.requestQuit()
 
 	default:
@@ -187,36 +159,33 @@ func (m *RootModel) handleConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 		return m, cmd, true
 	}
 	if m.analyzeConfirm != nil && m.analyzeConfirm.Pending() {
-		// The §J abort-over-in-flight confirm swallows everything except
-		// y/n/Esc/Enter (same contract as the worker confirm).
+		// The §J abort-over-in-flight confirm.
 		_, cmd := m.analyzeConfirm.Update(msg)
 
 		return m, cmd, true
 	}
 	if m.ctfConfirm != nil && m.ctfConfirm.Pending() {
-		// The §N3 CTF overwrite confirm swallows everything except
-		// y/n/Esc/Enter (default No — nothing is written).
+		// The §K overwrite confirm (default No — nothing is written).
 		_, cmd := m.ctfConfirm.Update(msg)
 
 		return m, cmd, true
 	}
 	if m.analyzeOverwriteConfirm != nil && m.analyzeOverwriteConfirm.Pending() {
-		// The §N3 analyze overwrite confirm swallows everything except
-		// y/n/Esc/Enter (default No — the user's config stays intact).
+		// The analyze overwrite confirm (default No — the existing
+		// item set stays intact).
 		_, cmd := m.analyzeOverwriteConfirm.Update(msg)
 
 		return m, cmd, true
 	}
 	if m.scenarioConfirm != nil && m.scenarioConfirm.Pending() {
-		// The §N3 scenario-export overwrite confirm swallows everything
-		// except y/n/Esc/Enter (default No — the previous report stays).
+		// The scenario-export overwrite confirm (default No — the
+		// previous report stays).
 		_, cmd := m.scenarioConfirm.Update(msg)
 
 		return m, cmd, true
 	}
 	if m.disconnectConfirm != nil && m.disconnectConfirm.Pending() {
-		// The §N3 disconnect confirm swallows everything except
-		// y/n/Esc/Enter (default No — the connection stays up).
+		// The disconnect confirm (default No — the connection stays up).
 		_, cmd := m.disconnectConfirm.Update(msg)
 
 		return m, cmd, true
@@ -225,22 +194,19 @@ func (m *RootModel) handleConfirmKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 	return m, nil, false
 }
 
-// handlePickOrHelpKey routes a key press to the file picker or the help overlay
-// when either is open, reporting whether one consumed it. Both are root-owned
-// modals that own the keyboard wholesale while open.
+// handlePickOrHelpKey routes a key press to the file picker or the help
+// overlay when either is open, reporting whether one consumed it. The
+// picker owns every key while open; the page behind it stays frozen.
 func (m *RootModel) handlePickOrHelpKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	// The TUI-406b file picker owns the keyboard while open: typing "/" or
-	// "q" into the filter must not open the palette or quit. Esc reaches the
-	// widget, which emits its own cancel msg.
+	// Esc reaches the widget itself, which emits its own cancel msg.
 	if m.filePick != nil {
 		_, cmd := m.filePick.Update(msg)
 
 		return m, cmd, true
 	}
 
-	// The §M help overlay: `?` toggles it, Esc closes it (§N1: an open
-	// overlay closes first). Every other key is swallowed so the page
-	// underneath stays frozen.
+	// The §M overlay: `?` toggles it, Esc closes first;
+	// every other key is swallowed.
 	if m.help != nil {
 		if keyMatches(msg, m.keys.Help) || msg.Code == tea.KeyEscape {
 			m.help = nil

@@ -1,17 +1,10 @@
-// root_sessions.go owns the §I DB truth (SCR-509). The page is a
+// root_sessions.go owns the §I DB truth: the page stays a
 // presentation-only consumer of SessionsState snapshots while root
-// queries the App read façade (ListSessions/SessionStats/TxHistory/
-// ReviewTx — the same db.OpenExisting read path the CLI `db stats`/
-// `db tx` shims drive, PAR-311) OFF the UI thread: every query runs
-// inside a tea.Cmd and reports back as a seq-tokened msg, so Update
-// never blocks. Loads arm only while the page is current — on entry,
-// after `r`, and after any worker/send completion (bgsend workers and
-// §D sends write the DB: WorkerStopped on the bus and a Done send run
-// mark the cache dirty; the next Update re-queries). A missing or unset
-// DB is a typed façade error folded into the state's Note (empty-state
-// text), never a crash and never a created file. sessionsSrc overrides
-// the app legs for tests (fake façade; no optimistic writes — the list
-// changes only when a query result msg arrives).
+// queries the App read façade off the UI thread — every query runs in
+// a tea.Cmd and reports back as a seq-tokened msg, so Update never
+// blocks. Loads arm only while the page is current (on entry, after
+// `r`, after a DB-writing event); a missing DB is a typed façade error
+// folded into the state's Note, never a crash or a created file.
 package tui
 
 import (
@@ -93,8 +86,7 @@ type (
 
 // armSessions arms one pending §I load while the page is current: the
 // session list on entry / after `r` / after a dirtying event, then the
-// selected session's detail when stale. Returns nil otherwise (the
-// queries never run for an unfocused page).
+// selected session's detail when stale. nil otherwise.
 func (m *RootModel) armSessions() tea.Cmd {
 	if m.Current() == nil || m.Current().ID() != pages.SessionsPageID {
 		return nil
@@ -149,15 +141,11 @@ func (m *RootModel) handleSessionsSelect(msg pages.SessionsSelectMsg) (tea.Model
 	return m, m.armSessions()
 }
 
-// handleSessionsFocus is the cursor-following detail leg (UAT round 9,
-// F-9f — the §K handleCtfSelect pattern): the list cursor moved onto a
-// different session (keyboard arrow or a click-select), so root
-// re-points the detail subject, drops the cached stats/history, bumps
-// the seq (any in-flight detail/review leg turns stale instead of
-// landing on the wrong row), and arms the new session's query. Unlike
-// Enter (handleSessionsSelect) it never drives the narrow drill, and it
-// runs only while §I is current with a façade leg (the armSessions
-// gates, re-checked here because the mouse seam calls in directly).
+// handleSessionsFocus is the §I cursor-follow detail leg: on an identity
+// change (arrow or click-select) root re-points the detail subject, drops
+// the cached stats/history and bumps the seq — old in-flight legs turn
+// stale — then arms the new session's query. Unlike Enter it never drives
+// the narrow drill; it runs only while §I is current with a façade leg.
 func (m *RootModel) handleSessionsFocus(id string) (tea.Model, tea.Cmd) {
 	if id == "" || m.Current() == nil || m.Current().ID() != pages.SessionsPageID {
 		return m, nil
@@ -202,9 +190,8 @@ func (m *RootModel) handleSessionsRefresh() (tea.Model, tea.Cmd) {
 
 // applySessionsList folds a list result: typed errors become the
 // empty-state Note (the list clears, nothing is fabricated); a selection
-// that left the list falls to the newest session and its detail. The
-// wait flag clears BEFORE the stale check — the uniform pattern of
-// applySessionsDetail/applySessionsReview (E5-FIX/M3 audit).
+// that left the list falls to the newest session. The wait flag clears
+// BEFORE the stale check — the uniform apply* pattern.
 func (m *RootModel) applySessionsList(msg sessionsListLoadedMsg) (tea.Model, tea.Cmd) {
 	m.sessionsListWait = false
 	if msg.seq != m.sessionsSeq {
@@ -255,10 +242,9 @@ func (m *RootModel) sessionsListCarries(id string) bool {
 }
 
 // applySessionsDetail folds a detail result for the still-selected
-// session (a stale seq or a switched selection is dropped). A result
-// that lands after navigation away is dropped too (UAT round 9, F-9f:
-// the applyCtfPreview page guard) and the leg is left stale, so
-// armSessions re-queries when §I becomes current again.
+// session; a stale seq or a switched selection is dropped. A result
+// that lands after navigation away is dropped too and the leg stays
+// stale, so armSessions re-queries when §I becomes current again.
 func (m *RootModel) applySessionsDetail(msg sessionsDetailLoadedMsg) (tea.Model, tea.Cmd) {
 	m.sessionsDetailWait = false
 	if msg.seq != m.sessionsSeq || msg.id != m.sessionsSelected {

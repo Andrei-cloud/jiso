@@ -1,31 +1,21 @@
-// root_update.go is the message router: which message family handles what. Each
-// case delegates to the file that owns that flow (connect, send, scenarios, server,
-// workers, sessions, analyze, ctf, settings); the ones that mean "the page wants
-// the root to change the stack" are handled here because nothing else can.
-//
-// It is a type switch over message families with a default of forward, so a case
-// that does not return falls through to forwarding the message to the page stack:
-// adding a case here is also a decision about whether the root keeps that message.
+// root_update.go is the message router: which message family handles what.
+// Each case delegates to the file that owns that flow; the ones that mean
+// "the page wants the root to change the stack" are handled here. Cases
+// that do not return fall through to forwarding to the page stack.
 package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// errNoAppWired is what every action that needs the application layer says when
-// the root was built without one (the zero-value model the page tests construct).
-// Spelled at six sites, an operator would have seen five wordings of the same
-// "this build has no app" once anyone reworded one of them.
+// errNoAppWired is what every action that needs the application layer says
+// when the root was built without one (the zero-value model tests use).
 const errNoAppWired = "no application wired"
 
-// the root was built without one (the zero-value model the page tests construct).
-// Spelled at six sites, an operator would have seen five different wordings of the
-// same "this build has no app" once anyone reworded one of them.
 // update routes one message through the global layer.
 func (m *RootModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Send-wizard msgs (proposal 04 §B) are interpreted before anything
-	// else — they are emitted by the wizard's own Update and name the
-	// leg the root must run (attempt, choose, send, cancel).
+	// Send-wizard msgs are interpreted before anything else — they name
+	// the leg the root must run (attempt, choose, send, cancel).
 	if next, cmd, ok := m.handleWizardMsg(msg); ok {
 		return next, cmd
 	}

@@ -9,14 +9,9 @@ import (
 )
 
 // defaultResizeCoalesceWindow bounds how often the page stack is relaid
-// out during a resize burst (one forwardAll per window, plus one trailing
-// flush guaranteeing the final size lands). v2.0.9 coalesces only the OS
-// signal itself — signals_unix.go:16 gives the SIGWINCH channel capacity 1,
-// so back-to-back signals are dropped, and tty.go:105-127 checkResize
-// re-queries the live size per signal — but every delivered
-// tea.WindowSizeMsg still runs a full Update+View. The window below is the
-// root-level coalescing the design contract (§lifecycle non-negotiable 3,
-// "coalesce bursts") requires on top of that.
+// out during a resize burst: one forwardAll per window, plus one trailing
+// flush guaranteeing the final size lands. Root-level coalescing sits on
+// top of the runtime's own signal coalescing.
 const defaultResizeCoalesceWindow = 32 * time.Millisecond
 
 // innerWS reports the content area inside the outer frame border — the
@@ -42,12 +37,9 @@ type resizeFlushMsg struct{}
 
 // handleWindowSize implements the leading-edge + trailing throttle for
 // WindowSizeMsg. Root's own dimensions (and therefore View) always track
-// the last size seen — non-negotiable 3 says "re-layout from current
-// frame" — but the expensive part, relaying out every page on the stack
-// via forwardAll, runs at most once per coalescing window: the first new
-// size is applied synchronously (so the initial layout and single resizes
-// stay immediate), later sizes inside the window are stored and applied by
-// the trailing resizeFlushMsg.
+// the last size seen; the expensive part — relaying out every page on
+// the stack — runs at most once per coalescing window: the first new size
+// is applied synchronously, later ones by the trailing resizeFlushMsg.
 func (m *RootModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width, m.height = msg.Width, msg.Height
 	inner := m.innerWS()
@@ -55,19 +47,15 @@ func (m *RootModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd)
 		m.pal.SetSize(palettePanelWidth(inner.Width), palettePanelHeight(inner.Height))
 	}
 	if m.help != nil {
-		// The §M overlay is pure display state (the page stack cannot
-		// change while it owns the keyboard), so a resize only resizes
-		// the box; the registry snapshot stays authoritative. The pane
-		// budget follows too (Task 8.2b): SetHeight re-clamps the wheel
-		// offset into the new window.
+		// The §M overlay is pure display state: a resize only resizes
+		// the box, and SetHeight re-clamps the wheel offset.
 		m.help.width = inner.Width
 		m.help.SetHeight(max(inner.Height-2, 1))
 	}
 	if m.filePick != nil {
-		// The picker overlay is sized to the modal box's inner width
-		// exactly like openFilePicker sizes it (lipgloss Width pads but
-		// never truncates: content-area width would overrun the box and
-		// corrupt the frame).
+		// The picker is sized to the modal box's inner width exactly
+		// like openFilePicker sizes it: a content-area width would
+		// overrun the box and corrupt the frame.
 		m.filePick.SetSize(modalBoxWidth(inner.Width)-2, max(inner.Height-2, 5))
 	}
 
@@ -87,10 +75,8 @@ func (m *RootModel) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd)
 	return m, tea.Batch(m.forwardAll(msg), m.resizeFlushCmd())
 }
 
-// resizeFlushCmd sleeps one coalescing window and returns resizeFlushMsg.
-// It runs in the program's command goroutine (v2 tea.go:717-741 detaches
-// Cmds and documents they may outlive the loop briefly); the sleep is
-// bounded by resizeWindow, so it never delays shutdown meaningfully.
+// resizeFlushCmd sleeps one coalescing window and returns resizeFlushMsg;
+// the sleep is bounded by resizeWindow, so it never delays shutdown.
 func (m *RootModel) resizeFlushCmd() tea.Cmd {
 	return func() tea.Msg {
 		time.Sleep(m.resizeWindow)

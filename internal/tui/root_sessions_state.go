@@ -1,11 +1,8 @@
-// root_sessions_state.go derives the §I SessionsState snapshot
-// (SCR-509): list rows with root-derived short ids and relative times
-// (stored timestamps + the injectable clock — the page never reads the
-// clock), the stats card lines (total/ok+percent/fail/avg/RC dist — the
-// §I wireframe lines), the tx history cells (time, name, MTI, RC,
-// canonical status token, latency), and the reconstructed review
-// sections. Everything here is finished display data; the only math is
-// the ok-percentage and the dash substitution.
+// root_sessions_state.go derives the §I SessionsState snapshot: list
+// rows with root-derived short ids and relative times, the stats card
+// lines, the tx history cells and the reconstructed review sections —
+// all finished display data from the injectable clock; the only math
+// is the ok-percentage and the dash substitution.
 package tui
 
 import (
@@ -56,9 +53,8 @@ func (m *RootModel) sessionsState() pages.SessionsState {
 	return st
 }
 
-// shortSessionID is the §A/§I/§K list cell. The rule and the glyph inside it
-// belong to the theme (Theme.ShortID), so the fixtures that pin these lists
-// derive the same cell instead of hand-typing one root cannot produce.
+// shortSessionID is the §A/§I/§K list cell; the rule and the glyph inside
+// it belong to the theme (Theme.ShortID), never a hand-typed value.
 func (m *RootModel) shortSessionID(id string) string {
 	return m.themeOrNil().ShortID(id)
 }

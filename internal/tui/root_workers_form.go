@@ -1,18 +1,12 @@
-// root_workers_form.go owns the §H worker start wizard's root legs
-// (UAT round 4): both start options leave the empty pane's two-option
-// line and the §E/§G ConnectDialog forms, and open ONE
-// pages.WorkerWizard modal — b for background send, t for stress,
-// tx ▸ rate/params ▸ run. This file keeps the shared glue (open /
-// close / key routing / [f] browse / tx-file pick / run dispatch) and
-// the bgsend leg; the stress leg and its bounds gate live in
-// root_stress_form.go. Prefill sources stay the SAME ones the legacy
-// paths use (bgsend = REPL bgsend survey defaults + repository
-// ListNames; stress = PAR-306 `jiso stress` flag defaults — the
-// wizard's pages.WorkerDefault* constants). Enter on the run step
-// starts through the App worker manager as a tea.Cmd (WorkerStart —
-// the entry the CLI worker shim drives); a failure keeps the wizard
-// open with the error line, and NO row is inserted optimistically —
-// the WorkerStarted bus event owns the row's arrival.
+// root_workers_form.go owns the §H worker start wizard's root legs:
+// both start options open ONE pages.WorkerWizard modal — b for
+// background send, t for stress (tx ▸ rate/params ▸ run). This file
+// keeps the shared glue (open / close / key routing / [f] browse /
+// tx-file pick / run dispatch) and the bgsend leg; the stress leg and
+// its bounds gate live in root_stress_form.go. Prefill sources stay
+// the legacy ones. Enter on the run step starts through the App worker
+// manager; a failure keeps the wizard open with the error line and NO
+// row is inserted optimistically — the WorkerStarted bus event owns it.
 package tui
 
 import (
@@ -53,9 +47,8 @@ func (m *RootModel) openWorkersForm(kind string) (tea.Model, tea.Cmd) {
 }
 
 // openWorkerWizard builds the wizard over the repository's loaded
-// transaction names (the survey prompts' option source), seeds the
-// bgsend single-select on the first candidate (the retired radio's
-// prefill), and sizes it to the content area.
+// transaction names and seeds the bgsend single-select on the first
+// candidate.
 func (m *RootModel) openWorkerWizard(mode string) (tea.Model, tea.Cmd) {
 	if m.workerWiz != nil {
 		return m, nil
@@ -73,8 +66,7 @@ func (m *RootModel) openWorkerWizard(mode string) (tea.Model, tea.Cmd) {
 }
 
 // closeWorkerWizard drops the modal. An in-flight start leg keeps
-// reporting into the apply seams, which no-op once the wizard is gone
-// (the retired forms' Esc-while-in-flight contract).
+// reporting into the apply seams, which no-op once the wizard is gone.
 func (m *RootModel) closeWorkerWizard() {
 	if m.workerWiz == nil {
 		return
@@ -83,15 +75,11 @@ func (m *RootModel) closeWorkerWizard() {
 	m.debug.logf("worker wizard close")
 }
 
-// updateWorkerWizKey routes one key while the wizard owns the
-// keyboard. The wizard's help escape hatch stays root-side: "?" on the
-// wizard's NAVIGATE mode (filter closed, no param row typed into — or
-// anywhere on the run step, where "?" is never a value byte) opens the
-// §M overlay, and while the overlay is open it owns the keys first (Esc
-// closes the overlay, not the wizard — §N1). Once a filter or param row
-// owns the keyboard (edit mode) "?" types into it (UAT round 8: no
-// global hotkey fires while a field is being typed into). Ctrl+C stays
-// global (claimed above).
+// updateWorkerWizKey routes one key while the wizard owns the keyboard.
+// Its help escape hatch stays root-side: "?" on the wizard's NAVIGATE
+// mode opens the §M overlay, and the open overlay owns the keys first
+// (Esc closes the overlay, not the wizard). In edit mode "?" is a value
+// byte and types into the row.
 func (m *RootModel) updateWorkerWizKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.help != nil {
 		if keyMatches(msg, m.keys.Help) || msg.Code == tea.KeyEscape {
@@ -112,11 +100,10 @@ func (m *RootModel) updateWorkerWizKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 	return m, cmd
 }
 
-// workerWizBrowse opens the shared file picker over .json tx files
-// ([f] on the wizard's tx step): the retired stress form's picker
-// parameters kept verbatim (RootLabel "./", start at the loaded tx
-// file's dir). The wizard stays open underneath; Esc returns to it
-// and a selection flows through applyFilePicked.
+// workerWizBrowse arms the shared file picker over .json tx files ([f]
+// on the wizard's tx step); it early-returns when a picker is already
+// open. The wizard stays open underneath, Esc returns to it and a
+// selection flows through applyFilePicked.
 func (m *RootModel) workerWizBrowse() (tea.Model, tea.Cmd) {
 	if m.workerWiz == nil || m.filePick != nil {
 		return m, nil
@@ -133,8 +120,8 @@ func (m *RootModel) workerWizBrowse() (tea.Model, tea.Cmd) {
 }
 
 // startWorkerRun dispatches Enter on the wizard's run step to the
-// mode's leg; both re-check the resolved parameters before the App
-// call (the retired forms' bounds gate, one string source in pages).
+// mode's leg; both re-check the resolved parameters against the App's
+// own bounds before the call.
 func (m *RootModel) startWorkerRun(run pages.WorkerRun) (tea.Model, tea.Cmd) {
 	if run.Mode == pages.WorkerModeStress {
 		return m.startStressWorker(run)
@@ -144,9 +131,8 @@ func (m *RootModel) startWorkerRun(run pages.WorkerRun) (tea.Model, tea.Cmd) {
 }
 
 // startBgWorker re-checks the wizard-resolved parameters against the
-// App's own bounds (the retired form's exact texts), flips the wizard
-// into its in-flight line, and returns the start Cmd through the
-// injectable leg (nil = app.WorkerStart).
+// App's own bounds, flips the wizard into its in-flight line, and
+// returns the start Cmd through the injectable leg (nil = app.WorkerStart).
 func (m *RootModel) startBgWorker(run pages.WorkerRun) (tea.Model, tea.Cmd) {
 	switch {
 	case run.Name == "":
@@ -179,8 +165,7 @@ func (m *RootModel) startBgWorker(run pages.WorkerRun) (tea.Model, tea.Cmd) {
 	}
 }
 
-// workerWizError keeps the wizard open with an inline error line
-// (the retired bgFormError/stressFormError seam).
+// workerWizError keeps the wizard open with an inline error line.
 func (m *RootModel) workerWizError(text string) (tea.Model, tea.Cmd) {
 	if m.workerWiz != nil {
 		st := m.workerWiz.State()
@@ -193,10 +178,9 @@ func (m *RootModel) workerWizError(text string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// applyBgStartResult closes the run: failure keeps the wizard open
-// with the error line (connect-dialog pattern), success closes it and
-// toasts. The table row itself arrives on the bus either way — never
-// written here.
+// applyBgStartResult closes the run: failure keeps the wizard open with
+// the error line, success closes it and toasts. The table row itself
+// arrives on the bus either way — never written here.
 func (m *RootModel) applyBgStartResult(msg bgStartResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		if m.workerWiz != nil {
@@ -218,11 +202,10 @@ func (m *RootModel) applyBgStartResult(msg bgStartResultMsg) (tea.Model, tea.Cmd
 }
 
 // pickWorkerTxFile commits the wizard's [f] tx-file pick through the
-// same ApplySettings seam as §L (the repository reloads live; the
-// retired pickFormTxFile idiom), then refreshes the wizard's
-// candidates: SetState re-aligns the selections BY NAME, so checked /
-// picked rows survive a reload whose names still exist, and the wizard
-// stays on step 1 (the UAT round 4 picker contract).
+// same ApplySettings seam as §L (the repository reloads live), then
+// refreshes the candidates: SetState re-aligns selections BY NAME, so
+// checked rows survive a reload whose names still exist and the wizard
+// stays on step 1.
 func (m *RootModel) pickWorkerTxFile(path string) (tea.Model, tea.Cmd) {
 	if m.workerWiz == nil || m.app == nil {
 		return m, nil
@@ -243,8 +226,8 @@ func (m *RootModel) pickWorkerTxFile(path string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// workerTxNames lists the loaded transaction names (the survey
-// prompts' option source); a nil app/repo yields none.
+// workerTxNames lists the loaded transaction names; a nil app/repo
+// yields none.
 func (m *RootModel) workerTxNames() []string {
 	if m.app == nil {
 		return nil

@@ -1,14 +1,9 @@
-// root_connect.go owns the §E live operation (SCR-505): the dialog is a
-// modal overlay — the page stack is never touched, Esc returns to the SAME
-// page — and Enter launches the connect attempt loop as a goroutine that
-// reports back through the program send-func (the root_send/bridge
-// injectable-sender pattern). Attempt count comes from the config
-// reconnect-attempts value (the same source the REPL connect path feeds);
-// there is no retry-interval knob in the config, so the dialog backs off a
-// fixed 1.5s between attempts (wireframe §E's displayed value). NO
-// auto-reconnect after the final failure (same rule as send): the dialog
-// stays open with the error line and the form editable again. Esc while
-// in-flight cancels the context and stops further attempts.
+// root_connect.go owns the §E live operation: the dialog is a modal
+// overlay (the page stack is never touched, Esc returns to the SAME page)
+// and Enter launches the attempt loop as a goroutine reporting back via
+// the program send-func. The config has no retry-interval knob, so the
+// dialog backs off a fixed 1.5s; there is NO auto-reconnect after the
+// final failure — the dialog stays open, error line shown, form editable.
 package tui
 
 import (
@@ -108,15 +103,12 @@ func (m *RootModel) openConnect() (tea.Model, tea.Cmd) {
 }
 
 // updateConnectDialog routes one key while the overlay owns the keyboard:
-// Esc cancels (in flight: cancel the context and close; idle: just close)
-// — but while a field is being typed into the first Esc leaves the FIELD
-// instead (two-mode form, UAT round 8 / D3), Enter starts the attempt
-// loop (ignored while one is in flight), and every other key edits the
-// form — after which the root re-stamps the Enabled flags and the TLS
-// note (the data-flow contract).
+// Esc closes (canceling an in-flight run), but while a field is being
+// typed into the first Esc leaves the FIELD instead; Enter starts the
+// loop (ignored mid-flight); every other key edits the form and re-stamps.
 func (m *RootModel) updateConnectDialog(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	// The header picker overlay owns Enter/Esc while open (proposal 04
-	// §A.3): pick/close, never connect/cancel.
+	// The header picker overlay owns Enter/Esc while open:
+	// pick/close, never connect/cancel.
 	if m.dlg != nil && m.dlg.PickerOpen() {
 		_, _ = m.dlg.Update(msg)
 		m.syncConnect()
@@ -145,8 +137,8 @@ func (m *RootModel) updateConnectDialog(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		if m.connectRun != nil {
 			return m, nil
 		}
-		// Enter on the collapsed picker row opens the overlay instead of
-		// starting the action (proposal 04 §A.3).
+		// Enter on the collapsed picker row opens the overlay
+		// instead of starting the action.
 		if m.dlg.FocusedIsPicker() {
 			m.dlg.OpenPicker()
 
@@ -170,11 +162,10 @@ func (m *RootModel) startConnect() (tea.Model, tea.Cmd) {
 	return m.armConnectAttempt(m.dlg.State(), m.dlg)
 }
 
-// armConnectAttempt is the shared attempt loop (SCR-505 + the proposal-04
-// send wizard's embedded connect step): host is the *pages.ConnectDialog
-// that renders the progress line — the standalone §E overlay or the
-// wizard's step-0 form. m.connectHost remembers it for the attempt/result
-// stamps so both hosts share one goroutine.
+// armConnectAttempt is the shared attempt loop behind both hosts: host is
+// the *pages.ConnectDialog that renders the progress line — the standalone
+// §E overlay or the send wizard's step-0 form. m.connectHost remembers it
+// so both hosts share one goroutine.
 func (m *RootModel) armConnectAttempt(st pages.ConnectFormState, host *pages.ConnectDialog) (tea.Model, tea.Cmd) {
 	if m.app == nil {
 		st.Error = errNoAppWired
@@ -346,8 +337,8 @@ func (m *RootModel) applyConnectResult(msg ConnectResultMsg) (tea.Model, tea.Cmd
 		now := m.now()
 		ev := events.ConnectionEvent{State: events.StateConnected, Detail: msg.Target}
 		m.conn, m.connSince = &ev, &now
-		// Stamp the framing the live link actually speaks (mirrors the
-		// app's own resolution) so the card/chip never lie (UAT).
+		// Stamp the framing the live link actually speaks (mirrors
+		// the app's own resolution) so the card/chip never lie.
 		m.connHeader = effectiveLengthType(run, m.configOrNil())
 		s := host.State()
 		m.connectSession = &s
@@ -427,10 +418,9 @@ func connectOptions(st *pages.ConnectFormState, cfg *config.Config) app.ConnectO
 	return opts
 }
 
-// validateConnectPort checks the shared port field before dialing/listening
-// (proposal 04 §A: one Port field for both modes must be 1-65535). An empty
-// value is legal (config fallback fills it); anything unparsable or out of
-// range returns the inline error line.
+// validateConnectPort checks the shared port field before dialing/listening:
+// one Port field for both modes must be 1-65535. An empty value is legal
+// (the config fallback fills it); anything else yields the inline error line.
 func validateConnectPort(st *pages.ConnectFormState) string {
 	v := strings.TrimSpace(connectFormValue(st, pages.ConnectFieldPort))
 	if v == "" {
@@ -467,13 +457,8 @@ func connectTargetLabel(opts app.ConnectOptions) string {
 
 // appConnectWithOptions is the production dial: App.ConnectWithOptions
 // (per-attempt overrides + ConnectionEvent publishing on the bus). The
-// attempt loop's cancellability governs the loop; the dial itself is the
-// app's (context-cancellable at the manager level only where App supports
-// it — see the SCR-505 report).
-// The connect call is synchronous and does not observe ctx: app.Connect dials
-// without a context, so a cancellation here would only be noticed after the dial
-// finished. The parameter stays because the caller's context is the right place to
-// pass a cancellation, and the day app.Connect takes one this stops being a no-op.
+// dial is synchronous and does not observe ctx today; the parameter
+// stays so caller cancellations are passed at the right place.
 func (m *RootModel) appConnectWithOptions(_ context.Context, opts app.ConnectOptions) error {
 	return m.app.ConnectWithOptions(opts)
 }

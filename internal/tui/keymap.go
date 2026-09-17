@@ -17,10 +17,9 @@ func keyMatches(msg tea.KeyPressMsg, b key.Binding) bool {
 }
 
 // globalKeyMap is the router-level keymap, evaluated before any page sees a
-// key. Arrows and their hjkl aliases are deliberately NOT bound here: they
-// belong to pages (the global layer only forwards them). Ctrl+C is handled
-// gracefully (tea.Quit, per the TUI design contract); Ctrl+Z and Ctrl+\ stay
-// unbound so the Bubble Tea runtime keeps its signal behaviour.
+// key. Arrows and their hjkl aliases are deliberately NOT bound here — they
+// belong to pages (the global layer only forwards them). Ctrl+C returns a
+// graceful tea.Quit; Ctrl+Z and Ctrl+\ stay unbound for the runtime.
 type globalKeyMap struct {
 	Quit          key.Binding // q: pop the stack, quit at root
 	Help          key.Binding // ?: push the help page
@@ -31,12 +30,9 @@ type globalKeyMap struct {
 	Connect       key.Binding // c: open the §E connect dialog overlay (SCR-505)
 	Send          key.Binding // s: open the send wizard (proposal 04 §B)
 
-	// MouseToggle is the F9 global mouse-mode toggle (UAT round 9,
-	// F-9c): flips RootModel.mouseEnabled so the terminal regains (or
-	// re-releases) native click-drag text selection. The bound spelling
-	// is "f9" because that is what tea.KeyF9.String() reports — the
-	// vocabulary key.Matches compares in (ultraviolet keyTypeString);
-	// docs and the footer legend display it as "F9".
+	// MouseToggle is the F9 global mouse-mode toggle: flips
+	// RootModel.mouseEnabled to release/regain native click-drag text
+	// selection. Bound as "f9" (what key.Matches compares), shown "F9".
 	MouseToggle key.Binding // f9: toggle mouse reporting / text selection
 
 	PageJumps [pageCount]key.Binding // 1..8: jump to page N
@@ -77,13 +73,10 @@ func runeDigit(n int) string {
 }
 
 // globalFooterHints derives the frame footer's global half from the keymap
-// bindings themselves (design contract: hints generated, never hardcoded).
-// The list leads with the wireframe's page legend ("1 dash 2 tx
-// 3 scenarios 4 server 5 workers 6 sessions 7 analyze 8 ctf") and ends
-// with the always-visible trio (": cmd ? help q quit", Primary). The
-// router appends the current page's context keys after these, so a
-// width-constrained footer drops context keys first, then the jump
-// legend, and the trio never.
+// bindings themselves (hints generated, never hardcoded). The list leads
+// with the page legend and ends with the always-visible trio (Primary);
+// the router appends the current page's context keys after these, so a
+// narrow footer drops context keys first, then the legend, never the trio.
 func globalFooterHints(km *globalKeyMap) []frame.KeyHint {
 	hints := make([]frame.KeyHint, 0, pageCount+3)
 	for _, b := range km.PageJumps {

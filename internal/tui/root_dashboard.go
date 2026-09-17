@@ -10,12 +10,10 @@ import (
 )
 
 // syncDashboard pushes a fresh DashboardState snapshot into the canonical
-// dashboard instance. It runs from NewRootModel, after every Update, and at
-// the end of updateBridgeMsg (forwarded events mutate conn/connSince
-// without an Update wrapper when tests drive the seam directly), so the
-// page always renders the freshest app/bridge truth without ever touching
-// internal/app itself (the SCR-501 data-flow contract). Uses only the
-// injectable clock — fake-clock-friendly for goldens.
+// dashboard instance. It runs from NewRootModel, after every Update, and
+// at the end of updateBridgeMsg, so the page always renders the freshest
+// app/bridge truth without ever touching internal/app itself. It uses
+// only the injectable clock.
 func (m *RootModel) syncDashboard() {
 	if m.dash == nil {
 		return
@@ -40,13 +38,10 @@ func (m *RootModel) dashboardState() pages.DashboardState {
 		up := m.now().Sub(*m.connSince)
 		st.Conn.Uptime = &up
 	}
-	// TUI-514: the page learns "a connection exists" from this bool
-	// (quick-actions visibility of the Disconnect row); it is derived
-	// from the very card status above — the same truth handleDisconnect
-	// gates on, never a second read of the app.
+	// The page learns "a connection exists" from this bool (quick-
+	// actions visibility); it derives from the card status above.
 	st.HasConnection = st.Conn.Status == pages.ConnOnline
-	// Proposal 05 §3: the grid's card snapshots, all root-derived (the
-	// page never touches the app or the clock).
+	// The grid's card snapshots, all root-derived.
 	st.LastSend = m.lastSendCard()
 	st.LastStress = m.lastStress
 	st.Server = m.dashServerCard()
@@ -71,10 +66,9 @@ func (m *RootModel) dashboardState() pages.DashboardState {
 }
 
 // lastSendCard derives the §A LAST SEND card from the frozen §D state
-// (the same *pages.SendState the ":last send" palette action shows):
-// time + tx name, the MTI turn read off the field-0 exchange rows, the
-// RC badge text, and the validation/correlation truths. The time comes
-// from the completion stamp, never the live clock.
+// (the same state the ":last send" palette action shows): time, tx name,
+// the MTI rows read off the field-0 exchange rows, the RC badge and the
+// validation truths. The time is the completion stamp, never the clock.
 func (m *RootModel) lastSendCard() *pages.LastSendCard {
 	st := m.lastSend
 	if st == nil {

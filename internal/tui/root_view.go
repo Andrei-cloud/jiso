@@ -36,15 +36,15 @@ func (m *RootModel) View() tea.View {
 		content = overlayCenter(content, m.dlg.View(), inner.Width, inner.Height)
 	}
 	if m.wizard != nil {
-		// Proposal 04 §B: the send wizard reuses the centered modal.
+		// The send wizard reuses the centered modal.
 		content = overlayCenter(content, m.wizard.View(), inner.Width, inner.Height)
 	}
 	if m.serverDlg != nil {
-		// SCR-507: the server start form reuses the same centered modal.
+		// The server start form reuses the same centered modal.
 		content = overlayCenter(content, m.serverDlg.View(), inner.Width, inner.Height)
 	}
 	if m.workerWiz != nil {
-		// UAT round 4: the §H start wizard reuses the same centered modal.
+		// The §H worker start wizard reuses the same centered modal.
 		content = overlayCenter(content, m.workerWiz.View(), inner.Width, inner.Height)
 	}
 	if m.help != nil {
@@ -53,7 +53,7 @@ func (m *RootModel) View() tea.View {
 		content = overlayCenter(content, m.help.View(), inner.Width, inner.Height)
 	}
 	if m.filePick != nil {
-		// TUI-406b: the picker is centered exactly like the modals.
+		// The file picker is centered exactly like the modals.
 		content = overlayCenter(content, boxed(m.filePick.View()), inner.Width, inner.Height)
 	}
 	for _, c := range []*widgets.ConfirmDialog{
@@ -69,10 +69,9 @@ func (m *RootModel) View() tea.View {
 
 	out := tea.NewView(frame.Render(m.frameProps(m.overlayToasts(content))))
 	out.AltScreen = true
-	// UAT round 8 (finding 9): arm the terminal mouse against a hit map
-	// rebuilt from the geometry just composed; the OnMouse closure
-	// captures this frame's snapshot, so resolved cells always replay
-	// against the view the user actually sees (hitmap.go).
+	// Arm the terminal mouse against a hit map rebuilt from the geometry
+	// just composed: the OnMouse closure replays resolved cells against
+	// the view the user actually sees (see hitmap.go).
 	m.installMouse(&out, m.buildHitMap())
 
 	return out

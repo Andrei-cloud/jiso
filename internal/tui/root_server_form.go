@@ -1,15 +1,10 @@
-// root_server_form.go owns the §G start-form DATA (SCR-507). The form
-// reuses the §E connect-dialog machinery wholesale (pages.ConnectDialog
-// with Title/EnterLabel set — the same field widgets, focus cycling,
-// in-flight progress line, and stays-open-with-error failure pattern);
-// root builds the snapshot, prefills it from the SAME sources the cobra
-// `serve start` shim reads (internal/cli/cmd/server.go
-// executeServerStart: port/header are that shim's flag defaults 9999 /
-// binary2 — it consults no config server port/header — while the spec
-// and routes file are the config's spec and tx-file paths), and Enter
-// starts the server as a tea.Cmd through the app's in-process serve
-// façade. A failure keeps the modal open with the error line (connect
-// dialog pattern); success closes it and flips the running truth.
+// root_server_form.go owns the §G start-form data: the form reuses the
+// §E connect-dialog machinery wholesale (pages.ConnectDialog with
+// Title/EnterLabel set) and root prefills it from the SAME sources the
+// cobra `serve start` shim reads — port/header are that shim's flag
+// defaults, spec and routes file are the config's paths. Enter starts
+// the server through the app's in-process serve façade; a failure keeps
+// the modal open with the error line, success closes and flips the truth.
 package tui
 
 import (
@@ -43,8 +38,7 @@ const (
 )
 
 // serverPickSpecTarget / serverPickRoutesTarget route the §G form's [f]
-// browse picks back through applyFilePicked (UAT round 3: the spec and
-// routes/tx-file fields were type-only, with no way to browse).
+// browse picks back through applyFilePicked.
 const (
 	serverPickSpecTarget   = "server:spec"
 	serverPickRoutesTarget = "server:routes"
@@ -103,11 +97,10 @@ func (m *RootModel) openServerForm() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// buildServerForm assembles the §G snapshot (UAT round 4: no fabricated
-// defaults): every field prefills from the last SUCCESSFUL start
-// (state-dir memory), the config fills spec/routes when the memory
-// leaves them unset, and everything else stays empty until the user
-// supplies it. A header radio with no remembered value renders
+// buildServerForm assembles the §G snapshot with no fabricated defaults:
+// every field prefills from the last SUCCESSFUL start (state-dir memory),
+// the config fills spec/routes when memory leaves them unset, everything
+// else stays empty. A header radio with nothing remembered renders
 // unselected; Enter then falls back to the shim defaults at start.
 func (m *RootModel) buildServerForm() pages.ConnectFormState {
 	cfg := m.configOrNil()
@@ -215,12 +208,10 @@ func serverPrefill(sp serverFormRow, cfg *config.Config, last *app.LastServerSta
 }
 
 // updateServerFormKey routes one key while the start form owns the
-// keyboard: Esc closes (ignored while a start is in flight — the listen
-// is quick and the engine gives no cancel handle mid-Start) — but while
-// a field is being typed into the first Esc leaves the FIELD instead
-// (two-mode form, UAT round 8 / D3), Enter starts, and everything else
-// edits the form. [f] browses only in navigate mode: while editing, f is
-// a literal and reaches the focused field (the confirmed §G leak).
+// keyboard: Esc closes (ignored while a start is in flight), but while
+// a field is being typed into the first Esc leaves the FIELD instead;
+// Enter starts; everything else edits the form. [f] browses only in
+// navigate mode — while editing, f is a literal and reaches the field.
 func (m *RootModel) updateServerFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, connectKeyEsc):
@@ -312,13 +303,10 @@ func (m *RootModel) startServer() (tea.Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		return serverStartResultMsg{
 			port: port, header: header, spec: spec, routes: routes,
-			// The §G "Routes file" field IS the routes-file leg (finding 1 /
-			// D1c): app.ServeStart resolves it through ResolveRoutes
-			// (routes-only or tx-shaped file), and a broken explicit pick
-			// fails the start with the path named instead of silently
-			// serving zero routes. No tx-file path is fabricated into the
-			// txPath leg — an empty field means no routes (UAT round 4:
-			// only values the operator supplied).
+			// The §G "Routes file" field IS the routes-file leg:
+			// app.ServeStart resolves it through ResolveRoutes, and a
+			// broken explicit pick fails the start with the path named.
+			// An empty field means no routes — nothing is fabricated.
 			err: start(port, header, spec, "", routes),
 		}
 	}

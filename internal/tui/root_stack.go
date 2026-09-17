@@ -1,7 +1,6 @@
-// root_stack.go is the page stack itself: push, pop, replace, the hotkey jump
-// slots, and forwarding a message to every page that is on the stack. The model
-// (the RootModel struct, its constructor, the theme and debug accessors) stays in
-// root.go; nothing here cares which file the struct lives in.
+// root_stack.go is the page stack itself: push, pop, replace, the hotkey
+// jump slots, and forwarding a message to every page on the stack. The
+// model itself (struct, constructor, accessors) stays in root.go.
 package tui
 
 import (
@@ -27,9 +26,8 @@ func (m *RootModel) StackIDs() []string {
 func (m *RootModel) Current() Page { return m.stack[len(m.stack)-1] }
 
 // Push puts a page on top of the stack. The page is seeded with the
-// current terminal size (pages derive their content area via
-// frame.ContentSize; an unseeded page would render at the fallback size
-// until the next resize).
+// current terminal size (an unseeded page would render at the fallback
+// size until the next resize).
 func (m *RootModel) Push(p Page) {
 	m.leaveAnalyze()
 	m.leaveCtf()
@@ -115,10 +113,9 @@ func (m *RootModel) forwardAll(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// popPage is the proposal-05 §4 esc contract: a pushed page unwinds,
-// and a hotkey-jumped page at depth 1 navigates home to the dashboard
-// (esc on the dashboard itself never reaches here — it stays a no-op
-// there).
+// popPage is the esc contract: a pushed page unwinds, and a hotkey-jumped
+// page at depth 1 navigates home to the dashboard (esc on the dashboard
+// itself never reaches here — it stays a no-op there).
 func (m *RootModel) popPage() {
 	if m.StackDepth() > 1 {
 		m.Pop()
@@ -133,10 +130,8 @@ func (m *RootModel) popPage() {
 
 // PageIDs are the registered page slots in jump-key order: hotkey N
 // selects PageIDs[N-1], exactly the wireframe's global-chrome footer
-// ("1 dash 2 tx 3 scenarios 4 server 5 workers 6 sessions 7 analyze
-// 8 ctf"). Drill-downs (inspector §C via Enter, send exchange §D via s)
-// and the palette-only settings page (§L) live in the registry after the
-// eight hotkey slots and claim no digit.
+// legend. Drill-downs and the palette-only settings page live after the
+// eight slots and claim no digit.
 var PageIDs = []string{
 	pages.DashboardPageID,
 	pages.TransactionsPageID,
@@ -148,8 +143,7 @@ var PageIDs = []string{
 	pages.CtfPageID,
 }
 
-// PageLabels are the footer legends for PageIDs (the wireframe's short
-// names: "1 dash 2 tx 3 scenarios 4 server 5 workers 6 sessions
-// 7 analyze 8 ctf"). The footer and the §M help advertise these, never
+// PageLabels are the footer legends for PageIDs ("1 dash 2 tx 3
+// scenarios ..."). The footer and the §M help advertise these, never
 // the raw ids.
 var PageLabels = []string{"dash", "tx", "scenarios", "server", "workers", "sessions", "analyze", "ctf"}

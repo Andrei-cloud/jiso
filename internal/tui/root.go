@@ -9,25 +9,18 @@ import (
 	"jiso/internal/tui/palette"
 )
 
-// NewRootModel wires the page registry — the 1..8 hotkey slots are the
-// wireframe's pages in wireframe order (§A dashboard, §B transactions,
-// §F scenarios, §G mock server, §H workers, §I sessions, §J analyze,
-// §K CTF) and the registry continues with the non-hotkey pages: the §C
-// inspector and §D send exchange (drill-downs via Enter / s) and the §L
-// settings page (palette-only). Boot lands on the dashboard. Application
-// may be nil in tests; screens read it through App(). The real pages
-// start from an empty snapshot; the list pages are refreshed by their
-// sync* methods on every Update, the inspector on open (its composed
-// values must stay stable while the user scrolls).
+// NewRootModel wires the page registry — the 1..8 hotkey slots in
+// wireframe order, then the non-hotkey pages (§C inspector, §D send
+// exchange, §L settings). Boot lands on the dashboard. Application may
+// be nil in tests; the list pages refresh via their sync* every Update.
 func NewRootModel(application *app.App) *RootModel {
 	m := &RootModel{
 		app: application, keys: newGlobalKeyMap(),
 		resizeWindow: defaultResizeCoalesceWindow,
 		now:          time.Now,
 		dashActions:  palette.DashboardActions(),
-		// UAT round 9 (F-9c): the mouse starts ON so the round-8
-		// wheel/click features keep working; F9 releases the terminal.
-		// Go's zero value would silently disable the whole mouse leg.
+		// Mouse defaults ON; Go's zero value would silently
+		// disable the whole mouse leg (F9 toggles, see hitmap_mouse.go).
 		mouseEnabled: true,
 	}
 	m.newPages()
@@ -47,15 +40,13 @@ func (m *RootModel) setDebug(d *debugLogger) { m.debug = d }
 // Init implements tea.Model; the program pushes no startup commands yet.
 func (m *RootModel) Init() tea.Cmd { return nil }
 
-// Update implements tea.Model. It is pure: state transitions plus tea.Cmd
-// returns, never I/O, never os.Exit. The one side effect is arming the
-// event bridge (a tea.Cmd — the goroutine lives in the bridge, not here)
-// when SetEventSource installed a source since the last Update.
+// Update implements tea.Model: pure state transitions plus tea.Cmd
+// returns, never I/O; the one side effect is arming the event bridge
+// (itself a Cmd) when SetEventSource installed a source.
 func (m *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	next, cmd := m.update(msg)
-	// A finished send run wrote the session DB (App.Send logs it):
-	// mark the §I cache dirty so the wrapper's arm re-queries, and dirty
-	// the §A SESSION card's async stats read (proposal 05 §3).
+	// A finished send run wrote the session DB: dirty the §I cache and
+	// the §A SESSION card's stats read so the wrapper's arms re-query.
 	if _, ok := msg.(SendStageMsg); ok && m.sendRun != nil && m.sendRun.state.Done {
 		m.sessionsDirty = true
 		m.sessionStatsDirty = true

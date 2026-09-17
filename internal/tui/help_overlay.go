@@ -26,10 +26,8 @@ type helpOverlay struct {
 	groups  []helpGroup
 	width   int
 	// height is the pane budget in CONTENT lines between the box rules;
-	// 0 (the default) means unbounded and renders the whole keymap, the
-	// shape the §M goldens were cut against. scrollOff is the wheel
-	// window offset ScrollBy moves into the content lines; newHelpOverlay
-	// always constructs it at 0, so every fresh open starts at the top.
+	// 0 (the default) means unbounded and renders the whole keymap.
+	// scrollOff is the wheel window offset; newHelpOverlay builds at 0.
 	height    int
 	scrollOff int
 }
@@ -54,11 +52,9 @@ func (m *RootModel) openHelp() {
 		return
 	}
 	m.help = newHelpOverlay(m.themeOrNil(), m.Current(), &m.keys, m.innerWS().Width)
-	// Task 8.2b: the box gets its real pane budget — the content canvas
-	// minus the box's own two rules — so the wheel (scrollMsg regionHelp,
-	// hitmap.go) has a window to move when the keymap outgrows the pane.
-	// A keymap that still fits renders byte-identically to the unbounded
-	// default the §M goldens were cut against.
+	// Give the box its real pane budget (the content canvas minus the
+	// box's own two rules) so the wheel has a window to move in when
+	// the keymap outgrows the pane; a fitting keymap renders as before.
 	m.help.SetHeight(max(m.innerWS().Height-2, 1))
 	m.debug.logf("help open context=%s", m.Current().ID())
 }
@@ -155,8 +151,7 @@ func (h *helpOverlay) View() string {
 
 	dash := "─"
 	// four corners: the bottom rule must use boxBL (└) at the left and
-	// boxBR (┘) at the right (UAT round 6 QA: it used boxBR then boxTR,
-	// so the bottom-left drew a ┘ and the bottom-right a ┐).
+	// boxBR (┘) at the right, never the other way round.
 	boxTL, boxTR, boxBL, boxBR := "┌", "┐", "└", "┘"
 	if h.th.ASCII {
 		dash = "-"
@@ -187,10 +182,8 @@ func (h *helpOverlay) titleLine(box, rule lipgloss.Style, dash string, boxW int,
 	avail := boxW - 2
 
 	title := dash + " " + h.th.Accent.Render("HELP") + " "
-	// The plain width of that styled title, counted in cells: the box glyph is
-	// three bytes in UTF-8, so len() here makes the unicode profile's rule two
-	// cells short of the box it belongs to while ascii looks correct. This is the
-	// bug the truecolor golden caught and the ascii one could not.
+	// The styled title's plain width counted in CELLS: the box glyph is
+	// multi-byte, so len() would miscount the unicode rule's fill.
 	titleW := lipgloss.Width(dash + " HELP ")
 
 	// The plain and styled forms are the same width here, so one counter covers
@@ -201,12 +194,9 @@ func (h *helpOverlay) titleLine(box, rule lipgloss.Style, dash string, boxW int,
 		titleW += lipgloss.Width(context)
 	}
 
-	// When the context does not fit, the title leaves it out rather than cutting
-	// it short. The old render truncated the page name and then appended a fill
-	// dash, so the ellipsis, a dash and the box corner landed in three adjacent
-	// cells: "+- HELP -- context: Sessi~-+" is three dash-shaped marks in a row and
-	// not one readable word. A title that says only HELP is still a title; one
-	// that says "Sessi" is nothing.
+	// When the context does not fit, the title leaves it out rather than
+	// cutting it short: a clipped page name plus fill dashes reads as
+	// noise. A title that says only HELP is still a title.
 	title += rule.Render(strings.Repeat(dash, max(avail-titleW, 0)))
 
 	return box.Render(tl) + title + box.Render(tr)

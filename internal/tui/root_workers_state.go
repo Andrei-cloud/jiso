@@ -1,10 +1,8 @@
-// root_workers_state.go derives the §H WorkersState snapshot
-// (SCR-508): table rows from the cache (enriched by the App Workers()
-// live views), the sparkline ring + label, the derived net-health line,
-// the per-active-worker progress rows (ETA → elapsed morph), and the
-// finished stress summary. Everything is display strings derived with
-// the injectable clock — the page never touches internal/app and never
-// reads the clock (the SCR-501 data-flow contract).
+// root_workers_state.go derives the §H WorkersState snapshot: table rows
+// from the cache, the sparkline ring + label, the net-health line, per-
+// active-worker progress rows (ETA → elapsed morph), and the finished
+// stress summary. Everything is display strings derived with the
+// injectable clock — the page never touches internal/app or reads it.
 package tui
 
 import (
@@ -63,10 +61,9 @@ func (m *RootModel) workersState() pages.WorkersState {
 }
 
 // enrichWorkerRows folds the App's live WorkerViews into the cache:
-// type/names/THR/interval and the running-vs-ramping distinction (a
-// stress worker inside its ramp window is "ramping"). Terminal cache
-// rows are never re-opened, and rows the App stopped removing (their
-// WorkerStopped still in flight) keep their last truth.
+// type/names/THR/interval and the running-vs-ramping distinction.
+// Terminal cache rows are never re-opened, and rows whose removal is
+// still in flight keep their last truth.
 func (m *RootModel) enrichWorkerRows() {
 	if m.app == nil {
 		return
@@ -126,11 +123,9 @@ func (m *RootModel) workerRow(r *workerRowState) pages.WorkerRow {
 	return row
 }
 
-// circuitCell is the §H CIRCUIT column, and it is empty unless there is
-// something to report: a healthy worker used to print "ok (0/10)" on every row,
-// which is the widest column on the page spent on a counter that cannot say
-// anything at zero. Failures that are still accumulating are the state worth a
-// cell (the operator can still act on it), and a trip keeps its word and count.
+// circuitCell is the §H CIRCUIT column, empty unless there is something
+// to report: a zero-failure counter prints nothing, accumulating failures
+// earn a cell, and a trip keeps its word and count.
 func circuitCell(r *workerRowState, limit int) string {
 	consec := min(r.consec, limit)
 	if r.status == pages.StatusCircuitBroke {
@@ -232,10 +227,9 @@ func (m *RootModel) sparkLabel(rows []*workerRowState) string {
 }
 
 // netLine derives the wireframe's net strip from the App's networking
-// metrics (the only net truth the manager keeps): wire volume first
-// ("tx 2.1MB rx 1.8MB"), then reconnects, circuit-breaker trips, and
-// retriable/permanent errors; "" when all zero. Retransmission is a TCP
-// concern the app cannot observe — reconnects is the retry signal.
+// metrics: wire volume first, then reconnects, breaker trips and
+// retriable/permanent errors; "" when all zero. Reconnects is the
+// retry signal the app can observe.
 func (m *RootModel) netLine(sep string) string {
 	if m.app == nil {
 		return ""
@@ -285,11 +279,10 @@ func humanBytes(n int64) string {
 }
 
 // stressSummaryState builds the §H overlay state from the App's
-// StressSummary (APP-203), restyled per UAT round 4 to carry every
-// section the legacy CLI table printed: run plan, percentiles plus the
-// latency budget, RC counts with shares, the fixed-bucket histogram,
-// and the per-transaction breakdown. target is the live connection
-// endpoint (root-derived; the summary itself carries none).
+// StressSummary, carrying every section the legacy CLI table printed:
+// run plan, percentiles plus the latency budget, RC counts with shares,
+// the fixed-bucket histogram, and the per-transaction breakdown. target
+// is the live connection endpoint (root-derived).
 func stressSummaryState(th *theme.Theme, s *app.StressSummary, target string) *pages.StressSummaryState {
 	runtime := s.Runtime
 	sep := th.Separator()
