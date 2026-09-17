@@ -1,6 +1,5 @@
-// scenarios_focus_test.go pins the §F pane focus state machine (UAT
-// round 9 F-9e): the router's Tab/shift-Tab PaneFocusMsg cycles the
-// SCENARIOS list ↔ STEPS panes, the focused pane renders the accent
+// scenarios_focus_test.go pins the §F pane focus state machine: Tab/shift-Tab
+// cycles the SCENARIOS list ↔ STEPS panes, the focused pane accents its
 // border, nav keys route by pane, and the footer advertises the toggle.
 package pages
 
@@ -15,9 +14,6 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// TestScenariosPaneFocusCycle: UAT round 9 F-9e — the router's Tab/
-// shift-Tab PaneFocusMsg cycles the §F pane focus SCENARIOS ↔ STEPS and
-// wraps (the §I TestSessionsPaneFocusCycle contract).
 func TestScenariosPaneFocusCycle(t *testing.T) {
 	t.Parallel()
 
@@ -39,12 +35,8 @@ func TestScenariosPaneFocusCycle(t *testing.T) {
 	}
 }
 
-// TestScenariosStepsFocusKeepsListCursorInert: with the STEPS pane
-// focused the navigation keys must NOT move the list cursor (the pane
-// switch has effect; the keys now drive the step cursor, pinned by
-// TestScenariosStepCursorMovesInStepsPane). Tab back
-// restores list navigation, and Enter on the list pane still yields the
-// run msg (semantics unchanged).
+// With STEPS focused, nav keys must not move the list cursor; tab back
+// restores it and list Enter still runs.
 func TestScenariosStepsFocusKeepsListCursorInert(t *testing.T) {
 	t.Parallel()
 
@@ -77,9 +69,7 @@ func TestScenariosStepsFocusKeepsListCursorInert(t *testing.T) {
 	}
 }
 
-// TestScenariosFocusedPaneAccent: the focused pane accents its title and
-// lights its border (the §I UAT-round-5 focus rendering contract, read
-// through the theme's own styles so no escape bytes are hardcoded).
+// The focused pane accents its title and border; the other mutes them.
 func TestScenariosFocusedPaneAccent(t *testing.T) {
 	t.Parallel()
 
@@ -88,9 +78,7 @@ func TestScenariosFocusedPaneAccent(t *testing.T) {
 	s.SetState(scenListState())
 	_, _ = s.Update(windowSize(120, 32))
 
-	// A focused pane's title is the accent style rendered over itself;
-	// an unfocused pane's title is the accent wrapping the muted style
-	// (the §I paneTitle + Section double-render bytes).
+	// Focused title = accent over itself; unfocused = accent over muted.
 	accented := func(title string) string { return tc.Accent.Render(tc.Accent.Render(title)) }
 	muted := func(title string) string { return tc.Accent.Render(tc.TextMuted.Render(title)) }
 
@@ -121,10 +109,8 @@ func TestScenariosFocusedPaneAccent(t *testing.T) {
 	}
 }
 
-// TestScenariosHintsAdvertiseTab: the §F footer advertises the pane
-// toggle as a primary hint (the §I/§K hint pattern; Task 9.7 Minor: the
-// test must pin Primary:true, not just the key's presence — the narrow
-// footer drops non-primary hints).
+// Pin Primary:true, not just key presence: the narrow footer drops
+// non-primary hints.
 func TestScenariosHintsAdvertiseTab(t *testing.T) {
 	t.Parallel()
 

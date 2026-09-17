@@ -349,8 +349,7 @@ func TestTableAlignRight(t *testing.T) {
 	}
 }
 
-// tallTableFixture is a 25-row table (labels r00..r24) in either render
-// mode, used by the Task 8.2a scroll-primitive tests.
+// tallTableFixture is a 25-row table (labels r00..r24) in either mode.
 func tallTableFixture(t *testing.T, grid bool) *Table {
 	t.Helper()
 
@@ -365,10 +364,8 @@ func tallTableFixture(t *testing.T, grid bool) *Table {
 	return m
 }
 
-// TestTableSetHeightWindowsRows pins the Task 8.2a primitive: an unset
-// height keeps today's unbounded render (every row, hint 10) so the
-// goldens stay byte-identical, and SetHeight switches View to a row
-// window and the pgup/pgdn step to that height.
+// Unset height keeps the unbounded render (goldens byte-identical);
+// SetHeight windows View and the pgup/pgdn step.
 func TestTableSetHeightWindowsRows(t *testing.T) {
 	t.Parallel()
 
@@ -378,8 +375,7 @@ func TestTableSetHeightWindowsRows(t *testing.T) {
 		if got := m.rowsPerPageHint(); got != 10 {
 			t.Fatalf("grid=%v: hint %d, want the unset fallback 10", grid, got)
 		}
-		// Unset height renders every row: grid adds top/header/header-rule
-		// and bottom rules, flat adds the header line.
+		// Every row renders: grid adds 4 rule lines, flat the header.
 		wantLines := 26
 		if grid {
 			wantLines = 29
@@ -406,17 +402,14 @@ func TestTableSetHeightWindowsRows(t *testing.T) {
 	}
 }
 
-// TestTableScrollByClampsToWindow pins the Task 8.2a primitive:
-// ScrollBy(d) moves the visible row window (d>0 = down, later rows),
-// clamped at both ends by the row range and the current height.
+// ScrollBy(d) moves the row window (d>0 = down), clamped at both ends.
 func TestTableScrollByClampsToWindow(t *testing.T) {
 	t.Parallel()
 
 	for _, grid := range []bool{true, false} {
 		m := tallTableFixture(t, grid)
 
-		// With no height set every row is already visible, so there is
-		// nothing to scroll and the first row cannot scroll away.
+		// No height: all rows visible, nothing to scroll.
 		m.ScrollBy(3)
 		if !strings.Contains(strip(m.View()), "r00") {
 			t.Fatalf("grid=%v: an unwindowed table must not scroll its first row away", grid)
@@ -445,8 +438,7 @@ func TestTableScrollByClampsToWindow(t *testing.T) {
 			t.Fatalf("grid=%v: ScrollBy must clamp at the bottom window [20,25):\n%s", grid, view)
 		}
 
-		// Growing the height over a scrolled window pulls the stale
-		// offset back so the window stays full (List's maxTop rule).
+		// Growing the height pulls the stale offset back; window stays full.
 		m.SetHeight(10)
 		view = strip(m.View())
 		if !strings.Contains(view, "r15") || strings.Contains(view, "r14") || !strings.Contains(view, "r24") {

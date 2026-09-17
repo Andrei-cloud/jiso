@@ -1,12 +1,6 @@
-// width_fill_test.go pins UAT round 8 finding 5: every sectioned page body
-// fills 100% of the frame's content width. Sections divide the content area
-// by ratio (floor-only clamps) and the last section absorbs the remainder,
-// so no sectioned size shows a trailing gap and nothing clips horizontally.
-// The fixed/clamped splits this replaces: dashLeftCol's 64-cell ceiling,
-// the server stats column's 26..40 clamp and fixed 26 (plus the ModeServer
-// boxes drawing two cells narrower than their layout width), the sessions
-// list/stats panes capped at a fixed 30 cells, and the §F list pane's
-// 44-cell ceiling with its border-only (untitled, w-2) box.
+// width_fill_test.go pins that every sectioned page body fills 100% of the
+// frame's content width: sections split it by ratio (floor-only clamps) and
+// the last section absorbs the remainder, so no gap or horizontal clipping.
 package pages
 
 import (
@@ -19,10 +13,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// fillSizes are the terminal sizes the fill contract pins: the medium
-// level (80 cols, content < frame.FullWidth), the full level (120 cols)
-// and an ultra-wide terminal (200 cols) where the removed maxima used to
-// freeze the split.
+// fillSizes: medium (80), full (120), and ultra-wide (200) terminals.
 var fillSizes = []struct {
 	name string
 	w, h int
@@ -32,10 +23,8 @@ var fillSizes = []struct {
 	{"w200", 200, 40},
 }
 
-// isBoxEdge reports a glyph that opens a box line at x=0 (the ASCII
-// profile's '+'/'|' plus the rounded sets' left edge glyphs). Unlike
-// sectionInkBorder this excludes '-': the DASH of a rule is not a box
-// opening.
+// isBoxEdge reports a glyph opening a box line at x=0; '-' is excluded
+// (a rule dash is not a box opening).
 func isBoxEdge(r rune) bool {
 	switch r {
 	case '+', '|', '│', '┌', '└', '├', '╭', '╰':
@@ -45,12 +34,9 @@ func isBoxEdge(r rune) bool {
 	return false
 }
 
-// assertBodyFills checks the rendered body against the content width:
-// no line past it (no horizontal clipping); every box line that opens at
-// x=0 also closes with border ink exactly on the content edge (no trailing
-// gap); any line whose last ink is a border glyph reaches the edge too
-// (catches the right-hand column of a join whose left half is blank); and
-// enough box lines that the check cannot pass vacuously.
+// assertBodyFills: no line past the content width; every box line opening at
+// x=0 closes with border ink exactly on the content edge; and enough box
+// lines that the check cannot pass vacuously.
 func assertBodyFills(t *testing.T, body string, contentW int) {
 	t.Helper()
 
@@ -76,11 +62,8 @@ func assertBodyFills(t *testing.T, body string, contentW int) {
 			}
 		}
 
-		// Band lines whose left half is blank (e.g. the dashboard's last
-		// band, which QUICK ACTIONS has to itself): the rightmost ink is
-		// the right box's border and must reach the content edge. Only
-		// side/corner glyphs qualify: a trailing '-' is the theme dash
-		// for an unknown value in body text, not box ink.
+		// Band lines with a blank left half: the rightmost box ink must
+		// reach the edge; a trailing '-' is body text, not box ink.
 		if trimmed := strings.TrimRight(l, " "); trimmed != "" {
 			last := []rune(trimmed)[len([]rune(trimmed))-1]
 			if (last == '|' || last == '│' || last == '+' || last == '┐' || last == '┘' || last == '┤' || last == '╮' || last == '╯') &&
@@ -171,11 +154,7 @@ func TestSectionedPagesFillContentWidth(t *testing.T) {
 	}
 }
 
-// TestSplitWidthsAreRatiosAtWide pins the ratios themselves at an
-// ultra-wide terminal (200 cols -> 196-cell content area): the first
-// column follows its share of the content width instead of freezing at
-// the old fixed maxima (dash 64, server stats 26 fixed, sessions panes
-// 30 fixed).
+// At 200 cols the first column follows its ratio, not the old fixed maxima.
 func TestSplitWidthsAreRatiosAtWide(t *testing.T) {
 	t.Parallel()
 
@@ -187,7 +166,7 @@ func TestSplitWidthsAreRatiosAtWide(t *testing.T) {
 
 	t.Run("dashboard_left_is_35_percent", func(t *testing.T) {
 		d := dashDashboard(t, logGoldState(), w, h)
-		// 196*35/100 = 68 (the removed clamp pinned 64).
+		// 196*35/100 = 68.
 		if got := firstBoxWidth(t, d.View().Content); got != 68 {
 			t.Errorf("wide left column = %d cells, want 68 (35%% of %d)", got, contentW)
 		}
@@ -197,7 +176,7 @@ func TestSplitWidthsAreRatiosAtWide(t *testing.T) {
 		st := serverRunningState()
 		st.Log = serverLogFixture()
 		s := serverPage(t, st, w, h)
-		// 196/5 = 39 (the column used to be the fixed serverStatsMin 26).
+		// 196/5 = 39.
 		if got := firstBoxWidth(t, s.View().Content); got != 39 {
 			t.Errorf("stats column = %d cells, want 39 (20%% of %d)", got, contentW)
 		}
@@ -206,7 +185,7 @@ func TestSplitWidthsAreRatiosAtWide(t *testing.T) {
 	t.Run("sessions_list_is_25_percent", func(t *testing.T) {
 		th := asciiTheme(t)
 		s := sessionsPageAt(t, sessionsFixtureState(th), w, h)
-		// 196/4 = 49 (the pane used to be capped at the fixed 30).
+		// 196/4 = 49.
 		if got := firstBoxWidth(t, s.View().Content); got != 49 {
 			t.Errorf("sessions list = %d cells, want 49 (25%% of %d)", got, contentW)
 		}
@@ -216,7 +195,7 @@ func TestSplitWidthsAreRatiosAtWide(t *testing.T) {
 		p := NewScenarios(asciiTheme(t))
 		p.SetState(scenPassState())
 		_, _ = p.Update(windowSize(w, h))
-		// 196/3 = 65 (the pane used to freeze at the fixed 44-cell clamp).
+		// 196/3 = 65.
 		if got := firstBoxWidth(t, p.View().Content); got != 65 {
 			t.Errorf("scenarios list = %d cells, want 65 (33%% of %d)", got, contentW)
 		}

@@ -383,11 +383,9 @@ func TestElideMiddle(t *testing.T) {
 	}
 }
 
-// TestBorderFocused pins the focused-pane border derivation to the pages
-// sectionW idiom it replaces: the accent foreground applied over the
-// border token, byte-identical under a colour profile, while the
-// colorless ASCII profile keeps its plain-text, zero-escape-code
-// contract (the seven-bit goldens guard's rule).
+// BorderFocused applies the accent foreground over the border token,
+// byte-identical to the pages sectionW idiom; the ASCII profile stays
+// plain-text with zero escapes.
 func TestBorderFocused(t *testing.T) {
 	t.Run("truecolor matches the by-hand pages derivation", func(t *testing.T) {
 		th := NewWith(colorprofile.TrueColor, true)

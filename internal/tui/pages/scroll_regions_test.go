@@ -1,10 +1,7 @@
-// scroll_regions_test.go pins the Task 8.2c wheel regions (UAT round 8
-// finding 9): every registered page publishes the DRAWN pane rect under
-// its stable id only while that pane is on screen, sizes the widget
-// window to the real pane height (the finding-5 fill), and applies the
-// wheel's content-direction delta (d>0 = down) to the same offset its
-// keyboard drives, clamped at both ends. §G's SERVER LOG seam is pinned
-// in server_scroll_test.go; the pages here mirror it exactly.
+// scroll_regions_test.go pins the wheel regions: every page publishes the
+// DRAWN pane rect while on screen, windows the widget to the real pane
+// height, and applies the wheel delta to the same offset its keyboard
+// drives, clamped at both ends. §G is pinned in server_scroll_test.go.
 package pages
 
 import (
@@ -54,9 +51,7 @@ func TestTransactionsScrollRegionsPublishesTableRect(t *testing.T) {
 	if r.Rect.Y < 1 {
 		t.Errorf("content-relative table rect Y = %d, want below the title row", r.Rect.Y)
 	}
-	// The window fills the real pane (finding-5 fill): the table's row
-	// budget is the content height minus the title row and the grid
-	// chrome — and the drawn box reaches the bottom of the pane.
+	// The window fills the real pane: rows = content height - title - chrome.
 	_, ch := frame.ContentSize(120, 32)
 	if _, count := p.table.Window(); count != ch-1-tableGridChrome {
 		t.Errorf("table window = %d rows, want the pane budget %d", count, ch-1-tableGridChrome)
@@ -65,8 +60,7 @@ func TestTransactionsScrollRegionsPublishesTableRect(t *testing.T) {
 		t.Errorf("table box bottom = %d, want the pane bottom %d (the box fills the pane)", got, ch)
 	}
 
-	// Empty and error states draw no table: nothing is published and the
-	// wheel over them stays inert.
+	// Empty/error states draw no table and publish no regions.
 	empty := txPage(t, TransactionsState{}, 120, 32)
 	_ = empty.View().Content
 	if got := empty.ScrollRegions(); len(got) != 0 {
@@ -112,9 +106,8 @@ func TestTransactionsScrollRegionWindowsTable(t *testing.T) {
 
 // --- §H workers (workers:table) ----------------------------------------
 
-// workersTallState is §H with n plainly-numbered workers (no status
-// line, TPS strip, or PROGRESS rows, so the table owns the whole pane
-// under the title).
+// workersTallState is §H with n plainly-numbered workers (no status line,
+// TPS strip, or PROGRESS rows).
 func workersTallState(n int) WorkersState {
 	st := WorkersState{}
 	for i := 1; i <= n; i++ {
@@ -144,9 +137,7 @@ func TestWorkersScrollRegionsPublishesTableRect(t *testing.T) {
 	if r.Rect.W <= 0 || r.Rect.H <= 0 {
 		t.Errorf("published rect must be a drawn box, got %v", r.Rect)
 	}
-	// The window fills the pane under the head: content height minus the
-	// title row and the grid chrome (this fixture has no status line,
-	// TPS strip, or PROGRESS rows).
+	// Window fills the pane under the head: content height - title - chrome.
 	_, ch := frame.ContentSize(120, 32)
 	if _, count := w.table.Window(); count != ch-1-tableGridChrome {
 		t.Errorf("table window = %d rows, want the pane budget %d", count, ch-1-tableGridChrome)
@@ -155,8 +146,7 @@ func TestWorkersScrollRegionsPublishesTableRect(t *testing.T) {
 		t.Errorf("table box bottom = %d, want the pane bottom %d", got, ch)
 	}
 
-	// The stress-summary overlay replaces the body: the table is not on
-	// screen, so nothing is published and the wheel stays inert.
+	// The summary overlay replaces the body: no regions published.
 	st := workersTallState(40)
 	st.Summary = workersSummaryFixture()
 	ov := workersPageAt(t, st, 120, 32)
@@ -232,14 +222,12 @@ func TestSessionsScrollRegionsPublishesListRect(t *testing.T) {
 	if r.Rect.W <= 0 || r.Rect.H <= 0 || r.Rect.Y < 1 {
 		t.Errorf("published rect must be a drawn box below the head, got %v", r.Rect)
 	}
-	// The list window fills the section body (h-3 inner rows minus the
-	// flat table header), so the pane stays exactly full.
+	// The list window fills the section body so the pane stays full.
 	if _, count := p.list.Window(); count != max(r.Rect.H-4, 1) {
 		t.Errorf("list window = %d rows, want the section budget %d", count, max(r.Rect.H-4, 1))
 	}
 
-	// The review overlay replaces the body: the list publishes nothing
-	// and the review window publishes its own region.
+	// The review overlay replaces the body and publishes its own region.
 	st.Review = sessionsReviewFixture()
 	rv := sessionsPageAt(t, st, 120, 32)
 	_ = rv.View().Content
@@ -276,8 +264,7 @@ func TestSessionsScrollRegionDrivesOffsets(t *testing.T) {
 		t.Fatalf("wheel-down past the last row must clamp full at the bottom, got top %d with %d rows", top, count)
 	}
 
-	// The review overlay: the wheel drives the SAME reviewScroll the j/k
-	// keys move, clamped at the top (the view clamps the bottom).
+	// The review wheel drives the same reviewScroll the j/k keys move.
 	st.Review = sessionsReviewFixture()
 	rv := sessionsPageAt(t, st, 120, 32)
 	_ = rv.View().Content
@@ -301,9 +288,8 @@ func TestSessionsScrollRegionDrivesOffsets(t *testing.T) {
 
 // --- §K ctf (ctf:records) -----------------------------------------------
 
-// ctfTallPreviewState attaches a plain n-record preview overlay to the
-// fixture (records are fixed literals longer than any window; the same
-// shape as ctfPreviewState in ctf_golden_test.go).
+// ctfTallPreviewState attaches a plain n-record preview overlay whose
+// records are fixed literals longer than any window.
 func ctfTallPreviewState(th *theme.Theme, n int) CtfState {
 	st := ctfFixtureState(th)
 	preview := &CtfPreview{
@@ -351,8 +337,7 @@ func TestCtfScrollRegionsPublishesRecordsRect(t *testing.T) {
 	if r.Rect.Y < 2 {
 		t.Errorf("content-relative records rect Y = %d, want below the head+headline rows", r.Rect.Y)
 	}
-	// The vertical window is the shared viewerGeom budget (the same one
-	// the keys clamp against): wheel and keyboard can never disagree.
+	// The window budget is the shared viewerGeom the keys clamp against.
 	_, pageH := c.viewerSize()
 	if c.recOff+max(pageH-2, 1) > 40 {
 		t.Fatal("fixture must be taller than the record window")
@@ -366,8 +351,7 @@ func TestCtfScrollRegionWalksRecords(t *testing.T) {
 	c.SetState(ctfTallPreviewState(c.th, 40))
 	_ = c.View().Content
 
-	// The wheel walks the record cursor like j/k and drags the window
-	// along; clamping is the keyboard's clamp at both ends.
+	// The wheel walks the record cursor like j/k, dragging the window along.
 	if !c.ScrollRegion(RegionCtfRecords, -3) {
 		t.Fatal("the page must own its own region id")
 	}
@@ -399,7 +383,7 @@ func TestCtfScrollRegionWalksRecords(t *testing.T) {
 // --- §J analyze (analyze:items, analyze:preview) -------------------------
 
 // analyzeTallItemsState attaches a picker roster of n items whose first
-// preview outgrows the pane (the same shape as analyzeDoneWithItems).
+// preview outgrows the pane.
 func analyzeTallItemsState(n int) AnalyzeState {
 	st := analyzeFixtureState()
 	st.Step = StepRun
@@ -469,8 +453,7 @@ func TestAnalyzeScrollRegionDrivesPickerOffsets(t *testing.T) {
 	a := analyzePage(t, analyzeTallItemsState(40), 120, 32)
 	_ = a.View().Content
 
-	// Preview sub-pane: the wheel drives ScrollPreview, the one scroll
-	// contract Task 7.3 pinned, clamped at the top.
+	// Preview sub-pane: the wheel drives previewOff, clamped at the top.
 	if !a.ScrollRegion(RegionAnalyzePreview, 3) {
 		t.Fatal("the page must own the preview region while the picker is open")
 	}
@@ -486,8 +469,7 @@ func TestAnalyzeScrollRegionDrivesPickerOffsets(t *testing.T) {
 		t.Fatalf("wheel-down past the last line must clamp at %d, got %d", limit, a.previewOff)
 	}
 
-	// Roster: the wheel walks the item cursor (the window dragged along,
-	// the keys' rule) and a new item previews from the top.
+	// Roster: the wheel walks the item cursor; a new item re-homes the preview.
 	if !a.ScrollRegion(RegionAnalyzeItems, 2) {
 		t.Fatal("the page must own the roster region while the picker is open")
 	}
@@ -514,12 +496,8 @@ func TestAnalyzeScrollRegionDrivesPickerOffsets(t *testing.T) {
 	}
 }
 
-// TestAnalyzeReopenXHomesPreview pins the Task 8.2c reopen reset: the
-// [x] reopen branch must re-home the picker itself. The Esc/Enter close
-// paths already re-home (finding 8), so the test parks focus/offset on
-// a closed-but-stale picker (the state [x] must defend against: a close
-// that did not run the overlay's own re-home) and asserts [x] comes
-// back home on the roster with a top-aligned preview.
+// [x] must re-home focus/offset even when the close path skipped the
+// picker's own re-home (Esc/Enter close already re-home).
 func TestAnalyzeReopenXHomesPreview(t *testing.T) {
 	t.Parallel()
 

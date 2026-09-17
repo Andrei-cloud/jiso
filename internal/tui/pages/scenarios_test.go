@@ -376,13 +376,9 @@ func TestScenariosResponsiveStacking(t *testing.T) {
 	}
 }
 
-// TestScenariosPanesAligned pins UAT round 9 finding F-9e: at split
-// widths BOTH §F panes are titled Sections sharing ONE title row with
-// their top and bottom borders flush, and the two pane widths plus the
-// gap sum exactly to the content width (the old border-only list pane
-// staggered the boxes by a row and the -2 width maths left a 4-cell
-// trailing gap). At stacked widths the panes each take the full content
-// width and STEPS starts on its own title row below the list.
+// At split widths both §F panes are titled Sections sharing one title row
+// with borders flush, and pane widths plus gap sum to the content width;
+// stacked, each pane takes the full width with its own title row.
 func TestScenariosPanesAligned(t *testing.T) {
 	t.Parallel()
 
@@ -408,8 +404,7 @@ func TestScenariosPanesAligned(t *testing.T) {
 			contentW, _ := frame.ContentSize(c.w, c.h)
 			lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
 
-			// Both panes record a section Rect: the list pane AND the
-			// steps pane (the guard hit-tests both).
+			// Both panes record a section Rect (the guard hit-tests both).
 			if len(s.sections) != 2 {
 				t.Fatalf("recorded %d section rects, want 2 (list + steps):\n%s",
 					len(s.sections), body)
@@ -437,9 +432,8 @@ func TestScenariosPanesAligned(t *testing.T) {
 					list.W, scenSectionGap, steps.W, contentW)
 			}
 
-			// One shared title row carries both pane titles, and the
-			// rows below/above carry BOTH boxes' borders on the SAME
-			// rows: top-left, top-right of each box, flush.
+			// One shared title row carries both titles; each box's border
+			// corners land on the SAME rows, flush.
 			needInk := func(row int, cols []int, why string) {
 				t.Helper()
 				if row < 0 || row >= len(lines) {

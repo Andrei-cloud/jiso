@@ -1,11 +1,6 @@
-// section_rect_test.go is the F3 pin (Task 6.1 review): every Rect a page
-// records in its `sections` must land on the DRAWN box ink — border
-// glyphs on the recorded left/right columns for every visible box line,
-// ink at the recorded title cell — and re-rendering the same page must
-// not grow or move the record. Origins were previously computed from
-// nominal terms and sat 1-2 cells off the ink in stacked and
-// ModeServer-narrow layouts; this test is what stops that from
-// regressing and what Phase 8's hit-map inherits as known-good.
+// section_rect_test.go pins that every Rect a page records lands on the
+// DRAWN box ink (border glyphs at the recorded columns, ink at the title
+// cell), and that re-rendering neither grows nor moves the record.
 package pages
 
 import (
@@ -23,8 +18,7 @@ import (
 )
 
 // sectionInkBorder is the rune set a box line may show at its recorded
-// left/right columns: the ASCII profile's "+|-" and the rounded set's
-// corners, vertical bar and horizontal bar.
+// left/right columns.
 func sectionInkBorder(r rune) bool {
 	switch r {
 	case '|', '+', '-',
@@ -36,9 +30,8 @@ func sectionInkBorder(r rune) bool {
 	return false
 }
 
-// cells lays the ANSI-stripped line out by CELLS (a wide rune, e.g. the
-// status emoji the log fixtures carry, occupies two entries; its filler
-// entry is 0 so a corner landing on it fails the border check).
+// cells lays the ANSI-stripped line out by CELLS: a wide rune occupies two
+// entries, its filler entry 0 so a corner landing on it fails the check.
 func cells(line string) []rune {
 	plain := ansi.Strip(line)
 	out := make([]rune, 0, len(plain))
@@ -53,13 +46,9 @@ func cells(line string) []rune {
 	return out
 }
 
-// assertSectionInk checks each recorded Rect against the rendered body:
-// every box line still on screen shows border glyphs at cells X and
-// X+W-1, and the title line shows non-blank ink at cell X. The page's
-// final clip may chop the BOTTOM of the last section at sizes where the
-// layout overflows (pre-existing behaviour the goldens pin), so lines
-// past the body are skipped, but at least the title and the box's top
-// border row must be visible.
+// assertSectionInk checks each Rect against the rendered body: box glyphs at
+// cells X and X+W-1 on every visible box line, non-blank ink at the title
+// cell. Lines the final clip chops off the bottom are skipped.
 func assertSectionInk(t *testing.T, page string, sections []geom.Rect) {
 	t.Helper()
 
@@ -101,11 +90,8 @@ func assertSectionInk(t *testing.T, page string, sections []geom.Rect) {
 	}
 }
 
-// rectPage renders one page under test at one profile/size. build returns
-// the rendered body and a copy of the recorded rects; again re-renders
-// the SAME page and returns its record, so the test proves the
-// per-render reset: an identical re-render must neither grow nor move
-// the rects.
+// rectPage renders one page at one profile/size; again re-renders the SAME
+// page so the test can pin the per-render reset.
 type rectPage struct {
 	name  string
 	build func(t *testing.T, th *theme.Theme) (string, []geom.Rect, func() []geom.Rect)
@@ -145,8 +131,7 @@ func assertRectPages(t *testing.T, cases []rectPage) {
 	}
 }
 
-// recorded copies a page's live slice so the first render's values stay
-// comparable after the page re-renders into the same backing array.
+// recorded copies the live slice so first-render values survive re-renders.
 func recorded(rs []geom.Rect) []geom.Rect {
 	return append([]geom.Rect(nil), rs...)
 }

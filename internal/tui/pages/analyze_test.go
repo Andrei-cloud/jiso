@@ -1,11 +1,6 @@
-// analyze_test.go covers the §J wizard page units (SCR-510): the rail
-// labels and current-step highlight, the spec candidate list (cursor,
-// typed path, filter), the header list selection, the run step's folded
-// inline options (goal t/r/s, the security toggle, the "/" flow filter)
-// with Enter-to-run, the step-delta keys, Esc ownership, and the width
-// guarantee (every line clipped, never wrapped). The capture-step units
-// moved to analyze_capture_test.go. The wizard state machine and async
-// legs are root-side (root_analyze_test.go).
+// analyze_test.go covers the §J wizard page units: rail, spec/header
+// selection, run-step inline keys, step deltas, Esc, width. Capture step:
+// analyze_capture_test.go; state machine and async legs: root_analyze_test.go.
 package pages
 
 import (
@@ -121,9 +116,7 @@ func TestAnalyzeSpecStepCommitsSelection(t *testing.T) {
 		t.Errorf("Enter -> %T %+v, want CommitSpec ./spec.json", cmdMsg(t, cmd), cmdMsg(t, cmd))
 	}
 
-	// A typed path overrides the list — and the moment typing is in
-	// progress the step claims the keyboard (UAT round 8 / D2: the
-	// claim is edit mode, not "a step that has an editable field").
+	// A typed path overrides the list; typing claims the keyboard (edit mode).
 	st = analyzeFixtureState()
 	st.Step = StepSpec
 	a = analyzePage(t, st, 120, 32)
@@ -140,14 +133,8 @@ func TestAnalyzeSpecStepCommitsSelection(t *testing.T) {
 	}
 }
 
-// TestAnalyzeSpecBrowseTracksEditMode pins the spec step's two-mode
-// browse gate (UAT round 9 F-9d): NAVIGATE mode sends `f` to the
-// root-side picker as AnalyzeBrowseMsg{IsSpec: true} — the
-// discriminator that keeps the spec step out of the .pcap capture
-// picker; typing enters EDIT mode (the first printable types itself)
-// and there `f` types literally into the draft; Esc clears the draft
-// back to navigate mode, where f browses again (the capture step's
-// SCR-502/D3 gate, mirrored).
+// Two-mode browse gate: navigate-mode f browses with IsSpec:true; typing
+// enters edit mode where f types literally; Esc returns to navigate.
 func TestAnalyzeSpecBrowseTracksEditMode(t *testing.T) {
 	t.Parallel()
 
@@ -155,7 +142,7 @@ func TestAnalyzeSpecBrowseTracksEditMode(t *testing.T) {
 	st.Step = StepSpec
 	a := analyzePage(t, st, 120, 32)
 
-	// Navigate mode: f is the picker key, and it names the spec step.
+	// Navigate mode: f browses and names the spec step.
 	if a.Editing() {
 		t.Fatal("a fresh spec step must be navigate mode")
 	}
@@ -168,7 +155,7 @@ func TestAnalyzeSpecBrowseTracksEditMode(t *testing.T) {
 		t.Fatal("spec-step browse must carry IsSpec: true, or root reopens the capture picker")
 	}
 
-	// Typing enters edit mode (and types itself, SCR-502 typeahead).
+	// Typing enters edit mode (and types itself).
 	_, _ = a.Update(ch('n'))
 	if !a.Editing() {
 		t.Fatal("typing must enter edit mode")
@@ -297,11 +284,8 @@ func TestAnalyzeOutputEditor(t *testing.T) {
 	}
 }
 
-// TestAnalyzeOutEditorBrowseGate: UAT round 8 finding 6 — in a freshly
-// opened [o] editor [f] hands the output location to the shared picker
-// (AnalyzeOutBrowseMsg carrying the seeded draft); once the draft has
-// been edited the two-mode gate closes and [f] is a path byte again, so
-// Enter still commits the whole typed path (the SCR-502 lesson).
+// Out-editor browse gate: f in a freshly opened [o] editor hands the
+// location to the shared picker; after an edit the gate closes.
 func TestAnalyzeOutEditorBrowseGate(t *testing.T) {
 	t.Parallel()
 
@@ -321,8 +305,7 @@ func TestAnalyzeOutEditorBrowseGate(t *testing.T) {
 		t.Errorf("browse draft = %q, want the seeded path", got.Draft)
 	}
 
-	// After an edit the gate closes: f types literally and Enter
-	// commits the whole draft (the capture step's D3 idiom).
+	// After an edit the gate closes: f types, Enter commits the draft.
 	_, _ = a.Update(ch('o'))
 	if _, cmd := a.Update(ch('x')); cmd != nil {
 		t.Fatal("typing in the fresh editor must not emit messages")

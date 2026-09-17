@@ -1,10 +1,6 @@
-// analyze_capture_test.go covers the §J capture-step units (SCR-510):
-// the candidate list's cursor/filter/typed-path behavior, the empty
-// state and inline error lines, and the two-mode [f] browse gate (UAT
-// round 8 finding 2 / D3, Task 5.2: navigate mode opens the root-side
-// picker, edit mode types `f` literally into the draft). The shared
-// fixture helpers live in analyze_test.go; the wizard state machine and
-// async legs are root-side (root_analyze_test.go).
+// analyze_capture_test.go covers the §J capture-step units: candidate
+// list cursor/filter/typed-path, empty state and inline errors, and the
+// two-mode [f] browse gate. Shared fixture helpers: analyze_test.go.
 package pages
 
 import (
@@ -50,10 +46,7 @@ func TestAnalyzeCaptureListCursorAndFilter(t *testing.T) {
 	}
 }
 
-// TestAnalyzeCursorSurvivesResync UAT round 6: root's syncPages pushes
-// SetState after every Update, and re-seeding the cursor onto the
-// "current" row on every push snapped arrow moves back — the capture and
-// spec arrows looked dead. The seed belongs to step ENTRY only.
+// A SetState re-seed must not snap the cursor back onto the "current" row.
 func TestAnalyzeCaptureTypedPathBeatsList(t *testing.T) {
 	t.Parallel()
 
@@ -111,13 +104,8 @@ func TestAnalyzeCaptureInlineError(t *testing.T) {
 	}
 }
 
-// TestAnalyzeCaptureBrowseTracksEditMode pins the capture step's two-mode
-// browse gate (UAT round 8 finding 2 / D3, Task 5.2): NAVIGATE mode sends
-// `f` to the root-side picker as AnalyzeBrowseMsg; typing enters EDIT mode
-// (the first printable types itself) and there `f` types literally into
-// the draft — the picker must not reopen. The gate is the Editing() mode
-// (the same predicate ClaimsKeyboard delegates to), mirroring the §G
-// server-form pin rather than an ad-hoc "empty draft" check.
+// Two-mode browse gate: navigate-mode f opens the root-side picker;
+// typing enters edit mode where f types literally into the draft.
 func TestAnalyzeCaptureBrowseTracksEditMode(t *testing.T) {
 	t.Parallel()
 
@@ -138,7 +126,7 @@ func TestAnalyzeCaptureBrowseTracksEditMode(t *testing.T) {
 		t.Fatal("capture-step browse must carry IsSpec: false")
 	}
 
-	// Typing enters edit mode (and types itself, SCR-502 typeahead).
+	// Typing enters edit mode (and types itself).
 	_, _ = a.Update(ch('n'))
 	if !a.Editing() {
 		t.Fatal("typing must enter edit mode")

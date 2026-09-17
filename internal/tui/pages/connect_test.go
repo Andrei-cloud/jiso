@@ -477,12 +477,9 @@ func optionIndex(options []string, want string, def int) int {
 	return 0
 }
 
-// TestConnectDialogTwoModeEditing: the navigate/edit state machine of the
-// dialog itself (UAT round 8 finding 2 / D3). Typing a printable into a
-// text field enters edit mode (and types the character itself); esc
-// leaves edit mode with the field still focused; SetFocus moves the
-// highlight and lands in navigate mode; radios never enter edit mode
-// (their j/k adjust options — there is nothing to type into).
+// Navigate/edit state machine: typing into a text field enters edit mode
+// (and types itself); esc leaves edit mode keeping focus; SetFocus lands in
+// navigate mode; radios never enter edit mode.
 func TestConnectDialogTwoModeEditing(t *testing.T) {
 	t.Parallel()
 
@@ -532,8 +529,7 @@ func TestConnectDialogTwoModeEditing(t *testing.T) {
 		t.Fatal("tabbing to a new field must land in navigate mode")
 	}
 
-	// SetFocus clamps onto the nearest enabled field and lands in
-	// navigate mode (the mouse work takes this contract, Task 8.5).
+	// SetFocus clamps onto the nearest enabled field, in navigate mode.
 	d.SetFocus(4) // station is disabled -> clamp forward to unsolicited
 	if got := d.State().Fields[d.Focus()].Key; got != ConnectFieldUnsolicited {
 		t.Fatalf("SetFocus(4) landed on %q, want unsolicited", got)

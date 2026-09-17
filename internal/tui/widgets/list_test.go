@@ -286,10 +286,8 @@ func TestListSetSizeReclamps(t *testing.T) {
 // strip removes ANSI styling for glyph assertions.
 func strip(s string) string { return ansi.Strip(s) }
 
-// TestListScrollByMovesCursorAndClamps pins the Task 8.2a primitive:
-// ScrollBy(d) is the wheel step over SetCursor (d>0 scrolls the content
-// DOWN, cursor toward later items), so SetCursor's existing clamping
-// bounds both ends and drags the window along.
+// ScrollBy(d) is the wheel step over SetCursor (d>0 = content DOWN,
+// cursor toward later items); SetCursor's clamping bounds both ends.
 func TestListScrollByMovesCursorAndClamps(t *testing.T) {
 	t.Parallel()
 

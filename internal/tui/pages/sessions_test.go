@@ -219,8 +219,8 @@ func TestSessionsHistoryCursorMoves(t *testing.T) {
 	if got := p.SelectedTxID(); got != 8 {
 		t.Fatalf("after down tx = %d, want 8", got)
 	}
-	// UAT round 9 (F-9f): the TX HISTORY cursor is a different concern —
-	// moving it must never fire a session-detail load.
+	// The TX HISTORY cursor is a different concern: moving it must never
+	// fire a session-detail load.
 	if cmd != nil {
 		t.Fatalf("history cursor move yielded %v, want no session load", cmd())
 	}

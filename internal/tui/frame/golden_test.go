@@ -92,11 +92,8 @@ func TestFrameGoldenAsciiIsPlain(t *testing.T) {
 	}
 }
 
-// TestFrameTrueColorFooterKeysAreBold pins UAT round-8 finding 3: footer
-// key tokens must use the Theme.Key badge (bold + accent) so a key looks
-// highlighted identically on every screen. The bold form is the combined
-// SGR "\x1b[1;38;2;68;147;248m" (dark-mode accent #4493f8); the old
-// plain-accent rendering directly before a key must be gone.
+// Footer key tokens use the Theme.Key badge (bold + accent); the old
+// plain-accent form directly before a key must be gone.
 func TestFrameTrueColorFooterKeysAreBold(t *testing.T) {
 	t.Parallel()
 

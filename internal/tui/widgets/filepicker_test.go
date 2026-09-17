@@ -72,18 +72,16 @@ func TestFilePickerSortDirsFirstThenFiles(t *testing.T) {
 
 	p := newPick(t, asciiTheme(t), pickFixture(t))
 	got := names(t, p)
-	// The synthesized ".." parent row leads the dirs (UAT round 9 F-9b);
-	// ReadDir's own dirs-first/files-first order follows unchanged.
+	// The synthesized ".." parent row leads the dirs; ReadDir's own
+	// dirs-first/files-first order follows unchanged.
 	want := []string{"../", "logs/", "specs/", "a.json", "b.txt", "z.pcap"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("order = %v, want %v", got, want)
 	}
 }
 
-// TestFilePickerParentRowClimbs: the ".." row leads any dir with a
-// parent, and Enter on it climbs exactly like the u key and backspace
-// (one shared goUp leg). Root "/" mirrors the production owners (§B/
-// §J/§L/§G/§H): the whole filesystem is browsable above the start.
+// The ".." row leads any dir with a parent; Enter on it climbs like u and
+// backspace. Root "/" mirrors production: the whole filesystem is browsable.
 func TestFilePickerParentRowClimbs(t *testing.T) {
 	t.Parallel()
 
@@ -118,9 +116,7 @@ func TestFilePickerParentRowClimbs(t *testing.T) {
 	}
 }
 
-// TestFilePickerParentRowAbsentAtRoot: "/" has no parent, so the floor
-// carries no .. row and both up keys stay inert (the row's "absent at
-// the floor" half).
+// "/" has no parent: no .. row at the floor, up keys stay inert.
 func TestFilePickerParentRowAbsentAtRoot(t *testing.T) {
 	t.Parallel()
 
@@ -140,8 +136,7 @@ func TestFilePickerParentRowAbsentAtRoot(t *testing.T) {
 	}
 }
 
-// TestFilePickerParentRowSurvivesFilter: the `/` filter may hide every
-// real entry, but never the escape hatch.
+// The filter may hide every real entry, but never the .. escape hatch.
 func TestFilePickerParentRowSurvivesFilter(t *testing.T) {
 	t.Parallel()
 
@@ -156,8 +151,7 @@ func TestFilePickerParentRowSurvivesFilter(t *testing.T) {
 	}
 }
 
-// TestFilePickerParentRowEscapesUnreadable: a directory that cannot be
-// read must not be a trap (UAT round 9): the up leg still climbs out.
+// An unreadable directory must not be a trap: the up leg still climbs out.
 func TestFilePickerParentRowEscapesUnreadable(t *testing.T) {
 	t.Parallel()
 
@@ -190,8 +184,7 @@ func TestFilePickerFilterSlashInput(t *testing.T) {
 	if body := p.View(); !strings.Contains(body, "/pc") {
 		t.Fatalf("filter echo missing:\n%s", body)
 	}
-	// The .. row is exempt from the filter (the escape hatch cannot be
-	// filtered away); the match follows it.
+	// The .. row is exempt from the filter; the match follows it.
 	if got := names(t, p); strings.Join(got, ",") != "../,z.pcap" {
 		t.Fatalf("filtered = %v, want ../ then z.pcap", got)
 	}
@@ -232,11 +225,8 @@ func TestFilePickerExtPredicate(t *testing.T) {
 	}
 }
 
-// TestFilePickerDirPickKey: an owner choosing a WRITE target instead of
-// an existing file opts into PickDirKey, which commits the CURRENTLY
-// BROWSED directory through FilePickedMsg (Path = the dir, Label = its
-// virtual label with the trailing "/"). Unbound owners never bind the
-// key and their footer never advertises it.
+// PickDirKey commits the CURRENTLY BROWSED directory (Path = the dir,
+// Label with a trailing "/"); unbound owners never bind or advertise it.
 func TestFilePickerDirPickKey(t *testing.T) {
 	t.Parallel()
 
@@ -354,8 +344,8 @@ func TestFilePickerRelativeLabel(t *testing.T) {
 func TestFilePickerEmptyDir(t *testing.T) {
 	t.Parallel()
 
-	// An empty dir still leads with the ".." parent row (UAT round 9):
-	// the escape hatch is never hidden behind a bare empty message.
+	// An empty dir still leads with the ".." row: the escape hatch is
+	// never hidden behind a bare empty message.
 	root := t.TempDir()
 	p := NewFilePicker(asciiTheme(t), 30, 4, FilePickerOptions{Root: root, RootLabel: "empty/"})
 	if got := names(t, p); strings.Join(got, ",") != "../" {
@@ -440,9 +430,8 @@ func TestFilePickerDescendAndBackspace(t *testing.T) {
 	if p.CurrentDir() != root {
 		t.Fatalf("backspace must ascend to root: %q", p.CurrentDir())
 	}
-	// UAT round 9: the up leg is the filesystem, not the root — a root
-	// passed as a plain dir (this owner shape) still climbs out (the
-	// relLabel basename fallback keeps the absolute path out of View).
+	// The up leg is the filesystem, not the root: a root passed as a
+	// plain dir still climbs out.
 	p.Update(special(tea.KeyBackspace))
 	if want := filepath.Dir(root); p.CurrentDir() != want {
 		t.Fatalf("backspace must climb past the root to %q: %q", want, p.CurrentDir())

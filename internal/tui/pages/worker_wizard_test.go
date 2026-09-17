@@ -233,11 +233,8 @@ func TestWorkerWizardBrowseMsg(t *testing.T) {
 	}
 }
 
-// TestWorkerWizardBrowseMsgNavigateVsEditMode pins the tx step's two-mode
-// browse contract (UAT round 8 finding 2 / D3, Task 5.2): NAVIGATE mode
-// treats `f` as the file-picker key; "/" opens the filter, which IS edit
-// mode (Editing()), and there `f` types literally into the draft — the
-// picker must not reopen (the §G server-form pin's tx-step mirror).
+// Two-mode browse: navigate-mode f opens the picker; inside the "/" filter
+// (edit mode) f types literally into the draft, never re-opens it.
 func TestWorkerWizardBrowseMsgNavigateVsEditMode(t *testing.T) {
 	t.Parallel()
 
@@ -405,13 +402,9 @@ func TestWorkerWizardEscWalksAndCloses(t *testing.T) {
 	}
 }
 
-// TestWorkerWizardClaimAndEditing pins the two-mode keyboard contract of
-// the modal (UAT round 8 / D3, the FreshDraft hatch's successor): every
-// step opens in NAVIGATE mode (ClaimsKeyboard false — the root modal
-// branch keeps "?" its §M help key then); opening the "/" filter or
-// typing into a param row enters EDIT mode, which claims the keyboard so
-// "?" types literally; esc leaves the field/first the filter before any
-// step unwinds.
+// Every step opens in navigate mode (ClaimsKeyboard false); the "/" filter
+// or param typing enters edit mode and claims the keyboard; esc leaves the
+// field or filter before any step unwinds.
 func TestWorkerWizardClaimAndEditing(t *testing.T) {
 	t.Parallel()
 

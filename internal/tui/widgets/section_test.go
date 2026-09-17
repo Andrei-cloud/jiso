@@ -14,22 +14,13 @@ import (
 
 // --- fidelity replicas of the pages' box helpers (RULING R2) ------------
 //
-// internal/tui/widgets may not import internal/tui/pages, so these
-// functions mirror the live helpers VERBATIM (pages/layout.go boxStyle +
-// cardBox, pages/sessions_view.go sectionW, pages/server_view.go
-// sectionW, pages/ctf_view.go sectionW, pages/inspector_split.go
-// sectionW). section.go must reproduce their bytes exactly; Phase 6
-// migrates every call site onto Section and the pages goldens must not
-// move.
+// widgets may not import pages, so these mirror the live helpers VERBATIM
+// (the boxStyle/cardBox/clipCells/clipBlock/sectionW copies in pages);
+// section.go must reproduce their bytes exactly.
 //
-// Mode mapping (documented for Phase 6):
-//   - ModeStandard == pages sectionW/cardBox math:
-//     Width(max(w,4)).Height(inner+2) — sessions_view.go, ctf_view.go,
-//     inspector_split.go (pre-styled title), layout.go cardBox (caller
-//     passes h = bodyH+3).
-//   - ModeServer == server_view.go sectionW math:
-//     Width(max(w-2,1)).Height(inner) — the box renders two cells
-//     narrower than w (the UAT round 5 ROUTES wrap fix).
+// Mode mapping:
+//   - ModeStandard == sectionW/cardBox: Width(max(w,4)).Height(inner+2)
+//   - ModeServer   == server sectionW: Width(max(w-2,1)).Height(inner)
 
 // legacyBoxStyle mirrors the pages boxStyle idiom (all 11 copies are identical).
 func legacyBoxStyle(th *theme.Theme) lipgloss.Style {
@@ -68,11 +59,8 @@ func legacyClipBlock(th *theme.Theme, body string, h, maxW int) string {
 	return strings.Join(lines, "\n")
 }
 
-// legacySectionW mirrors the pages sectionW idiom. serverMath selects the
-// server_view.go width/height parameters; the title is re-rendered through
-// the Accent style exactly as titleLine does (the sessions/server/ctf
-// convention, including the double-render when callers pass a styled
-// paneTitle).
+// legacySectionW mirrors the pages sectionW idiom; serverMath selects the
+// server width/height; the title is Accent-rendered as titleLine does.
 func legacySectionW(th *theme.Theme, title, body string, w, h int, focused, serverMath bool) string {
 	inner := max(h-3, 1)
 	box := legacyClipBlock(th, body, inner, max(w-4, 1))
@@ -89,7 +77,7 @@ func legacySectionW(th *theme.Theme, title, body string, w, h int, focused, serv
 		style.Width(max(w, 4)).Height(inner+2).Render(box)
 }
 
-// --- behaviour tests (task brief) ----------------------------------------
+// --- behaviour tests ------------------------------------------------------
 
 func TestSectionReturnsRectAtOrigin(t *testing.T) {
 	s := NewSection(theme.NewWith(colorprofile.TrueColor, true), "ROUTES")
@@ -165,9 +153,7 @@ func fidelityProfiles() []struct {
 	}
 }
 
-// TestSectionFidelityStandardMode asserts Section.Render equals the
-// sessions/ctf/inspector sectionW and dashboard cardBox math, unfocused
-// and focused, under both pinned profiles.
+// Render equals the sectionW/cardBox math, focused or not, both profiles.
 func TestSectionFidelityStandardMode(t *testing.T) {
 	t.Parallel()
 
@@ -194,8 +180,7 @@ func TestSectionFidelityStandardMode(t *testing.T) {
 	}
 }
 
-// TestSectionFidelityServerMode asserts Section.Render with ModeServer
-// equals the server_view.go sectionW math (box two cells narrower).
+// ModeServer equals the server sectionW math (box two cells narrower).
 func TestSectionFidelityServerMode(t *testing.T) {
 	t.Parallel()
 
@@ -223,9 +208,7 @@ func TestSectionFidelityServerMode(t *testing.T) {
 	}
 }
 
-// TestSectionRectIsInputSizeInBothModes pins the hit-test contract: the
-// Rect is the requested box, even when the drawn output is taller than h
-// (h < 4 clamps the body to one row, the existing sectionW behaviour).
+// Rect is the requested box even when the drawn output is taller than h.
 func TestSectionRectIsInputSizeInBothModes(t *testing.T) {
 	th := theme.NewWith(colorprofile.TrueColor, true)
 
@@ -239,9 +222,7 @@ func TestSectionRectIsInputSizeInBothModes(t *testing.T) {
 	}
 }
 
-// TestSectionPreStyledTitlePassesThrough pins the inspector_split.go
-// convention: a title the caller already styled is emitted byte-for-byte,
-// never re-rendered through the Accent style.
+// A caller-styled title passes through byte-for-byte, never re-rendered.
 func TestSectionPreStyledTitlePassesThrough(t *testing.T) {
 	th := theme.NewWith(colorprofile.TrueColor, true)
 	styled := th.Accent.Render("PACKED MESSAGE")

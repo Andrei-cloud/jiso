@@ -61,10 +61,8 @@ func scenFailState() ScenariosState {
 	return st
 }
 
-// scenPreviewLoadedState pins the step message-preview overlay with a
-// reconstructed request/response payload (UAT round 9 F-9e c): the
-// overlay replaces the panes and the step cursor marker is visible
-// again on the next plain frame.
+// The preview overlay with a reconstructed request/response payload;
+// the next plain frame shows the step cursor marker again.
 func scenPreviewLoadedState() ScenariosState {
 	st := scenPassState()
 	st.Preview = &ScenarioStepPreview{
@@ -84,9 +82,7 @@ func scenPreviewLoadedState() ScenariosState {
 	return st
 }
 
-// scenPreviewLoadingState pins the overlay's in-flight frame: root
-// armed the detail load (Loading:true) but the payload has not
-// arrived — the honest ".. loading" marker, never an empty pane.
+// The overlay's in-flight frame: the honest ".. loading" marker.
 func scenPreviewLoadingState() ScenariosState {
 	st := scenPassState()
 	st.Preview = &ScenarioStepPreview{
@@ -96,11 +92,8 @@ func scenPreviewLoadingState() ScenariosState {
 	return st
 }
 
-// scenPreviewNoResponseState pins the overlay's honest half-frame (task
-// 9.8b): a pending step's composed request (Composed:true, UAT round 9 F1)
-// shows the reconstructed REQUEST under the muted "not sent yet" label and
-// names the missing RESPONSE — the hex follows the utils.HexDump shape root
-// actually produces.
+// The overlay's honest half-frame: a composed request (Composed:true)
+// under the muted "not sent yet" label, with the missing RESPONSE named.
 func scenPreviewNoResponseState() ScenariosState {
 	st := scenPassState()
 	st.Preview = &ScenarioStepPreview{

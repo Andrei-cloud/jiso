@@ -251,9 +251,7 @@ func TestServeSnapshotWithoutServerAndTLSMisconfig(t *testing.T) {
 	}
 }
 
-// Task 2.2 (finding 1): an explicit routes-only file loads even when the
-// tx file carries no routes — the PAR-309 precedence (routesFile > tx-file
-// mock_routes > none) now reaches the in-process serve path too.
+// An explicit routes-only file loads even when the tx file has no routes.
 func TestServeStartLoadsRoutesOnlyFile(t *testing.T) {
 	a := serveLiveApp(t)
 	routesFile := writeTemp(t, "routes.json",
@@ -267,9 +265,8 @@ func TestServeStartLoadsRoutesOnlyFile(t *testing.T) {
 	}
 }
 
-// Task 2.2: an explicit routesFile that cannot be parsed is an error naming
-// the path (a *ConfigError), never a silent zero-routes start — §G shows
-// this error instead of pretending the server came up.
+// An unparsable explicit routesFile errors naming the path, never a
+// silent zero-routes start.
 func TestServeStartBadRoutesFileReturnsError(t *testing.T) {
 	a := serveLiveApp(t)
 	bad := writeTemp(t, "routes.json", `[{"name":"Echo","match_fields":`)

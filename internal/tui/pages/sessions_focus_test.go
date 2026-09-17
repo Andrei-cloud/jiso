@@ -1,10 +1,6 @@
-// sessions_focus_test.go covers the UAT round 9 (F-9f) cursor-following
-// detail leg: arrowing the SESSIONS list cursor onto a different session
-// yields SessionsFocusMsg so root loads that session's stats + tx
-// history into the detail panes as a live preview (the §K cursor-follow
-// pattern), the load stays quiet while another mode owns the keyboard,
-// and DetailWait renders the loading marker instead of the false
-// "no transactions"/"select a session" empty states.
+// sessions_focus_test.go covers the cursor-following detail leg: moving the
+// list cursor emits SessionsFocusMsg, stays quiet while another mode owns
+// the keys, and DetailWait shows a loading marker, not false empty states.
 package pages
 
 import (
@@ -14,11 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// TestSessionsCursorMoveEmitsFocus UAT round 9 (F-9f): arrowing the list
-// cursor onto a different session yields SessionsFocusMsg (root loads
-// that session's stats + tx history into the detail panes as a live
-// preview, the §K cursor-follow pattern); a move clamped on the same row
-// must not re-fire the load (no load loop).
+// Arrowing onto a different session emits SessionsFocusMsg; a clamped
+// same-row move must not re-fire the load.
 func TestSessionsCursorMoveEmitsFocus(t *testing.T) {
 	t.Parallel()
 
@@ -49,10 +42,8 @@ func TestSessionsCursorMoveEmitsFocus(t *testing.T) {
 	}
 }
 
-// TestSessionsNoFocusWhileModesOwnKeys UAT round 9 (F-9f): the cursor-
-// following load stays quiet while the review overlay, the narrow drill,
-// or filter mode own the keyboard — those modes own the keys (and the
-// drill's arrows belong to the history table).
+// No focus load while the review overlay, the drill, or filter mode owns
+// the keyboard.
 func TestSessionsNoFocusWhileModesOwnKeys(t *testing.T) {
 	t.Parallel()
 
@@ -71,8 +62,7 @@ func TestSessionsNoFocusWhileModesOwnKeys(t *testing.T) {
 		t.Fatalf("down in the drill yielded %v, want nil", cmd())
 	}
 
-	// Filter mode: arrows move the filtered cursor but the load waits
-	// until Enter yields the keyboard.
+	// Filter mode: arrows move the filtered cursor; the load waits for Enter.
 	f := sessionsPageAt(t, sessionsFixtureState(asciiTheme(t)), 120, 40)
 	_, _ = f.Update(press('/'))
 	if _, cmd := f.Update(tea.KeyPressMsg{Code: tea.KeyDown}); cmd != nil {
@@ -80,10 +70,8 @@ func TestSessionsNoFocusWhileModesOwnKeys(t *testing.T) {
 	}
 }
 
-// TestSessionsDetailWaitLoadingText UAT round 9 (F-9f): while root's
-// detail load is in flight (DetailWait), the STATS and TX HISTORY panes
-// carry the loading marker — not the false "select a session to see its
-// stats" / "no transactions recorded" empty states.
+// While DetailWait, the panes show the loading marker, not the false
+// empty states.
 func TestSessionsDetailWaitLoadingText(t *testing.T) {
 	t.Parallel()
 

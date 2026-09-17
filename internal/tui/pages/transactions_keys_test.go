@@ -42,8 +42,7 @@ func TestTxSendYieldsSendMsg(t *testing.T) {
 	}
 }
 
-// TestTxPickFileMsg: f yields TxPickFileMsg (UAT round 8 D3: `f` is the
-// file-pick key on every surface), even in the empty state.
+// f yields TxPickFileMsg even in the empty state.
 func TestTxPickFileMsg(t *testing.T) {
 	t.Parallel()
 
@@ -133,8 +132,8 @@ func TestTxUnknownKeysIgnored(t *testing.T) {
 	_, _ = p.Update(press('j'))
 
 	type stranger struct{ N int }
-	// t is deliberately in the list: UAT round 8 D3 unbound it on §B
-	// (the picker moved to f), so it must now be an ignored key.
+	// t is deliberately in the list: unbound on §B (picker moved to f),
+	// so it must be an ignored key.
 	for _, msg := range []tea.Msg{press('x'), press('q'), press('t'), stranger{1}, nil} {
 		next, cmd := p.Update(msg)
 		if cmd != nil {

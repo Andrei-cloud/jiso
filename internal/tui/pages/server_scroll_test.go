@@ -1,8 +1,7 @@
-// server_scroll_test.go pins the §G wheel-scroll region (Task 8.2b): the
-// page publishes the DRAWN SERVER LOG rect under RegionServerLog only
-// while the pane is on screen, and ScrollRegion drives the SAME logScroll
-// offset the j/k keys move, clamped at both ends with the content-
-// direction convention (d>0 = viewport down = toward the newest).
+// server_scroll_test.go pins the §G wheel-scroll region: the page publishes
+// the DRAWN SERVER LOG rect only while on screen, and ScrollRegion drives
+// the same logScroll the j/k keys move, clamped at both ends
+// (d>0 = toward the newest).
 package pages
 
 import (
@@ -10,9 +9,8 @@ import (
 	"testing"
 )
 
-// serverLogState is the §G running snapshot with n plain log lines (the
-// compactor passes unrecognized lines through verbatim, so the window
-// content is readable in assertions).
+// serverLogState is §G running with n plain log lines (passed through
+// verbatim by the compactor, so assertions can read them).
 func serverLogState(n int) ServerState {
 	st := serverRunningState()
 	for i := 1; i <= n; i++ {
@@ -22,8 +20,7 @@ func serverLogState(n int) ServerState {
 	return st
 }
 
-// logPage builds §G with a 30-line log at 80×24 (the narrow stacked-log
-// layout: the LOG box sits between STATS and ROUTES).
+// logPage builds §G with a 30-line log at 80×24 (narrow stacked-log layout).
 func logPage(t *testing.T) *Server {
 	t.Helper()
 	s := serverPage(t, serverLogState(30), 80, 24)
@@ -48,15 +45,12 @@ func TestServerScrollRegionsPublishesLogRect(t *testing.T) {
 	if r.Rect.W <= 0 || r.Rect.H <= 0 {
 		t.Errorf("published rect must be a drawn box, got %v", r.Rect)
 	}
-	// The rect is CONTENT-RELATIVE (the hit map adds frame.ContentOrigin):
-	// it sits below the header row inside the page's own coords.
+	// The rect is CONTENT-RELATIVE (the hit map adds frame.ContentOrigin).
 	if r.Rect.Y < 1 {
 		t.Errorf("content-relative log rect Y = %d, want below the header row", r.Rect.Y)
 	}
 
-	// No log lines: the LOG pane never renders, so nothing is published
-	// (a wheel over §G-before-first-line must stay inert, not phantom-hit
-	// the STATS box).
+	// No log lines: the LOG pane never renders, nothing is published.
 	empty := serverPage(t, serverRunningState(), 80, 24)
 	_ = empty.View().Content
 	if got := empty.ScrollRegions(); len(got) != 0 {
@@ -69,15 +63,14 @@ func TestServerScrollRegionDrivesLogScroll(t *testing.T) {
 
 	s := logPage(t)
 
-	// d<0 = viewport UP through the content (wheel-up): the same direction
-	// 'k' moves logScroll.
+	// d<0 = viewport UP: the same direction 'k' moves logScroll.
 	if !s.ScrollRegion(RegionServerLog, -3) {
 		t.Fatal("the page must own its own region id")
 	}
 	if s.logScroll != 3 {
 		t.Fatalf("after 3 lines up logScroll = %d, want 3", s.logScroll)
 	}
-	// d>0 = viewport DOWN (wheel-down): toward the newest, clamped at 0.
+	// d>0 = viewport DOWN: toward the newest, clamped at 0.
 	s.ScrollRegion(RegionServerLog, 1)
 	if s.logScroll != 2 {
 		t.Fatalf("after one line down logScroll = %d, want 2", s.logScroll)

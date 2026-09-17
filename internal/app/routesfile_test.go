@@ -39,8 +39,7 @@ func TestLoadRoutesFileRejectsUnnamed(t *testing.T) {
 	}
 }
 
-// TestLoadRoutesFileErrorsNameThePath pins the loader contract every failure
-// is a config-class error naming the path (exit-3 taxonomy, PAR-309).
+// Every load failure is a config-class error naming the path.
 func TestLoadRoutesFileErrorsNameThePath(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "nope.json")
 	if _, err := LoadRoutesFile(missing); err == nil {
@@ -57,8 +56,7 @@ func TestLoadRoutesFileErrorsNameThePath(t *testing.T) {
 	}
 }
 
-// TestResolveRoutesPrecedence pins the hoisted precedence
-// routesFile > tx-file mock_routes > none, including the silent tx fallback.
+// Precedence: routesFile > tx-file mock_routes > none.
 func TestResolveRoutesPrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -98,8 +96,7 @@ func TestResolveRoutesPrecedence(t *testing.T) {
 		t.Fatalf("empty sources: routes = %+v, repo = %v, err = %v", routes, repo, err)
 	}
 
-	// The pre-PAR-309 silent fallback: an unloadable tx file contributes
-	// zero routes and never errors.
+	// An unloadable tx file contributes zero routes and never errors.
 	badTx := writeTemp(t, "bad-tx.json", "not json at all")
 	if routes, repo, err = ResolveRoutes("", badTx, spec); err != nil || len(routes) != 0 || repo != nil {
 		t.Fatalf("unloadable tx file: routes = %+v, repo = %v, err = %v", routes, repo, err)

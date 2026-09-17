@@ -1,9 +1,6 @@
-// footer_hits_test.go pins the Task 8.4 frame-side contract: FooterOrigin
-// is the footer strip's absolute-cell oracle (the chromeParts twin of
-// ContentOrigin), and FooterHits replays the EXACT packing Render draws,
-// publishing a rect only for entries that actually made it into the
-// rendered footer row. The hit map is invisible: these rects are metadata,
-// and the goldens pinning the footer bytes stay untouched.
+// footer_hits_test.go pins the frame footer oracle: FooterOrigin is the
+// footer strip's absolute cell position, and FooterHits publishes a rect
+// only for entries actually packed into the rendered footer row.
 package frame
 
 import (
@@ -11,8 +8,7 @@ import (
 	"testing"
 )
 
-// footerHintProps renders one known hint so the footer row is findable in
-// Render's output by its desc text.
+// footerHintProps renders one known hint so the footer row is findable.
 func footerHintProps(width, height int) Props {
 	return Props{
 		Width: width, Height: height, Content: "body",
@@ -20,17 +16,9 @@ func footerHintProps(width, height int) Props {
 	}
 }
 
-// TestFooterOriginMatchesRender pins the mouse hit-map's footer-origin
-// oracle (Task 8.4) the way TestContentOriginMatchesRender pins the
-// content one: for every width level and a sweep of heights, FooterOrigin
-// must be the absolute row/col Render actually draws the footer strip at —
-// x = side rule + space, y = height-2 while the footer pair survives
-// chromeParts — and report !ok exactly when no footer row is drawn
-// (chrome dropped the pair, or the too-small state). The sweep runs both
-// without and WITH the console strip: the strip yields at the chrome
-// floor (Render never composes taller than the window), so the oracle
-// holds console included too (review Important 1: without this leg the
-// invariant was pinned only where it was true).
+// FooterOrigin must be the absolute row/col Render actually draws the footer
+// strip at, and !ok exactly when no footer row is drawn — swept without and
+// WITH the console strip, which yields at the chrome floor.
 func TestFooterOriginMatchesRender(t *testing.T) {
 	t.Parallel()
 
@@ -52,16 +40,13 @@ func TestFooterOriginMatchesRender(t *testing.T) {
 				p.Console = console
 				out := strings.Split(Render(p), "\n")
 
-				// Render's own contract: never taller than the window —
-				// the console strip yields at the chrome floor instead
-				// of pushing the frame past the last row.
+				// Render never composes taller than the window.
 				if width >= MinWidth && len(out) > height {
 					t.Errorf("%dx%d console=%q: Render composed %d lines, over the %d-row window",
 						width, height, console, len(out), height)
 				}
 
-				// Structural: the Render line carrying the footer hint
-				// text must sit at exactly y — shrink and console included.
+				// The line carrying the footer hint sits at exactly y.
 				first := -1
 				for i, l := range out {
 					if strings.Contains(l, "zzquit") {
@@ -82,11 +67,8 @@ func TestFooterOriginMatchesRender(t *testing.T) {
 	}
 }
 
-// TestFooterHitsPackVisibleOnly pins the rect pipeline the hit map
-// consumes: every PACKED entry gets exactly the footer-relative cell
-// range the packer drew it at (gap-aware), while entries dropped by the
-// narrow level filter get NO rect at all — only visible hints are
-// clickable.
+// Packed entries get exactly the footer-relative cells the packer drew;
+// entries dropped by the narrow filter get no rect at all.
 func TestFooterHitsPackVisibleOnly(t *testing.T) {
 	t.Parallel()
 
@@ -97,8 +79,7 @@ func TestFooterHitsPackVisibleOnly(t *testing.T) {
 		{Key: "q", Desc: "quit", Primary: true},
 	}
 
-	// Wide: every entry packs; rects are left-to-right, start at the
-	// footer origin, and leave exactly the two-cell gap between entries.
+	// Wide: every entry packs; rects run left-to-right from the origin.
 	hits := FooterHits(nil, hints, 120, 32)
 	if len(hits) != len(hints) {
 		t.Fatalf("wide footer packed %d rects, want %d: %#v", len(hits), len(hints), hits)
@@ -119,8 +100,7 @@ func TestFooterHitsPackVisibleOnly(t *testing.T) {
 		}
 	}
 
-	// Narrow: the level filter hides the non-primary entries behind the
-	// "…+N" marker, so only the primary trio gets a rect.
+	// Narrow: the level filter drops the non-primary entries; no rects for them.
 	primaries := 0
 	for _, h := range hints {
 		if h.Primary {
@@ -151,11 +131,8 @@ func TestFooterHitsPackVisibleOnly(t *testing.T) {
 	}
 }
 
-// TestFooterHitsDispatchIsKeySpelling pins the dispatch resolution the hit
-// map relies on: every published rect carries the hint's Key spelling (the
-// matching vocabulary of the bindings, theme/keys.go), including labels
-// that spell no single key ("j/k") — the caller's synthKeyPress guard
-// makes those inert, frame.FooterHits does not guess.
+// Every rect carries the hint's Key spelling verbatim, even unspellable
+// ones like "j/k" — the caller's synthKeyPress guard filters those.
 func TestFooterHitsDispatchIsKeySpelling(t *testing.T) {
 	t.Parallel()
 

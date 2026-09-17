@@ -55,12 +55,8 @@ func TestContentSizeTooSmall(t *testing.T) {
 	}
 }
 
-// TestContentOriginMatchesRender pins the mouse hit-map's content-origin
-// oracle (Task 8.1): for every width level and a sweep of heights,
-// ContentOrigin must be the absolute cell Render actually starts the page
-// body at — x = side rule + space, y = the surviving top rule's height.
-// The structural half compares against Render's real line layout, so the
-// shrink order can never drift out of the oracle unnoticed.
+// ContentOrigin must be the absolute cell where Render starts the page
+// body; the structural half compares against Render's real line layout.
 func TestContentOriginMatchesRender(t *testing.T) {
 	t.Parallel()
 
@@ -79,8 +75,7 @@ func TestContentOriginMatchesRender(t *testing.T) {
 				t.Errorf("%dx%d: ContentOrigin y=%d, want %d (top rule shown=%v)", width, height, y, wantY, top)
 			}
 
-			// Structural: the first Render line carrying the body must
-			// sit at exactly y (the too-small state shows no body).
+			// The first Render line carrying the body sits at exactly y.
 			out := strings.Split(Render(Props{Width: width, Height: height, Content: "body"}), "\n")
 			if width < MinWidth {
 				continue

@@ -90,10 +90,8 @@ func TestFailedState(t *testing.T) {
 	}
 }
 
-// TestDashLeftColIsRelative: UAT round 5 — the wide-grid left column
-// grows with the terminal; UAT round 8 finding 5 — it keeps growing at
-// its 35% ratio (floor 40 only): the old 64-cell ceiling froze the split
-// and starved the ratio on wide terminals.
+// The wide-grid left column grows with the terminal at its 35% ratio
+// (floor 40 only).
 func TestDashLeftColIsRelative(t *testing.T) {
 	t.Parallel()
 
@@ -108,11 +106,8 @@ func TestDashLeftColIsRelative(t *testing.T) {
 	}
 }
 
-// TestServer3ColRoutesRelative: UAT round 5 — the wide-layout ROUTES
-// column is relative; UAT round 8 finding 5 — it keeps its 28% ratio at
-// every width (floor 36 only): the old 64-cell ceiling froze the split
-// and left a trailing gap. The three columns plus the two gaps must
-// always sum exactly to the content width.
+// The wide-layout ROUTES column keeps its 28% ratio at every width
+// (floor 36); columns + gaps must sum exactly to the content width.
 func TestServer3ColRoutesRelative(t *testing.T) {
 	t.Parallel()
 
@@ -223,10 +218,7 @@ func TestLastSendCardBody(t *testing.T) {
 	if !strings.Contains(body, "enter") {
 		t.Errorf("last-send reopen affordance missing:\n%s", body)
 	}
-	// UAT round 9 (F-9g): the card must NOT advertise "h hexdump" — h
-	// toggles the §D send exchange's panes only after you enter open it;
-	// on the dashboard there is no view to hexdump, so the glyph was a
-	// displayed-but-dead key.
+	// "h hexdump" belongs to the send exchange only: dead key here.
 	if strings.Contains(body, "hexdump") {
 		t.Errorf("last-send card advertises the unbacked h hexdump glyph:\n%s", body)
 	}
@@ -349,11 +341,8 @@ func TestEnterDispatchesActionMsg(t *testing.T) {
 	}
 }
 
-// TestStressWizardKeyDispatch: UAT round 9 (F-9g) — the LAST STRESS
-// card's "no stress run · t starts one" glyph must be a real page
-// binding: t dispatches the very WorkersOpenFormMsg{stress} the §H page
-// emits, so root opens the same wizard from either page (the pages
-// package never opens the wizard itself — the import fence holds).
+// "t" on the LAST STRESS card dispatches the same WorkersOpenFormMsg
+// {stress} the §H page emits.
 func TestStressWizardKeyDispatch(t *testing.T) {
 	t.Parallel()
 

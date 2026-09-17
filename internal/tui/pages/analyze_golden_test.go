@@ -52,8 +52,7 @@ func TestAnalyzeGoldens(t *testing.T) {
 		{"analyze_error", analyzeGoldenError(), 120, 32, nil},
 		{"analyze_running", analyzeGoldenRunning(), 120, 32, nil},
 		{"analyze_narrow", analyzeGoldenRunDone(preview), 80, 24, nil},
-		// UAT round 8 finding 8: the generated-item preview window —
-		// the roster focused at the top vs the preview sub-pane focused
+		// The preview window: roster focused at top vs preview focused
 		// and scrolled two rows (the goldens must differ).
 		{"analyze_items_top", analyzeItemsTallState(), 120, 32, nil},
 		{"analyze_items_scrolled", analyzeItemsTallState(), 120, 32, []tea.Msg{
@@ -76,10 +75,8 @@ func TestAnalyzeGoldens(t *testing.T) {
 	}
 }
 
-// TestAnalyzeRunStepKeyBadges pins UAT round-8 finding 3: the run
-// step's [o] affordance and the open output editor's [enter]/[esc]
-// tokens carry the Theme.Key badge (bold accent) like every other key,
-// wrapped in keySpan over the row's Deemphasized base.
+// The run step's [o] and the output editor's [enter]/[esc] tokens carry
+// the Theme.Key badge (bold accent) like every other key.
 func TestAnalyzeRunStepKeyBadges(t *testing.T) {
 	t.Parallel()
 
@@ -133,9 +130,8 @@ func analyzeGoldenSpec() AnalyzeState {
 	return st
 }
 
-// analyzeGoldenSpecEmpty is step 2 with nothing to offer: the empty
-// state advertises both exits (UAT round 9 F-9d) — [f] opens the .json
-// picker, Enter keeps the engine default.
+// Step 2 with nothing to offer: the empty state advertises both exits,
+// [f] for the .json picker and Enter for the engine default.
 func analyzeGoldenSpecEmpty() AnalyzeState {
 	st := analyzeFixtureState()
 	st.Step = StepSpec

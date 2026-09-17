@@ -204,7 +204,7 @@ func TestAnalyzeItemsPickerColumnsAlign(t *testing.T) {
 	}
 }
 
-// --- UAT round 8 finding 8: the generated-item preview scrolls ----------
+// --- the generated-item preview scrolls ----------------------------------
 
 // tallPreview builds an n-line file form with a uniquely-named row per
 // line (line-00 .. line-99, zero-padded so no name prefixes another).
@@ -218,8 +218,7 @@ func tallPreview(n int) string {
 }
 
 // analyzeItemsTallState is a picker roster whose previews overflow the
-// pane at 120x32, so the preview window is observable (finding 8: the
-// captured transactions and data sets must scroll when they do not fit).
+// pane at 120x32, so the preview window is observable.
 func analyzeItemsTallState() AnalyzeState {
 	st := analyzeFixtureState()
 	st.Step = StepRun
@@ -233,12 +232,8 @@ func analyzeItemsTallState() AnalyzeState {
 	return st
 }
 
-// TestPreviewScrollsWhenOverflowing UAT round 8 finding 8: with a tall
-// preview in a short pane, ScrollPreview moves the visible window and
-// clamps at both ends; the keyboard routes the scroll keys to the
-// preview only while the preview sub-pane is focused ([tab]/[shift+tab]
-// move that focus), the roster cursor keys stay distinct, and selecting
-// a different item restarts the preview at the top.
+// A tall preview in a short pane: ScrollPreview moves the window, clamping
+// at both ends; scroll keys reach the preview only while it is focused.
 func TestPreviewScrollsWhenOverflowing(t *testing.T) {
 	t.Parallel()
 
@@ -250,8 +245,7 @@ func TestPreviewScrollsWhenOverflowing(t *testing.T) {
 		t.Fatalf("fixture must overflow the pane: %d content rows, %d visible", contentH, paneH)
 	}
 
-	// At the top the window starts at the first line and cannot reach
-	// the last (the old clip had no way down).
+	// At the top the window starts at the first line, not the last.
 	if body := ansi.Strip(a.View().Content); !strings.Contains(body, "line-00") || strings.Contains(body, "line-99") {
 		t.Fatalf("top window wrong (want line-00 visible, line-99 hidden):\n%s", body)
 	}
@@ -284,8 +278,8 @@ func TestPreviewScrollsWhenOverflowing(t *testing.T) {
 		t.Fatalf("ScrollPreview past the top must clamp at 0, got %d", a.previewOff)
 	}
 
-	// [tab] focuses the preview sub-pane; from there j/k and the arrows
-	// scroll the preview, leaving the roster cursor alone.
+	// [tab] focuses the preview; j/k and the arrows scroll it, leaving
+	// the roster cursor alone.
 	_, _ = a.Update(special(tea.KeyTab))
 	if !a.previewFocused {
 		t.Fatal("[tab] must focus the preview sub-pane")
@@ -319,8 +313,7 @@ func TestPreviewScrollsWhenOverflowing(t *testing.T) {
 		t.Fatalf("up past the top must clamp: off %d, want 0", a.previewOff)
 	}
 
-	// [shift+tab] returns the focus to the roster: from there the cursor
-	// keys move the LIST again (itemOff stays the roster's own scroll).
+	// [shift+tab] returns focus: cursor keys move the list again.
 	_, _ = a.Update(modKey(tea.KeyTab, tea.ModShift))
 	if a.previewFocused {
 		t.Fatal("[shift+tab] must return the focus to the roster")

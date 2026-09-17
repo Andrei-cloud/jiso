@@ -1,11 +1,6 @@
-// scenarios_preview_test.go pins the §F step cursor and the step
-// message-preview overlay (UAT round 9 F-9e c): j/k move the STEPS
-// cursor (never the list cursor), Enter on a step asks root for the
-// step's message preview instead of running the list scenario (the
-// Task 9.7 Minor), the overlay arms from a pushed Preview identity,
-// Esc closes it first, j/k scroll it while open, and it renders the
-// Request/Response sections or an honest loading/empty state. Mirrors
-// TestCtfCursorMoveEmitsSelect and the §I review-overlay tests.
+// scenarios_preview_test.go pins the §F step cursor and step-preview
+// overlay: j/k step nav, Enter-for-preview, Esc-first close, scroll,
+// and honest loading/empty/error/composed states.
 package pages
 
 import (
@@ -41,10 +36,7 @@ func scenStepsFocused(t *testing.T, state ScenariosState, w, h int) *Scenarios {
 	return s
 }
 
-// TestScenariosStepCursorMovesInStepsPane: with STEPS focused j/k (and
-// arrows) move the step cursor and the rendered row carries the theme
-// selector marker; the list cursor must not move (the routing-by-pane
-// contract the §I tests pin).
+// With STEPS focused, j/k move the step cursor, never the list cursor.
 func TestScenariosStepCursorMovesInStepsPane(t *testing.T) {
 	t.Parallel()
 
@@ -90,9 +82,7 @@ func TestScenariosStepCursorMovesInStepsPane(t *testing.T) {
 		t.Fatalf("step nav must not move the list cursor: %q -> %q", before, s.SelectedID())
 	}
 
-	// The cursor re-homes when the selection changes (the list cursor's
-	// identity pattern): move the list, then push the next scenario's
-	// steps like root does.
+	// The step cursor re-homes when the selected scenario changes.
 	_, _ = s.Update(PaneFocusMsg{Reverse: true}) // back to the list pane
 	_, _ = s.Update(scenPress(tea.KeyDown))
 
@@ -107,9 +97,7 @@ func TestScenariosStepCursorMovesInStepsPane(t *testing.T) {
 	}
 }
 
-// TestScenariosStepCursorStaysVisible: a stream longer than the pane
-// must keep the cursor row on screen (the window slides; finding-8
-// reachability doctrine).
+// A stream longer than the pane slides the window to keep the cursor visible.
 func TestScenariosStepCursorStaysVisible(t *testing.T) {
 	t.Parallel()
 
@@ -134,10 +122,8 @@ func TestScenariosStepCursorStaysVisible(t *testing.T) {
 	}
 }
 
-// TestScenariosEnterOnStepEmitsDetailNotRun pins the Task 9.7 Minor:
-// Enter while the STEPS pane holds focus yields ScenarioStepDetailMsg
-// for the step under the step cursor — NOT ScenarioRunMsg — and the
-// list-pane Enter keeps running the scenario (semantics unchanged).
+// Enter on a step yields ScenarioStepDetailMsg, never ScenarioRunMsg;
+// list-pane Enter still runs the scenario.
 func TestScenariosEnterOnStepEmitsDetailNotRun(t *testing.T) {
 	t.Parallel()
 
@@ -162,7 +148,7 @@ func TestScenariosEnterOnStepEmitsDetailNotRun(t *testing.T) {
 		t.Fatalf("enter with no steps ran %v, want nil", cmd())
 	}
 
-	// List pane Enter still runs (the §F core contract, unchanged).
+	// List-pane Enter still runs.
 	_, _ = s.Update(PaneFocusMsg{Reverse: true})
 	_, cmd = s.Update(scenPress(tea.KeyEnter))
 	if msg, ok := cmd().(ScenarioRunMsg); !ok || msg.ID != "E2E Purchase and Reversal" {
@@ -170,12 +156,8 @@ func TestScenariosEnterOnStepEmitsDetailNotRun(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewArmsClosesAndReArms: a pushed Preview with a
-// new identity opens the overlay (loading marker while Loading), Esc
-// closes it FIRST (no pop msg), a same-identity re-push does not
-// re-open a closed overlay, a new identity re-arms with the
-// reconstructed Request/Response sections, and a nil Preview clears it
-// (the §I SetState re-arm contract).
+// Overlay arms on a new Preview identity, Esc closes it first, a
+// same-identity re-push stays closed, a nil Preview clears it.
 func TestScenariosStepPreviewArmsClosesAndReArms(t *testing.T) {
 	t.Parallel()
 
@@ -205,15 +187,13 @@ func TestScenariosStepPreviewArmsClosesAndReArms(t *testing.T) {
 		t.Fatal("the second esc must reach the page (ScenarioPopMsg)")
 	}
 
-	// Same identity re-pushed while closed stays closed (no surprise
-	// re-open from an unrelated SetState).
+	// Same-identity re-push must not re-open a closed overlay.
 	s.SetState(st)
 	if s.StepPreviewOpen() {
 		t.Fatal("a same-identity re-push must not re-open a closed overlay")
 	}
 
-	// A new identity re-arms, and the loaded payload renders the
-	// reconstructed sections (the §I review shape).
+	// A new identity re-arms with the reconstructed sections.
 	st2 := scenStepsState()
 	st2.Preview = &ScenarioStepPreview{
 		StepIndex: 3, ScenarioID: "E2E Purchase and Reversal",
@@ -235,7 +215,7 @@ func TestScenariosStepPreviewArmsClosesAndReArms(t *testing.T) {
 		}
 	}
 
-	// A nil Preview clears the overlay (root-side "nothing to review").
+	// A nil Preview closes the overlay.
 	st3 := scenStepsState()
 	s.SetState(st3)
 	if s.StepPreviewOpen() {
@@ -243,9 +223,7 @@ func TestScenariosStepPreviewArmsClosesAndReArms(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewEmptyState: a pushed Preview with no captured
-// message and no load in flight renders the honest run hint, never an
-// invented message.
+// No captured message and no load in flight: honest run hint only.
 func TestScenariosStepPreviewEmptyState(t *testing.T) {
 	t.Parallel()
 
@@ -262,10 +240,7 @@ func TestScenariosStepPreviewEmptyState(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewNoResponseSection: a preview with a request but
-// no response (the pending-step composition, or a run step that captured no
-// reply) renders the REQUEST sections plus an honest "no response" line under
-// the RESPONSE title — the missing half is named, never invented (task 9.8b).
+// Request-only preview: REQUEST sections plus an honest no-response line.
 func TestScenariosStepPreviewNoResponseSection(t *testing.T) {
 	t.Parallel()
 
@@ -290,9 +265,7 @@ func TestScenariosStepPreviewNoResponseSection(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewErrorNote: a preview folded from a failed load shows
-// the honest error note verbatim instead of the generic run hint, and never a
-// fabricated message (task 9.8b).
+// A preview folded from a failed load shows the error note verbatim.
 func TestScenariosStepPreviewErrorNote(t *testing.T) {
 	t.Parallel()
 
@@ -313,13 +286,8 @@ func TestScenariosStepPreviewErrorNote(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewComposedLabel pins the UAT round 9 F1 honesty
-// fix: a pending step's preview (Composed:true — the ComposeRaw
-// composition root folds for a never-run step) labels its REQUEST
-// "composed from template - not sent yet" right above the REQUEST title,
-// while a run step's captured payload (Composed:false) shows no such
-// label — the operator can always tell a previewed message from real
-// traffic.
+// A pending step's composed request is labeled "composed — not sent yet";
+// a captured payload (Composed:false) shows no such label.
 func TestScenariosStepPreviewComposedLabel(t *testing.T) {
 	t.Parallel()
 
@@ -338,8 +306,7 @@ func TestScenariosStepPreviewComposedLabel(t *testing.T) {
 		t.Errorf("the label must sit next to the REQUEST title (label@%d, hex title@%d)", labelAt, hexAt)
 	}
 
-	// Captured run payload (same overlay shape, Composed:false): the real
-	// bytes need no disclaimer and must not claim to be composed.
+	// Captured payload (Composed:false) must not carry the label.
 	st2 := scenStepsState()
 	st2.Preview = &ScenarioStepPreview{
 		StepIndex: 2, ScenarioID: "E2E Purchase and Reversal",
@@ -351,10 +318,7 @@ func TestScenariosStepPreviewComposedLabel(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewScrolls: an overlay taller than the window
-// stays reachable (finding 8 doctrine) — j scrolls its top line down
-// until the esc hint (the last body line) comes into view, the scroll
-// clamps at the extent, and k scrolls back.
+// Overlay taller than the window: j scrolls to the clamped extent, k back.
 func TestScenariosStepPreviewScrolls(t *testing.T) {
 	t.Parallel()
 
@@ -393,11 +357,8 @@ func TestScenariosStepPreviewScrolls(t *testing.T) {
 	}
 }
 
-// TestScenariosStepPreviewOwnsKeyboard: while the overlay is up it
-// swallows the page triggers (no export, no filter, no pane move) and
-// the page never claims the router keyboard (Tab must keep reaching the
-// router; the overlay-first routing handles Esc — the §I claim
-// doctrine).
+// While open, the overlay swallows page triggers; the page never claims
+// the router keyboard (Tab keeps reaching the router).
 func TestScenariosStepPreviewOwnsKeyboard(t *testing.T) {
 	t.Parallel()
 

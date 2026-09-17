@@ -125,9 +125,8 @@ func TestFilePickerGolden(t *testing.T) {
 		fresh bool
 		drive func(*FilePicker)
 	}{
-		// Cursor 3 (was 2 pre-".." row) keeps the selector on a.json:
-		// the regenerated goldens must differ only by the leading ..
-		// row and the footer's up hint (UAT round 9 review).
+		// SetCursor(3): the .. row is index 0 now, keeping the selector
+		// on a.json; goldens differ only by that row and the up hint.
 		{"populated", false, func(p *FilePicker) { p.list.SetCursor(3) }},
 		{"filtered", false, func(p *FilePicker) {
 			p.Update(ch('/'))

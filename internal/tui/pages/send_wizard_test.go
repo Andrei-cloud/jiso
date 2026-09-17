@@ -155,13 +155,8 @@ func TestWizardBrowseKeyOnlyOnEmptyFilter(t *testing.T) {
 	}
 }
 
-// TestWizardFileStepBrowseTracksEditMode pins the two-mode browse contract
-// (UAT round 8 finding 2 / D3, Task 5.2) on the spec and file list steps:
-// NAVIGATE mode treats `f` as the file-picker key, typing enters EDIT mode
-// (the first printable types itself), and there `f` types literally into
-// the filter — the picker must not reopen (the §G
-// TestServerFormTypingLetterFInFieldDoesNotOpenPicker pattern; the gate is
-// the Editing() mode, not an ad-hoc "empty filter" check).
+// Two-mode browse on the spec/file steps: navigate-mode f opens the picker;
+// typing enters edit mode where f types literally into the filter.
 func TestWizardFileStepBrowseTracksEditMode(t *testing.T) {
 	t.Parallel()
 
@@ -200,9 +195,7 @@ func TestWizardFileStepBrowseTracksEditMode(t *testing.T) {
 		t.Fatalf("f must land in the filter:\n%s", w.View())
 	}
 
-	// Esc clears the draft and lands back in navigate mode, where f is
-	// again the picker key (Editing() is the mode, and the mode is what
-	// the browse gate reads).
+	// Esc clears the draft back to navigate mode, where f browses again.
 	_, _ = w.Update(special(tea.KeyEsc))
 	if w.Editing() {
 		t.Fatal("esc must leave edit mode")

@@ -160,8 +160,7 @@ func TestTxFilterNarrowsLive(t *testing.T) {
 	}
 }
 
-// TestTxFilterComposesWithSort: the filter narrows the sorted view and
-// keeps the sort order (name desc active via one o press).
+// The filter narrows the sorted view and keeps the sort order.
 func TestTxFilterComposesWithSort(t *testing.T) {
 	t.Parallel()
 
@@ -266,8 +265,8 @@ func TestTxFilterEnterKeepsFilter(t *testing.T) {
 	}
 }
 
-// TestTxSortCycleOrderPerColumn: o walks name asc → name desc → mti asc →
-// mti desc → description asc → description desc → wraps to name asc.
+// o walks name asc → name desc → mti asc → mti desc → description asc →
+// description desc → wraps to name asc.
 func TestTxSortCycleOrderPerColumn(t *testing.T) {
 	t.Parallel()
 
