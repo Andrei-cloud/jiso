@@ -1,17 +1,8 @@
-// hitmap_focus.go is the click-to-focus leg of the mouse hit machinery
-// (UAT round 8, Task 8.5, finding 9): the form/wizard modals measure
-// their drawn field rows and step-rail labels (FieldRowHits/RailRowHits
-// next to each View, pages side), the §J analyze page publishes its rail
-// through pages.Focuser, buildHitMap registers all of them as focusHits
-// (page geometry first, modals over the page, the §M box and the picker
-// rows over the modals), and handleFocusMsg routes a resolved
-// focusMsg{region, index} to the region owner's OWN focus/step
-// navigation: a field click is ConnectDialog.SetFocus (navigate mode —
-// typing still enters edit mode, the 4.2 two-mode model), a rail click
-// is the wizard's own step walk (backward = free revisit, forward = the
-// current step's Enter leg with its validation but only for the
-// immediately next step, current step = inert). The click never invents
-// a transition the keyboard does not have.
+// hitmap_focus.go is the click-to-focus leg of the hit map: the modals and the
+// §J page rail publish drawn field/step rects, buildHitMap registers them as
+// focusHits in z-order, and handleFocusMsg routes a resolved focusMsg to the
+// owner's OWN focus/step navigation. The click never invents a transition the
+// keyboard does not have.
 package tui
 
 import (
@@ -24,10 +15,9 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// Modal-owned focus regions ("<owner>:<pane>" like the page ids). The
-// §J analyze rail is page geometry and publishes its own id
-// (pages.RegionAnalyzeRail) through pages.Focuser; these four name the
-// centered modals whose geometry the root itself composes.
+// Modal-owned focus regions ("<owner>:<pane>" like the page ids) for the
+// centered modals; the §J rail is page geometry and publishes its own id
+// through pages.Focuser.
 const (
 	regionConnectForm = "connect:form" // §E dialog fields (m.dlg)
 	regionServerForm  = "server:form"  // §G start form fields (m.serverDlg)
@@ -35,13 +25,10 @@ const (
 	regionWorkerRail  = "worker:rail"  // §H worker wizard step rail (m.workerWiz)
 )
 
-// registerFocusHits adds the Task 8.5 click-to-focus rects to the
-// per-frame map in draw order: page-published regions (the §J step rail,
-// content-relative through pages.Focuser) first, then the four centered
-// modals' own rows (already absolute, the root_view.go draw order
-// dlg ▸ wizard ▸ serverDlg ▸ workerWiz). buildHitMap calls it after the
-// page's scroll/select regions and before the §M box and picker rows, so
-// those overlays shadow the cells they draw over.
+// registerFocusHits adds the focus rects in draw order: the page-published
+// §J rail (content-relative) first, then the four centered modals' absolute
+// rows (dlg ▸ wizard ▸ serverDlg ▸ workerWiz). buildHitMap calls it before the
+// §M box and picker rows so those overlays shadow the cells they cover.
 func (m *RootModel) registerFocusHits(hm *hitMap) {
 	ox, oy := m.contentOrigin()
 	if fc, ok := m.Current().(pages.Focuser); ok {
@@ -65,14 +52,10 @@ func (m *RootModel) registerFocusHits(hm *hitMap) {
 	}
 }
 
-// modalRowHits translates a modal's View-relative focus rects into the
-// ABSOLUTE cells the hit map resolves: the same centering math
-// overlayCenter applies to the modal's composed View (the pickerRowHits
-// trick in root_view.go, minus the picker's extra box offset — these
-// rects are measured against the modal's own View origin). Rects whose
-// first line overlayCenter clips below the canvas publish nothing, and
-// one running past the canvas bottom is clamped to its visible lines
-// (hit = drawn ink).
+// modalRowHits translates a modal's View-relative rects to ABSOLUTE cells with
+// the same centering math overlayCenter applies. Rects clipped below the
+// canvas publish nothing; one running past the bottom is clamped — a hit must
+// be drawn ink.
 func (m *RootModel) modalRowHits(view string, hits []widgets.RowHit) []widgets.RowHit {
 	if len(hits) == 0 {
 		return nil
@@ -99,11 +82,10 @@ func (m *RootModel) modalRowHits(view string, hits []widgets.RowHit) []widgets.R
 	return out
 }
 
-// connectFormRowHits / serverFormRowHits / sendRailRowHits /
-// workerRailRowHits report the ABSOLUTE drawn focus rects of the four
-// centered modals (nil when the modal is closed). buildHitMap registers
-// exactly these, and the Task 8.5 tests click exactly these — the
-// pickerRowHits pattern: one measurement, no re-derived geometry.
+// connectFormRowHits, serverFormRowHits, sendRailRowHits and
+// workerRailRowHits report the ABSOLUTE drawn focus rects of the four centered
+// modals (nil when the modal is closed): one measurement per row, no
+// re-derived geometry.
 func (m *RootModel) connectFormRowHits() []widgets.RowHit {
 	if m.dlg == nil {
 		return nil
@@ -136,10 +118,9 @@ func (m *RootModel) workerRailRowHits() []widgets.RowHit {
 	return m.modalRowHits(m.workerWiz.View(), m.workerWiz.RailRowHits())
 }
 
-// analyzeRailRowHits reports the §J page rail's ABSOLUTE drawn label
-// rects (the pages.Focuser regions carrying pages.RegionAnalyzeRail,
-// translated by the frame's content origin) for the same one-measurement
-// click path as the modal rects above.
+// analyzeRailRowHits reports the §J page rail's ABSOLUTE drawn label rects,
+// the pages.Focuser regions carrying pages.RegionAnalyzeRail translated by the
+// frame's content origin.
 func (m *RootModel) analyzeRailRowHits() []widgets.RowHit {
 	fc, ok := m.Current().(pages.Focuser)
 	if !ok {
@@ -161,29 +142,16 @@ func (m *RootModel) analyzeRailRowHits() []widgets.RowHit {
 	return out
 }
 
-// handleFocusMsg is the focusMsg seam (Task 8.5): a left click resolved
-// to a drawn field row or rail label moves the owner's focus THROUGH THE
-// NAVIGATION THE OWNER ALREADY EXPOSES — a field click is SetFocus
-// (navigate mode: highlighted, not typed into; and SetFocus closes any
-// open header picker so no stale overlay stays drawn over the field), a
-// rail click is the wizard's own step walk: backward = the free revisit
-// its Esc performs, forward = a replay of the current step's Enter leg
-// through root's validation, but ONLY for the immediately next step — a
-// larger forward gap is inert so "click step 4 from step 1" never
-// surprises — and the current step is inert. The §J rail keeps the
-// PgUp/PgDn path's own shape (its forward leg is root's gated
-// handleAnalyzeStepDelta, the keyboard's one-step transition).
+// handleFocusMsg routes a resolved click to the owner's own focus/step
+// navigation: a field click is SetFocus (navigate mode; it also closes any
+// open header picker), a rail click is the wizard's step walk — backward is
+// the free revisit, forward replays the current step's Enter leg ONLY for the
+// immediately next step; larger gaps and the current step stay inert.
 //
-// MODAL GUARD (carry 4, and why the FULL modalOpen() is wrong here):
-// these regions belong to the form/wizard modals THEMSELVES — those
-// modals are open by definition whenever their regions are clickable, so
-// handleSelectMsg's modalOpen() gate would make click-to-focus dead
-// forever. The narrow overlayOverForm gate blocks only what can open ON
-// TOP of a form modal and own the input there (the file picker, the §M
-// box, the palette, or a pending §N3 confirm — the updateKey modal chain
-// puts every one of these above the forms). A PAGE-owned region (the §J
-// rail) keeps the FULL modalOpen() gate: behind any modal — a form
-// included — the page is frozen, exactly the handleSelectMsg doctrine.
+// Form regions use the narrow overlayOverForm gate: modalOpen() would make
+// click-to-focus dead, since those modals are open by definition whenever
+// their regions are clickable. The page-owned §J rail keeps the full
+// modalOpen() gate, like handleSelectMsg.
 func (m *RootModel) handleFocusMsg(msg focusMsg) (tea.Model, tea.Cmd) {
 	switch msg.region {
 	case regionConnectForm:
@@ -239,24 +207,18 @@ func (m *RootModel) handleFocusMsg(msg focusMsg) (tea.Model, tea.Cmd) {
 		return m, nil // the modal owns the screen; the page behind stays frozen
 	}
 	if msg.region == pages.RegionAnalyzeRail && msg.index != m.analyzeStep {
-		// The PgUp/PgDn/Tab path: backward jumps are free revisits, the
-		// forward direction runs the current step's gated commit — a
-		// click on a later step advances at most one gated step.
+		// PgUp/PgDn path: backward jumps are free revisits; forward runs
+		// the current step's gated commit, advancing at most one step.
 		return m.handleAnalyzeStepDelta(pages.AnalyzeStepDeltaMsg{Delta: msg.index - m.analyzeStep})
 	}
 
 	return m, nil
 }
 
-// overlayOverForm reports whether an input-owning overlay sits ON TOP of
-// an open form/wizard modal: the command palette, the §M help box, the
-// shared file picker, or a pending §N3 confirm. The updateKey modal chain
-// routes every key to these ahead of the forms (and the worker wizard's
-// navigate-mode "?" is the one §M-over-a-modal state the router can
-// reach), so a click resolved under them must stay inert. The four form
-// modals are deliberately NOT in this predicate: their own regions are
-// only ever clickable while they are open, so including them would make
-// click-to-focus dead — the reconciliation the handleFocusMsg doc names.
+// overlayOverForm reports an input-owning overlay on top of an open form
+// modal: the palette, §M box, file picker, or a pending §N3 confirm. The four
+// form modals are deliberately excluded — their regions are only clickable
+// while they are open, so including them would make click-to-focus dead.
 func (m *RootModel) overlayOverForm() bool {
 	if m.pal != nil || m.help != nil || m.filePick != nil {
 		return true

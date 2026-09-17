@@ -1,26 +1,16 @@
-// hitmap.go is the mouse hit machinery (UAT round 8, finding 9): every
-// View rebuilds a per-frame map from screen cells to actions, and the
-// view's OnMouse resolves the terminal-reported cell against it. A resolved
-// hit replays the existing input chain — a key hit arrives as exactly the
-// tea.KeyPressMsg a typed key would, so updateKey and every key.Matches
-// binding fire unchanged; wheel/select/focus arrive as small root-owned
-// msgs routed in root_routes.go.
+// hitmap.go is the mouse hit machinery: every View rebuilds a per-frame
+// cell→action map and OnMouse resolves terminal cells against it. A key hit
+// replays as exactly the tea.KeyPressMsg a typed key would (updateKey and
+// key.Matches fire unchanged); wheel/select/focus are root-owned msgs routed
+// in root_routes.go.
 //
-// Geometry contract (the crux Tasks 8.2–8.5 build on):
-//   - tea.Mouse X/Y are ABSOLUTE terminal cells (0-based, upper-left).
-//   - Pages record their section geom.Rects CONTENT-RELATIVE (a page lays
-//     out from its own origin, see pages.sectionRect). Before resolving,
-//     such a Rect must be translated by the frame's content origin —
-//     RootModel.contentOrigin, backed by frame.ContentOrigin (the same
-//     chromeParts oracle as frame.ContentSize). NEVER resolve absolute
-//     mouse coords against content-relative Rects.
-//   - Frame-chrome hits (the footer row) are recorded in ABSOLUTE coords
-//     directly with hitMap.add.
+// Geometry: mouse X/Y are ABSOLUTE terminal cells, page section Rects are
+// CONTENT-RELATIVE — translate by RootModel.contentOrigin before resolving,
+// never absolute coords against relative Rects. Frame chrome (the footer)
+// registers in ABSOLUTE coords via hitMap.add.
 //
-// Registration order is z-order: the LAST rect containing a cell wins, so
-// overlays added after the page body shadow it, mirroring the draw order
-// in root_view.go. This map is rebuilt from scratch every View; stale hits
-// cannot survive a frame.
+// Registration order is z-order: the LAST rect containing a cell wins,
+// mirroring the draw order in root_view.go; stale hits cannot survive a frame.
 package tui
 
 import (
@@ -36,9 +26,8 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// hitKind discriminates which hitAction field carries the payload. hitKey
-// is the zero value so the common literal hitAction{key: "4"} needs no
-// kind term.
+// hitKind discriminates which hitAction payload field is live. hitKey is the
+// zero value, so hitAction{key: "4"} needs no kind term.
 type hitKind int
 
 const (
@@ -48,10 +37,8 @@ const (
 	hitFocus                 // focusMsg{region, focus}
 )
 
-// hitAction is what a resolved cell does. Exactly one payload field is
-// live, named by kind; the others stay zero. (The brief's `select` field
-// is spelled `sel` here: `select` is a Go keyword and cannot name a struct
-// field — verified against the compiler.)
+// hitAction is what a resolved cell does: exactly one payload field is live,
+// named by kind. The select target is spelled sel — select is a Go keyword.
 type hitAction struct {
 	kind   hitKind
 	key    string // hitKey: the key as key.Matches spells it ("4", "enter")
@@ -63,10 +50,8 @@ type hitAction struct {
 // keyHit records a cell that replays a key press.
 func keyHit(key string) hitAction { return hitAction{kind: hitKey, key: key} }
 
-// scrollHit records a cell whose WHEEL scrolls region. The delta comes
-// from the wheel event itself (installMouse decodes it), so the payload
-// carries only the region id; a left-click on the cell is inert —
-// clicking a scrollable pane does nothing, only the wheel acts.
+// scrollHit records a cell whose wheel scrolls region. The delta comes from
+// the wheel event itself; a click on the cell is inert.
 func scrollHit(region string) hitAction {
 	return hitAction{kind: hitScroll, region: region}
 }
@@ -81,10 +66,9 @@ func focusHit(region string, index int) hitAction {
 	return hitAction{kind: hitFocus, region: region, focus: index}
 }
 
-// cmd builds the Cmd delivering this action's message into Update. A key
-// hit yields the tea.KeyPressMsg exactly as the terminal delivers a typed
-// key (the ch(...) construction the tests use), so the whole existing
-// updateKey/key.Matches chain accepts it unchanged.
+// cmd builds the Cmd delivering this action's message into Update; a key hit
+// arrives exactly as a typed key, so the updateKey/key.Matches chain accepts
+// it unchanged.
 func (a hitAction) cmd() tea.Cmd {
 	switch a.kind {
 	case hitKey:
@@ -105,15 +89,10 @@ func (a hitAction) cmd() tea.Cmd {
 	return nil
 }
 
-// synthKeyPress spells key as a tea.KeyPressMsg. A one-rune key mirrors the
-// test helper ch exactly (Code plus Text carries the printable char, which
-// is what Key.String reports for key.Matches). Longer spellings name a
-// special key and map to the tea.Key* codes, which String renders back to
-// the same name ("shift+tab" is Tab+ModShift, the shape the terminal
-// delivers). An unknown spelling yields no key (the hit stays inert).
-// Chords beyond "backtab" do not spell here — see the Task 8.4 note on
-// registerFooterHits: a future ctrl/alt footer dispatch stays display-only
-// until this function learns to decode a modifier prefix into a tea.KeyMod.
+// synthKeyPress spells key as a tea.KeyPressMsg: single runes carry their
+// printable char, named specials map to tea.Key* codes ("backtab" is
+// Tab+ModShift). Unknown spellings and ctrl/alt chords return false, leaving
+// the hit inert (see registerFooterHits).
 func synthKeyPress(key string) (tea.KeyPressMsg, bool) {
 	if len(key) == 1 {
 		r := rune(key[0])
@@ -174,10 +153,8 @@ func (h *hitMap) add(r geom.Rect, act hitAction) {
 	*h = append(*h, hitEntry{rect: r, act: act})
 }
 
-// addAbs registers a CONTENT-RELATIVE rect (a page's recorded section
-// Rect) translated to absolute coords by the frame's content origin
-// (RootModel.contentOrigin). This is the only honest way to admit page
-// geometry: mouse coords arrive absolute and pages lay out relative.
+// addAbs registers a CONTENT-RELATIVE page rect translated to absolute coords
+// by the frame's content origin — the only honest way to admit page geometry.
 func (h *hitMap) addAbs(originX, originY int, contentRect geom.Rect, act hitAction) {
 	abs := geom.Rect{
 		X: contentRect.X + originX,
@@ -206,26 +183,13 @@ func (m *RootModel) contentOrigin() (x, y int) {
 	return frame.ContentOrigin(m.width, m.height)
 }
 
-// buildHitMap assembles one frame's cell map. Task 8.2b registered the
-// first real regions — the top page's wheel-scroll regions (published
-// through pages.Scroller, so no page region id is hardcoded here) and the
-// §M overlay's box; Task 8.3 added the pages' click-selectable rows
-// (pages.Selector, registered over the pane scrollHits) and the file
-// picker's entry rows; Task 8.4 added the footer hint cells (frame.
-// FooterHits); Task 8.5 added the click-to-focus rects
-// (registerFocusHits, hitmap_focus.go).
-//
-// Registration order is z-order (page body first, overlays last), and an
-// empty map is legal: it is §G before its first log line, every page
-// without scrollable panes, and — by policy — every frame narrower than
-// frame.MinWidth, where the body is the too-small notice but the pages
-// have still recorded their section Rects, so registering them would
-// resolve phantom hits over ink that is not on screen.
+// buildHitMap assembles one frame's cell→action map in z-order: page body
+// first, overlays last. An empty map is legal (§G before its first log line,
+// pages without scrollable panes) and mandatory below frame.MinWidth, where
+// page geometry would resolve phantom hits over ink that is not drawn.
 func (m *RootModel) buildHitMap() hitMap {
 	hm := hitMap{}
-	// UAT round 9 (F-9c) policy: with the mouse off nothing is registered
-	// at all — the map is provably empty, so a straggler mouse report
-	// (or a test typing raw SGR bytes) can resolve no hit anywhere.
+	// mouse off: register nothing, so a straggler report resolves no hit.
 	if !m.mouseEnabled {
 		return hm
 	}
@@ -238,40 +202,29 @@ func (m *RootModel) buildHitMap() hitMap {
 			hm.addAbs(ox, oy, r.Rect, scrollHit(r.ID))
 		}
 	}
-	// Task 8.3: the pages' drawn rows register AFTER the pane scrollHits
-	// so a click resolves the ROW (topmost), while the wheel over the
-	// same cell still scrolls the PANE — a selectHit carries the pane's
-	// own region id, and installMouse routes the wheel by action.region.
+	// rows register AFTER the pane scrollHits: a click resolves the ROW,
+	// while the wheel over the same cell still scrolls the PANE.
 	if sl, ok := m.Current().(pages.Selector); ok {
 		for _, r := range sl.SelectRegions() {
 			hm.addAbs(ox, oy, r.Rect, selectHit(r.ID, r.Index))
 		}
 	}
-	// Task 8.5: click-to-focus. The page-published focus rects (the §J step
-	// rail) join the page body here, and the modal-owned ones (the
-	// connect/server form fields, the send/worker wizard rails) register
-	// AFTER the page geometry — the modals draw over the page — but BEFORE
-	// the §M box and the picker rows below, which draw over the modals and
-	// shadow every cell they cover (registerFocusHits, hitmap_focus.go).
+	// click-to-focus (registerFocusHits): page rects first, modals over the
+	// page; the §M box and picker rows below shadow the modals they cover.
 	m.registerFocusHits(&hm)
-	// The §M overlay is root-owned modal state, not a page: its region is
-	// spelled here and dispatched directly in handleScrollMsg. Added last
-	// so the wheel over the box never scrolls the page underneath it.
+	// §M box: root-owned, added last so the wheel over it never scrolls
+	// the page underneath.
 	if m.help != nil {
 		hm.add(m.helpHitRect(), scrollHit(regionHelp))
 	}
-	// The file picker (Task 8.3) is likewise root-owned: its entry rows
-	// register over everything the page and the box below them drew —
-	// but NOT while a §N3 confirm draws over the picker itself, which
-	// would resolve phantom hits under the confirm's ink.
+	// picker rows: likewise root-owned, over the page and box — but never
+	// while a §N3 confirm draws over the picker (phantom hits under its ink).
 	if m.filePick != nil && !m.confirmPending() {
 		for _, r := range m.pickerRowHits() {
 			hm.add(r.Rect, selectHit(regionPicker, r.Index))
 		}
 	}
-	// Task 8.4: the footer legend (hitmap_footer.go). Added last: the
-	// footer row never overlaps page geometry, but the legend is the
-	// topmost drawn element, mirroring the draw order.
+	// footer legend (hitmap_footer.go): topmost drawn, added last.
 	m.registerFooterHits(&hm)
 
 	return hm
@@ -281,17 +234,14 @@ func (m *RootModel) buildHitMap() hitMap {
 // scrolls its own keymap window through helpOverlay.ScrollBy).
 const regionHelp = "help:box"
 
-// regionPicker names the shared file picker's entry rows (root-owned
-// overlay, Task 8.3): a click on a row moves the picker cursor AND runs
-// the widget's own entry selection, so the region is dispatched directly
+// regionPicker names the shared file picker's entry rows: a click moves the
+// picker cursor and runs the widget's own entry selection, dispatched directly
 // in handleSelectMsg instead of through a page seam.
 const regionPicker = "picker:entries"
 
-// helpHitRect is the §M box's ABSOLUTE drawn rect: it re-measures the
-// same View string root_view.go composited and mirrors overlayCenter's
-// centering math (root_overlay.go) on the content canvas, offset by the
-// frame's content origin. The height clamps to the visible canvas so a
-// box taller than the content area never shadows rows below it.
+// helpHitRect re-measures the §M box's ABSOLUTE drawn rect, mirroring
+// overlayCenter's centering math offset by the content origin; the height
+// clamps so a taller box never shadows rows below it.
 func (m *RootModel) helpHitRect() geom.Rect {
 	hv := m.help.View()
 	inner := m.innerWS()
@@ -304,13 +254,9 @@ func (m *RootModel) helpHitRect() geom.Rect {
 	return geom.Rect{X: ox + x, Y: oy + y, W: bw, H: min(bl, inner.Height-y)}
 }
 
-// pickerRowHits is the file picker's ABSOLUTE drawn entry-row rects
-// (Task 8.3): the box string is recomposed exactly as root_view.go
-// composites it (boxed + overlayCenter) and the centering math mirrors
-// overlayCenter on the content canvas, offset by the frame's content
-// origin — the helpHitRect trick applied to the widget's measured row
-// rects (one border column and one header offset in). Rows whose box
-// line overlayCenter clips below the canvas publish nothing, so a click
+// pickerRowHits re-measures the picker's ABSOLUTE entry-row rects with the
+// same centering math as helpHitRect (one border column and one header offset
+// in). Rows overlayCenter clips below the canvas publish nothing, so a click
 // on dead space below the picker stays inert.
 func (m *RootModel) pickerRowHits() []widgets.RowHit {
 	inner := m.innerWS()
@@ -332,10 +278,8 @@ func (m *RootModel) pickerRowHits() []widgets.RowHit {
 	return out
 }
 
-// scrollMsg moves a region's scroll position by delta rows in the
-// CONTENT direction (+1 = down/forward, matching pages.Analyze.ScrollPreview;
-// -1 = up/back). Routed at the root; the handler owns what the region id
-// means.
+// scrollMsg moves a region's scroll position by delta in the CONTENT
+// direction (+1 = down/forward, matching pages.Analyze.ScrollPreview).
 type scrollMsg struct {
 	region string
 	delta  int
@@ -353,18 +297,11 @@ type focusMsg struct {
 	index  int
 }
 
-// handleScrollMsg is the scrollMsg seam (Tasks 8.2b/8.2c): it resolves
-// the region to the ACTIVE scrollable and applies the delta with the
-// content-direction convention (+1 = down, no negation). The §M overlay
-// is checked first — while open it is the topmost layer, and its region
-// is root-owned. Then a modal gate (UAT round 8 Task 8.2c): while ANY
-// root-owned modal is open (palette, dialog/wizard, file picker, a
-// pending confirm, or §M itself) the page branch is inert, so a wheel
-// over the page area behind a modal — or in the margins around the §M
-// box — never scrolls the frozen page underneath. Otherwise the delta
-// goes to the top page through pages.Scroller, which reports whether it
-// owns the region. Unknown regions and closed overlays stay inert: a
-// mouse msg never reaches a page as a key.
+// handleScrollMsg resolves a scrollMsg to the active scrollable and applies
+// the delta with the content-direction convention (no negation). The §M box is
+// checked first; while any root-owned modal is open the page branch stays
+// inert, so the wheel never scrolls the frozen page behind it. Unknown regions
+// and closed overlays stay inert.
 func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
 	if msg.region == regionHelp {
 		if m.help != nil { // a straggler after Esc closed the overlay: inert
@@ -383,13 +320,9 @@ func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// modalOpen reports whether a root-owned modal owns the screen: the
-// command palette, the connect/server dialogs, the send/worker wizards,
-// the shared file picker, the §M help overlay, or any pending §N3
-// confirm. This mirrors the modal chain updateKey routes ahead of the
-// page (root_keys.go) and the overlay stack View composes (root_view.go)
-// — a wheel resolved to page geometry while any of these is open must
-// stay inert instead of scrolling the frozen page behind the modal.
+// modalOpen reports whether a root-owned modal (palette, dialogs, wizards,
+// file picker, §M box, or a pending §N3 confirm) owns the screen; while one is
+// open the page behind must stay frozen.
 func (m *RootModel) modalOpen() bool {
 	if m.pal != nil || m.dlg != nil || m.wizard != nil || m.serverDlg != nil ||
 		m.workerWiz != nil || m.help != nil || m.filePick != nil {
@@ -399,9 +332,9 @@ func (m *RootModel) modalOpen() bool {
 	return m.confirmPending()
 }
 
-// confirmPending reports a pending §N3 confirm — the overlay stack draws
-// these LAST, above even the file picker, so the picker's click rows
-// stop publishing while one is up (buildHitMap).
+// confirmPending reports a pending §N3 confirm, which the overlay stack draws
+// last — over even the file picker, whose click rows stop publishing while
+// one is up.
 func (m *RootModel) confirmPending() bool {
 	for _, c := range []*widgets.ConfirmDialog{
 		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
@@ -415,19 +348,11 @@ func (m *RootModel) confirmPending() bool {
 	return false
 }
 
-// handleSelectMsg is the selectMsg seam (Task 8.3): a left click
-// resolved to a drawn row selects it — the cursor moves to the row's
-// data index through the page's own clamping and identity rules, exactly
-// like the keyboard. The file picker is checked first: like the §M box
-// in handleScrollMsg it is root-owned modal state whose own rows stay
-// clickable while it owns the screen, and its click additionally runs
-// the widget's entry selection (descend a directory, commit a selectable
-// file). Then the SAME modal gate handleScrollMsg uses: while any
-// root-owned modal is open, a page-behind region stays inert, so a click
-// can never select under the overlay. Otherwise the region resolves
-// through pages.Selector on the top page (the Scroller pattern); unknown
-// regions and pages without the seam stay inert: a mouse msg never
-// reaches a page as a key.
+// handleSelectMsg resolves a selectMsg to a drawn row and moves the cursor
+// through the page's own clamping rules, exactly like the keyboard. The picker
+// is checked first (its rows stay clickable while it owns the screen);
+// otherwise the modalOpen gate keeps clicks from selecting under any overlay,
+// and unknown regions stay inert.
 func (m *RootModel) handleSelectMsg(msg selectMsg) (tea.Model, tea.Cmd) {
 	if msg.region == regionPicker {
 		if m.filePick != nil { // a straggler after the picker closed: inert
@@ -441,11 +366,8 @@ func (m *RootModel) handleSelectMsg(msg selectMsg) (tea.Model, tea.Cmd) {
 	}
 	if sl, ok := m.Current().(pages.Selector); ok {
 		sl.SelectRegion(msg.region, msg.index)
-		// UAT round 9 (F-9f): a click on a §I list row is a cursor move —
-		// the detail panes follow it through the same load seam the
-		// keyboard focus msg uses (handleSessionsFocus re-checks the page
-		// and the façade leg itself). Other regions keep select-only
-		// semantics.
+		// a §I list-row click is a cursor move: the detail panes follow it
+		// through handleSessionsFocus, the keyboard's own load seam.
 		if msg.region == pages.RegionSessionsList && m.sessions != nil {
 			return m.handleSessionsFocus(m.sessions.SelectedSessionID())
 		}
@@ -454,7 +376,4 @@ func (m *RootModel) handleSelectMsg(msg selectMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleFocusMsg is the focusMsg seam, implemented with the Task 8.5
-// click-to-focus leg in hitmap_focus.go (field rows, wizard rails, and
-// the narrow overlayOverForm guard that keeps a form's own fields
-// clickable while an input-owning overlay on top of them does not).
+// handleFocusMsg (the focusMsg seam) is implemented in hitmap_focus.go.
