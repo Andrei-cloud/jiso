@@ -1,7 +1,6 @@
-// transactions_view.go renders the §B body: a title row (file label,
-// live filter text, sort indicator) above the widgets.Table. Sizing is
-// delegated to frame.ContentSize so page and chrome never disagree
-// (dashboard layout.go pattern).
+// transactions_view.go renders the §B body: a title row (file label, live
+// filter text, sort indicator) above the widgets.Table; sizing is
+// delegated to frame.ContentSize so page and chrome never disagree.
 package pages
 
 import (
@@ -20,8 +19,7 @@ import (
 // it doubles as the slot's frame-visible title).
 const titleTransactions = "TRANSACTIONS"
 
-// txEmptyHint is the §B empty state (wireframe line; UAT round 8 D3: the
-// key is the universal `f`, not `t`).
+// txEmptyHint is the §B empty state line (the picker key is the universal `f`).
 const txEmptyHint = "no tx file loaded"
 
 // txPickFileSuffix completes the empty hint: "<dash> <f> to pick file".
@@ -37,9 +35,8 @@ const (
 const txMinTableWidth = 40
 
 // txColumns are the §B column widths (NAME · MTI · DESCRIPTION · DATASET ·
-// SPEC). DESCRIPTION is the flex column: on narrow terminals it gives
-// first, and the Table's fit() clamp keeps every line inside the frame at
-// any width — cells truncate and never wrap.
+// SPEC). DESCRIPTION is the flex column: it gives first on narrow terminals
+// and cells truncate, never wrap.
 func txColumns() []widgets.Column {
 	return []widgets.Column{
 		{Title: "NAME", Width: 16},
@@ -58,15 +55,13 @@ func (t *Transactions) View() tea.View {
 }
 
 // tableGridChrome is the grid renderer's non-data line count (top rule,
-// header row, header rule, bottom rule): the table's row budget is the
-// pane under the title line minus this, so the box fills the pane
-// exactly (UAT round 8 finding 5 fill + Task 8.2c wheel windowing).
+// header row, header rule, bottom rule): the table's row budget is the pane
+// under the title line minus this, so the box fills the pane exactly.
 const tableGridChrome = 4
 
-// render lays out title row + table, clipped to exactly h lines of at
-// most w cells (never wraps, never overflows the content area). A failed
-// tx-file load shows the reason instead of the table or the empty state
-// (UAT round 7: silence hid the real error).
+// render lays out title row + table, clipped to exactly h lines of at most
+// w cells. A failed tx-file load shows the reason instead of the table or
+// the empty state (silence must not hide the real error).
 func (t *Transactions) render(w, h int) string {
 	t.txRect = geom.Rect{}    // the table re-publishes below, or not at all
 	t.selRows = t.selRows[:0] // and so do its click rows
@@ -80,13 +75,11 @@ func (t *Transactions) render(w, h int) string {
 	t.table.SetWidth(w)
 	t.table.SetHeight(max(h-1-tableGridChrome, 1))
 	body := t.table.View()
-	// Publish the DRAWN table box for the wheel hit map (Task 8.2c):
-	// measured from the composed string like every recorded section
-	// rect, so the registered region is the ink the user sees.
+	// Publish the DRAWN table box for the wheel hit map: measured from the
+	// composed string, so the region is the ink the user sees.
 	t.txRect = sectionRect(0, 1, body)
-	// And the drawn rows for the click hit map (Task 8.3): the table
-	// body starts under the one title row, so the widget's row rects
-	// shift down by one into content coords.
+	// And the drawn rows for the click hit map: the table body starts
+	// under the title row, so row rects shift down by one.
 	t.selRows = selectRows(t.selRows, RegionTxTable, t.table.RowHits(), 0, 1)
 
 	return clipBlockStyled(t.th, t.titleRow(w)+"\n"+body, h, w)
@@ -116,19 +109,16 @@ func (t *Transactions) titleRow(w int) string {
 	return clipCells(line, w, clipTail(t.th))
 }
 
-// emptyStateBody renders the wireframe empty line: "no tx file loaded —
-// f to pick file" (dash per glyph mode; the key itself is accent-styled,
-// the suffix muted — no duplicated key token). The key is read from the
-// page's own PickFile binding, so the hint can never drift from the key
-// the page matches on (the §M drift-pin rule, applied to the empty state).
+// emptyStateBody renders "no tx file loaded — f to pick file" (key
+// accent-styled, suffix muted). The key is read from the page's own
+// PickFile binding, so the hint can never drift from the bound key.
 func (t *Transactions) emptyStateBody() string {
 	return t.th.TextMuted.Render(txEmptyHint+" "+dashIf(t.th, "")+" ") +
 		t.th.Accent.Render(t.nav.PickFile.Keys()[0]) + " " + t.th.TextMuted.Render(txPickFileSuffix)
 }
 
-// errorBody renders why the last tx-file pick did not load (UAT round 7):
-// the error glyph + the reason, so a rejected file names its problem
-// instead of leaving the page silent. The line is clipped to the frame.
+// errorBody renders why the last tx-file pick failed: error glyph + reason,
+// so a rejected file names its problem instead of leaving the page silent.
 func (t *Transactions) errorBody() string {
 	return t.th.StatusError.Render(theme.GlyphError+" ") + t.th.TextPrimary.Render(t.state.Error)
 }
@@ -160,10 +150,9 @@ func cursorGlyph(th *theme.Theme) string {
 // clipTail is the truncation ellipsis for th's glyph mode.
 func clipTail(th *theme.Theme) string { return th.Ellipsis() }
 
-// clipBlockStyled flattens a body to exactly h lines of at most maxW
-// cells (truncate, never wrap; short bodies pad with empty lines so
-// joins and the frame stay aligned). Shared by the dashboard cards and
-// the transactions page.
+// clipBlockStyled flattens a body to exactly h lines of at most maxW cells
+// (truncate, never wrap; short bodies pad so joins stay aligned). Shared by
+// the dashboard cards and the transactions page.
 func clipBlockStyled(th *theme.Theme, body string, h, maxW int) string {
 	src := strings.Split(strings.TrimRight(body, "\n"), "\n")
 

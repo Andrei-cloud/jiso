@@ -1,15 +1,10 @@
-// server.go is the §G mock-server page (SCR-507): a status header
-// (● running / ○ stopped — symbol+word, never color alone), the STATS
-// card and the ROUTES table side by side at ≥ frame.FullWidth and
-// stacked below it, the start-form hint while stopped, and the
-// Enter-on-route detail overlay. It is a reference type: the router
-// keeps one canonical instance in its registry, so routes focus and the
-// detail cursor survive page jumps. All app data arrives via SetState
-// from the root model — the page never touches internal/app and never
-// reads the clock (the SCR-501 data-flow contract dashboard.go
-// established). The start form itself is a root-owned modal (the §E
-// ConnectDialog machinery, reused), like the connect dialog never lives
-// in the page stack.
+// server.go is the §G mock-server page: a status header (symbol+word,
+// never color alone), the STATS card and ROUTES table side by side at ≥
+// frame.FullWidth and stacked below it, and the Enter-on-route detail
+// overlay. All app data arrives via SetState from the root model; the
+// page never touches internal/app and never reads the clock. The start
+// form is a root-owned modal (§E ConnectDialog machinery), never a
+// page-stack entry.
 package pages
 
 import (
@@ -31,37 +26,31 @@ type Server struct {
 	nav   serverNav
 
 	routesFocused bool
-	// logScroll is the SERVER LOG scroll offset in lines above the
-	// newest (0 = following the live tail; j/k move it, G/end resume)
-	// (proposal 05: the log is the page's primary live pane).
+	// logScroll is the SERVER LOG offset in lines above the newest
+	// (0 = following the live tail; j/k move it, G/end resume).
 	logScroll  int
 	detailOpen bool
 	detailIdx  int
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 
-	// sections records the geom.Rect of every widgets.Section this
-	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
-	// absolute offsets into the frame chrome).
+	// sections records the rect of every widgets.Section this page drew
+	// during the last render, in draw order, content-relative.
 	sections []geom.Rect
 
-	// logRect is the DRAWN SERVER LOG box (content-relative, measured
-	// from the rendered string like every sectionRect) recorded during
-	// the last View; the zero value means the pane was not on screen.
-	// It is the geometry the Task 8.2b hit map registers under
-	// RegionServerLog.
+	// logRect is the DRAWN SERVER LOG box from the last View (the zero
+	// value means the pane was not on screen); the wheel hit map
+	// registers it under RegionServerLog.
 	logRect geom.Rect
 
-	// selRows are the DRAWN ROUTES row rects (content-relative) recorded
-	// during the last render for the Task 8.3 click-select seam, under
-	// RegionServerRoutes (a select-only region: the routes table is
+	// selRows are the DRAWN ROUTES row rects (content-relative) from the
+	// last render for click-select: a select-only region (the table is
 	// unwindowed, the box clips its body).
 	selRows []SelectRegion
 }
 
 // §G owns one wheel-scrollable region (the SERVER LOG pane) and
-// click-selectable rows in the ROUTES pane (Task 8.2b/8.3 seams).
+// click-selectable rows in the ROUTES pane.
 var (
 	_ Scroller = (*Server)(nil)
 	_ Selector = (*Server)(nil)
@@ -95,8 +84,8 @@ func newServerNav() serverNav {
 	}
 	nav.help = append(tableNavHelp(),
 		actEntry("stop server", nav.Stop),
-		// r toggles the routes-pane focus (it never reloads anything —
-		// the registry text must match what the key does, E5-FIX/M6).
+		// r toggles the routes-pane focus; it never reloads anything, so
+		// the registry text must match what the key does.
 		actEntry("focus routes", nav.Routes),
 		actEntry("open route", nav.Enter),
 		actEntry("follow log tail", nav.Follow),
@@ -106,8 +95,7 @@ func newServerNav() serverNav {
 	return nav
 }
 
-// NewServer builds the page. A nil theme selects theme.Default()
-// (production); golden tests inject an explicit NewWith profile.
+// NewServer builds the page; a nil theme selects theme.Default().
 func NewServer(th *theme.Theme) *Server {
 	if th == nil {
 		th = theme.Default()
@@ -120,8 +108,8 @@ func NewServer(th *theme.Theme) *Server {
 	return s
 }
 
-// ID reports the router id of this page (ServerPageID — the wire-compat
-// slot name, kept for hotkey 4 and the palette ":server" jump).
+// ID reports the router id of this page (wire-compat slot name; hotkey 4
+// and the palette ":server" jump).
 func (s *Server) ID() string { return ServerPageID }
 
 // Theme exposes the resolved theme (view helpers and tests).
@@ -130,23 +118,20 @@ func (s *Server) Theme() *theme.Theme { return s.th }
 // Size reports the last terminal size seen via WindowSizeMsg.
 func (s *Server) Size() (width, height int) { return s.width, s.height }
 
-// RoutesFocused reports whether the routes pane owns the navigation
-// keys (r / tab toggle it; root tests and future deep links).
+// RoutesFocused reports whether the routes pane owns the navigation keys
+// (r / tab toggle it).
 func (s *Server) RoutesFocused() bool { return s.routesFocused }
 
 // DetailOpen reports the route-detail overlay state and its row index
 // (-1 when closed).
 func (s *Server) DetailOpen() (bool, int) { return s.detailOpen, s.detailIdx }
 
-// LogScroll reports the SERVER LOG offset (0 = following the newest
-// line; j/k and the wheel move it) — for root tests and deep links.
+// LogScroll reports the SERVER LOG offset (0 = following the newest line).
 func (s *Server) LogScroll() int { return s.logScroll }
 
 // ScrollRegions publishes the SERVER LOG pane's drawn rect: the region
-// exists exactly while the pane is on screen, so §G before its first log
-// line, the starting line, and the route-detail view publish nothing and
-// the wheel over them stays inert instead of phantom-hitting a box that
-// is not drawn.
+// exists only while the pane is on screen; undrawn panes publish nothing
+// and the wheel over them stays inert.
 func (s *Server) ScrollRegions() []ScrollRegion {
 	if s.logRect.W <= 0 || s.logRect.H <= 0 {
 		return nil
@@ -155,12 +140,10 @@ func (s *Server) ScrollRegions() []ScrollRegion {
 	return []ScrollRegion{{ID: RegionServerLog, Rect: s.logRect}}
 }
 
-// ScrollRegion drives the SAME logScroll offset the j/k keys move: the
-// wheel's content-direction delta maps straight onto it (d>0 = viewport
-// down = toward the newest = offset toward 0), clamped exactly like
-// updateKey. The pane's visible window is derived from the real drawn
-// height inside logBox on every render, so no separate SetHeight call
-// can go stale here.
+// ScrollRegion drives the same logScroll offset the j/k keys move (d>0 =
+// toward the newest = offset toward 0), clamped exactly like updateKey.
+// The visible window derives from the real drawn height each render, so
+// it can never go stale.
 func (s *Server) ScrollRegion(id string, d int) bool {
 	if id != RegionServerLog || s.detailOpen || s.state.Starting {
 		return false
@@ -170,8 +153,8 @@ func (s *Server) ScrollRegion(id string, d int) bool {
 	return true
 }
 
-// SelectRegions publishes the ROUTES pane's drawn row rects (Task 8.3):
-// a click on a visible route moves the routes cursor there.
+// SelectRegions publishes the ROUTES pane's drawn row rects: a click on
+// a visible route moves the routes cursor there.
 func (s *Server) SelectRegions() []SelectRegion { return s.selRows }
 
 // SelectRegion moves the routes cursor to the clicked row (clamped like
@@ -287,9 +270,8 @@ func (s *Server) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 }
 
 // Hints is the §G context keymap; stop/routes/configure are primary so
-// the narrow footer keeps them (the router appends the global
-// bindings). c is intercepted by the router on this page and opens the
-// server start form instead of the §E connect dialog.
+// the narrow footer keeps them. The router intercepts c on this page and
+// opens the server start form instead of the §E connect dialog.
 func (s *Server) Hints() []frame.KeyHint {
 	return []frame.KeyHint{
 		{Key: "s", Desc: "stop", Primary: true},

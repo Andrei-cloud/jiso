@@ -1,11 +1,7 @@
-// sessions_state.go holds the §I state contract (wireframe §I) and the
-// page→router messages. Root owns the DB truth: it queries the app read
-// façade off the UI thread (tea.Cmd), derives every display string with
-// the injectable clock (relative times, stats math, RC distribution,
-// review sections), and pushes SessionsState via SetState — the page
-// never imports internal/app and never reads the clock (the SCR-501
-// data-flow contract). The page never opens the database and never
-// writes: it is a browser over the snapshots root hands it.
+// sessions_state.go holds the §I state contract and the page→router
+// messages. Root owns the DB truth: it derives every display string off
+// the UI thread and pushes SessionsState via SetState; the page never
+// imports internal/app, never reads the clock, and never writes.
 package pages
 
 // SessionsPageID is the router id of the §I sessions DB page:
@@ -13,9 +9,8 @@ package pages
 const SessionsPageID = "sessions"
 
 // SessionRow is one SESSIONS list row: ShortID is the shortened session
-// id (Theme.ShortID: "9f3c…a1", "9f3c~a1" under the ASCII set), When the
-// root-derived
-// relative stamp ("today 12:01" / "yest 17:30" / "09-07 17:30").
+// id ("9f3c…a1"), When the root-derived relative stamp
+// ("today 12:01" / "yest 17:30" / "09-07 17:30").
 type SessionRow struct {
 	ID      string
 	ShortID string
@@ -43,8 +38,7 @@ const (
 )
 
 // TxReviewMessage is one reconstructed message section of the tx review
-// (§C-style: packed hex + parsed fields; the same capability as
-// `jiso db tx <id>`). Describe carries the reconstructed field tree as
+// (packed hex + parsed fields). Describe carries the field tree as
 // stored; RawFallback/ParseError mark the degraded reconstruction.
 type TxReviewMessage struct {
 	HEX         string
@@ -64,14 +58,8 @@ type TxReviewState struct {
 }
 
 // SessionsState is the immutable §I snapshot root pushes into the page.
-// DBPath is the configured path shown in the title ("" = not
-// configured); Note is the root-stamped status line — the typed façade
-// error rendered as empty-state text (missing DB etc.), never a crash.
-// Stats holds the selected session's overview lines (total/ok/fail/avg/
-// RC dist); History the selected session's tx rows (newest first).
-// DetailWait marks an in-flight stats/history load for SelectedID: the
-// detail panes then render the loading marker instead of the false
-// "no transactions"/"select a session" empty states (UAT round 9, F-9f).
+// Note is the root-stamped status line (never a crash dump); DetailWait
+// marks an in-flight load — detail panes show loading, never false empty.
 type SessionsState struct {
 	DBPath     string
 	Note       string
@@ -89,9 +77,8 @@ type SessionsState struct {
 type SessionsSelectMsg struct{ ID string }
 
 // SessionsFocusMsg reports the list cursor moved onto a different
-// session (UAT round 9, F-9f): root loads that session's stats + tx
-// history into the detail panes as a live preview — the same data Enter
-// loads, minus the narrow drill (the §K cursor-follow pattern).
+// session: root loads its stats + tx history into the detail panes as a
+// live preview — the same data Enter loads, minus the narrow drill.
 type SessionsFocusMsg struct{ ID string }
 
 // SessionsReviewMsg asks the router to reconstruct one stored tx for the

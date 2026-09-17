@@ -16,19 +16,11 @@ import (
 )
 
 // Transactions is the §B transactions page: a filterable, sortable table
-// over the loaded tx file. It is a reference type: the router keeps one
-// canonical instance in its registry, so filter, sort, and cursor state
-// survive page jumps. All app data arrives via SetState from the root
-// model — the page never touches internal/app and never reads the clock
-// (the SCR-501 data-flow contract dashboard.go established).
-//
-// Composition rules (ticket SCR-502): the filter keeps a row when the
-// lowercased haystack of its display fields contains the lowercased filter
-// (substring match, live as you type); sort is a stable sort on the exact
-// display cell text the Table widget sees, so page and widget order never
-// diverge; selection is tracked by row ID (transaction name) and survives
-// recomposition when the selected row still matches, else clamps to the
-// nearest valid index.
+// over the loaded tx file. All app data arrives via SetState from the root
+// model; the page never touches internal/app and never reads the clock.
+// Sort is a stable sort on the exact display cell text the Table sees, so
+// page and widget order never diverge; selection is tracked by row ID and
+// survives recomposition, else clamps to the nearest valid index.
 type Transactions struct {
 	th    *theme.Theme
 	state TransactionsState
@@ -45,23 +37,18 @@ type Transactions struct {
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 
-	// txRect is the DRAWN table box (content-relative, measured from the
-	// rendered string like every sectionRect) recorded during the last
-	// render; the zero value means the table was not on screen (error or
-	// empty state). It is the geometry the wheel hit map registers under
-	// RegionTxTable.
+	// txRect is the DRAWN table box (content-relative) from the last
+	// render; the zero value means the table was not on screen.
 	txRect geom.Rect
 
-	// selRows are the DRAWN data-row rects (content-relative, one per
-	// visible row) recorded during the last render for the Task 8.3
-	// click-select seam; the empty slice means the table was not on
-	// screen. They publish under RegionTxTable so the wheel over a row
-	// still scrolls the pane while a click selects the row.
+	// selRows are the DRAWN data-row rects (content-relative) from the
+	// last render, published under RegionTxTable so the wheel over a row
+	// scrolls the pane while a click selects the row.
 	selRows []SelectRegion
 }
 
-// §B owns one wheel-scrollable, click-selectable region (the
-// transactions table) and implements the Task 8.2c/8.3 seams.
+// §B owns one wheel-scrollable, click-selectable region (the transactions
+// table).
 var (
 	_ Scroller = (*Transactions)(nil)
 	_ Selector = (*Transactions)(nil)
@@ -103,9 +90,8 @@ func newTxNav() txNav {
 	return nav
 }
 
-// sortCycle is the `o` order (UAT round 8 D3 moved it off `f`, which now
-// picks the tx file everywhere): name → mti → description, ascending
-// then descending per column, then wrapping.
+// sortCycle is the `o` order (o sorts; `f` picks the tx file, it never
+// sorts): name → mti → description, ascending then descending per column.
 var sortCycle = [6]struct {
 	col int
 	asc bool
@@ -116,8 +102,7 @@ var sortCycle = [6]struct {
 // sortColumnNames labels the sort indicator per cycle column.
 var sortColumnNames = [3]string{"name", "mti", "description"}
 
-// NewTransactions builds the page. A nil theme selects theme.Default()
-// (production); golden tests inject an explicit NewWith profile.
+// NewTransactions builds the page; a nil theme selects theme.Default().
 func NewTransactions(th *theme.Theme) *Transactions {
 	if th == nil {
 		th = theme.Default()
@@ -128,8 +113,8 @@ func NewTransactions(th *theme.Theme) *Transactions {
 	return t
 }
 
-// ID reports the router slot this page fills ("send", the §B wire-compat
-// slot name; see TransactionsPageID).
+// ID reports the router slot this page fills ("send", the wire-compat
+// slot name).
 func (t *Transactions) ID() string { return TransactionsPageID }
 
 // Theme exposes the resolved theme (view helpers and tests).
@@ -139,7 +124,7 @@ func (t *Transactions) Theme() *theme.Theme { return t.th }
 func (t *Transactions) Size() (width, height int) { return t.width, t.height }
 
 // Filter exposes the live filter text and whether filter mode owns the
-// keyboard (root tests and future deep links).
+// keyboard.
 func (t *Transactions) Filter() (string, bool) { return t.filter, t.filtering }
 
 // SelectedID reports the identity of the row under the cursor in the
@@ -162,11 +147,9 @@ func (t *Transactions) ScrollRegions() []ScrollRegion {
 	return []ScrollRegion{{ID: RegionTxTable, Rect: t.txRect}}
 }
 
-// ScrollRegion drives the SAME row window the pgup/pgdn keys move: the
-// wheel's content-direction delta (d>0 = down) passes straight into
-// Table.ScrollBy, which clamps at both ends. The window is sized to the
-// real pane height on every render (tableGridChrome), so it cannot go
-// stale.
+// ScrollRegion drives the same row window the pgup/pgdn keys move: d>0
+// (down) passes into Table.ScrollBy, clamped at both ends. The window is
+// sized to the real pane height on every render, so it cannot go stale.
 func (t *Transactions) ScrollRegion(id string, d int) bool {
 	if id != RegionTxTable || t.txRect.W <= 0 {
 		return false
@@ -176,13 +159,13 @@ func (t *Transactions) ScrollRegion(id string, d int) bool {
 	return true
 }
 
-// SelectRegions publishes the table's drawn row rects (Task 8.3): one
-// per visible row under RegionTxTable, recorded by the last render.
+// SelectRegions publishes the table's drawn row rects: one per visible row
+// under RegionTxTable, recorded by the last render.
 func (t *Transactions) SelectRegions() []SelectRegion { return t.selRows }
 
-// SelectRegion moves the table cursor to the clicked row and re-tracks
-// the selected identity exactly like the keyboard nav does (updateNav),
-// so the next SetState preserves the click instead of snapping back.
+// SelectRegion moves the table cursor to the clicked row and re-tracks the
+// selected identity like keyboard nav, so the next SetState preserves the
+// click instead of snapping back.
 func (t *Transactions) SelectRegion(id string, index int) bool {
 	if id != RegionTxTable || index < 0 || index >= len(t.view) {
 		return false
@@ -341,8 +324,8 @@ func (t *Transactions) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	case key.Matches(msg, t.nav.PickFile):
 		return t, func() tea.Msg { return TxPickFileMsg{} }
 	case key.Matches(msg, t.nav.Cancel):
-		// Proposal 05 §4: esc unwinds to the dashboard (the registry
-		// "back" entry finally means back).
+		// Esc unwinds to the dashboard (the registry "back" entry means
+		// back).
 		return t, func() tea.Msg { return TxPopMsg{} }
 	default:
 		return t.updateNav(msg)
@@ -373,8 +356,7 @@ func (t *Transactions) yieldSelected(msgFor func(string) tea.Msg) tea.Cmd {
 }
 
 // Hints is the §B context keymap; detail/send are primary so the narrow
-// footer keeps them (the router appends the global bindings). UAT round 8
-// D3: `f` picks the tx file (the universal file key), `o` cycles the sort.
+// footer keeps them. `f` picks the tx file, `o` cycles the sort.
 func (t *Transactions) Hints() []frame.KeyHint {
 	return []frame.KeyHint{
 		{Key: "/", Desc: "filter"},

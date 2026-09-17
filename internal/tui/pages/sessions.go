@@ -1,17 +1,9 @@
-// sessions.go is the §I sessions DB page (SCR-509): a three-pane
-// browser over the session database — SESSIONS list (short id +
-// relative time), STATS for the selected session (total/ok/fail/avg/RC
-// dist), TX HISTORY (time, tx name, MTI, RC, ✓/✗, latency) — with a
-// header filter over the session list and a §C-style reconstructed tx
-// review. It is a reference type kept canonical in the router registry,
-// so filter/pane/cursor state survives page jumps. All data arrives via
-// SetState from root — the page never touches internal/app, never opens
-// the database, and never reads the clock (the SCR-501 data-flow
-// contract); bus events are ignored and refresh is the root's job (r
-// yields SessionsRefreshMsg). Pane focus follows the §C inspector: the
-// router's Tab/shift-Tab PaneFocusMsg cycles SESSIONS ↔ TX HISTORY
-// (STATS is display-only); below frame.FullWidth the panes collapse to
-// the list and Enter drills into the stats+history view.
+// sessions.go is the §I sessions DB page: a three-pane browser over the
+// session database (list, stats, tx history) with a header filter and a
+// §C-style tx review. All data arrives via SetState from root; the page
+// never touches internal/app, opens the database, or reads the clock.
+// Pane focus arrives as the router's PaneFocusMsg; below frame.FullWidth
+// the panes collapse to the list and Enter drills into stats+history.
 package pages
 
 import (
@@ -25,15 +17,10 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// EmptyTextNoSessionDB is the empty state every session-backed pane shows when no
-// --db was passed. It lived in internal/tui and internal/tui/pages as separate
-// literals, which is how one condition came to have two owners: reword one and the
-// operator sees two different explanations for the same missing flag.
+// EmptyTextNoSessionDB is the one shared empty state every session-backed
+// pane shows when no --db was passed (one owner, one explanation).
 const EmptyTextNoSessionDB = "database not configured - pass --db to enable session logging"
 
-// --db was passed. It lived in internal/tui and internal/tui/pages as separate
-// literals, which is how the same condition came to have two owners: reword one and
-// the operator sees two different explanations for the same missing flag.
 // Pane focus slots: STATS is display-only and never takes focus.
 const (
 	paneSessions = iota
@@ -58,10 +45,8 @@ type Sessions struct {
 	txID      int64        // history row under the history cursor
 
 	// reviewOpen tracks the overlay per review identity: a newly pushed
-	// Review re-arms the overlay, Esc closes it (the route/summary
-	// pattern — the overlay owns Esc first). reviewScroll is the
-	// overlay's top line (UAT round 5: a review taller than the window
-	// was unreachable — j/k and pgup/pgdn scroll it now).
+	// Review re-arms it, Esc closes it (the overlay owns Esc first);
+	// reviewScroll is its top line.
 	reviewOpen    bool
 	reviewShownID int64
 	reviewScroll  int
@@ -70,41 +55,31 @@ type Sessions struct {
 	width  int
 	height int
 
-	// sections records the geom.Rect of every widgets.Section this
-	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
-	// absolute offsets into the frame chrome).
+	// sections records the rect of every widgets.Section this page drew
+	// during the last render, in draw order, content-relative.
 	sections []geom.Rect
 
 	// listRect and reviewRect are the DRAWN boxes the wheel hit map
-	// registers under RegionSessionsList / RegionSessionsReview (Task
-	// 8.2c): recorded during the last render, the zero value means the
-	// pane was not on screen (the review overlay replaces the list, and
-	// the narrow drill shows neither list nor review).
+	// registers under RegionSessionsList / RegionSessionsReview; the
+	// zero value means that pane was not on screen last render.
 	listRect   geom.Rect
 	reviewRect geom.Rect
 
-	// selRows are the DRAWN row rects (content-relative, one per visible
-	// row) recorded during the last render for the Task 8.3 click-select
-	// seam: the SESSIONS list under RegionSessionsList (its wheel
-	// region) and the TX HISTORY pane under RegionSessionsHistory (a
-	// select-only region: that table draws every row and the box clips,
-	// so there is no wheel window to scroll).
+	// selRows are the DRAWN row rects (content-relative) from the last
+	// render for click-select: list rows carry the pane's wheel region,
+	// history rows are select-only (the box clips; no wheel window).
 	selRows []SelectRegion
 }
 
-// §I owns two wheel-scrollable regions and click-selectable rows in the
-// list and history panes (Task 8.2c/8.3 seams).
+// §I owns two wheel-scrollable regions and click-selectable rows.
 var (
 	_ Scroller = (*Sessions)(nil)
 	_ Selector = (*Sessions)(nil)
 )
 
-// ScrollRegions publishes the regions the last render drew: the
-// SESSIONS list box while the list panes are on screen, and the review
-// window while the tx review overlay is up. They never coexist (the
-// review replaces the body), and a pane that is not drawn publishes
-// nothing.
+// ScrollRegions publishes the regions the last render drew: the list box
+// and the review window never coexist (the review replaces the body), and
+// a pane that is not drawn publishes nothing.
 func (s *Sessions) ScrollRegions() []ScrollRegion {
 	out := make([]ScrollRegion, 0, 2)
 	if s.listRect.W > 0 && s.listRect.H > 0 {
@@ -120,10 +95,9 @@ func (s *Sessions) ScrollRegions() []ScrollRegion {
 	return out
 }
 
-// ScrollRegion routes the wheel's content-direction delta (d>0 = down)
-// to the same offset the keyboard drives: the list window through
-// Table.ScrollBy (clamped by the widget), the review overlay through
-// scrollReviewBy (clamped to the scroll extent, exactly like j/k).
+// ScrollRegion routes the wheel's delta (d>0 = down) to the same offset
+// the keyboard drives: the list via Table.ScrollBy, the review via
+// scrollReviewBy; both clamped by their widget.
 func (s *Sessions) ScrollRegion(id string, d int) bool {
 	switch id {
 	case RegionSessionsList:
@@ -146,13 +120,12 @@ func (s *Sessions) ScrollRegion(id string, d int) bool {
 }
 
 // SelectRegions publishes the drawn row rects of the list and history
-// panes (Task 8.3): a click on a visible row selects it.
+// panes: a click on a visible row selects it.
 func (s *Sessions) SelectRegions() []SelectRegion { return s.selRows }
 
-// SelectRegion moves the clicked pane's cursor and re-tracks the
-// selected identity exactly like the keyboard nav does (syncSelID /
-// syncTxID), so the next SetState preserves the click instead of
-// snapping back.
+// SelectRegion moves the clicked pane's cursor and re-tracks the selected
+// identity like keyboard nav, so the next SetState preserves the click
+// instead of snapping back.
 func (s *Sessions) SelectRegion(id string, index int) bool {
 	switch id {
 	case RegionSessionsList:
@@ -224,8 +197,7 @@ func newSessionsNav() sessionsNav {
 	return nav
 }
 
-// NewSessions builds the page. A nil theme selects theme.Default()
-// (production); golden tests inject an explicit NewWith profile.
+// NewSessions builds the page; a nil theme selects theme.Default().
 func NewSessions(th *theme.Theme) *Sessions {
 	if th == nil {
 		th = theme.Default()
@@ -243,9 +215,8 @@ func NewSessions(th *theme.Theme) *Sessions {
 	return s
 }
 
-// ID reports the router id of this page (SessionsPageID — the wire-
-// compat slot name "db", hotkey 6; the slot's frame tab title is §I's
-// "SESSIONS").
+// ID reports the router id of this page (wire-compat slot name "db",
+// hotkey 6; the frame tab title is "SESSIONS").
 func (s *Sessions) ID() string { return SessionsPageID }
 
 // Theme exposes the resolved theme (view helpers and tests).
@@ -264,12 +235,12 @@ func (s *Sessions) ReviewOpen() bool { return s.reviewOpen }
 func (s *Sessions) Drill() bool { return s.drill }
 
 // Filter exposes the live filter text and whether filter mode owns the
-// keyboard (root tests; the §B Transactions contract).
+// keyboard.
 func (s *Sessions) Filter() (string, bool) { return s.filter, s.filtering }
 
 // ClaimsKeyboard implements KeyboardClaimer: while the live filter owns
-// the keyboard the router forwards every key here (the §B contract), so
-// session ids containing q, digits, or : stay typeable.
+// the keyboard the router forwards every key here, so session ids
+// containing q, digits, or : stay typeable.
 func (s *Sessions) ClaimsKeyboard() bool { return s.filtering }
 
 // SelectedSessionID reports the session under the list cursor in the
@@ -293,10 +264,9 @@ func (s *Sessions) SelectedTxID() int64 {
 }
 
 // SetState replaces the rendered snapshot (root pushes it on load, on
-// every refresh, and after select/review queries). Page-local state
-// survives: the cursors are re-placed by identity (root's SelectedID,
-// the history row id), and a Review whose TxID differs from the last
-// shown one re-arms the overlay.
+// refresh, and after select/review queries). Page-local state survives:
+// cursors are re-placed by identity, and a Review whose TxID differs
+// from the last shown one re-arms the overlay.
 func (s *Sessions) SetState(state SessionsState) {
 	prevTx := s.txID
 	s.state = state
@@ -356,11 +326,9 @@ func (s *Sessions) rebuild() {
 
 	idx := 0
 	if n := len(rows); n > 0 {
-		// The cursor follows the row the user is on (identity wins over
-		// root's SelectedID, so intermediate SetStates never steal local
-		// navigation — the §B selectAfterRebuild contract); root's
-		// selection lands when the local row is gone (first load,
-		// filter, list change).
+		// Cursor follows the row the user is on (identity wins over
+		// root's SelectedID so intermediate SetStates never steal local
+		// navigation); root's selection lands when the local row is gone.
 		idx = s.rowIndexByID(rows, s.selID)
 		if idx < 0 {
 			idx = s.rowIndexByID(rows, s.state.SelectedID)
@@ -394,9 +362,8 @@ func sessionMatches(r SessionRow, f string) bool {
 	return strings.Contains(strings.ToLower(r.ID+" "+r.ShortID+" "+r.When), f)
 }
 
-// emptyText is the SESSIONS pane's short empty-state line (the full
-// next-action sentence goes to the full-width hint line — the pane is
-// too narrow to carry it without truncation).
+// emptyText is the SESSIONS pane's short empty-state line; the full
+// next-action sentence goes to the full-width hint line.
 func (s *Sessions) emptyText() string {
 	switch {
 	case s.filtering || s.filter != "":
@@ -433,11 +400,9 @@ func (s *Sessions) historyEmptyText() string {
 	return "no transactions recorded for this session"
 }
 
-// detailLoadingText is the detail panes' in-flight marker (UAT round 9,
-// F-9f): the cursor moved onto a new session and root is loading its
-// stats/history — claiming "no transactions recorded" while the leg is
-// in flight is a lie (the §K "… computing" pattern; the glyph comes from
-// the theme, so the ASCII profile stays 7-bit).
+// detailLoadingText is the detail panes' in-flight marker: claiming
+// "no transactions recorded" while the load is in flight is a lie. The
+// glyph comes from the theme, so the ASCII profile stays 7-bit.
 func (s *Sessions) detailLoadingText() string {
 	return s.th.Ellipsis() + " loading"
 }
@@ -484,8 +449,7 @@ func (s *Sessions) Hints() []frame.KeyHint {
 }
 
 // txStatusCell maps a canonical tx status token to its symbol+word cell
-// (never colour alone): ok gets the ok kind, fail the error kind,
-// timeout the error kind with its own word.
+// (never colour alone).
 func (s *Sessions) txStatusCell(status string) string {
 	switch status {
 	case TxStatusOK:

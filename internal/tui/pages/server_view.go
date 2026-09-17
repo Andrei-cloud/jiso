@@ -1,11 +1,8 @@
-// server_view.go renders the §G body (wireframe §G): the status header
-// row ("MOCK SERVER ● running :9999 (binary2) uptime 00:42:11" /
-// "MOCK SERVER ○ stopped") above a STATS box and a ROUTES table — side
-// by side at ≥ frame.FullWidth, stacked below it (the dashboard/scenarios
-// responsive contract). While the server has never been snapshotted the
-// stats box becomes the start-form hint (wireframe's bottom line); the
-// Enter-on-route detail replaces the whole body. Sizing comes from
-// frame.ContentSize; the frame owns the surrounding chrome.
+// server_view.go renders the §G body: the status header row above a STATS
+// box and a ROUTES table — side by side at ≥ frame.FullWidth, stacked
+// below — the start-form hint until the first snapshot, and the
+// Enter-on-route detail, which replaces the whole body. The frame owns
+// the surrounding chrome.
 package pages
 
 import (
@@ -38,10 +35,7 @@ const (
 	serverNarrowLogH = 6
 
 	// serverStatsFraction sizes the STATS column at the two-column
-	// (no-log) split: one third of the content width, floored only (UAT
-	// round 8 finding 5: the old 26..40 clamp froze the split and left a
-	// trailing gap). The three-column split sizes STATS at one fifth
-	// (server3ColWidths).
+	// (no-log) split: one third of the content width, floored only.
 	serverStatsFraction = 3
 	serverStatsMin      = 26
 	serverSectionGap    = 1
@@ -58,11 +52,9 @@ const (
 	asciiDotOff = "o"
 )
 
-// startHintLines is the wireframe's start-form line, shown in place of
-// the stats card until a server has ever been snapshotted. The lines are
-// pre-styled (body copy muted, the c/Enter hotkeys bold-accent per the
-// UAT round-4 convention), so startHintBody must join them without
-// re-styling the block.
+// startHintLines is the start-form line, shown in place of the stats card
+// until a server has ever been snapshotted. The lines arrive pre-styled,
+// so startHintBody must join them without re-styling the block.
 func startHintLines(th *theme.Theme) []string {
 	sep := th.Separator()
 
@@ -77,8 +69,7 @@ func startHintLines(th *theme.Theme) []string {
 }
 
 // serverColumns are the ROUTES columns; MATCH is the flex column that
-// gives first on narrow terminals (the Table's fit clamp keeps every
-// line inside the pane).
+// gives first on narrow terminals.
 func serverColumns() []widgets.Column {
 	return []widgets.Column{
 		{Title: "MATCH", Width: 30, Flex: true},
@@ -122,7 +113,7 @@ func (s *Server) render(w, h int) string {
 		if len(s.state.Log) == 0 {
 			// Two columns by ratio: STATS keeps its third (floor only)
 			// and ROUTES absorbs the remainder, so the join sums exactly
-			// to the content width (UAT round 8 finding 5).
+			// to the content width.
 			statsW := max(w/serverStatsFraction, serverStatsMin)
 			routesW := w - statsW - serverSectionGap
 
@@ -138,9 +129,9 @@ func (s *Server) render(w, h int) string {
 			return clipBlockStyled(s.th, head+"\n"+body, h, w)
 		}
 
-		// Proposal 05 §1: the LOG is the live signal and owns the big
-		// right pane at full height; STATS and ROUTES keep their
-		// natural (short) heights, top-aligned (JoinHorizontal pads).
+		// The LOG is the live signal and owns the big right pane at full
+		// height; STATS and ROUTES keep their natural (short) heights,
+		// top-aligned (JoinHorizontal pads).
 		statsW, logW, routesW := server3ColWidths(w)
 		statsH := min(serverStatsBoxH, paneH)
 		routesH := min(paneH, max(len(s.state.Routes)+5, 6))
@@ -172,9 +163,9 @@ func (s *Server) render(w, h int) string {
 }
 
 // narrowStackedLogs renders the narrow with-log stack: STATS over LOG over
-// ROUTES. Each section's "\n" terminator costs no line of its own, and a
-// ModeServer box draws short of its nominal height, so the stacked origins
-// chain off the measured section strings.
+// ROUTES. Each "\n" costs no line of its own and a ModeServer box draws
+// short of its nominal height, so the stacked origins chain off the
+// measured section strings.
 func (s *Server) narrowStackedLogs(head string, headH, w, h, paneH int) string {
 	statsH := min(serverStatsBoxH, max(paneH-serverNarrowLogH-serverSectionGap*2, 6))
 	logH := min(serverNarrowLogH+4, max(paneH-statsH-serverSectionGap*2, serverLogMinBoxH))
@@ -224,13 +215,10 @@ func (s *Server) errorLine(w int) string {
 	return clipCells(s.th.Status(theme.KindError, s.state.Error), w, clipTail(s.th))
 }
 
-// server3ColWidths sizes the proposal-05 three-column body by ratio of
-// the content width (UAT round 8 finding 5: the old fixed 26-cell STATS
-// column and the 36..64 ROUTES clamp left a trailing gap on every wide
-// terminal): STATS keeps a fifth (floor 26), ROUTES keeps 28% (floor 36
-// so match expressions stay readable) and the LOG — the live signal and
-// always the widest column at full width — absorbs the remainder, so the
-// three columns plus the two gaps sum exactly to w.
+// server3ColWidths sizes the three-column body by ratio of the content
+// width: STATS keeps a fifth (floor 26), ROUTES keeps 28% (floor 36, so
+// match expressions stay readable), and the LOG absorbs the remainder —
+// the three columns plus the two gaps sum exactly to w.
 func server3ColWidths(w int) (statsW, logW, routesW int) {
 	statsW = max(w/5, serverStatsMin)
 	routesW = max(w*28/100, 36)
@@ -239,8 +227,8 @@ func server3ColWidths(w int) (statsW, logW, routesW int) {
 	return statsW, logW, routesW
 }
 
-// logFooterHint is the dim last line inside the LOG box (proposal 05
-// §1: the pane self-documents its scroll keys).
+// logFooterHint is the dim last line inside the LOG box: the pane
+// self-documents its scroll keys.
 func logFooterHint(th *theme.Theme) string {
 	return pickGlyph(th,
 		"newest at bottom · j/k scroll · end follows",
@@ -248,9 +236,8 @@ func logFooterHint(th *theme.Theme) string {
 }
 
 // logBox renders the SERVER LOG window: the raw ring lines compacted by
-// CompactServerLog, oldest at the top, honoring the page's logScroll
-// offset (0 = following the newest) and ending with the scroll hint
-// line at the bottom of the box.
+// CompactServerLog, oldest at the top, honoring logScroll (0 = following
+// the newest), ending with the scroll hint line at the box bottom.
 func (s *Server) logBox(x, y, w, h int) string {
 	inner := max(h-3, 1)
 	total := len(s.state.Log)
@@ -270,12 +257,11 @@ func (s *Server) logBox(x, y, w, h int) string {
 	}
 	body = append(body, clipCells(s.th.Deemphasized.Render(logFooterHint(s.th)), max(w-2, 8), clipTail(s.th)))
 
-	// The log pane is the default focus target (j/k scroll it until r
-	// or Tab moves to ROUTES); UAT round 5 makes that visible.
+	// The log pane is the default focus target until r or Tab moves to
+	// ROUTES; the lit title makes that visible.
 	out := s.sectionW(paneTitle(s.th, titleLog, !s.routesFocused), strings.Join(body, "\n"), x, y, w, h, !s.routesFocused)
-	// Publish the DRAWN box for the wheel hit map (Task 8.2b): measured
-	// from the composed string exactly like every recorded section rect,
-	// so the registered region is the ink the user sees.
+	// Publish the DRAWN box for the wheel hit map: measured from the
+	// composed string, so the region is the ink the user sees.
 	s.logRect = sectionRect(x, y, out)
 
 	return out
@@ -305,9 +291,8 @@ func (s *Server) statsBody() string {
 		return s.th.Deemphasized.Render(padRight(label, serverStatsLabelCol)) +
 			s.th.TextPrimary.Render(value)
 	}
-	// Proposal 05 §1: the compact card form — percent and drop_conn get
-	// their own indented continuation lines so the card fits the narrow
-	// first column without wrapping.
+	// The compact card form: percent and drop_conn get their own indented
+	// continuation lines so the card fits the narrow first column.
 	sub := func(text string) string {
 		return "  " + s.th.Deemphasized.Render(text)
 	}
@@ -323,28 +308,24 @@ func (s *Server) statsBody() string {
 	}, "\n")
 }
 
-// startHintBody renders the wireframe's start-form hint block: the
-// lines arrive pre-styled from startHintLines, so they are only joined
-// (an outer Render here would re-tint every segment and flatten the
-// HotKey glyphs).
+// startHintBody renders the start-form hint block: the lines arrive
+// pre-styled from startHintLines, so they are only joined (an outer Render
+// would re-tint every segment and flatten the HotKey glyphs).
 func (s *Server) startHintBody() string {
 	return strings.Join(startHintLines(s.th), "\n")
 }
 
-// routesBox renders the titled ROUTES table box sized into the pane.
-// The table is sized to the box's inner content width (the drawn box is
-// w wide with two border cells, so a wider table word-wraps the
-// right-aligned HITS column — UAT round 5; sessions listBox idiom).
+// routesBox renders the titled ROUTES table box sized into the pane. The
+// table is sized to the box's inner width (the drawn box is w wide with two
+// border cells; a wider table word-wraps the HITS column).
 func (s *Server) routesBox(x, y, w, h int) string {
 	s.table.SetFocused(s.routesFocused)
 	s.table.SetWidth(max(w-2, 4))
 
 	out := s.sectionW(paneTitle(s.th, titleRoutes, s.routesFocused), s.table.View(), x, y, w, h, s.routesFocused)
-	// Publish the drawn rows for the click hit map (Task 8.3): the ModeServer
-	// box draws w wide with two border cells and clips its body to h-3
-	// lines of w-2 cells (sectionW hands the shared Section w+2), so the
-	// table body sits at x+1 under the title line and top rule, and only
-	// the table lines the box actually draws get a hit.
+	// Publish the drawn rows for the click hit map: the box clips its body
+	// to h-3 lines and the table body sits at x+1, y+2, so only table
+	// lines the box actually draws get a hit.
 	for _, rh := range s.table.RowHits() {
 		if rh.Rect.Y >= max(h-3, 1) {
 			continue // the box clips this line away: no ink, no hit
@@ -359,17 +340,12 @@ func (s *Server) routesBox(x, y, w, h int) string {
 	return out
 }
 
-// sectionW draws a titled bordered box occupying exactly w×h in the page
-// layout (h includes the title line) through the one shared
-// widgets.Section in ModeServer: the shared box draws two cells narrower
-// than the nominal width it is handed (its pinned ModeServer contract),
-// so sectionW hands it w+2 and the DRAWN box lands its right border on
-// the layout edge — the joins then sum exactly to the content width
-// (UAT round 8 finding 5). The body clips to the box's CONTENT width
-// (w-2). A focused pane's border takes the accent colour (UAT round 5:
-// the server page had no focus indication at all); the rest keep the
-// neutral border token. The section's Rect is recorded on the page at
-// its content-relative origin, measured from the drawn string.
+// sectionW draws a titled bordered box occupying exactly w×h (title line
+// included) via the shared Section in ModeServer, which draws two cells
+// narrower than its nominal width: sectionW hands it w+2 so the drawn right
+// border lands on the layout edge and the joins sum exactly to the content
+// width. A focused pane's border takes the accent colour; the Rect is
+// recorded content-relative, measured from the drawn string.
 func (s *Server) sectionW(title, body string, x, y, w, h int, focused bool) string {
 	sec := widgets.NewSection(s.th, title)
 	sec.Mode = widgets.ModeServer
@@ -420,9 +396,7 @@ func (s *Server) hitsCell(r RouteRow) string {
 }
 
 // formatCount renders n with thousands separators ("1,204"). Written
-// inline on purpose: golang.org/x/humanize does not exist as a package
-// and promoting the indirect github.com/dustin/go-humanize dependency
-// for one six-line helper is not worth the go.mod change.
+// inline on purpose: no humanize dependency for one six-line helper.
 func formatCount(n int64) string {
 	s := strconv.FormatInt(n, 10)
 	neg := strings.HasPrefix(s, "-")

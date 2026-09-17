@@ -1,11 +1,7 @@
 // serverlog.go compacts the mock server's raw output lines into the
-// one-row log entries the §4 SERVER LOG pane and the dashboard SERVER
-// LOG card render (proposal 05 §1): the raw line stays in the root
-// ring, the page-side renderer turns
-// "09:17:03 [SERVER] 🟢 Matched Route 'Echo' for MTI 0800 -> Responding 0810 (RC: 00)"
-// into "09:17:03 🟢 Echo · 0800→0810 · RC 00" so the pane's width holds
-// real signal instead of boilerplate. Unrecognized lines pass through
-// verbatim (the compact form is an optimization, never a filter).
+// one-row log entries the §G SERVER LOG pane and the dashboard card
+// render. The raw line stays in the root ring; unrecognized lines pass
+// through verbatim (the compact form is an optimization, never a filter).
 package pages
 
 import (

@@ -1,12 +1,8 @@
-// sessions_view.go renders the §I body (wireframe §I): the header line
-// ("SESSIONS (db: ./sessions.db)  filter: ▏"), then at ≥ frame.FullWidth
-// the three panes side by side — SESSIONS list, STATS card for the
-// selected session, TX HISTORY table — and below it the responsive
-// fallback: the sessions list alone, Enter drilling into the stacked
-// stats+history view (the wireframe's 80×24 row). The tx review overlay
-// replaces the body while open (§C-style reconstructed hex + parsed
-// fields; Esc closes first). Everything is pre-derived display data;
-// the only math here is pane sizing.
+// sessions_view.go renders the §I body: the header line, then at ≥
+// frame.FullWidth the three panes side by side; below that the list alone
+// or the stacked stats+history drill. The tx review overlay replaces the
+// body while open. Everything is pre-derived display data; the only math
+// here is pane sizing.
 package pages
 
 import (
@@ -30,8 +26,7 @@ const (
 	sessionsMinListWidth    = 20
 	sessionsMinHistoryWidth = 40
 	// The list and stats panes are ratios of the content width at split
-	// widths (UAT round 8 finding 5: the old fixed 30-cell caps froze the
-	// split on wide terminals); TX HISTORY absorbs the remainder.
+	// widths; TX HISTORY absorbs the remainder.
 	sessionsListFraction  = 4
 	sessionsStatsFraction = 4
 	sessionsMinStatsWidth = 20
@@ -51,8 +46,8 @@ func (s *Sessions) View() tea.View {
 // review body), clipped to exactly h lines of at most w cells.
 func (s *Sessions) render(w, h int) string {
 	s.sections = s.sections[:0] // redraw the section rects alongside the ink
-	// The wheel regions re-publish below, or not at all (a pane that is
-	// not drawn publishes nothing; Task 8.2c).
+	// The wheel regions re-publish below, or not at all: a pane that is
+	// not drawn publishes nothing.
 	s.listRect = geom.Rect{}
 	s.reviewRect = geom.Rect{}
 	s.selRows = s.selRows[:0] // the panes' click rows re-publish likewise
@@ -65,9 +60,8 @@ func (s *Sessions) render(w, h int) string {
 		headH++
 	}
 	// The empty-state hint repeats the note verbatim when the whole
-	// database is missing (both name "database not configured - pass
-	// --db…"); showing it twice is clutter, so render it only when it
-	// adds something the root note did not already say (UAT round 6 QA).
+	// database is missing; render it only when it adds something the
+	// root note did not already say.
 	if line := s.emptyHintLine(); line != "" && line != note {
 		head += "\n" + clipCells(s.th.TextMuted.Render(line), w, clipTail(s.th))
 		headH++
@@ -144,43 +138,39 @@ func (s *Sessions) noteLine(w int) string {
 	return clipCells(s.th.Status(theme.KindWarn, s.state.Note), w, clipTail(s.th))
 }
 
-// listBox renders the SESSIONS pane: the filtered list table in a
-// titled box; the title is accented and the border lit while the pane
-// holds focus (UAT round 5: two accented titles and two cursor markers
-// made the active pane ambiguous). The table is sized to the box's
-// inner content width (lipgloss v2 Width includes the border, so a
-// table padded to w-2 would word-wrap). (x,y) is the section's
-// content-relative origin, recorded with its Rect.
+// listBox renders the SESSIONS pane: the filtered table in a titled box;
+// the focused pane accents its title and lights its border (one active
+// pane at a time). The table is sized to the box's inner width (lipgloss
+// Width includes the border). (x,y) is the section's content-relative
+// origin, recorded with its Rect.
 func (s *Sessions) listBox(x, y, w, h int) string {
 	focused := s.pane == paneSessions
 	s.list.SetFocused(focused)
 	s.list.SetWidth(max(w-4, sessionsMinListWidth))
 	// The section's body budget is h-3 rows (title + two border rows);
 	// the flat table spends one on its header, so the wheel window takes
-	// the rest and the pane stays exactly full (Task 8.2c fill).
+	// the rest and the pane stays exactly full.
 	s.list.SetHeight(max(h-4, 1))
 	out := s.sectionW(s.paneTitle(titleSessions, focused), s.list.View(), x, y, w, h, focused)
-	// Publish the DRAWN pane box for the wheel hit map (Task 8.2c).
+	// Publish the DRAWN pane box for the wheel hit map.
 	s.listRect = sectionRect(x, y, out)
-	// And the drawn rows for the click hit map (Task 8.3): the windowed
-	// flat table sits inside the left border (x+1), under the title line
-	// and the box top rule (y+2); its lines clip to w-4 cells.
+	// And the drawn rows for the click hit map: the windowed flat table
+	// sits inside the left border (x+1), under the title line and the box
+	// top rule (y+2); its lines clip to w-4 cells.
 	s.appendRows(RegionSessionsList, s.list.RowHits(), x, y, max(w-4, 1), max(h-3, 1))
 
 	return out
 }
 
 // statsBox renders the STATS card (root-derived label/value lines).
-// STATS is display-only and never takes focus, so its title stays
-// muted — accenting it made two panes look active at once (UAT round 5).
+// STATS is display-only, so its title stays muted (one active pane).
 func (s *Sessions) statsBox(x, y, w, h int) string {
 	return s.sectionW(paneTitle(s.th, titleSessionsStats, false), s.statsBody(), x, y, w, h, false)
 }
 
 // historyBox renders the TX HISTORY pane, titled with the selected
-// session's short id (wireframe: "TX HISTORY (9f3c…a1)"). The focused
-// pane accents its title, lights its border, and is the only table
-// showing a cursor marker (UAT round 5).
+// session's short id. The focused pane accents its title and is the only
+// table showing a cursor marker.
 func (s *Sessions) historyBox(x, y, w, h int) string {
 	focused := s.pane == paneHistory || s.drill // the drill drives history directly
 	s.history.SetFocused(focused)
@@ -191,21 +181,18 @@ func (s *Sessions) historyBox(x, y, w, h int) string {
 	}
 
 	out := s.sectionW(s.paneTitle(title, focused), s.history.View(), x, y, w, h, focused)
-	// Publish the drawn rows for the click hit map (Task 8.3): the
-	// history table is unwindowed (it renders every row and the box
-	// clips the body to h-3 lines), so only table lines the box actually
-	// draws get a hit — phantom rows below the border stay inert.
+	// Publish the drawn rows for the click hit map: the unwindowed table
+	// renders every row and the box clips the body, so phantom rows below
+	// the border stay inert.
 	s.appendRows(RegionSessionsHistory, s.history.RowHits(), x, y, max(w-4, 1), max(h-3, 1))
 
 	return out
 }
 
 // appendRows publishes a boxed pane's drawn row rects for the click hit
-// map: the table body sits one cell inside the left border and under the
-// title line plus the box top rule, its lines clipped to innerW cells
-// (the Section.Render convention). maxTableY caps which table lines are
-// drawn — pass the box's body height for an unwindowed table, or 0 when
-// the widget's own scroll window already limits the render.
+// map: the table body sits one cell inside the border (x+1, y+2), clipped
+// to innerW cells. maxTableY drops lines the box clips away; 0 when the
+// widget's own scroll window already limits the render.
 func (s *Sessions) appendRows(id string, hits []widgets.RowHit, x, y, innerW, maxTableY int) {
 	for _, h := range hits {
 		if maxTableY > 0 && h.Rect.Y >= maxTableY {
@@ -241,9 +228,8 @@ func (s *Sessions) statsBody() string {
 	return strings.Join(lines, "\n")
 }
 
-// statsEmptyText names the missing selection (wireframe empty state);
-// while a detail load is in flight it shows the loading marker instead
-// (UAT round 9, F-9f: "select a session" is a lie mid-load).
+// statsEmptyText names the missing selection; during an in-flight detail
+// load it shows the loading marker instead (never a stale empty claim).
 func (s *Sessions) statsEmptyText() string {
 	if s.state.DetailWait {
 		return s.detailLoadingText()
@@ -256,27 +242,25 @@ func (s *Sessions) statsEmptyText() string {
 }
 
 // renderReview shows the head lines pinned plus a WINDOW of the review
-// body starting at s.reviewScroll (UAT round 5: the old render
-// flattened head+body to exactly h lines, so a review taller than the
-// window silently clipped its RESPONSE sections — and even its own esc
-// hint — out of reach). The scroll is clamped here against the live
-// content, so a stale offset after a resize still renders sanely.
+// body starting at s.reviewScroll — not a clip, so nothing is silently
+// cut off. The scroll is clamped here against the live content, so a
+// stale offset after a resize still renders sanely.
 func (s *Sessions) renderReview(head string, headH, h, w int) string {
 	body := strings.Split(strings.TrimRight(s.reviewBody(), "\n"), "\n")
 	avail := max(h-headH, 1)
 	top := min(max(s.reviewScroll, 0), max(len(body)-avail, 0))
 	window := strings.Join(body[top:min(top+avail, len(body))], "\n")
 	// Publish the review window (everything under the pinned head) for
-	// the wheel hit map (Task 8.2c): the whole area scrolls as one.
+	// the wheel hit map: the whole area scrolls as one.
 	s.reviewRect = geom.Rect{X: 0, Y: headH, W: w, H: avail}
 
 	return clipBlockStyled(s.th, head+"\n"+window, h, w)
 }
 
 // reviewBody renders the §C-style reconstructed tx review: headline
-// lines, then per message the packed HEX block and the parsed FIELDS
-// (describe) block, closed by the esc hint (Esc owns the keyboard
-// first). Raw fallbacks and parse errors are surfaced, never hidden.
+// lines, then per message the HEX block and parsed FIELDS block, closed
+// by the esc hint (Esc owns the keyboard first). Raw fallbacks and parse
+// errors are surfaced, never hidden.
 func (s *Sessions) reviewBody() string {
 	r := s.state.Review
 	var b strings.Builder
@@ -314,19 +298,16 @@ func (s *Sessions) reviewMessage(title string, m *TxReviewMessage) string {
 	return b.String()
 }
 
-// plainBlock keeps a multi-line block verbatim (the outer
-// clipBlockStyled still clamps every line to the pane width and pads
-// the section to the exact height).
+// plainBlock keeps a multi-line block verbatim; the outer
+// clipBlockStyled still clamps every line and pads the section.
 func plainBlock(block string) string {
 	return strings.TrimRight(block, "\n")
 }
 
-// sectionW draws a titled bordered box of total size w×h (h includes
-// the title line) through the one shared widgets.Section, so joins stay
-// aligned (the dashboard layout.go convention). A focused pane's border
-// takes the accent colour (UAT round 5: the active pane must be
-// obvious); the rest keep the neutral border token. The section's Rect
-// is recorded on the page at its content-relative origin.
+// sectionW draws a titled bordered box of total size w×h (h includes the
+// title line) through the one shared widgets.Section, so joins stay
+// aligned. A focused pane's border takes the accent colour; the section's
+// Rect is recorded content-relative.
 func (s *Sessions) sectionW(title, body string, x, y, w, h int, focused bool) string {
 	sec := widgets.NewSection(s.th, title)
 	sec.Focused = focused
