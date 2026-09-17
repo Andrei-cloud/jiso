@@ -1,7 +1,7 @@
-// root_analyze_run.go is the §J run leg: the goal/header/mask picks, arming the
-// engine, and applying its result to the wizard. The engine call happens in a
-// tea.Cmd; the apply here is pure state plus a command, and it drops any result
-// whose seq token is not the current one.
+// root_analyze_run.go is the §J run leg: the goal/header/mask picks, arming
+// the engine, and applying its result. The engine call happens in a
+// tea.Cmd; the apply is pure state and drops results whose seq token is
+// not the current one.
 package tui
 
 import (
@@ -14,11 +14,9 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// handleAnalyzeRunMsg is Enter on the run step: start the analysis
-// through the existing run leg with the folded inline options. The
-// "/" flow filter is mapped to the run's port set over the enumerated
-// dst flows ("" = all flows; a filter matching none is a note, never a
-// fabricated selection).
+// handleAnalyzeRunMsg is Enter on the run step: start the analysis with the
+// folded inline options. The "/" filter maps to the run's port set; a filter
+// matching none is a note, never a fabricated selection.
 func (m *RootModel) handleAnalyzeRunMsg(msg pages.AnalyzeRunMsg) (tea.Model, tea.Cmd) {
 	if m.analyzeStep != pages.StepRun {
 		return m, nil
@@ -45,10 +43,9 @@ func (m *RootModel) handleAnalyzeRunMsg(msg pages.AnalyzeRunMsg) (tea.Model, tea
 	return m, m.armAnalyzeRun()
 }
 
-// analyzeRunSelection computes the run set from the pending directions
-// intersected with the rows the filter shows. It returns nil selections plus
-// an explanatory note when the selection is empty; Enter never resurrects
-// excluded flows.
+// analyzeRunSelection computes the run set: pending directions intersected
+// with the filter-visible rows. An empty selection returns nil plus a note;
+// Enter never resurrects excluded flows.
 func analyzeRunSelection(rows []pages.AnalyzeFlowRow, filter string) ([]app.FlowSelection, string) {
 	sels := make([]app.FlowSelection, 0, len(rows))
 	for _, r := range rows {
@@ -68,10 +65,8 @@ func analyzeRunSelection(rows []pages.AnalyzeFlowRow, filter string) ([]app.Flow
 	return nil, "no flows selected - space includes, a includes all"
 }
 
-// handleAnalyzeChooseGoal / Header / Mask fold the run step's inline
-// selections (and the header step's pick) into the wizard truth; any
-// selection change marks the run stale (the results must match the
-// selections).
+// handleAnalyzeChooseGoal / Header / Mask fold the inline selections into
+// the wizard truth; any change marks the run stale so results match picks.
 func (m *RootModel) handleAnalyzeChooseGoal(msg pages.AnalyzeChooseGoalMsg) (tea.Model, tea.Cmd) {
 	switch msg.Goal {
 	case pages.AnalyzeGoalTransactions, pages.AnalyzeGoalMockRoutes, pages.AnalyzeGoalScenario:
@@ -149,9 +144,8 @@ func (m *RootModel) armAnalyzeRun() tea.Cmd {
 	}
 }
 
-// applyAnalyzeRun folds the engine result: success attaches the run
-// output and the results preview (PreviewWrite is a pure string call);
-// errors land as the run-step Note.
+// applyAnalyzeRun folds the engine result: success attaches the run output
+// and results preview; errors land as the run-step Note.
 func (m *RootModel) applyAnalyzeRun(msg analyzeRunLoadedMsg) (tea.Model, tea.Cmd) {
 	m.analyzeRunWait = false
 	if msg.seq != m.analyzeSeq || m.Current().ID() != pages.AnalyzePageID {
@@ -165,8 +159,7 @@ func (m *RootModel) applyAnalyzeRun(msg analyzeRunLoadedMsg) (tea.Model, tea.Cmd
 		return m, nil
 	}
 	if msg.out == nil {
-		// A nil output without an error is a broken leg, not a preview
-		// (E5-FIX/B2: the old code nil-derefed through PreviewWrite).
+		// A nil output without an error is a broken leg, not a preview.
 		m.analyzeStatus = pages.AnalyzeStatusError
 		m.analyzeNote = "analyze produced no output"
 

@@ -1,11 +1,6 @@
-// root_analyze_unparsable.go builds the §J unparsable-message reviewer
-// roster (UAT round 6: the tester must see WHERE framing breaks and
-// WHAT the analyzer choked on, not just a black-box count). Each
-// collected sample becomes a row carrying its stream offset, byte
-// length, unpack reason, the raw head bytes, the byte where parsing
-// stopped, and the fields that unpacked before the failure. Root only
-// maps data — the page renders the describe panel and paints the
-// unparsed bytes, so no styling happens here.
+// root_analyze_unparsable.go maps the collected failure samples into the §J
+// reviewer roster (offset, length, reason, head bytes, stop byte, parsed
+// fields). Root only maps data — the page renders and styles.
 package tui
 
 import (

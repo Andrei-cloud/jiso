@@ -1,7 +1,6 @@
-// analyze_select.go is what the operator's cursor and draft text mean: filtering a
-// list against the draft, resolving the current selection to a capture or spec
-// path, and keeping the cursor inside a list that just changed size. It answers
-// questions about a selection; analyze_keys.go decides when to ask them.
+// analyze_select.go answers questions about the cursor and draft: filtering a
+// list against the draft, resolving the selection to a capture or spec path,
+// and keeping the cursor inside a list that just changed size.
 package pages
 
 import (
@@ -17,10 +16,7 @@ func (a *Analyze) filteredCapture() []WizardItem {
 func (a *Analyze) filteredSpec() []WizardItem { return filterWizardItems(a.state.SpecItems, a.draft) }
 
 // filterWizardItems keeps items whose label or path contains the filter
-// (case-insensitive, the send wizard's own filter semantics).
-
-// filterWizardItems keeps items whose label or path contains the filter
-// (case-insensitive, the send wizard's own filter semantics).
+// (case-insensitive).
 func filterWizardItems(items []WizardItem, filter string) []WizardItem {
 	f := strings.ToLower(strings.TrimSpace(filter))
 	if f == "" {
@@ -44,10 +40,9 @@ func looksLikeCapture(s string) bool {
 	return looksLikePath(s) || strings.HasSuffix(s, ".pcap") || strings.HasSuffix(s, ".pcapng")
 }
 
-// pickedCapture returns the Enter value of the capture step: the typed
-// path when the draft looks like one, else the candidate under the
-// cursor; an empty list with an empty draft returns "" so root opens
-// the file picker (the updateWizardKey empty-step escape).
+// pickedCapture returns the Enter value of the capture step: the typed path
+// when the draft looks like one, else the candidate under the cursor; an
+// empty list with an empty draft returns "" so root opens the file picker.
 func (a *Analyze) pickedCapture() (string, bool) {
 	if looksLikeCapture(a.draft) {
 		return strings.TrimSpace(a.draft), true
@@ -80,12 +75,8 @@ func (a *Analyze) pickedSpec() (string, bool) {
 	return idx[a.sel].Path, true
 }
 
-// visibleFlowRows lists the flow rows the run step's flow filter shows,
-// in display order and capped to the rendered window — the domain of
-// the flow cursor. UAT round 6: the cursor spans dst AND src rows (a
-// paired src row toggles its conversation's port, the same unit its
-// dst row names); confining the cursor to dst rows left it stuck when
-// only one dst flow was visible.
+// visibleFlowRows lists the flow rows the filter shows, capped to the rendered
+// window — the flow cursor's domain, spanning dst AND src rows.
 func (a *Analyze) visibleFlowRows() []AnalyzeFlowRow {
 	rows := make([]AnalyzeFlowRow, 0, len(a.state.Flows))
 	for _, f := range a.state.Flows {

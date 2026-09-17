@@ -1,7 +1,6 @@
-// root_analyze_write.go is the §J write leg: writing the analyze output to the
-// user's config directory, including the overwrite check that never silently
-// replaces a same-named file. The stat and the write are both commands; the
-// confirm decision rides the shared widgets.ConfirmDialog.
+// root_analyze_write.go is the §J write leg: writing the analyze output to
+// the user's config directory without ever silently replacing a same-named
+// file; the confirm decision rides the shared widgets.ConfirmDialog.
 package tui
 
 import (
@@ -18,24 +17,18 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// handleAnalyzeWrite is w on the run step: stat the output path off the
-// UI thread first (the §K root_ctf.go precedent) — the write lands on
-// the USER's real config file, so same-named items must never be
-// silently replaced: an existing target routes to the §N3
-// ConfirmDialog (default No) before anything is written. The write leg
-// then carries a cancellable ctx: abort/leave cancel it so a stale leg
-// never starts a second SaveItems while an earlier one is still
-// rewriting the file.
+// handleAnalyzeWrite is w on the run step: stat the output path off the UI
+// thread first; an existing target routes to the §N3 ConfirmDialog before
+// anything is written. One write in flight, no queue: the leg carries a
+// cancellable ctx so a stale write never restarts SaveItems mid-rewrite.
 func (m *RootModel) handleAnalyzeWrite() (tea.Model, tea.Cmd) {
 	if m.analyzeStep != pages.StepRun || m.analyzeWriteWait || m.analyzeRunWait ||
 		m.analyzeOutput == nil || m.analyzeOverwriteConfirm != nil {
 		return m, nil
 	}
 	if m.analyzeRunStale {
-		// The output path (or any selection) changed after the last
-		// run: the plan is bound to the path used AT RUN TIME, so
-		// writing now would land the items in the stale target
-		// (UAT round 5). Re-run first.
+		// The plan is bound to the path used AT RUN TIME; writing now would
+		// land the items in the stale target. Re-run first.
 		m.analyzeWriteLine = "selections changed - enter re-runs the analysis first"
 		m.analyzeWriteOK = false
 
@@ -149,11 +142,9 @@ func (m *RootModel) applyAnalyzeWrite(msg analyzeWriteLoadedMsg) (tea.Model, tea
 	return m, nil
 }
 
-// handleAnalyzeOutCommit records the [o] output path (UAT round 5):
-// stored as typed (the output file may not exist yet — that is the
-// point), absolutized like the wizard's file commit, and the run is
-// marked stale because the preview text and the write target are bound
-// to the path used at run time. Enter re-runs to refresh both.
+// handleAnalyzeOutCommit records the [o] output path as typed (it may not
+// exist yet), absolutized like the wizard's file commit, and marks the run
+// stale: preview and write target are bound to the path used at run time.
 func (m *RootModel) handleAnalyzeOutCommit(msg pages.AnalyzeOutCommitMsg) (tea.Model, tea.Cmd) {
 	path := strings.TrimSpace(msg.Path)
 	if path == "" {
@@ -171,14 +162,10 @@ func (m *RootModel) handleAnalyzeOutCommit(msg pages.AnalyzeOutCommitMsg) (tea.M
 	return m, nil
 }
 
-// applyAnalyzeOutputPick commits a run-step picker selection as the
-// output path (UAT round 8 finding 6). A file names itself; the [s]
-// folder pick names a directory, which the engine cannot write — so
-// the effective output's file name (the config file's base, else the
-// goal's default) is appended and the operator renames it with [o].
-// Either way the commit rides the same [o] leg the typed path uses
-// (absolutize, stale flag, write gate), so a selection is immediately
-// usable.
+// applyAnalyzeOutputPick commits a picker selection as the output path. A
+// file names itself; the [s] folder pick names a directory, which the
+// engine cannot write — the effective output's file name is appended
+// instead. Either way the commit rides the same [o] leg as the typed path.
 func (m *RootModel) applyAnalyzeOutputPick(path string) (tea.Model, tea.Cmd) {
 	if abs, err := filepath.Abs(path); err == nil {
 		path = abs

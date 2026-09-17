@@ -1,14 +1,7 @@
-// analyze_view.go renders the §J body as a wizard in the send wizard's
-// visual vocabulary: a "PCAP ANALYZE  1 capture ▸ 2 spec ▸ 3 header ▸
-// 4 run" rail (current step accented, the rest dim), the step body
-// (▸-cursor candidate lists with a filter line that doubles as a typed
-// path, the radio-style header list, and the run step's summary with
-// the folded inline option rows), and a right-aligned key footer. The
-// run step folds the small choices (goal t/r/s, the security toggle,
-// the "/" flow filter) into inline rows and renders the status line and
-// the results preview under them. EVERY line is clipped to the content
-// inner width (clipCells + clipTail): no fragment may leak past the
-// frame at any width ≥ the frame minimum.
+// analyze_view.go renders the §J body: the wizard rail, the step body
+// (candidate lists with a filter/typed-path line, header radios, the run
+// step's summary with folded inline rows), and the key footer. EVERY line
+// is clipped to the content inner width.
 package pages
 
 import (
@@ -27,9 +20,8 @@ import (
 const (
 	titleAnalyze = "PCAP ANALYZE"
 
-	// analyzeListLabelWidth is the label column of the run step's
-	// summary/inline rows; analyzeListMaxRows caps a candidate list and
-	// the flows block so the footer stays on screen.
+	// analyzeListLabelWidth is the label column of the run step's rows;
+	// analyzeListMaxRows caps candidate lists so the footer stays on screen.
 	analyzeListLabelWidth = 9
 	analyzeListMaxRows    = 12
 )
@@ -48,7 +40,7 @@ func (a *Analyze) render(w, h int) string {
 	foot := a.footerLine(w)
 
 	// The wheel regions re-publish during the overlay render below, or
-	// not at all (Task 8.2c: a pane that is not drawn publishes nothing).
+	// not at all: a pane that is not drawn publishes nothing.
 	a.itemsRect = geom.Rect{}
 	a.previewRect = geom.Rect{}
 	a.selRows = a.selRows[:0] // the roster's click rows re-publish likewise
@@ -56,13 +48,13 @@ func (a *Analyze) render(w, h int) string {
 	bodyH := max(h-2, 3)
 	body := clipBlockStyled(a.th, a.stepBody(w), bodyH, w)
 	if a.itemsOpen && len(a.state.Items) > 0 {
-		// The generated-item picker overlays the step body (UAT round 6)
-		// and owns the keyboard; its own hint line replaces the footer.
+		// The generated-item picker overlays the step body; its own hint
+		// line replaces the footer.
 		body = clipBlockStyled(a.th, a.itemsOverlay(w, h), bodyH, w)
 		foot = a.pickerFooterLine(w)
 	} else if a.unparsableOpen && len(a.state.UnparsableRows) > 0 {
-		// The unparsable-message hexdump reviewer (UAT round 6): opened
-		// with [u], read-only, own key line.
+		// The unparsable-message hexdump reviewer: opened with [u],
+		// read-only, own key line.
 		body = clipBlockStyled(a.th, a.unparsableOverlay(w, h), bodyH, w)
 		foot = a.unparsableFooterLine(w)
 	}
@@ -70,8 +62,8 @@ func (a *Analyze) render(w, h int) string {
 	return clipBlockStyled(a.th, head+"\n"+body+"\n"+foot, h, w)
 }
 
-// unparsableFooterLine is the viewer's key line (replaces the step
-// footer while it is open).
+// unparsableFooterLine is the viewer's key line, replacing the step footer
+// while it is open.
 func (a *Analyze) unparsableFooterLine(w int) string {
 	sep := a.th.Separator()
 	line := "[j/k] sample" + sep + "[pgup/pgdn] page" + sep + "[esc] close"
@@ -79,12 +71,9 @@ func (a *Analyze) unparsableFooterLine(w int) string {
 	return clipCells(a.th.Dim.Render(line), w, clipTail(a.th))
 }
 
-// pickerFooterLine is the picker's key line (replaces the step footer
-// while the overlay is open). The [tab] hint names the sub-pane the key
-// focuses (UAT round 8 finding 8: the preview scroll must be findable).
-// The [esc] hint says "apply", not "discard": UAT round 7 made Esc close
-// WITH the selection, exactly like Enter, and the label follows the
-// behaviour (updateItemsKey).
+// pickerFooterLine is the picker's key line. The [tab] hint names the
+// sub-pane it focuses; the [esc] hint says "apply" because closing commits
+// the selection, exactly like Enter.
 func (a *Analyze) pickerFooterLine(w int) string {
 	sep := a.th.Separator()
 	pane := hintPreview
@@ -117,8 +106,7 @@ func (a *Analyze) railLine(w int) string {
 	return clipCells(strings.Join(parts, "  "), w, clipTail(a.th))
 }
 
-// footerLine is the step's key line (the send wizard's footer
-// vocabulary), right-aligned and clipped.
+// footerLine is the step's key line, right-aligned and clipped.
 func (a *Analyze) footerLine(w int) string {
 	base := a.th.Deemphasized
 	var keys string
@@ -184,10 +172,9 @@ func (a *Analyze) captureBody(w int) string {
 		a.state.CaptureError)
 }
 
-// specBody renders step 2: the same list shape over the spec
-// candidates; an empty commit is the engine default spec. The empty
-// state advertises both exits (UAT round 9 F-9d): [f] opens the shared
-// .json picker, Enter with nothing chosen keeps the engine default.
+// specBody renders step 2: the same list shape over the spec candidates;
+// an empty commit is the engine default spec, and the empty state
+// advertises both exits ([f] picker, Enter default).
 func (a *Analyze) specBody(w int) string {
 	return a.listBody(w, a.state.SpecItems,
 		a.th.Deemphasized.Render(pickGlyph(a.th,
@@ -197,10 +184,9 @@ func (a *Analyze) specBody(w int) string {
 		a.state.SpecError)
 }
 
-// listBody renders one wizard candidate list (the send wizard's
-// listBody idiom): filter line, ▸ rows with the "current" tag, the
-// de-emphasized empty state (emptyText arrives pre-styled, so it is
-// only clipped here), and the inline field error.
+// listBody renders one candidate list: filter line, ▸ rows with the
+// "current" tag, the empty state (emptyText arrives pre-styled), and the
+// inline field error.
 func (a *Analyze) listBody(w int, items []WizardItem, emptyText, fieldErr string) string {
 	shown := filterWizardItems(items, a.draft)
 	lines := []string{a.filterLine(w)}
@@ -246,8 +232,7 @@ func (a *Analyze) itemRow(it WizardItem, i int) string {
 	return clipCells(line, a.listInnerWidth(), clipTail(a.th))
 }
 
-// itemHint is the dim annotation of a candidate: its directory (the
-// full path tail, so the list never echoes the label twice).
+// itemHint is the dim directory annotation of a candidate.
 func (a *Analyze) itemHint(it WizardItem) string {
 	if it.Path == "" || baseName(it.Path) == it.Label {
 		return ""
@@ -256,16 +241,14 @@ func (a *Analyze) itemHint(it WizardItem) string {
 	return dirName(it.Path)
 }
 
-// listInnerWidth is the usable width inside the candidate box (the box
-// itself is w-2, its borders take two more).
+// listInnerWidth is the usable width inside the candidate box.
 func (a *Analyze) listInnerWidth() int {
 	w, _ := frame.ContentSize(a.width, a.height)
 
 	return max(w-4, 8)
 }
 
-// filterLine shows the live filter/typed path with the accent caret
-// (the send wizard's filterLine idiom).
+// filterLine shows the live filter/typed path with the accent caret.
 func (a *Analyze) filterLine(w int) string {
 	caret := ""
 	if a.editingStep() {
@@ -315,9 +298,8 @@ func (a *Analyze) headersBody(w int) string {
 	return strings.Join(rows, "\n")
 }
 
-// runBody renders step 4: the summary block (capture/spec/header), the
-// folded inline option rows (goal radios, the security toggle, the
-// flow filter and the enumerated flows), and the status/results block.
+// runBody renders step 4: the summary block, the folded inline option rows
+// (goal, security, flow filter and enumerated flows), and the status block.
 func (a *Analyze) runBody(w int) string {
 	var b strings.Builder
 	b.WriteString(a.summaryRow("capture", dashIf(a.th, baseName(a.state.CapturePath)), w))
@@ -343,14 +325,12 @@ func (a *Analyze) summaryRow(label, value string, w int) string {
 	return clipCells(line, w, clipTail(a.th)) + "\n"
 }
 
-// outputRow renders the run step's output-file row (UAT round 5): the
-// effective destination with the [o] affordance, or the live one-line
-// editor while [o] is open. UAT round 8: the key tokens go through
-// keySpan so they wear the Theme.Key badge like every other hint.
+// outputRow renders the run step's output-file row: the effective destination
+// with the [o] affordance, or the live one-line editor while [o] is open.
 func (a *Analyze) outputRow(w int) string {
 	if a.outEditing {
-		// UAT round 8 finding 6: [f] browses the output location (the
-		// shared picker) while the draft is still the seeded path.
+		// [f] offers the output-location browse while the editor is still
+		// untyped (the outTyped gate).
 		line := a.th.Deemphasized.Render(padRight("output>", analyzeListLabelWidth)) +
 			a.th.TextPrimary.Render(a.outDraft+cursorGlyph(a.th)) + " " +
 			keySpan(a.th, a.th.Deemphasized, "enter", "set") +
@@ -384,8 +364,7 @@ func (a *Analyze) goalRow(w int) string {
 	return clipCells(line, w, clipTail(a.th))
 }
 
-// securityRow renders the folded security toggle row: the old step-⑥
-// mask/raw radios collapsed to one inline toggle (m).
+// securityRow renders the folded security toggle row (m).
 func (a *Analyze) securityRow(w int) string {
 	word, kind := "on (mask PAN/track)", theme.KindOK
 	if a.state.MaskRaw {
@@ -398,9 +377,8 @@ func (a *Analyze) securityRow(w int) string {
 	return clipCells(line, w, clipTail(a.th))
 }
 
-// statusBlock renders the run status line and the results/preview
-// block (the old step-⑦ output, restyled): running/done/error with the
-// root-stamped elapsed, the write toast line, and the preview text.
+// statusBlock renders the run status line and the results/preview block:
+// running/done/error with the root-stamped elapsed, the write toast line.
 func (a *Analyze) statusBlock(w int) string {
 	var b strings.Builder
 	switch a.state.Status {
@@ -457,9 +435,8 @@ func dirName(path string) string {
 	return path[:i]
 }
 
-// joinSep is the separator for a line built outside the view (fixtures and
-// root-derived state). It delegates to the one policy in theme so a fixture
-// cannot drift from what root builds for the same line.
+// joinSep delegates the separator policy to theme so a fixture cannot drift
+// from what root builds for the same line.
 func joinSep(th *theme.Theme) string {
 	if th == nil {
 		return theme.GlyphSeparator

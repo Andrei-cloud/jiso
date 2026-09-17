@@ -1,11 +1,7 @@
-// analyze_unparsable_view.go renders the §J unparsable-message reviewer
-// (UAT round 6: the tester needs to see WHERE framing breaks and WHAT
-// the analyzer choked on). Opened with [u] on the run step, it is a
-// read-only browser: left, the failure roster (offset · length ·
-// reason); right, the sample under the cursor as the fields that
-// unpacked BEFORE the failure (describe form) plus a hexdump of the raw
-// message with the unparsed region painted in the error colour (UAT
-// round 7). Below frame.FullWidth the panes stack.
+// analyze_unparsable_view.go renders the §J unparsable-message reviewer: a
+// read-only browser opened with [u] — the failure roster on the left; the
+// sample's parsed fields plus a hexdump with the unparsed region marked on
+// the right. Below frame.FullWidth the panes stack.
 package pages
 
 import (
@@ -41,11 +37,9 @@ func (a *Analyze) unparsableOverlay(w, h int) string {
 		" of "+strconv.Itoa(a.state.Unparsable)) + "\n" +
 		a.th.Dim.Render("j/k sample"+sep+"esc close")
 
-	// UAT round 8 finding 8 (mirrored from the generated-item picker by
-	// Task 8.2c): render clips this overlay to h-2 lines and its own
-	// two-line head consumes two of them, so the panes get itemsPaneH
-	// rows — the old h-2 budget built two lines past the clip and the
-	// hex pane's last two rows were always unreachable.
+	// Same pane budget as the generated-item picker: render clips the
+	// overlay to h-2 lines and the two-line head consumes two, so the
+	// panes get itemsPaneH rows.
 	bodyH := itemsPaneH(h)
 	var body string
 	if w >= frame.FullWidth {
@@ -99,10 +93,8 @@ func (a *Analyze) unparsableRoster(w, h int) string {
 	return strings.Join(lines, "\n")
 }
 
-// unparsableHexPane draws the sample under the cursor: its byte offset,
-// length and full unpack reason; the fields that unpacked before the
-// failure (describe form); then a hexdump of the captured head with the
-// unparsed bytes marked in the error colour.
+// unparsableHexPane draws the sample under the cursor: reason, the fields
+// that unpacked before the failure, then a hexdump with unparsed bytes marked.
 func (a *Analyze) unparsableHexPane(w, h int) string {
 	if a.unparsableCursor >= len(a.state.UnparsableRows) {
 		return a.th.Dim.Render("sample")
@@ -118,9 +110,7 @@ func (a *Analyze) unparsableHexPane(w, h int) string {
 }
 
 // unparsableDescribe lists the fields that unpacked before the failure in
-// the describe projection (id · name · value); with nothing parsed it says
-// so rather than leaving the reader to guess whether the panel is empty
-// because none parsed or because the sample carries none.
+// describe form; with nothing parsed it says so explicitly.
 func (a *Analyze) unparsableDescribe(r AnalyzeUnparsableRow, w int) string {
 	sep := a.th.Separator()
 	if len(r.Fields) == 0 {
@@ -166,12 +156,9 @@ func (a *Analyze) unparsableStopNote(r AnalyzeUnparsableRow) string {
 	}
 }
 
-// unparsableHexLines builds the head as 16-bytes-per-line hexdump lines
-// addressed from the sample's stream offset, colouring every byte at or
-// after FailedAt (and its ASCII glyph) with the error style so the
-// reader sees exactly where the message stopped parsing. The ASCII
-// column is clipped to the pane so a narrow pane never leaks glyphs past
-// the frame; the hex column always keeps its full 16-byte grid.
+// unparsableHexLines builds 16-bytes-per-line hexdump lines addressed from the
+// sample's stream offset; bytes at or after FailedAt get the error style. The
+// ASCII column is clipped to the pane.
 func (a *Analyze) unparsableHexLines(r AnalyzeUnparsableRow, w int) []string {
 	head := r.Head
 	if len(head) == 0 {

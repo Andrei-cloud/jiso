@@ -1,7 +1,7 @@
-// root_analyze_flows.go is the §J enumeration leg: asking the engine which flows
-// a capture contains, and folding the operator's per-flow selections in. Like every
-// analyze leg it runs off the UI thread and reports back with the analyzeSeq token,
-// so a step jump or an abort makes the result stale instead of racing it.
+// root_analyze_flows.go is the §J enumeration leg: asking the engine which
+// flows a capture contains and folding the operator's per-flow selections
+// in. Results report back with the analyzeSeq token, so a step jump or an
+// abort makes them stale instead of racing them.
 package tui
 
 import (
@@ -14,10 +14,9 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// armAnalyzeEnum launches the flow enumeration leg when the run step is
-// entered: status running, seq-tokened result. The enumeration never
-// fabricates flows — an empty capture comes back as a typed error and
-// lands as the run-step note.
+// armAnalyzeEnum launches the flow enumeration when the run step is entered:
+// status running, seq-tokened result. It never fabricates flows — an empty
+// capture comes back as a typed error.
 func (m *RootModel) armAnalyzeEnum() tea.Cmd {
 	m.analyzeFlows, m.analyzeSelected = nil, nil
 	m.analyzeParsed, m.analyzeUnparsable = 0, 0
@@ -47,10 +46,9 @@ func (m *RootModel) armAnalyzeEnum() tea.Cmd {
 	}
 }
 
-// applyAnalyzeEnum folds enumeration into the run step: a typed error
-// becomes the step note (the façade names the path it refuses — spec
-// or capture); success populates the flows block and marks the run
-// stale so the next Enter re-runs the engine with the fresh flow set.
+// applyAnalyzeEnum folds enumeration into the run step: errors land as the
+// step note; success populates the flows block and marks the run stale so
+// the next Enter re-runs with the fresh flow set.
 func (m *RootModel) applyAnalyzeEnum(msg analyzeEnumLoadedMsg) (tea.Model, tea.Cmd) {
 	m.analyzeEnumWait = false
 	if msg.seq != m.analyzeSeq || m.Current().ID() != pages.AnalyzePageID {
@@ -72,16 +70,14 @@ func (m *RootModel) applyAnalyzeEnum(msg analyzeEnumLoadedMsg) (tea.Model, tea.C
 	m.analyzeStatus = pages.AnalyzeStatusIdle
 	m.analyzeFlows = msg.enum.Flows
 	m.analyzeParsed, m.analyzeUnparsable = msg.enum.Parsed, msg.enum.Unparsable
-	// The unparsable-message reviewer (UAT round 6): build its roster
-	// once per enumeration and bump the id so the run step re-arms a
-	// fresh viewer cursor over the new samples.
+	// Build the reviewer's roster once per enumeration and bump the id
+	// so the viewer re-arms a fresh cursor over the new samples.
 	m.analyzeUnparsableRows = analyzeUnparsableRows(msg.enum.Samples)
 	if m.analyzeUnparsableRows != nil {
 		m.analyzeUnparsableID++
 	}
 	// Seed the run set: requests (dst) selected, responses (src) not —
-	// except a src-only port whose requests arrive as src (UAT round 7
-	// Option A: the honest default matching what the engine analyses).
+	// except a src-only port whose requests arrive as src.
 	m.analyzeSelected = m.analyzeDefaultFlows()
 	m.analyzeRunStale = true
 
@@ -90,8 +86,7 @@ func (m *RootModel) applyAnalyzeEnum(msg analyzeEnumLoadedMsg) (tea.Model, tea.C
 
 // analyzeDefaultFlows is the fresh-enumeration run set: every request (dst)
 // direction, plus a response (src) direction only where it is the sole half
-// of a port (a server-side capture whose requests arrive as src). UAT round
-// 7 Option A — responses are not analysed until the operator picks them.
+// of a port. Responses are not analysed until the operator picks them.
 func (m *RootModel) analyzeDefaultFlows() []app.FlowSelection {
 	hasDst := make(map[int]bool, len(m.analyzeFlows))
 	for _, f := range m.analyzeFlows {
@@ -120,11 +115,9 @@ func (m *RootModel) analyzeAllFlows() []app.FlowSelection {
 	return sels
 }
 
-// handleAnalyzeFlowToggleMsg is space on the run step's flow cursor. For the
-// transactions and mock-routes goals it flips exactly the cursor's
-// (port, direction); the scenario goal toggles a whole port (both halves),
-// since it correlates requests and responses together. Both mark the run
-// stale. handleAnalyzeFlowToggleAllMsg is "a".
+// handleAnalyzeFlowToggleMsg is space on the flow cursor: it flips exactly
+// the cursor's (port, direction), or the whole port (both halves) under the
+// scenario goal. Either marks the run stale.
 func (m *RootModel) handleAnalyzeFlowToggleMsg(msg pages.AnalyzeFlowToggleMsg) (tea.Model, tea.Cmd) {
 	if m.analyzeRunWait {
 		m.analyzeNote = analyzeInFlight

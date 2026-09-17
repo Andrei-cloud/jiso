@@ -1,16 +1,8 @@
-// analyze.go is the §J analyze wizard page (SCR-510): a 4-step wizard
-// (1 capture ▸ 2 spec ▸ 3 header ▸ 4 run) rendered from the root-owned
-// AnalyzeState snapshot and styled after the send wizard — a step rail,
-// ▸-cursor candidate lists with a filter line that doubles as a typed
-// path input, and a hints footer. The wizard state machine, the gates,
-// and every async leg live root-side (root_analyze*.go). The page is a
-// reference type kept canonical in the router registry, owns only
-// presentation state (the step filter/cursor), and yields key-driven
-// messages; it never touches internal/app, never reads the clock, and
-// ignores bus events. The capture/spec list steps claim the keyboard
-// like the send wizard's list steps do, so paths containing q, digits,
-// or : stay typeable (Ctrl+C stays global); the run step claims it only
-// while the "/" flow filter is open.
+// analyze.go is the §J analyze wizard page: a 4-step wizard (capture ▸ spec
+// ▸ header ▸ run) rendered from the root-owned AnalyzeState snapshot; the
+// state machine, gates, and async legs live root-side (root_analyze*.go).
+// The page owns only presentation state and claims the keyboard only while
+// editing or overlay-open; Ctrl+C stays global.
 package pages
 
 import (
@@ -34,72 +26,60 @@ type Analyze struct {
 	sel       int    // cursor over the current step's list
 	filtering bool   // run step: the "/" flow filter is open (claims the keyboard)
 
-	// Output-path editing (UAT round 5): [o] on the run step opens a
-	// one-line editor; Enter commits the typed path, Esc cancels.
-	// outTyped (UAT round 8 finding 6) is the two-mode gate of the
-	// capture step applied here: while nothing has been edited yet, [f]
-	// browses the output location through the shared picker; after the
-	// first edit [f] is a path byte again.
+	// Output-path editing: [o] opens a one-line editor (Enter commits,
+	// Esc cancels). outTyped is the [f] gate: unedited, [f] browses the
+	// location through the shared picker; after the first edit [f] is a
+	// path byte again.
 	outEditing bool
 	outDraft   string
 	outTyped   bool
 
-	// Generated-item picker (UAT round 6): opens automatically when a
-	// run attaches (ItemsID change) and reopens with [x]; space/a toggle
-	// the LOCAL inclusion set, Enter applies it to root, Esc closes and
-	// discards unapplied toggles.
+	// Generated-item picker: opens when a run attaches (ItemsID change),
+	// reopens with [x]; space/a toggle the LOCAL inclusion set, Enter
+	// and Esc apply it to root.
 	itemsOpen    bool
 	itemsShownID int
 	itemCursor   int
 	itemOff      int // roster window offset
 	itemSel      []bool
 
-	// Generated-item preview sub-pane (UAT round 8 finding 8: "it
-	// should be possible to scroll content if it does not fit into
-	// screen"): the picker's preview is a window over the item's file
-	// form, not a clip. [tab]/[shift+tab] move the picker focus between
-	// the roster and the preview; while the preview is focused the
-	// scroll keys drive previewOff instead of the roster cursor. The
-	// mouse wheel (Phase 8) calls ScrollPreview directly.
+	// Preview sub-pane: a WINDOW over the item's file form, not a clip.
+	// [tab]/[shift+tab] move focus between roster and preview; while the
+	// preview is focused the scroll keys drive previewOff. The wheel
+	// calls ScrollPreview directly.
 	previewFocused bool
 	previewOff     int // preview window offset (rows from the top)
 
-	// Unparsable-message viewer (UAT round 6): opened on demand with
-	// [u] on the run step (never auto-opens); a read-only hexdump
-	// browser over the failure samples. UnparsableID change re-seats
-	// the cursor over a fresh capture.
+	// Unparsable viewer: a read-only hexdump browser opened on demand
+	// with [u] (never auto-opens); an UnparsableID change re-seats the
+	// cursor over the fresh samples.
 	unparsableOpen    bool
 	unparsableShownID int
 	unparsableCursor  int
 	unparsableOff     int
 
-	// itemsRect and previewRect are the DRAWN picker panes (content-
-	// relative) recorded during the last render of the generated-item
-	// overlay; the zero value means the pane was not on screen. They are
-	// the geometry the wheel hit map registers under RegionAnalyzeItems /
-	// RegionAnalyzePreview (Task 8.2c).
+	// itemsRect and previewRect are the picker panes' DRAWN rects from
+	// the last overlay render (zero = not on screen) — the geometry the
+	// wheel hit map registers.
 	itemsRect   geom.Rect
 	previewRect geom.Rect
 
-	// selRows are the DRAWN roster row rects (content-relative) recorded
-	// during the last render of the generated-item overlay for the Task
-	// 8.3 click-select seam, under RegionAnalyzeItems (a click moves the
-	// roster cursor; the wheel over a row still scrolls it as before).
+	// selRows are the DRAWN roster row rects from the last overlay
+	// render for click-select: a click moves the roster cursor, the
+	// wheel over a row still scrolls it.
 	selRows []SelectRegion
 }
 
-// §J owns two wheel-scrollable regions (the generated-item roster and
-// its preview sub-pane) and click-selectable roster rows (Task
-// 8.2c/8.3 seams).
+// §J owns wheel-scrollable roster/preview regions and click-selectable
+// roster rows.
 var (
 	_ Scroller = (*Analyze)(nil)
 	_ Selector = (*Analyze)(nil)
 )
 
 // ScrollRegions publishes the picker panes' drawn rects: the regions
-// exist exactly while the generated-item overlay is on screen, so the
-// wizard steps and the unparsable reviewer publish nothing and the wheel
-// over them stays inert.
+// exist only while the overlay is on screen, so the wizard steps and the
+// unparsable viewer publish nothing and the wheel over them stays inert.
 func (a *Analyze) ScrollRegions() []ScrollRegion {
 	out := make([]ScrollRegion, 0, 2)
 	if a.itemsRect.W > 0 && a.itemsRect.H > 0 {
@@ -115,11 +95,9 @@ func (a *Analyze) ScrollRegions() []ScrollRegion {
 	return out
 }
 
-// ScrollRegion routes the wheel's content-direction delta (d>0 = down):
-// the preview sub-pane drives ScrollPreview (the one scroll contract
-// Task 7.3 pinned), and the roster walks the item cursor with the window
-// dragged along — the same offsets the [tab]-focused keys drive, clamped
-// the same way; a new item previews from the top like the keys do.
+// ScrollRegion routes the wheel's delta (d>0 = content down): the preview
+// sub-pane drives ScrollPreview, the roster walks the item cursor with the
+// window dragged along; a new item previews from the top.
 func (a *Analyze) ScrollRegion(id string, d int) bool {
 	if !a.itemsOpen || len(a.state.Items) == 0 {
 		return false
@@ -146,14 +124,12 @@ func (a *Analyze) ScrollRegion(id string, d int) bool {
 	return false
 }
 
-// SelectRegions publishes the roster's drawn row rects (Task 8.3): a
-// click on a visible item moves the roster cursor there (space/a still
-// toggle inclusion; a click only selects, like the arrow keys).
+// SelectRegions publishes the roster's drawn row rects: a click on a
+// visible item moves the roster cursor there (space/a still toggle).
 func (a *Analyze) SelectRegions() []SelectRegion { return a.selRows }
 
 // SelectRegion moves the roster cursor to the clicked item — the same
-// move the wheel's cursor walk makes, so the preview re-seats from the
-// top and the window drags along.
+// move the wheel's cursor walk makes, so the preview re-seats from the top.
 func (a *Analyze) SelectRegion(id string, index int) bool {
 	if id != RegionAnalyzeItems || !a.itemsOpen || index < 0 || index >= len(a.state.Items) {
 		return false
@@ -165,8 +141,7 @@ func (a *Analyze) SelectRegion(id string, index int) bool {
 	return true
 }
 
-// ItemsCursor reports the generated-item roster cursor index (0 when
-// empty) — the item the keys, the wheel and the click all move.
+// ItemsCursor reports the generated-item roster cursor index (0 when empty).
 func (a *Analyze) ItemsCursor() int { return a.itemCursor }
 
 // analyzeNav is the page keymap; Enter/Esc semantics are wizard
@@ -230,9 +205,7 @@ func NewAnalyze(th *theme.Theme) *Analyze {
 	return &Analyze{th: th, nav: newAnalyzeNav(), step: -1}
 }
 
-// ID reports the router id (AnalyzePageID — the wire-compat slot name
-// "analyze", hotkey 7; the slot's frame tab title is §J's
-// "PCAP ANALYZE").
+// ID reports the router id (the wire-compat slot name "analyze", hotkey 7).
 func (a *Analyze) ID() string { return AnalyzePageID }
 
 // Theme exposes the resolved theme (view helpers and tests).
@@ -251,25 +224,18 @@ func (a *Analyze) Draft() (string, bool) { return a.draft, a.editingStep() }
 // ListCursor exposes the local list cursor (tests).
 func (a *Analyze) ListCursor() int { return a.sel }
 
-// ScrollPreview moves the generated-item preview window by d rows: a
-// positive d moves the window down through the content (revealing later
-// lines), a negative d moves it up. The offset is clamped to
-// 0..max(0, contentH-paneH), so calling it on a preview that fits is a
-// no-op. This is the one scroll contract: the keyboard route (preview
-// sub-pane focused) and the Phase 8 mouse wheel both call it.
+// ScrollPreview moves the preview window by d rows (+down, -up through the
+// content), clamped so calling it on a preview that fits is a no-op. The
+// focused-key route and the mouse wheel both call it.
 func (a *Analyze) ScrollPreview(d int) {
 	maxOff := max(a.previewContentHeight()-a.previewWindow(), 0)
 	a.previewOff = min(max(a.previewOff+d, 0), maxOff)
 }
 
-// Editing reports the two-mode flag of the page (UAT round 8 / D3,
-// Task 5.2): the capture/spec steps are in EDIT mode while a typed
-// path/filter draft is in progress, the run step while the "/" flow
-// filter or the [o] output-path editor is open. This is the predicate
-// ClaimsKeyboard delegates to and the [f] browse gate reads: navigate
-// mode sends f to the root-side picker, edit mode types f literally into
-// the draft (the §G server-form pattern). It is the mode proper, not the
-// weaker step-level caret question of editingStep.
+// Editing is the two-mode gate the claim and every [f] browse read
+// exactly: capture/spec edit while a draft is in progress, run while the
+// "/" filter or the [o] editor is open. Navigate sends f to the root-side
+// picker; edit types f literally. editingStep is the weaker caret question.
 func (a *Analyze) Editing() bool {
 	switch a.state.Step {
 	case StepCapture, StepSpec:
@@ -281,14 +247,10 @@ func (a *Analyze) Editing() bool {
 	return false
 }
 
-// ClaimsKeyboard implements KeyboardClaimer with the UAT round 8 (D2)
-// scoping: the claim is EDIT mode (Editing), not "a step that has an
-// editable field". The capture/spec steps claim only while a typed path
-// is in progress (the first byte reaches them through the global layer,
-// the SCR-502 typeahead); the run step claims while the "/" flow filter
-// or the [o] output-path editor is open. The generated-item picker and
-// the unparsable-message viewer are overlays: they own the keyboard
-// wholesale while open. Ctrl+C stays global.
+// ClaimsKeyboard claims the keyboard only while editing or an overlay is
+// open, so global keys stay live in navigate mode: capture/spec claim while
+// a typed path is in progress (the first byte reaches them through the
+// global layer), run while "/" or [o] is open, overlays wholesale. Ctrl+C global.
 func (a *Analyze) ClaimsKeyboard() bool {
 	if a.itemsOpen || a.unparsableOpen {
 		return true
@@ -297,10 +259,8 @@ func (a *Analyze) ClaimsKeyboard() bool {
 	return a.Editing()
 }
 
-// editingStep reports whether the current step is a text-editing
-// surface for the view caret and Draft (the step-level question); the
-// keyboard claim proper is ClaimsKeyboard (UAT round 8: claim ==
-// actively typing).
+// editingStep reports whether the current step is a text-editing surface
+// for the view caret and Draft; ClaimsKeyboard is the claim proper.
 func (a *Analyze) editingStep() bool {
 	switch a.state.Step {
 	case StepCapture, StepSpec:
@@ -312,11 +272,10 @@ func (a *Analyze) editingStep() bool {
 	return false
 }
 
-// SetState replaces the rendered snapshot (root pushes it after every
-// wizard mutation and async result). Page-local state survives: the
-// draft/cursor are dropped when the step changes, the cursor re-places
-// on the selected item, and the run step seeds its flow filter draft
-// from the root-committed filter so a revisit shows what will run.
+// SetState replaces the rendered snapshot. Page-local state survives: the
+// draft/cursor drop on a step change, the cursor re-homes on step entry,
+// and the run step seeds its flow filter draft from the root-committed
+// filter so a revisit shows what will run.
 func (a *Analyze) SetState(state AnalyzeState) {
 	if state.Step != a.step {
 		a.draft = ""
@@ -325,11 +284,9 @@ func (a *Analyze) SetState(state AnalyzeState) {
 		if state.Step == StepRun {
 			a.draft = state.FlowFilter
 		}
-		// The cursor homes on the current/selected row once per step
-		// ENTRY — and only then (UAT round 6: root re-pushes the snapshot
-		// after every Update, so re-seeding on every sync snapped the
-		// arrow cursor back onto the current row and the arrows looked
-		// dead). The send wizard's SetState has always been seed-on-entry.
+		// The cursor homes on the current/selected row once per step ENTRY —
+		// re-seeding on every push would snap the arrow cursor back onto the
+		// current row and make the arrows look dead.
 		switch state.Step {
 		case StepCapture:
 			a.sel = wizardItemsIndex(state.CaptureItems, func(it WizardItem) bool { return it.Current })
@@ -352,9 +309,9 @@ func (a *Analyze) SetState(state AnalyzeState) {
 		a.itemsOpen = len(state.Items) > 0 // a fresh run re-presents the picker
 	}
 	if state.UnparsableID != a.unparsableShownID {
-		// A fresh enumeration re-seats the viewer cursor over the new
-		// samples but does NOT auto-open it (the operator opens it with
-		// [u]); if it was open it stays open over the new roster.
+		// A fresh enumeration re-seats the cursor over the new samples but
+		// does not auto-open (the operator opens it with [u]); if it was
+		// open it stays open over the new roster.
 		a.unparsableShownID = state.UnparsableID
 		a.unparsableCursor = 0
 		a.unparsableOff = 0
@@ -364,9 +321,8 @@ func (a *Analyze) SetState(state AnalyzeState) {
 	}
 }
 
-// Hints is the §J context keymap; the wizard transitions are primary
-// so the narrow footer keeps them (the router appends the global
-// bindings).
+// Hints is the §J context keymap; wizard transitions stay primary in the
+// narrow footer.
 func (a *Analyze) Hints() []frame.KeyHint {
 	if a.unparsableOpen { // the hexdump viewer's keys replace the step hints
 		return []frame.KeyHint{
@@ -414,8 +370,7 @@ func (a *Analyze) Hints() []frame.KeyHint {
 	}
 }
 
-// pick returns the ascii form under theme.ASCII, the truecolor form
-// otherwise (the send wizard's rule).
+// pick returns the ascii form under theme.ASCII, the truecolor form otherwise.
 func (a *Analyze) pick(truecolor, ascii string) string {
 	if a.th.ASCII {
 		return ascii

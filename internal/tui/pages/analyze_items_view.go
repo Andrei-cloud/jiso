@@ -1,10 +1,7 @@
-// analyze_items_view.go renders the §J generated-item picker (UAT round
-// 6: after a run the operator chooses WHICH generated transaction types
-// land in the file — this overlay replaces the old dry-run preview
-// text). Left: the roster with a ✓/· inclusion marker, the name and the
-// config kind; right: the item under the cursor exactly as it lands in
-// the file (indented JSON). space toggles, a all/none, Enter applies,
-// Esc closes. Below frame.FullWidth the panes stack.
+// analyze_items_view.go renders the §J generated-item picker: left, the
+// roster with inclusion markers, name and kind; right, the item under the
+// cursor exactly as it lands in the file. Below frame.FullWidth the panes
+// stack.
 package pages
 
 import (
@@ -22,32 +19,25 @@ const (
 	analyzeItemsKindW = 12 // kind column inside the roster
 )
 
-// itemsPaneH is the picker's pane budget: render clips the overlay to
-// h-2 lines and the overlay's own two-line head consumes two of them.
-// UAT round 8 finding 8: the panes used to build h-2 rows — two past
-// that budget — so their last two lines were always clipped away and
-// stayed unreachable even at the preview's bottom scroll clamp (the
-// keys-side itemsWindow has long conceded the shrink with h-6 rows).
+// itemsPaneH is the picker's pane budget: render clips the overlay to h-2
+// lines and its two-line head consumes two, so the panes get contentH-4 —
+// never building past the clip, which would hide the last rows forever.
 func itemsPaneH(contentH int) int { return max(contentH-4, 4) }
 
 // itemsWindow is the visible roster rows shared by the renderer and the
-// scroll keys (the roster column width is a pure layout constant,
-// analyzeItemsListW; UAT round 8 Task 8.2c dropped the dead second
-// result).
+// scroll keys.
 func (a *Analyze) itemsWindow() int {
 	_, h := frame.ContentSize(a.width, a.height)
 
 	return max(h-6, 4)
 }
 
-// itemsBodyY is the content-relative row where the picker panes start:
-// render pins its own rail line at row 0 and the overlay's two-line head
-// occupies rows 1-2, so both panes (side by side or stacked) begin at
-// row 3 — the offset the wheel hit map records with the pane sizes.
+// itemsBodyY is the content-relative row where the picker panes start (the
+// rail line plus the two-line head) — the offset the wheel hit map records.
 const itemsBodyY = 3
 
-// itemsOverlay composes the picker body for the content area, recording
-// the two panes' layout rects for the wheel hit map (Task 8.2c).
+// itemsOverlay composes the picker body, recording the panes' layout rects
+// for the wheel hit map.
 func (a *Analyze) itemsOverlay(w, h int) string {
 	included := 0
 	for _, on := range a.itemSel {
@@ -87,11 +77,9 @@ func (a *Analyze) itemsOverlay(w, h int) string {
 // itemsRoster draws the selectable roster rows: cursor cell, inclusion
 // marker, name and kind.
 func (a *Analyze) itemsRoster(w, h int) string {
-	// Stable columns — [cursor+mark gutter][NAME nameW][gap][KIND kindW].
-	// The name is PADDED to nameW so the KIND column lines up on every
-	// row AND with the header (UAT round 6 QA: the kind column was
-	// ragged because names were truncated but never padded, and the
-	// header used a 2-col gutter while rows use a 4-col cursor+mark one).
+	// Stable columns — [cursor+mark gutter][NAME nameW][gap][KIND kindW];
+	// the name is PADDED to nameW so the KIND column lines up on every row
+	// AND with the header.
 	const gutter, gap = 4, 2
 	nameW := max(w-gutter-analyzeItemsKindW-gap, 10)
 	head := padRight("", gutter) + padRight("NAME", nameW) + padRight("", gap) +
@@ -121,10 +109,8 @@ func (a *Analyze) itemsRoster(w, h int) string {
 		} else {
 			lines = append(lines, a.th.TextPrimary.Render(clipCells(line, w, clipTail(a.th))))
 		}
-		// Record the drawn row for the click hit map (Task 8.3): the
-		// roster pane starts at itemsBodyY with its one head line, both
-		// layouts (side-by-side and stacked) pin it to content x 0, and
-		// every line appended above is one pane row down.
+		// Record the drawn row for the click hit map: the roster is pinned
+		// to content x 0 and every appended line is one pane row down.
 		a.selRows = append(a.selRows, SelectRegion{
 			ID:    RegionAnalyzeItems,
 			Rect:  geom.Rect{X: 0, Y: itemsBodyY + len(lines) - 1, W: w, H: 1},
@@ -143,9 +129,9 @@ func (a *Analyze) itemsRoster(w, h int) string {
 // and the ScrollPreview clamp).
 func previewBodyH(paneH int) int { return max(paneH-1, 1) }
 
-// previewWindow is the preview pane's visible row count for the current
-// terminal size — the exact geometry itemsOverlay hands itemsPreview —
-// so ScrollPreview clamps against what the operator actually sees.
+// previewWindow is the preview's visible row count — the exact geometry
+// itemsOverlay hands itemsPreview, so ScrollPreview clamps against what the
+// operator actually sees.
 func (a *Analyze) previewWindow() int {
 	w, h := frame.ContentSize(a.width, a.height)
 	bodyH := itemsPaneH(h)
@@ -166,13 +152,9 @@ func (a *Analyze) previewContentHeight() int {
 	return len(strings.Split(plainBlock(a.state.Items[a.itemCursor].Preview), "\n"))
 }
 
-// itemsPreview draws the item under the cursor exactly as it lands in
-// the file (the JSON the write stores), PAN-masked upstream when the
-// security toggle is on. UAT round 8 finding 8: a preview taller than
-// the pane is a WINDOW, not a clip — the body starts at previewOff and
-// the title carries the window position while the content overflows;
-// the pane title takes the accent only while the preview sub-pane holds
-// the picker focus (the paneTitle convention).
+// itemsPreview draws the item under the cursor as it lands in the file,
+// PAN-masked upstream. A preview taller than the pane is a WINDOW, not a
+// clip: the body starts at previewOff and the title carries the position.
 func (a *Analyze) itemsPreview(w, h int) string {
 	if a.itemCursor >= len(a.state.Items) {
 		return a.th.Dim.Render("preview")

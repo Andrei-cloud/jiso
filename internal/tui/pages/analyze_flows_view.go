@@ -1,7 +1,5 @@
-// analyze_flows_view.go draws the enumerated flow list of §J: the filter row, the
-// matched count, and one row per flow. A flow row is the densest line in the TUI
-// (name, ports, header, mask, verdict), which is why it is on its own rather than
-// inline in the step body that hosts it.
+// analyze_flows_view.go renders the enumerated flow list of §J: the filter
+// row, the matched count, and the flow rows — the densest line in the TUI.
 package pages
 
 import (
@@ -11,10 +9,8 @@ import (
 	"jiso/internal/analyzer"
 )
 
-// flowsBlock renders the enumerated flows (the run step's compact
-// table): a title with the parse counts, then the rows the filter
-// keeps. Rows are clipped to the content width (the old page leaked
-// fragments past the frame here).
+// flowsBlock renders the enumerated flows: a title with the parse counts,
+// then the rows the filter keeps, clipped to the content width.
 func (a *Analyze) flowsBlock(w int) string {
 	if len(a.state.Flows) == 0 {
 		return ""
@@ -55,10 +51,9 @@ func (a *Analyze) flowsBlock(w int) string {
 	return clipCells(title, w, clipTail(a.th)) + "\n" + strings.Join(rows, "\n")
 }
 
-// flowRow renders one compact flow row: direction arrow, port, the peer port
-// on the other end (so the operator sees WHO originates from WHICH port —
-// UAT round 7), msgs, the MTI histogram, and the signon marker. Each
-// direction row is its own selectable unit (●/○ under the cursor).
+// flowRow renders one compact flow row: direction arrow, port, peer port,
+// msgs, MTI histogram, signon marker. Each direction row is its own
+// selectable unit.
 func (a *Analyze) flowRow(f AnalyzeFlowRow, w int, atCursor bool) string {
 	arrow, rel := "\u2192", "from"
 	word := analyzer.DirectionDst

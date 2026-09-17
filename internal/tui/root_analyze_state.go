@@ -1,9 +1,7 @@
 // root_analyze_state.go derives the §J page snapshot from root's wizard
-// truth (the SCR-501 data-flow contract): the page receives display data
-// only — candidate lists, radio lists, flows rows with root-formatted
-// MTI histograms, root-stamped elapsed text — and never touches the app
-// or the clock itself. syncAnalyze runs in the Update wrapper, so every
-// folded message is reflected in the next View.
+// truth: the page receives display data only and never touches the app or
+// the clock itself. syncAnalyze runs in the Update wrapper, so every folded
+// message is reflected in the next View.
 package tui
 
 import (
@@ -19,13 +17,9 @@ import (
 	"jiso/internal/utils"
 )
 
-// syncAnalyze pushes the current snapshot into the page. The wizard's
-// paths (capture/spec/header) start EMPTY by design (UAT round 8
-// finding 6): the operator chooses them, nothing is inherited from the
-// config. An unset spec/header simply rides the run legs as "" — the
-// same engine-default semantics the spec commit already documents
-// (resolveAnalyzeSpec / the analyzer's header fallback). The run step's
-// goal default is the one prefill that stays.
+// syncAnalyze pushes the current snapshot into the page. The wizard paths
+// (capture/spec/header) start EMPTY: chosen by the operator, nothing
+// inherited from config; unset values ride the run legs as "" (engine default).
 func (m *RootModel) syncAnalyze() {
 	if m.analyze == nil {
 		return
@@ -36,10 +30,8 @@ func (m *RootModel) syncAnalyze() {
 	m.analyze.SetState(m.analyzeState())
 }
 
-// analyzeState builds the immutable snapshot the page renders. The
-// candidate lists are only walked while the §J page is current (the
-// list pages build their data the same on-demand way); the page
-// renders View nowhere else.
+// analyzeState builds the immutable snapshot the page renders; the
+// candidate lists are walked only while the §J page is current.
 func (m *RootModel) analyzeState() pages.AnalyzeState {
 	st := pages.AnalyzeState{
 		Step:         m.analyzeStep,
@@ -77,10 +69,9 @@ func (m *RootModel) analyzeState() pages.AnalyzeState {
 	return st
 }
 
-// analyzeOutputDisplay resolves the effective output file for display
-// on the run step (UAT round 5): the [o] pick, else the path the last
-// run bound, else the engine default for the current goal (the config
-// tx file, or transactions/*.json).
+// analyzeOutputDisplay resolves the run step's effective output file: the
+// [o] pick, else the path the last run bound, else the engine default for
+// the current goal.
 func (m *RootModel) analyzeOutputDisplay() string {
 	if m.analyzeOutputPath != "" {
 		return m.analyzeOutputPath
@@ -95,9 +86,9 @@ func (m *RootModel) analyzeOutputDisplay() string {
 	return ""
 }
 
-// analyzeCaptureItems lists the capture-step candidates: the session
-// recents (newest first, the m.wizardFiles pattern), the current pick,
-// then the *.pcap files in the working directory.
+// analyzeCaptureItems lists the capture-step candidates: the session recents
+// (newest first), the current pick, then the *.pcap files in the working
+// directory.
 func (m *RootModel) analyzeCaptureItems() []pages.WizardItem {
 	seen := map[string]bool{}
 	items := make([]pages.WizardItem, 0, 16)
@@ -124,9 +115,8 @@ func (m *RootModel) analyzeCaptureItems() []pages.WizardItem {
 	return items
 }
 
-// analyzeSpecItems lists the spec-step candidates with the same rules
-// as the send wizard's spec step: the current spec first, then the
-// *.json files beside it, then the working directory's *.json files.
+// analyzeSpecItems lists the spec-step candidates: the current spec first,
+// then the *.json files beside it, then the working directory's *.json.
 func (m *RootModel) analyzeSpecItems() []pages.WizardItem {
 	seen := map[string]bool{}
 	items := make([]pages.WizardItem, 0, 16)
@@ -187,13 +177,9 @@ func (m *RootModel) analyzeGoalRadios() []pages.AnalyzeRadio {
 }
 
 // analyzeHeaderList is the length-header list, sourced from the one
-// canonical set the engine accepts (utils.SelectLength; E5-FIX/B2: the
-// old hardcoded list offered "bit31"/"llvm", which SelectLength rejects
-// — a selection the engine could never honor). Nothing leads the list
-// on entry: UAT round 8 finding 6 dropped the config prefill, so the
-// step starts unchosen and the run legs ride an unchosen framing as ""
-// (the engine's own defaults). The header the operator picked — if any
-// — is marked selected and ordered first, so a revisit keeps it on top.
+// canonical set the engine accepts. The step starts unchosen — an unchosen
+// framing rides the run legs as "" (the engine default); the operator's
+// pick, if any, is marked selected and ordered first.
 func (m *RootModel) analyzeHeaderList() []pages.AnalyzeHeaderItem {
 	headers := utils.LengthTypeOptions()
 	items := make([]pages.AnalyzeHeaderItem, 0, len(headers))
@@ -221,10 +207,9 @@ func (m *RootModel) analyzeMaskRadios() []pages.AnalyzeRadio {
 	}
 }
 
-// analyzeFlowRows renders the run step's flows block. UAT round 7: every
-// direction row is an independent selectable unit for the transactions and
-// mock-routes goals; the scenario goal correlates a whole port, so both
-// directions of a port mirror the port's selection. The selection is root's
+// analyzeFlowRows renders the run step's flows block: direction rows are
+// independent selectable units, except under the scenario goal where both
+// directions of a port mirror the port's selection. Selected is root's
 // committed run set.
 func (m *RootModel) analyzeFlowRows() []pages.AnalyzeFlowRow {
 	scenario := m.analyzeGoal == pages.AnalyzeGoalScenario

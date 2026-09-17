@@ -1,9 +1,7 @@
-// root_analyze_items.go owns the §J generated-item selection (UAT round
-// 6: after a run the operator picks WHICH generated transaction types
-// land in the file; the picker replaces the redundant dry-run preview
-// text). Root keeps the roster (built once per run attach, with each
-// item's file form as indented JSON) and the deselection keys; the
-// write leg persists exactly app.AnalyzeOutput.SelectedItems().
+// root_analyze_items.go owns the §J generated-item selection. Root keeps
+// the roster (built once per run attach, with each item's file form) and
+// the deselection keys; the write leg persists exactly
+// app.AnalyzeOutput.SelectedItems().
 package tui
 
 import (
@@ -17,8 +15,8 @@ import (
 )
 
 // analyzeItemRows builds the picker roster from a run's generated items
-// (all included on a fresh attach; the JSON preview is exactly what the
-// write stores, PAN-masked upstream when the security toggle is on).
+// (all included on a fresh attach; the JSON preview is what the write
+// stores).
 func analyzeItemRows(out *app.AnalyzeOutput) []pages.AnalyzeItemRow {
 	items := out.GeneratedItems()
 	rows := make([]pages.AnalyzeItemRow, 0, len(items))
@@ -40,10 +38,9 @@ func analyzeItemRows(out *app.AnalyzeOutput) []pages.AnalyzeItemRow {
 	return rows
 }
 
-// itemGroup is the toggle-coupling key: a transaction and the dataset it
-// draws from share one group (the dataset's name), so selecting one selects
-// the other and a dataset is never written without its transaction (UAT
-// round 7). Items with no partner have an empty group and toggle alone.
+// itemGroup is the toggle-coupling key: a transaction and its dataset share
+// one group, so selecting one selects the other. Items with no partner have
+// an empty group and toggle alone.
 func itemGroup(it config.Item) string {
 	switch it.Type {
 	case config.TypeTransaction:
@@ -55,9 +52,8 @@ func itemGroup(it config.Item) string {
 	}
 }
 
-// analyzeRunSummary is the run-step result line (the old "dry-run:
-// would write…" preview text is gone — the picker shows the items):
-// counts plus the two next actions.
+// analyzeRunSummary is the run-step result line: counts plus the two next
+// actions.
 func analyzeRunSummary(out *app.AnalyzeOutput) string {
 	n := len(out.GeneratedItems())
 

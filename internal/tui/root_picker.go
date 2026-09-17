@@ -1,16 +1,8 @@
-// root_picker.go is the TUI-406b root plumbing: the shared
-// widgets.FilePicker and widgets.Toast wired into the router. The
-// picker is a root-owned modal overlay (palette/dialog mechanism):
-// OpenFilePickerMsg (or a page message that resolves to one) opens it,
-// it owns the keyboard wholesale while open (Esc cancels through the
-// widget's own FilePickerCanceledMsg), and a FilePickedMsg commits the
-// chosen path through the target's commit seam — §L fields go through
-// handleSettingsCommit, so validation/save semantics are unchanged.
-// The toast stack is root-side truth: owners call pushToast with text
-// + kind, the widget timestamps with the injectable now, and a root
-// tick (armToastTick, the serverTickf override pattern) prunes by age
-// with the ttl the root passes — the widget never reads the clock.
-// View composes the active toasts over the content's bottom-right.
+// root_picker.go wires the shared widgets.FilePicker and widgets.Toast into
+// the router. The picker is a root-owned modal overlay; a FilePickedMsg
+// commits the path through the target's own commit seam, so validation stays
+// in one place. Toasts are root-side truth: the widget never reads the clock
+// and a root tick prunes by age with the root's ttl.
 package tui
 
 import (
@@ -27,18 +19,14 @@ import (
 )
 
 const (
-	// toastTickInterval is the prune poll; toastDefaultTTL is the age
-	// a toast survives (owners may override m.toastTTL) — 3s per the
-	// wireframe (E5-FIX/M6; NewRootModel pins m.toastTTL from it).
+	// toastTickInterval is the prune poll; toastDefaultTTL is the age a
+	// toast survives (owners may override m.toastTTL).
 	toastTickInterval = 500 * time.Millisecond
 	toastDefaultTTL   = 3 * time.Second
 )
 
-// OpenFilePickerMsg opens the picker overlay; Target names the commit
-// seam a selection flows through ("settings:<key>" or a bare §L key).
-// PickDirKey (UAT round 8 finding 6) binds the widget's extra
-// "commit the browsed folder" key for write-target owners; empty binds
-// nothing.
+// OpenFilePickerMsg opens the picker overlay; Target names the commit seam
+// the selection flows through, PickDirKey binds the extra folder-commit key.
 type OpenFilePickerMsg struct {
 	Target     string
 	Root       string
@@ -55,26 +43,21 @@ type CloseFilePickerMsg struct{}
 // toastTickf; the widget itself owns no clock).
 type toastTickMsg struct{}
 
-// defaultToastTick is the production prune scheduler (the
-// defaultServerTick pattern).
+// defaultToastTick is the production prune scheduler.
 func defaultToastTick(d time.Duration, mk func() tea.Msg) tea.Cmd {
 	return tea.Tick(d, func(time.Time) tea.Msg { return mk() })
 }
 
-// openFilePicker opens the modal browser sized to the content area
-// (header + rows + footer stay inside one screen).
-// jsonExt is the extension the file pickers offer and the scenario export appends.
-// It is spelled in both directions -- filter a directory by it, and add it when a
-// typed name forgot it -- so the two ends have to agree or a picked file comes back
-// as "spec.json.json".
+// openFilePicker opens the modal browser sized to the content area.
+// jsonExt is the extension the file pickers offer and the scenario export
+// appends; both ends must agree or a picked file comes back as
+// "spec.json.json".
 const jsonExt = ".json"
 
 func (m *RootModel) openFilePicker(msg OpenFilePickerMsg) (tea.Model, tea.Cmd) {
 	w, h := frame.ContentSize(m.width, m.height)
-	// The View wraps the picker in boxed() (modalBox at modalBoxWidth):
-	// lipgloss Width pads but never truncates, so the picker must be
-	// sized to the box's INNER width or every spliced line overruns the
-	// terminal and the frame corrupts.
+	// Size the picker to the modal box's INNER width: lipgloss pads but
+	// never truncates, so lines overrunning the box corrupt the frame.
 	m.filePick = widgets.NewFilePicker(m.themeOrNil(), modalBoxWidth(w)-2, max(h-2, 5), widgets.FilePickerOptions{
 		Root: msg.Root, RootLabel: msg.RootLabel, Start: msg.Start,
 		Selectable: extPredicate(msg.Exts), PickDirKey: msg.PickDirKey,
@@ -107,10 +90,8 @@ func extPredicate(exts []string) func(string) bool {
 	}
 }
 
-// applyFilePicked routes a selection to the target's commit seam;
-// targets reuse commitSettingKey — the exact §L commit path — so
-// validation stays in one place whether the picker was opened from a
-// §L field or the §B tx-file key.
+// applyFilePicked routes a selection to the target's commit seam; settings
+// targets reuse commitSettingKey so validation stays in one place.
 func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.Cmd) {
 	target := m.filePickTarget
 	m.closeFilePicker()
@@ -136,14 +117,12 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		// capture-choose leg Enter uses (validate + advance).
 		return m.handleAnalyzeCommitCapture(pages.AnalyzeCommitCaptureMsg{Value: msg.Path})
 	case analyzeSpecPickTarget:
-		// The §J spec step (UAT round 9 F-9d): the pick commits through
-		// the same spec-choose leg Enter uses (stat-validate + advance);
-		// a failure lands as the inline SpecError, never a crash.
+		// The §J spec step: the pick commits through the same spec-choose
+		// leg Enter uses (stat-validate + advance).
 		return m.handleAnalyzeCommitSpec(pages.AnalyzeCommitSpecMsg{Value: msg.Path})
 	case analyzeOutputPickTarget:
-		// The §J run-step output browse: a file pick names the output
-		// file itself (an existing target still passes the §N3 overwrite
-		// confirm at w); the [s] folder pick names a directory, which
+		// The §J output browse: a file pick names the output file itself;
+		// the [s] folder pick names a directory, which
 		// applyAnalyzeOutputPick resolves to a usable file path.
 		return m.applyAnalyzeOutputPick(msg.Path)
 	}
@@ -151,18 +130,12 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 	return m.commitSettingKey(target, msg.Path)
 }
 
-// txPickExts is the §B tx-file picker's extension filter (the tx file
-// is JSON; same filter as the §L tx-file field).
+// txPickExts is the §B tx-file picker's extension filter (the tx file is JSON).
 var txPickExts = settingsPickExts(app.SettingTxFile)
 
-// pickTree resolves a file picker's root triple for an owner: the
-// filePickRootFn hook's virtual root+label (tests browse a t.TempDir
-// fixture behind a relative label, no absolute temp path in View), or
-// the §J/§G/§H production pattern — Root "/" with the absolute start
-// dir as both Start and label base (UAT round 9 F-9a: a Root of "."
-// with Start unset pinned p.dir to p.root, so no up leg could ever
-// leave the start dir). relLabel bypasses the label when root is "/",
-// so the header shows the absolute path — as §J/§G/§H already do.
+// pickTree resolves the picker's root triple: the hook's virtual tree when
+// set, else Root "/" with the absolute start dir as label base, so every up
+// leg can leave the start dir.
 func (m *RootModel) pickTree(key, value string) (root, label, start string) {
 	if m.filePickRootFn != nil {
 		root, label := m.filePickRootFn(key, value)
@@ -180,15 +153,9 @@ func (m *RootModel) pickTree(key, value string) (root, label, start string) {
 	return "/", start + string(filepath.Separator), start
 }
 
-// handleTxPickFile resolves §B `f` into an OpenFilePickerMsg (E5-FIX/
-// M6: the message pair existed but had no emitter — the §B empty state
-// and the §M registry advertise `f` (UAT round 8 D3; was `t`), and the
-// picker only ever opened
-// from §L). Browsing starts at the current tx file's directory (or the
-// filePickRootFn override — tests browse a t.TempDir fixture), and a
-// selection commits the tx-file path through the same settings commit
-// path §L uses. Like the §J/§G/§H owners the production picker roots
-// at "/" so every up leg can leave the start dir (UAT round 9 F-9a).
+// handleTxPickFile resolves §B `f` into an OpenFilePickerMsg: browse from
+// the current tx file's directory (rooted at "/"), committed through the same
+// settings commit path §L uses.
 func (m *RootModel) handleTxPickFile() (tea.Model, tea.Cmd) {
 	if m.filePick != nil {
 		return m, nil
@@ -201,8 +168,8 @@ func (m *RootModel) handleTxPickFile() (tea.Model, tea.Cmd) {
 	}
 	root, label, start := m.pickTree(app.SettingTxFile, value)
 
-	// This pick is from §B: mark it so the load result surfaces on the
-	// transactions page (UAT round 7), and drop any prior load error.
+	// Mark the pick as from §B so the load result surfaces on the
+	// transactions page; drop any prior load error.
 	m.txFilePickFromB, m.txFileLoadErr = true, ""
 
 	return m.openFilePicker(OpenFilePickerMsg{
@@ -210,9 +177,8 @@ func (m *RootModel) handleTxPickFile() (tea.Model, tea.Cmd) {
 	})
 }
 
-// settingsPathKeys are the §L rows whose values are file paths; `f`
-// opens the picker on them (SettingOutput stays the text/json enum —
-// it is not a path field).
+// settingsPathKeys are the §L rows whose values are file paths; `f` opens
+// the picker on them.
 var settingsPathKeys = map[string]bool{
 	app.SettingSpec: true, app.SettingTxFile: true, app.SettingTLSConfig: true, app.SettingDB: true,
 }
@@ -227,12 +193,9 @@ func settingsPickExts(key string) []string {
 	}
 }
 
-// handleSettingsPickFile resolves a §L `f` into an OpenFilePickerMsg:
-// the picker starts at the field's current value's directory (or the
-// filePickRootFn override — tests browse a t.TempDir fixture), and a
-// selection commits through handleSettingsCommit. Like handleTxPickFile
-// the production picker roots at "/" via pickTree so it climbs above
-// the start dir (UAT round 9 F-9a).
+// handleSettingsPickFile resolves a §L `f` into an OpenFilePickerMsg: it
+// starts at the field value's directory (rooted at "/") and a selection
+// commits through handleSettingsCommit.
 func (m *RootModel) handleSettingsPickFile(msg pages.SettingsPickFileMsg) (tea.Model, tea.Cmd) {
 	if m.Current().ID() != pages.SettingsPageID || m.filePick != nil {
 		return m, nil
@@ -261,9 +224,8 @@ func (m *RootModel) pushToast(text string, kind widgets.ToastKind) {
 	m.toast.Push(text, kind, m.now())
 }
 
-// armToastTick keeps a prune tick in flight while toasts are visible
-// (the serverTickf/seq pattern without the seq: expiry is age-based,
-// not generation-based).
+// armToastTick keeps a prune tick in flight while toasts are visible;
+// expiry is age-based, not generation-based.
 func (m *RootModel) armToastTick() tea.Cmd {
 	if m.toast == nil || m.toast.Len() == 0 || m.toastTickWait {
 		return nil
@@ -292,9 +254,8 @@ func (m *RootModel) applyToastTick() (tea.Model, tea.Cmd) {
 }
 
 // overlayToasts layers the right-aligned toast stack over the content's
-// bottom-right corner (wireframe: toasts bottom-right, 3s). The toast
-// widget left-pads its lines to full width; the padding is trimmed so
-// only the toast box itself overwrites the page.
+// bottom-right; the widget's full-width left pad is trimmed so only the
+// toast box overwrites the page.
 func (m *RootModel) overlayToasts(content string) string {
 	if m.toast == nil || content == "" {
 		return content

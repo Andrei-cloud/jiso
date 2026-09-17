@@ -1,7 +1,5 @@
-// analyze_items_keys.go is the generated-item picker's slice of §J's
-// keyboard (UAT round 6): the overlay owns the keyboard wholesale while
-// open, so updateKey in analyze_keys.go hands it every key. The file
-// pairs with analyze_items_view.go, which renders the same state.
+// analyze_items_keys.go is the generated-item picker's keyboard: the overlay
+// owns the keyboard wholesale while open, so updateKey hands it every key.
 package pages
 
 import (
@@ -9,24 +7,17 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// updateItemsKey is the generated-item picker's keyboard (UAT round 6):
-// Esc AND Enter apply the local inclusion set to root (the next w writes
-// exactly the selected items — UAT round 7: Esc no longer discards), space
-// toggles the row under the cursor and its coupled dataset partner, a
-// toggles all/none, and j/k/PgUp/PgDn move the roster cursor. UAT round 8
-// finding 8: [tab]/[shift+tab] move the picker focus between the roster
-// and the preview sub-pane; while the preview is focused those same
-// scroll keys drive the preview window (ScrollPreview) instead of the
-// roster cursor — the list scroll (itemOff) stays the roster's own.
+// updateItemsKey is the picker's keyboard: Enter and Esc both apply the
+// local inclusion set; space toggles a row (and its coupled dataset), a
+// toggles all/none, j/k/PgUp/PgDn move the roster cursor; [tab] switches
+// focus, where the scroll keys drive the preview window instead.
 func (a *Analyze) updateItemsKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	n := len(a.state.Items)
 	rows := a.itemsWindow()
 
 	switch {
 	case key.Matches(msg, a.nav.Cancel):
-		// UAT round 7: closing with Esc applies the selection just like
-		// Enter, so backing out to the run step and pressing w still
-		// writes exactly what the operator left picked.
+		// Closing with Esc applies the selection, exactly like Enter.
 		a.itemsOpen = false
 		a.previewFocused, a.previewOff = false, 0
 
@@ -41,8 +32,8 @@ func (a *Analyze) updateItemsKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	case key.Matches(msg, a.nav.Tab):
 		a.previewFocused = true // the preview sub-pane takes the scroll keys
 	case a.previewFocused && a.previewScrollKey(msg):
-		// finding 8: the scroll keys were consumed over the preview;
-		// space/a still reach the roster cases below.
+		// The scroll keys are consumed over the preview; space/a fall
+		// through to the roster cases.
 	case key.Matches(msg, a.nav.Up):
 		a.itemCursor = max(a.itemCursor-1, 0)
 		a.previewOff = 0 // a new item previews from the top
@@ -75,10 +66,8 @@ func (a *Analyze) updateItemsKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	return a, nil
 }
 
-// previewScrollKey scrolls the preview sub-pane by one row (j/k and the
-// arrows) or one window (PgUp/PgDn) and reports whether the key belonged
-// to it; Enter/Esc/space/a are never consumed here — they stay picker
-// commands over the item under the cursor.
+// previewScrollKey scrolls the preview by one row or one window and reports
+// whether the key belonged to it; Enter/Esc/space/a are never consumed here.
 func (a *Analyze) previewScrollKey(msg tea.KeyPressMsg) bool {
 	switch {
 	case key.Matches(msg, a.nav.Up):
@@ -105,9 +94,8 @@ func (a *Analyze) resetItemSel() {
 	}
 }
 
-// itemsExcluded lists the keys whose inclusion the operator turned off — the
-// exclusion set Enter and Esc commit to root, and the write persists exactly
-// the complement.
+// itemsExcluded is the exclusion set Enter and Esc commit to root; the write
+// persists exactly the complement.
 func (a *Analyze) itemsExcluded() []string {
 	var excluded []string
 	for i, it := range a.state.Items {
@@ -119,9 +107,8 @@ func (a *Analyze) itemsExcluded() []string {
 	return excluded
 }
 
-// toggleItemAt flips the row at i and, for a transaction/dataset pair, its
-// coupled partner (they share a Group), so a dataset is included and written
-// only together with its transaction (UAT round 7).
+// toggleItemAt flips the row at i and its Group partner, so a dataset is
+// included and written only together with its transaction.
 func (a *Analyze) toggleItemAt(i int) {
 	if i >= len(a.itemSel) || i >= len(a.state.Items) {
 		return
