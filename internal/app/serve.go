@@ -1,15 +1,10 @@
-// serve.go is the App-level façade over the embedded mock server
-// (SCR-507, TUI §G). It resolves spec/routes/header exactly like the
-// cobra `serve start` shim (internal/cli/cmd/server.go
-// executeServerStart → command.ServerCommand.StartServer): spec loaded
-// from the given path with a silent fallback to the default spec, mock
-// routes via ResolveRoutes (PAR-309 precedence: explicit routes file >
-// the tx file's mock_routes > none), TLS from the config's
-// enabled TLS block. The TUI never imports internal/command (fenced), so
-// this in-process accessor is its serve path — and its stats source:
-// ServeSnapshot reads the live engine tracker, no snapshot file is
-// involved (the PAR-304 side-channel lives on feat/cli-headless-parity
-// and only serves out-of-process `jiso serve stats` queries).
+// serve.go is the App-level façade over the embedded mock server. It
+// resolves spec/routes/header exactly like the cobra `serve start` shim:
+// spec from the given path with a silent fallback to the default spec,
+// routes via ResolveRoutes (PAR-309 precedence), TLS from the config's
+// enabled TLS block. The TUI never imports internal/command, so this
+// in-process accessor is its serve path; ServeSnapshot reads the live
+// engine tracker directly, never a snapshot file.
 package app
 
 import (
@@ -32,8 +27,8 @@ const (
 )
 
 // ServeFallbackRoute is the RouteCounts key carrying the catch-all
-// RC-12 fallback hits (the engine's server.FallbackRouteName, re-exported
-// so frontends never import internal/server to split served traffic).
+// fallback hits (server.FallbackRouteName, re-exported so frontends never
+// import internal/server).
 const ServeFallbackRoute = server.FallbackRouteName
 
 // ErrAlreadyRunning is the sentinel behind ServeStart when a mock server is
@@ -71,18 +66,15 @@ func (e *serveBindError) Is(target error) bool { return target == ErrServeBind }
 
 // ServeStart starts the embedded mock server in-process. Empty port /
 // header fall back to the CLI defaults (9999 / binary2); specPath loads
-// via utils.CreateSpecFromFile with the CLI's silent default-spec fallback;
-// routes resolve through ResolveRoutes with the PAR-309 precedence
-// (routesFile > txPath's mock_routes > none): a tx-file load failure
-// yields zero routes (silent, as the CLI shim), while an explicit
-// routesFile that cannot be read or parsed returns the *ConfigError
-// naming the path BEFORE any listener opens — frontends (§G) surface it
-// instead of silently serving zero routes. A running server is an
-// error, never a restart.
+// with the CLI's silent default-spec fallback; routes resolve through
+// ResolveRoutes (PAR-309): a tx-file load failure yields zero routes
+// silently, while an explicit routesFile that cannot be read or parsed
+// returns a *ConfigError naming the path BEFORE any listener opens. A
+// running server is an error, never a restart.
 //
-// serveMu is held across the closed-check, the already-running-check, and the
-// listener bind, so a concurrent App.Close (which stops the engine under the
-// same lock) can never interleave and leave an orphaned listener behind.
+// serveMu is held across the closed-check, the already-running-check and
+// the listener bind, so a concurrent App.Close cannot interleave and
+// leave an orphaned listener.
 func (a *App) ServeStart(port, headerType, specPath, txPath, routesFile string) error {
 	a.serveMu.Lock()
 	defer a.serveMu.Unlock()
@@ -159,9 +151,9 @@ func (a *App) ServeRunning() bool {
 }
 
 // ServeSnapshot is the in-process stats accessor: the same ServerStats
-// view `serve stats` renders, read straight from the live engine tracker
-// (side-effect-free). After a stop the tracker keeps the final totals
-// until the next start resets them, so callers may freeze on this value.
+// view `serve stats` renders, read straight from the live engine tracker.
+// After a stop the tracker keeps the final totals until the next start,
+// so callers may freeze on this value.
 func (a *App) ServeSnapshot() *ServerStats {
 	a.serveMu.Lock()
 	defer a.serveMu.Unlock()

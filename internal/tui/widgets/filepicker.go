@@ -17,10 +17,10 @@ import (
 )
 
 // File-picker messages (the selection callback contract): the picker
-// never blocks; decisions arrive as tea.Cmd results like the confirm
-// dialog's. Path is the real filesystem path for the OWNER to use;
-// Label is the virtual display path (RootLabel-prefixed, never the
-// absolute root) for the OWNER to echo.
+// never blocks; decisions arrive as tea.Cmd results. Path is the real
+// filesystem path for the OWNER to use; Label is the virtual display
+// path (RootLabel-prefixed, never the absolute root) for the OWNER to
+// echo.
 type (
 	// FilePickedMsg is the enter-on-selectable-file result.
 	FilePickedMsg struct{ Path, Label string }
@@ -29,15 +29,12 @@ type (
 )
 
 // FilePickerOptions configures NewFilePicker. Selectable filters which
-// FILES are pickable (an extension predicate, e.g. ".pcap"/".json");
-// nil accepts any file. Directories are always enterable. RootLabel is
-// the virtual root shown in View (e.g. "fixture/"); empty falls back to
-// Root, so callers rendering goldens MUST pass a stable label.
-// PickDirKey (UAT round 8 finding 6) opts an owner into an extra bound
-// key that commits the CURRENTLY BROWSED directory through
-// FilePickedMsg — for owners picking a folder to write into rather
-// than an existing file to read. Empty (every reading owner) binds
-// nothing and the footer stays byte-identical.
+// FILES are pickable; nil accepts any file (directories are always
+// enterable). RootLabel is the virtual root shown in View; empty falls
+// back to Root, so golden callers MUST pass a stable label. PickDirKey
+// opts an owner into a key that commits the CURRENTLY BROWSED directory
+// through FilePickedMsg; empty binds nothing and the footer stays
+// byte-identical.
 type FilePickerOptions struct {
 	Root       string
 	RootLabel  string
@@ -54,23 +51,19 @@ type fileEntry struct {
 	sel        bool
 }
 
-// FilePicker is the shared directory browser (TUI-406b): os.ReadDir on
+// FilePicker is the shared directory browser: os.ReadDir on
 // open/descend/back, dirs first then files by name, a `/` name filter,
-// an `h` hidden toggle, gg/G + j/k/↑/↓ navigation (the List
-// conventions), enter selects (directories descend; only Selectable
-// files emit FilePickedMsg), esc cancels. A synthesized `..` row leads
-// every dir that has a parent (os.ReadDir never yields "."/".."); u or
-// backspace climbs, and the climb floor is the filesystem root — Root
-// anchors the display label, it is not a navigation wall (UAT round 9).
-// Row rendering delegates to the virtualized List, so a 10k-entry
-// directory still renders `height` lines. View NEVER shows the absolute
-// root — paths display as RootLabel + relative remainder. Long names
-// truncate, never wrap.
+// an `h` hidden toggle, the List nav keys, enter descends or selects
+// (only Selectable files emit FilePickedMsg), esc cancels. A
+// synthesized `..` row leads every dir with a parent (os.ReadDir never
+// yields it); u or backspace climbs, and the climb floor is the
+// filesystem root — Root anchors the display label, it is not a
+// navigation wall. Rows render through the virtualized List; View NEVER
+// shows the absolute root, long names truncate, never wrap.
 //
-// The picker is the widgets package's declared exception to "Update is
-// pure": directory reads happen synchronously in Update (a browser
-// that deferred every stat into cmds would be unusable), and read
-// failures degrade to an inline error state instead of a message.
+// It is the package's declared exception to "Update is pure": directory
+// reads happen synchronously in Update, failures degrading to an inline
+// error state.
 type FilePicker struct {
 	theme  *theme.Theme
 	list   *List
@@ -182,13 +175,12 @@ func joinLabel(label, rel string) string {
 	return label + "/" + rel
 }
 
-// refresh re-reads the current directory into entries (dirs first,
-// then files, each by name) and pushes the filtered window into the
-// list. A read failure keeps the previous listing replaced by the
-// error state (never a stale directory). A climbable dir always leads
-// with the synthesized ".." row: it is built outside the dotfile-skip
-// loop above and exempt from the `/` filter below, so the escape hatch
-// can never be hidden.
+// refresh re-reads the current directory into entries (dirs first, then
+// files, each by name) and pushes the filtered window into the list. A
+// read failure replaces the listing with the error state (never a stale
+// directory). A climbable dir always leads with the synthesized ".."
+// row: inserted after the dotfile-skip loop and exempt from the `/`
+// filter, so the escape hatch can never be hidden.
 func (p *FilePicker) refresh() {
 	p.err = ""
 	ds, err := os.ReadDir(p.dir)
@@ -215,9 +207,9 @@ func (p *FilePicker) refresh() {
 	byName := func(a, b fileEntry) bool { return a.name < b.name }
 	sort.Slice(dirs, func(i, j int) bool { return byName(dirs[i], dirs[j]) })
 	sort.Slice(files, func(i, j int) bool { return byName(files[i], files[j]) })
-	// A fresh slice, not dirs' backing array: entries is held across renders while
-	// the picker appends to it, and an alias of the sorted local would let a later
-	// append write through memory the sort above already laid out.
+	// A fresh slice, not dirs' backing array: entries is held across
+	// renders while the picker appends, so aliasing the sorted local
+	// would let a later append write through laid-out memory.
 	p.entries = make([]fileEntry, 0, 1+len(dirs)+len(files))
 	if parent, ok := p.parentEntry(); ok {
 		p.entries = append(p.entries, parent)
@@ -265,10 +257,10 @@ func (p *FilePicker) visibleEntry() (fileEntry, bool) {
 }
 
 // Update is the state machine: `/` opens filter input, esc closes it
-// (or cancels the picker when empty), h toggles hidden, backspace and
-// u ascend one directory (the same leg the ".." row takes on enter),
-// gg/G and the List nav keys move, enter descends or selects.
-// Any other message is ignored with a nil command.
+// (or cancels when the filter is empty), h toggles hidden, backspace
+// and u climb via the same goUp leg the ".." row takes on enter, gg/G
+// and the List nav keys move, enter descends or selects. Anything else
+// passes through with a nil command.
 func (p *FilePicker) Update(msg tea.Msg) (*FilePicker, tea.Cmd) {
 	km, ok := msg.(tea.KeyPressMsg)
 	if !ok {
@@ -290,7 +282,7 @@ func (p *FilePicker) Update(msg tea.Msg) (*FilePicker, tea.Cmd) {
 		p.refresh()
 	case p.pickDirKey != "" && key.Matches(km, p.nav.PickDir):
 		// The write-target leg: the browsed directory itself is the
-		// selection (the §J output browse), label trailing "/" and all.
+		// selection, label trailing "/" and all.
 		return p, func() tea.Msg { return FilePickedMsg{Path: p.dir, Label: dirLabel(p.relLabel(p.dir))} }
 	case key.Matches(km, p.nav.Back):
 		p.goUp()
@@ -356,8 +348,8 @@ func (p *FilePicker) selectEntry() (*FilePicker, tea.Cmd) {
 	}
 	if e.isDir {
 		p.dir = e.path
-		// The filter matched the directory itself; carrying it into the
-		// directory usually leaves it looking empty (live UAT).
+		// The filter matched the directory itself; carrying it down
+		// usually leaves the new dir looking empty.
 		p.filterOn, p.filter = false, ""
 		p.refresh()
 
@@ -372,9 +364,9 @@ func (p *FilePicker) selectEntry() (*FilePicker, tea.Cmd) {
 }
 
 // SelectRow moves the list cursor to index and runs the entry selection
-// Enter runs (Task 8.3 click-select): directories descend, selectable
-// files commit through FilePickedMsg, unselectable entries only move the
-// cursor. An out-of-range index changes nothing.
+// Enter runs: directories descend, selectable files commit through
+// FilePickedMsg, unselectable entries only move the cursor. An
+// out-of-range index changes nothing.
 func (p *FilePicker) SelectRow(index int) tea.Cmd {
 	if index < 0 || index >= p.list.Len() {
 		return nil
@@ -386,11 +378,10 @@ func (p *FilePicker) SelectRow(index int) tea.Cmd {
 }
 
 // RowHits reports the DRAWN entry rows relative to the picker's own View
-// origin: below the header line (two lines while the `/` filter is open)
-// and above the footer line, one cell tall per visible list entry, each
-// carrying its absolute entry index. The error state draws no entry
-// rows. The root translates these into absolute cells the same way it
-// centers the box in View (Task 8.3 click-select).
+// origin: below the header line (two lines while the `/` filter is
+// open), one cell tall per visible list entry, each carrying its
+// absolute entry index. The error state draws no entry rows; the root
+// translates these into absolute cells like it centers the box in View.
 func (p *FilePicker) RowHits() []RowHit {
 	if p.err != "" {
 		return nil
@@ -424,16 +415,15 @@ func (p *FilePicker) View() string {
 		head += "\n" + p.theme.Deemphasized.Render(clip("/"+p.filter, p.width, truncateTail(p.theme)))
 	}
 	seps := p.theme.Separator()
-	// Hotkey convention (UAT round 4): the actionable key glyphs carry
-	// the bold-accent HotKey style; the action words keep the dim base
-	// explicitly (lipgloss only wraps a whole-string Render, so the
-	// spans between glyphs must carry the base themselves).
+	// Hotkey convention: actionable key glyphs carry the bold-accent
+	// HotKey style; action words keep the dim base explicitly (lipgloss
+	// only wraps a whole-string Render, so spans between glyphs must
+	// carry the base themselves).
 	base := p.theme.Dim
 	hk := func(k string) string { return p.theme.Key(k) }
-	// The dir-pick hint leads the tail segments (right after "move"):
-	// the modal is ~58 cells and this footer already clips there, so an
-	// appended hint would never reach the operator's eyes. Owners that
-	// did not bind the key render the byte-identical default footer.
+	// Dir-pick and up hints lead the tail segments: the modal footer
+	// already clips at ~58 cells, so an appended hint would never reach
+	// the operator; owners that bind no key keep the default footer.
 	tail := hk("gg/G") +
 		base.Render(" top"+seps+" ") + hk("/") +
 		base.Render(" filter"+seps+" ") + hk("h") +
@@ -442,9 +432,8 @@ func (p *FilePicker) View() string {
 	if p.pickDirKey != "" {
 		tail = hk(p.pickDirKey) + base.Render(" set folder"+seps+" ") + tail
 	}
-	// The up leg (UAT round 9 F-9b: the ".." row needs an advertised
-	// key): prepended like the dir-pick hint for the same clipping
-	// reason — u shares the leg with backspace and the ".." row.
+	// The up leg is prepended for the same clipping reason; u shares
+	// the leg with backspace and the ".." row.
 	tail = hk("u") + base.Render(" up"+seps+" ") + tail
 	hints := hk("j/k") + base.Render(" move"+seps+" ") + tail
 

@@ -1,9 +1,8 @@
-// routesfile.go holds the routes-only mock-route loader hoisted out of the
-// CLI (Task 2.1 DRY): the `serve start` --routes-file path and the TUI share
-// this one copy. It implements the PAR-309 precedence — routesFile > the
-// tx-file's mock_routes > no routes — and returns the app-package
-// ConfigError mirror for config-class failures naming the path; frontends
-// (internal/cli/cmd) translate it into the process exit-code taxonomy.
+// routesfile.go holds the routes-only mock-route loader shared by the
+// `serve start` --routes-file path and the TUI. It implements the PAR-309
+// precedence — routesFile > the tx-file's mock_routes > no routes — and
+// returns the app-package ConfigError for config-class failures naming
+// the path; frontends translate it into the exit-code taxonomy.
 package app
 
 import (
@@ -19,14 +18,10 @@ import (
 )
 
 // ResolveRoutes implements the documented precedence
-// --routes-file > the tx file's mock_routes > no routes.
-//
-// An explicit routesFile that cannot be read or parsed is always a
-// config error naming the path — the user asked for exactly that file, so
-// silently serving without routes would be a lie. The tx-file source keeps
-// the pre-PAR-309 silent fallback: a tx file that fails to load contributes
-// zero routes (its parse failures surface in the commands that actually
-// consume transactions).
+// --routes-file > the tx file's mock_routes > no routes. An explicit
+// routesFile that cannot be read or parsed is always a config error
+// naming the path; the tx-file source keeps the silent fallback (a tx
+// file that fails to load contributes zero routes).
 func ResolveRoutes(routesFile, txPath string, spec *iso8583.MessageSpec) ([]config.MockRouteConfig, transactions.Repository, error) {
 	if routesFile = strings.TrimSpace(routesFile); routesFile != "" {
 		routes, err := LoadRoutesFile(routesFile)
@@ -47,9 +42,8 @@ func ResolveRoutes(routesFile, txPath string, spec *iso8583.MessageSpec) ([]conf
 }
 
 // LoadRoutesFile parses an explicit mock-routes JSON file: an array of
-// route objects shaped like the tx file's mock_route entries (their "type"
-// field is simply ignored). Every failure names the path so the config-class
-// message identifies the file the user pointed at.
+// route objects shaped like the tx file's mock_route entries. Every
+// failure is a config-class error naming the path.
 func LoadRoutesFile(path string) ([]config.MockRouteConfig, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {

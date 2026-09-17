@@ -1,8 +1,6 @@
 // section.go holds the ONE titled, bordered box every screen section is
-// assembled from (TUI remediation Phase 1). It replaces the 13 duplicated
-// boxStyle() and 5 sectionW()/cardBox() copies in internal/tui/pages;
-// the fidelity tests in section_test.go pin its bytes to the helpers it
-// replaces so the Phase 6 migration cannot move a pixel.
+// assembled from; fidelity tests pin its bytes to the helpers it
+// replaced, so migration cannot move a pixel.
 package widgets
 
 import (
@@ -15,49 +13,37 @@ import (
 )
 
 // SectionMode selects which of the two live box-layout conventions
-// Render reproduces byte-for-byte. Both exist in internal/tui/pages
-// today; the Phase 6 mapping is:
-//
-//   - ModeStandard: pages/layout.go cardBox, pages/sessions_view.go
-//     sectionW, pages/ctf_view.go sectionW, pages/inspector_split.go
-//     sectionW (with TitlePreStyled).
-//   - ModeServer: pages/server_view.go sectionW only.
+// Render reproduces byte-for-byte.
 type SectionMode int
 
 const (
-	// ModeStandard is the pages sectionW/cardBox convention: the
-	// bordered box spans the full width w (lipgloss Width max(w,4),
-	// which in lipgloss v2 includes the border) and the body clips to
-	// w-4 cells.
+	// ModeStandard is the pages sectionW/cardBox convention: the box
+	// draws exactly w wide (v2 Width includes the border) and the body
+	// clips to w-4 cells.
 	ModeStandard SectionMode = iota
-	// ModeServer is the server_view.go sectionW convention: the box is
-	// drawn two cells narrower than w (Width max(w-2,1), the UAT round 5
-	// ROUTES-table wrap fix) and the body clips to w-4 cells. The total
-	// height matches ModeStandard because the clipped body always fills
-	// the Height pad target.
+	// ModeServer is the server_view sectionW convention: the box is
+	// drawn w-2 wide and the body clips to w-4 cells; the clipped body
+	// always fills the Height target, so the total height matches
+	// ModeStandard.
 	ModeServer
 )
 
 // Section is the one titled, bordered box used for every screen section:
 // a title line above a body clipped into a bordered box of total size
 // w×h (h includes the title line), the focused pane's border in the
-// accent colour. Render returns both the string and the geom.Rect it was
-// asked to occupy, so the caller can hit-test the section.
-//
-// Like the helpers it replaces, a height below 4 clamps the body to one
-// row and the drawn box is then taller than h; the returned Rect is
-// still the requested box (the layout grid, not the ink).
+// accent colour. Render returns the string plus the requested geom.Rect
+// (the layout grid, not the ink); a height below 4 clamps the body to
+// one row and draws a box taller than h. Callers advance neighboring
+// origins by the DRAWN width.
 type Section struct {
 	Theme   *theme.Theme
 	Title   string
 	Focused bool
 	Mode    SectionMode
 
-	// TitlePreStyled passes Title through unrendered, for callers that
-	// style the title themselves (the inspector_split.go convention).
-	// Left false, Title is rendered with the Accent style exactly like
-	// the pages titleLine does — including the accent-over-muted
-	// double-render the sessions/server/ctf call sites produce today.
+	// TitlePreStyled passes Title through unrendered for callers that
+	// style it themselves; left false, Title gets the Accent style
+	// (including its accent-over-muted double-render).
 	TitlePreStyled bool
 }
 
@@ -90,15 +76,10 @@ func (s *Section) Render(body string, x, y, w, h int) (string, geom.Rect) {
 }
 
 // Border is the title-less mode of the shared box: the frame style of a
-// section that carries NO title line (wizard modals, list sub-boxes,
-// summary cards, the §F list pane). Callers compose it with their own
-// Width/Height/clip maths, exactly as the per-page boxStyle()/
-// paneStyle()/summaryBorder() copies did before Phase 6 migrated them
-// here; the bytes it draws are identical to those copies (pinned by the
-// fidelity tests), so a page that swaps its own boxStyle() for this one
-// accessor cannot move a pixel. A titled box goes through
-// Section.Render instead, which draws this border under its title line
-// and returns the section's geom.Rect.
+// section carrying NO title line, composed by callers with their own
+// Width/Height/clip maths (its bytes are pinned by the fidelity tests).
+// A titled box goes through Section.Render instead, which draws this
+// border under its title line.
 func Border(th *theme.Theme, focused bool) lipgloss.Style {
 	st := th.Border
 	if focused {
@@ -113,16 +94,13 @@ func Border(th *theme.Theme, focused bool) lipgloss.Style {
 	return st.Border(b)
 }
 
-// Border is the Section accessor for the package Border function: this
-// section's frame style (neutral border token, accent when Focused),
-// for callers that need the border alone and lay the box out themselves.
+// Border returns this section's frame style: the neutral border token,
+// accent when Focused.
 func (s *Section) Border() lipgloss.Style { return Border(s.Theme, s.Focused) }
 
 // clipBlock flattens a body to exactly h lines of at most maxW cells
 // (truncate, never wrap; short bodies pad with empty lines so joins and
-// the frame stay aligned). It mirrors the pages clipBlockStyled; the
-// per-line clip reuses the package's clip, whose newline flattening is
-// a no-op on already-split lines.
+// the frame stay aligned).
 func clipBlock(th *theme.Theme, body string, h, maxW int) string {
 	src := strings.Split(strings.TrimRight(body, "\n"), "\n")
 

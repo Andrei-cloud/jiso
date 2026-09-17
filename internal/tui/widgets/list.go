@@ -15,16 +15,12 @@ type Item struct {
 	Data  any
 }
 
-// List is a virtualized, selectable list. Only rows inside the visible
-// window are rendered (a 10k-item list renders `height` lines per View).
-// Selection is the gh-dash pattern from the design contract: left ▸
-// marker ("> " in ascii) + full-row selection background from theme
-// tokens. Cursor clamping invariants:
-//
-//   - cursor stays in [0, len-1] and inside [top, top+visible-1];
-//   - the window never scrolls past either end (0 <= top <= len-visible).
-//
-// Zero value is not usable; build with NewList.
+// List is a virtualized, selectable list: only rows inside the visible
+// window render. Selection is a left ▸ marker ("> " in ascii) plus the
+// theme selection background. Invariants: cursor stays in [0, len-1]
+// and inside the window; the window never scrolls past either end
+// (0 <= top <= len-visible). Zero value is not usable; build with
+// NewList.
 type List struct {
 	theme  *theme.Theme
 	items  []Item
@@ -80,10 +76,10 @@ func (m *List) SetCursor(i int) {
 	m.clampCursor()
 }
 
-// ScrollBy moves the cursor by d rows: d>0 scrolls the content DOWN
-// (cursor toward later items), d<0 up. It is the wheel step for Task
-// 8.2b and deliberately just wraps SetCursor, so the existing clamping
-// bounds both ends and drags the window along; an empty list absorbs it.
+// ScrollBy moves the cursor by d rows: d>0 scrolls content DOWN (cursor
+// toward later items), d<0 up. It deliberately wraps SetCursor, so the
+// existing clamping bounds both ends and drags the window along; an
+// empty list absorbs it.
 func (m *List) ScrollBy(d int) { m.SetCursor(m.cursor + d) }
 
 // Selected returns the item under the cursor; ok is false when empty.

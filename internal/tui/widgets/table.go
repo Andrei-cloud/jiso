@@ -13,34 +13,25 @@ import (
 )
 
 // RowHit is one DRAWN data row of the last View: its rect relative to the
-// widget's own View origin (grid mode: inside the box border, below the
-// header rows; flat mode: the full line below the header line) and its
-// absolute data index. Pages translate these content-relative rects into
-// the page layout and publish them as click targets (UAT round 8 Task
-// 8.3); measuring the composed lines keeps the hit the ink the user sees,
-// the sectionRect convention on the widget side.
+// widget's View origin and its absolute data index. Measuring composed
+// lines keeps the hit the ink the user sees; pages translate the rects
+// into their layout as click targets.
 type RowHit struct {
 	Rect  geom.Rect
 	Index int
 }
 
 // Column describes one table column. Width is the display width of the
-// cell content (padding excluded). In grid mode (the wireframe §B/§H
-// tables) columns are separated by border columns and the selector lives
-// inside the first cell; in flat mode columns are joined by single
-// spaces behind a two-cell selector. Flex marks a column that may be
-// shrunk to keep the table inside its width; when the total still
-// exceeds the width, the remaining deficit is taken from the other
-// columns right to left (floor 4 cells) before the last-resort fit
-// clamp.
+// cell content (padding excluded). Grid mode separates columns with
+// border columns and puts the selector inside the first cell; flat mode
+// joins them with single spaces behind a two-cell selector. Flex marks a
+// column that may be shrunk to fit (see resolvedWidths).
 type Column struct {
 	Title string
 	Width int
 	Flex  bool
-	// AlignRight lays a numeric column out on its units. Left-aligned, "3ms",
-	// "1.9ms" and "118ms" put the units in three different cells and the column
-	// cannot be compared at a glance, which is the only reason to put numbers in
-	// a column. The header follows the cells.
+	// AlignRight lays a numeric column out on its units so cells compare
+	// at a glance; the header follows the cells.
 	AlignRight bool
 }
 
@@ -48,12 +39,11 @@ type Column struct {
 // shorter rows are padded with empty cells).
 type Row []string
 
-// Table is a selectable, sortable table. Cells truncate with an ellipsis
-// and NEVER wrap (a cell containing a newline has it flattened); rendered
-// lines never exceed the table width. Row selection mirrors List: ▸/>
-// marker + theme selection background, cursor clamped to [0, len-1].
-// SortBy is a stable sort on the visible (ANSI-stripped) cell text with a
-// ▲/▼ (ascii ^/v) indicator in the header. Build with NewTable.
+// Table is a selectable, sortable table: cells truncate with an ellipsis
+// and NEVER wrap (newlines are flattened), rendered lines never exceed
+// the table width, row selection mirrors List, and every mutation
+// re-clamps the cursor through one funnel (clampCursor). SortBy is a
+// stable sort on ANSI-stripped text with a ▲/▼ (ascii ^/v) header marker.
 type Table struct {
 	theme   *theme.Theme
 	cols    []Column
@@ -66,28 +56,22 @@ type Table struct {
 	keys    navKeys
 	grid    bool // bordered wireframe grid (default true); false = flat
 	// focused is the pane-focus flag: an unfocused table renders its
-	// cursor row as plain text (no selector marker, no selection
-	// background) so a multi-pane page shows one obvious cursor (UAT
-	// round 5). Single-table pages keep the default true.
+	// cursor row as plain text (no marker, no selection background) so a
+	// multi-pane page shows one obvious cursor.
 	focused bool
-	// height is the visible row count once SetHeight has been called;
-	// 0 keeps the unbounded render (every row) that predates the scroll
-	// primitives, so goldens stay byte-identical until a caller opts in
-	// (Task 8.2b/pages). scrollOff is the wheel window offset ScrollBy
-	// moves; both zero values are the historical default path.
+	// height is the visible row count once SetHeight has been called; 0
+	// keeps the unbounded render (every row). scrollOff is the wheel
+	// window offset ScrollBy moves.
 	height    int
 	scrollOff int
 
 	// rowHits records the DRAWN data-row rects of the last View (see
-	// RowHit); the accessors return it as-is until the next render. It
-	// is pure bookkeeping beside the renderers, so the bytes View emits
-	// never depend on it.
+	// RowHit); the accessor returns it as-is until the next render.
 	rowHits []RowHit
 }
 
 // RowHits reports the data-row rects the last View drew (empty while the
-// table renders its empty state). The rects are relative to the View's
-// own origin; callers translate them into their layout (Task 8.3).
+// table renders its empty state), relative to the View's own origin.
 func (m *Table) RowHits() []RowHit { return m.rowHits }
 
 // NewTable builds an empty table with the given total width.
@@ -99,14 +83,11 @@ func NewTable(th *theme.Theme, width int) *Table {
 	return &Table{theme: th, width: width, sortCol: -1, empty: DefaultEmptyMessage, keys: newNavKeys(), grid: true, focused: true}
 }
 
-// SetFocused reports pane focus to the table: an unfocused table draws
-// its cursor row as plain text (no ▸ marker, no selection background),
-// making the active pane obvious on multi-pane pages (UAT round 5).
+// SetFocused reports pane focus to the table (see the focused field).
 func (m *Table) SetFocused(on bool) { m.focused = on }
 
-// SetGrid toggles the bordered wireframe grid (on by default). Panes
-// that already draw their own box border (§G/§I/§J) pass false so the
-// inner list stays quiet.
+// SetGrid toggles the bordered wireframe grid (on by default); panes
+// that draw their own box border pass false so the inner list stays quiet.
 func (m *Table) SetGrid(on bool) { m.grid = on }
 
 // SetColumns replaces the column definitions.
@@ -131,10 +112,8 @@ func (m *Table) SetWidth(width int) {
 	m.clampCursor()
 }
 
-// SetHeight gives the table a visible row count: View then renders the
-// window [scrollOff, scrollOff+h) and the pgup/pgdn step follows the
-// height. Until it is set every row renders and the step stays 10, which
-// is the shape the existing goldens were cut against.
+// SetHeight gives the table a visible row count: View renders the window
+// [scrollOff, scrollOff+h) and the pgup/pgdn step follows the height.
 func (m *Table) SetHeight(h int) {
 	if h >= 1 {
 		m.height = h
@@ -142,21 +121,19 @@ func (m *Table) SetHeight(h int) {
 	m.clampCursor()
 }
 
-// ScrollBy scrolls the visible row window by d rows (d>0 = down, toward
-// later rows), clamped to the row range at the current height. With no
-// height set the table already renders every row, so there is nothing to
-// scroll and the offset stays put. The cursor is deliberately NOT dragged
-// (the wheel owns the window); keyboard cursor moves drag it back into
-// view through dragWindow, mirroring List.
+// ScrollBy scrolls the visible row window by d rows (d>0 = down),
+// clamped to the row range at the current height (a no-op on the
+// unbounded render with no height set). The cursor is deliberately NOT
+// dragged — the wheel owns the window; keyboard moves drag it back via
+// dragWindow.
 func (m *Table) ScrollBy(d int) {
 	m.scrollOff += d
 	m.clampScroll()
 }
 
 // Window reports the wheel window: the absolute index of the first
-// rendered row and how many rows View draws (List's Window contract,
-// exposed for scroll indicators and page tests). With no height set the
-// window is the full row range.
+// rendered row and how many rows View draws; the full row range with no
+// height set.
 func (m *Table) Window() (top, count int) {
 	lo, hi := m.rowWindow()
 
@@ -164,10 +141,8 @@ func (m *Table) Window() (top, count int) {
 }
 
 // dragWindow drags the wheel window the least amount that keeps the
-// cursor row rendered (List's clampWindow semantics, Task 8.2c): once a
-// page gives the table a pane height, a keyboard cursor that walks past
-// the window must not disappear into invisible rows. A no-op while no
-// height is set, so the unwindowed default path never moves.
+// cursor row rendered, so a keyboard cursor cannot walk past it into
+// invisible rows. A no-op while no height is set.
 func (m *Table) dragWindow() {
 	if m.height <= 0 {
 		return
@@ -191,11 +166,10 @@ func (m *Table) Len() int { return len(m.rows) }
 func (m *Table) Cursor() int { return m.cursor }
 
 // SetCursor moves the cursor (clamped) and drags the wheel window along
-// so the cursor row stays rendered (List's SetCursor contract). The
-// drag fires only on an ACTUAL cursor move: pages re-push their state
-// after every root Update (syncPages → SetState → SetCursor with the
-// same index), and re-setting the same cursor must leave the wheel
-// window where the user left it (UAT round 8 Task 8.2c review, C1).
+// so the cursor row stays rendered. The drag fires only on an ACTUAL
+// cursor move: pages re-push state after every root Update, and
+// re-setting the SAME cursor must leave a wheel-scrolled window where
+// the user left it.
 func (m *Table) SetCursor(i int) {
 	old := m.cursor
 	m.cursor = i
@@ -256,8 +230,7 @@ func (m *Table) clampCursor() {
 }
 
 // clampScroll keeps the wheel window inside the rows at the current
-// height (the same maxTop rule List uses: the window stays full at the
-// bottom end).
+// height: the window stays full at the bottom end.
 func (m *Table) clampScroll() {
 	if maxOff := max(0, len(m.rows)-m.visibleRows()); m.scrollOff > maxOff {
 		m.scrollOff = maxOff
@@ -287,10 +260,8 @@ func (m *Table) rowWindow() (lo, hi int) {
 	return lo, hi
 }
 
-// Update advances the table for a message it understands: the navigation keys
-// move the row cursor, mirroring List. Anything else is returned untouched with
-// a nil command, which is what lets a page pass every message through without
-// swallowing the ones the table does not own.
+// Update moves the row cursor on the navigation keys, mirroring List;
+// anything else passes through untouched with a nil command.
 func (m *Table) Update(msg tea.Msg) (*Table, tea.Cmd) {
 	km, ok := msg.(tea.KeyPressMsg)
 	if !ok {
@@ -319,8 +290,7 @@ func (m *Table) Update(msg tea.Msg) (*Table, tea.Cmd) {
 }
 
 // rowsPerPageHint is the pgup/pgdn step: the height the table was given,
-// or 10 while no caller has set one (the pre-scroll default the goldens
-// were cut against).
+// or 10 while none is set.
 func (m *Table) rowsPerPageHint() int {
 	if m.height > 0 {
 		return m.height
@@ -328,10 +298,9 @@ func (m *Table) rowsPerPageHint() int {
 	return 10
 }
 
-// resolvedWidths applies the flex rule: flexible columns give first
-// (right to left, floor 4), then the remaining deficit is taken from
-// every column right to left (floor 4). The grid's border budget is
-// counted when grid mode is on.
+// resolvedWidths applies the flex rule: flex columns give first (right
+// to left, floor 4), then the rest of the deficit from every column
+// right to left. The grid's border budget is counted in grid mode.
 func (m *Table) resolvedWidths() []int {
 	ws := make([]int, len(m.cols))
 	total := 2 + len(m.cols) - 1 // selector cells + separators
@@ -394,8 +363,8 @@ func (m *Table) renderFlat() string {
 		}
 		header[i] = c.padCell(text, ws[i])
 	}
-	// one line per row plus the header: the table re-renders every frame, so the
-	// capacity is the number of rows rather than a growth series of copies
+	// one line per row plus the header, capacity up front to avoid
+	// re-copying every render
 	lines := make([]string, 1, 1+len(m.rows))
 	lines[0] = m.theme.TextMuted.Render(pad(m.fit("  "+strings.Join(header, " ")), m.width))
 
@@ -418,9 +387,9 @@ func (m *Table) renderFlat() string {
 		lines = append(lines, line)
 	}
 
-	// Record the drawn data-row rects for the click hit map (Task 8.3):
-	// the flat renderer pads every line to the table width, so a row
-	// spans its measured line below the one header line (lines[0]).
+	// Record the drawn data-row rects: the flat renderer pads every line
+	// to the table width, so a row spans its measured line below the one
+	// header line (lines[0]).
 	m.rowHits = m.rowHits[:0]
 	for i := lo; i < hi; i++ {
 		m.rowHits = append(m.rowHits, RowHit{
@@ -441,13 +410,9 @@ func (m *Table) fit(line string) string {
 	return line
 }
 
-// padCell lays one clipped cell out in w cells, honouring the alignment the column
-// declares. Styled spans are measured rather than counted, so a status cell cannot
-// shift the column, and a cell already at the full width is returned untouched.
-//
-// It is a method rather than a helper taking an align flag because the column is
-// the thing that knows how its cells are laid out, and because a boolean control
-// parameter at four call sites is the shape this linter is right about.
+// padCell lays one clipped cell out in w cells, honouring the column's
+// alignment; styled spans are measured, not counted, so a status cell
+// cannot shift the column.
 func (c Column) padCell(s string, w int) string {
 	if !c.AlignRight {
 		return pad(s, w)

@@ -8,10 +8,9 @@ import (
 	"jiso/internal/tui/geom"
 )
 
-// This file holds the wireframe grid renderer for Table, split out along
-// the existing grid seam for the 500-line file budget (UAT round 8). The
-// shared plumbing — column definitions, cursor/scroll clamping, width
-// resolution, the flat renderer, the fit clamp — stays in table.go.
+// This file holds the wireframe grid renderer for Table; the shared
+// plumbing (column definitions, clamping, width resolution, the flat
+// renderer, the fit clamp) stays in table.go.
 
 // gridGlyphs are the table's border runes for the theme's glyph mode.
 type gridGlyphs struct {
@@ -70,11 +69,10 @@ func (m *Table) gridRow(g gridGlyphs, cells []string) string {
 	return b.String()
 }
 
-// renderGrid draws the wireframe grid: top rule, header row, header
-// rule, data rows (selector ▸ inside the first cell, theme selection
-// background), bottom rule. Cells truncate with an ellipsis and never
-// wrap; the sort caret is NOT rendered here (pages put it in their
-// title). Only the rowWindow slice is drawn once a height is set.
+// renderGrid draws the wireframe grid: top rule, header row, mid rule,
+// data rows, bottom rule (chrome rows cost a fixed 4 lines). Cells
+// truncate and never wrap; the sort caret is NOT rendered here. Only the
+// rowWindow slice is drawn once a height is set.
 func (m *Table) renderGrid() string {
 	ws := m.resolvedWidths()
 	g := m.gridGlyphs()
@@ -92,9 +90,8 @@ func (m *Table) renderGrid() string {
 	for i, c := range m.cols {
 		text := clip(c.Title, max(1, ws[i]), tail)
 		if c.AlignRight {
-			// The last cell of the header has to sit over the last cell of its
-			// numbers, so the header cannot keep the space it would otherwise
-			// wear on the right.
+			// The right-aligned header cell sits over the last cell of its
+			// numbers, not the space it would otherwise wear on the right.
 			header[i] = c.padCell(text, fields[i])
 
 			continue
@@ -136,16 +133,15 @@ func (m *Table) renderGrid() string {
 		lines[i] = m.fit(l)
 	}
 
-	// Record the drawn data-row rects for the click hit map (Task 8.3).
+	// Record the drawn data-row rects for the click hit map.
 	m.recordGridRows(lines, lo, hi)
 
 	return strings.Join(lines, "\n")
 }
 
-// recordGridRows records the drawn data-row rects for the click hit map
-// (Task 8.3): lines[0..2] are the top rule, the header row and the mid
-// rule, so each visible row starts one cell inside the border columns,
-// under the header. The bottom rule is not a row.
+// recordGridRows records the drawn data-row rects: lines[0..2] are the
+// top rule, header row and mid rule, so each row starts one cell inside
+// the border, under the header; the bottom rule is not a row.
 func (m *Table) recordGridRows(lines []string, lo, hi int) {
 	m.rowHits = m.rowHits[:0]
 	for i := lo; i < hi; i++ {

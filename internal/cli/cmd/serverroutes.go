@@ -1,7 +1,6 @@
 // serverroutes.go holds PAR-309's `serve start` foreground-run path: the
-// --routes-file mock-route resolution (delegated to app.ResolveRoutes, with
-// the exit-code mapping kept here), the command Long help pinning the
-// systemd exit-code contract, and executeServerStart wiring both into
+// --routes-file resolution (delegated to app.ResolveRoutes, exit-code
+// mapping kept here) and executeServerStart wiring it into
 // command.ServerCommand.RunDirectServer.
 package cmd
 
@@ -18,9 +17,9 @@ import (
 	"jiso/internal/utils"
 )
 
-// serveStartLongHelp is the `serve start` Long help. It pins the PAR-309
-// contract: routes precedence, the graceful-stop exit 0 (and why it differs
-// from one-shot commands' 130), and --json stdout purity during the run.
+// serveStartLongHelp is the `serve start` Long help, pinning the PAR-309
+// contract: routes precedence, the graceful-stop exit code, and --json
+// stdout purity during the run.
 const serveStartLongHelp = `Start the embedded ISO8583 mock server in the foreground and block until
 SIGINT/SIGTERM stops it.
 
@@ -44,8 +43,8 @@ receives the summary when the server is stopped.`
 
 // serveRoutesError translates a loader failure from app.ResolveRoutes into
 // the CLI's exit-code taxonomy: every routes-file failure is a config-class
-// error (exit 3) naming the path (PAR-309). The precedence and parsing live
-// in internal/app (shared with the TUI); only this mapping stays here.
+// error (exit 3) naming the path. The precedence and parsing live in
+// internal/app.
 func serveRoutesError(err error) error {
 	var appCfgErr *app.ConfigError
 	if errors.As(err, &appCfgErr) {

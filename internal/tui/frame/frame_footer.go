@@ -12,7 +12,7 @@ import (
 const footerGap = "  "
 
 // hintEntry is one rendered footer entry plus its survival flag and the
-// hint it was rendered from (Task 8.4: the packed rect's dispatch source).
+// hint it was rendered from (the packed rect's dispatch source).
 type hintEntry struct {
 	text    string
 	primary bool
@@ -30,15 +30,11 @@ type hintSpan struct {
 
 // footerLine renders the contextual keymap strip from the hint list the
 // router passed in — never hardcoded here. At LevelNarrow only Primary
-// hints are kept (contract: the always-visible discoverability layer
-// survives to the narrowest column budget); at every level the router
-// orders the list legend-first, so overflow drops page keys, then jump
-// keys, and the primary trio never.
+// hints are kept; the router orders the list legend-first, so overflow
+// drops page keys, then jump keys, and the primaries never.
 //
-// Whatever the width pressure drops is COUNTED: the line ends with a
-// dim "…+N" marker (UAT round 5: dropped entries were invisible, so a
-// narrow terminal stranded the user with no hint that keys existed — the
-// marker points at the ? help overlay as the discovery path).
+// Whatever the width pressure drops is COUNTED: the line ends with a dim
+// "…+N" marker, so dropped entries are never invisible.
 func (p Props) footerLine(th *theme.Theme, lv Level, width int) []string {
 	line, _ := p.footerSpans(th, lv, width)
 
@@ -47,8 +43,7 @@ func (p Props) footerLine(th *theme.Theme, lv Level, width int) []string {
 
 // footerSpans is footerLine's pipeline with the packed entries' cell
 // ranges attached — the exact code path Render draws the footer through,
-// so the spans always describe the rendered bytes (the hit map is
-// metadata; the footer goldens stay byte-identical).
+// so the spans always describe the rendered bytes.
 func (p Props) footerSpans(th *theme.Theme, lv Level, width int) (string, []hintSpan) {
 	hints := p.Hints
 	dropped := 0
@@ -87,13 +82,11 @@ type FooterHit struct {
 
 // FooterHits replays the exact footer packing Render performs at the given
 // terminal size and returns one rect per entry that actually made it into
-// the rendered footer row. Entries hidden by the narrow level filter or
-// the overflow drop (the "…+N" tail) get NO rect — only visible hints are
-// clickable — and a frame that draws no footer row at all (FooterOrigin
-// !ok) publishes nothing. Dispatch is the hint's Key spelling (the
-// matching vocabulary of the bindings, theme/keys.go); spellings that name
-// no key stay in the result so callers can decide their own inertness
-// policy.
+// the rendered footer row. Entries hidden by the narrow level filter or the
+// overflow drop get NO rect — only visible hints are clickable — and a
+// frame that draws no footer row (FooterOrigin !ok) publishes nothing.
+// Dispatch is the hint's Key spelling; spellings that name no single key
+// stay in the result so callers can decide their own inertness policy.
 func FooterHits(th *theme.Theme, hints []KeyHint, width, height int) []FooterHit {
 	if th == nil {
 		th = theme.Default()
@@ -125,14 +118,12 @@ func overflowMarker(th *theme.Theme, dropped int) string {
 }
 
 // fitHints packs hint entries into the width budget whole-entry-first.
-// When the line would overflow, the LAST non-primary entry is dropped
-// and packing retries, so primaries survive every width the frame
-// renders at; only when the primaries alone still overflow is the
-// result truncated (the lone oversized entry case). Dropped entries
-// (baseDropped counts what the level filter already hid) are reported
-// by the overflowMarker tail, whose width is reserved from the budget.
-// The returned spans describe the returned line: entries removed here or
-// clipped away by the final truncate get no (full) span.
+// On overflow the LAST non-primary entry is dropped and packing retries,
+// so primaries survive every rendered width; only when the primaries
+// alone overflow is the result truncated (the lone oversized entry case).
+// Dropped entries are reported by the overflowMarker tail, whose width is
+// reserved from the budget. Returned spans describe the returned line:
+// removed or clipped-away entries get no (full) span.
 func fitHints(th *theme.Theme, entries []hintEntry, width, baseDropped int) (string, []hintSpan) {
 	dropped := baseDropped
 	for {

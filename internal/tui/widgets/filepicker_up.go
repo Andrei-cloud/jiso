@@ -1,17 +1,13 @@
-// filepicker_up.go is the file picker's up leg (UAT round 9 F-9a/F-9b):
-// the synthesized ".." row and the single climb helper every up afford
-// (backspace, the u key, Enter/click on the row) shares. Split out of
-// filepicker.go for the source-file line budget.
+// filepicker_up.go is the file picker's up leg: the synthesized ".."
+// row and the single goUp helper every up afford shares.
 package widgets
 
 import "path/filepath"
 
 // parentEntry synthesizes the ".." row: os.ReadDir never yields
 // "."/"..", so the parent is spelled by hand as a directory-kind entry
-// pointing at the browsed dir's parent — selectEntry's ordinary descent
-// then climbs with no new select code. The floor is the filesystem root
-// (filepath.Dir("/") == "/"), not p.root: root anchors the display
-// label, it is never a navigation wall.
+// and selectEntry's ordinary descent climbs with no new select code.
+// The floor is the filesystem root (Dir(dir) == dir there), not p.root.
 func (p *FilePicker) parentEntry() (fileEntry, bool) {
 	parent := filepath.Dir(p.dir)
 	if parent == p.dir {
@@ -21,11 +17,10 @@ func (p *FilePicker) parentEntry() (fileEntry, bool) {
 	return fileEntry{name: "..", path: parent, isDir: true}, true
 }
 
-// goUp climbs one directory. Clamping the leg to p.root was the UAT
-// round 9 F-9a trap (a picker opened with Start == Root could never
-// leave its start dir); the floor is the filesystem root, and
-// relLabel's basename fallback keeps absolute paths out of the label
-// when a root-anchored owner climbs above its tree.
+// goUp climbs one directory for backspace, `u`, and Enter/click on the
+// ".." row. The floor is the filesystem root, never p.root; relLabel's
+// basename fallback (distorted only above a non-`/` root) keeps absolute
+// paths out of the label.
 func (p *FilePicker) goUp() {
 	if parent := filepath.Dir(p.dir); parent != p.dir {
 		p.dir = parent

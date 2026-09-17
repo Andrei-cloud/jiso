@@ -1,23 +1,17 @@
 // Package theme provides the jiso TUI's semantic color tokens and the
-// accessibility rules around them (design contract:
-// .opencode/plans/00-overhaul-plan.md §"TUI design contract").
-//
-// Rules encoded structurally here:
+// accessibility rules around them, encoded structurally here:
 //
 //   - Semantic tokens only (status.ok/warn/error, text.muted, accent, …);
 //     screens never hardcode colors. See tokens.go for the table.
-//   - Adaptive colors: every TrueColor token resolves through
-//     lipgloss.LightDark against the detected background, so themes are
-//     legible on light and dark terminals.
-//   - Never color alone: Status renders symbol+text (✓/⚠/✗ plus the
-//     message); de-emphasis goes through Dim, which pairs a faint
-//     attribute with the muted color instead of relying on low contrast.
+//   - Adaptive colors: TrueColor tokens resolve through
+//     lipgloss.LightDark against the detected background, legible on
+//     light and dark terminals.
+//   - Never color alone: Status renders symbol+text; de-emphasis goes
+//     through Dim (faint attribute + muted color), never low contrast only.
 //   - Graceful degradation: colorprofile.Detect honors NO_COLOR/CLICOLOR/
-//     TERM/COLORTERM. Under a colorless profile (ASCII/NoTTY — which is
-//     what NO_COLOR resolves to) every style degrades to plain text with
-//     zero escape codes. JISO_ASCII=1 additionally swaps Unicode glyphs
-//     for ASCII fallbacks (✓→[ok], ⚠→[!], ✗→[x], ▸→>) so goldens can pin
-//     both glyph sets.
+//     TERM/COLORTERM; under a colorless profile every style degrades to
+//     plain text with zero escape codes. JISO_ASCII=1 additionally swaps
+//     Unicode glyphs for ASCII fallbacks so goldens can pin both sets.
 package theme
 
 import (
@@ -118,20 +112,13 @@ type Theme struct {
 // lipgloss.HasDarkBackground(os.Stdin, os.Stdout) — non-TTY input fails
 // the raw-mode query and defaults to dark, which matches the token table.
 // In Bubble Tea prefer seeding NewWith from tea.BackgroundColorMsg.
-//
-// Glyph selection: ASCII glyphs come from JISO_ASCII=1, TERM=dumb, or a
-// non-TTY output — never from NO_COLOR alone, which drops colour but
-// keeps the Unicode glyph set (the symbol+word contract renders fine
-// without colour).
 func New() *Theme {
 	t := NewWith(
 		colorprofile.Detect(os.Stdout, os.Environ()),
 		lipgloss.HasDarkBackground(os.Stdin, os.Stdout),
 	)
 	// The env policy lives here, not in NewWith: an explicit-profile
-	// constructor is pure so tests can build themes concurrently (a
-	// process-wide JISO_ASCII read inside NewWith serialized the whole
-	// test suite behind t.Setenv).
+	// constructor stays pure so tests can build themes concurrently.
 	switch {
 	case truthy(os.Getenv("JISO_ASCII")):
 		t.ASCII = true
@@ -252,13 +239,9 @@ func (t *Theme) Selector(selected bool) string {
 }
 
 // BorderFocused is the focused pane's border style: the Border token
-// re-coloured with the accent foreground (UAT round 5: the active pane
-// must be obvious). It mirrors the derivation the sessions/server
-// sectionW helpers spelled by hand —
-// boxStyle().BorderForeground(th.Accent.GetForeground()) — so a focused
-// box is byte-identical whichever way it is built. Under a colorless
-// profile both tokens are identity styles and the border stays the plain
-// border glyph set with zero escape codes.
+// re-coloured with the accent foreground, byte-identical to the
+// derivation pages helpers spelled by hand. Under a colorless profile
+// both tokens are identity styles.
 func (t *Theme) BorderFocused() lipgloss.Style {
 	return t.Border.BorderForeground(t.Accent.GetForeground())
 }

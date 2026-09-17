@@ -1,6 +1,5 @@
 // Package frame renders the jiso TUI's outer screen frame around a page
-// body (wireframe WF-01 "Global chrome", design contract
-// .opencode/plans/00-overhaul-plan.md §"TUI design contract"):
+// body (wireframe WF-01 "Global chrome"):
 //
 //	┌─ jiso v2.0.0 ── target 10.0.0.5:8080 ✓ ─ spec visa.json ─ tx pool.json (12) ─┐
 //	│  < page content >                                                              │
@@ -8,12 +7,11 @@
 //	│ 1 dash  2 tx  …  q quit                                                        │
 //	└────────────────────────────────────────────────────────────────────────────────┘
 //
-// The top rule embeds the app label left and the live status chips right
-// (connection target+state, spec file, tx file+count, worker count); the
-// footer sits inside the bottom half of the border. Every colour/style
-// comes from internal/tui/theme tokens; under a colorless profile the
-// whole frame degrades to plain text with ASCII rules. Render is pure —
-// no I/O, no tea types — so it is golden-testable directly.
+// The top rule embeds the app label left and the live status chips right;
+// the footer sits inside the bottom half of the border. Every colour comes
+// from internal/tui/theme tokens; under a colorless profile the frame
+// degrades to plain text with ASCII rules. Render is pure — no I/O, no tea
+// types.
 package frame
 
 import (
@@ -24,10 +22,9 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// Responsive breakpoints (design contract §Responsive / wireframes floor
-// test): the full top-rule text at ≥fullWidth, an elided chip set at
-// medium, and the identity label alone below narrowWidth. The border
-// itself never drops above MinWidth.
+// Responsive breakpoints: the full top-rule text at ≥fullWidth, an elided
+// chip set at medium, the identity label alone below narrowWidth. The
+// border never drops above MinWidth.
 const (
 	// FullWidth is the minimum width for the complete top-rule chip set.
 	FullWidth = 100
@@ -77,11 +74,9 @@ func LevelFor(width int) Level {
 // returns the context-sensitive half; the router appends the global
 // bindings. Primary marks the keys that survive the narrow footer.
 //
-// Key doubles as the click-dispatch spelling: it is written from the same
-// matching vocabulary the bindings use (theme/keys.go), so
-// frame.FooterHits reports it and a footer click replays exactly the typed
-// key; labels that spell no single key ("j/k") are filtered inert by the
-// hit map's synthKeyPress guard rather than firing a wrong press.
+// Key doubles as the click-dispatch spelling, written from the same
+// matching vocabulary the bindings use, so a footer click replays exactly
+// the typed key.
 type KeyHint struct {
 	Key     string
 	Desc    string
@@ -114,9 +109,9 @@ type Props struct {
 	Workers int // chip "N workers" when > 0
 	Hints   []KeyHint
 	// Console is the bottom console strip: the newest NON-TUI system
-	// output line (connection manager). ConsoleErr styles it as an
-	// error; empty renders no strip line (UAT: stderr writes corrupted
-	// the frame; every such line now lands here instead).
+	// output line. ConsoleErr styles it as an error; empty renders no
+	// strip line (stderr writes corrupted the frame; such lines now land
+	// here instead).
 	Console    string
 	ConsoleErr bool
 	Content    string // page body; truncated/padded into the content area
@@ -187,11 +182,9 @@ func Render(p Props) string {
 			consoleLine = th.Dim.Render(label + p.Console)
 		}
 		// Chrome floor: the strip claims a line only while the content
-		// floor survives alongside it; under extreme height pressure it
-		// YIELDS instead of pushing the frame taller than the window
-		// (UAT round 8 review: at h=4/5 the old composition emitted
-		// height+1 lines, leaving the footer one row below where
-		// FooterOrigin and the footer hit-map say it is).
+		// floor survives alongside it; under height pressure it YIELDS
+		// rather than push the frame taller than the window (which would
+		// strand the footer below where FooterOrigin says it is).
 		if height-len(top)-len(mid)-len(footer)-len(bottom)-1 < MinContentHeight {
 			consoleLine = ""
 		}
@@ -263,11 +256,9 @@ func (p Props) topRule(th *theme.Theme, lv Level, width int) []string {
 	chips := p.chips(th)
 	if lv == LevelNarrow && len(chips) > 1 {
 		// Narrow keeps the identity label and the connection chip but
-		// drops the informational chips (hdr/spec/tx/workers) — UAT round
-		// 6 QA: the whole title used to drop below NarrowWidth, leaving a
-		// featureless top rule and no sense of where you are. If even
-		// label+conn can't fit, the loop still falls back to label-only
-		// and then to a plain rule.
+		// drops the informational chips, so the top rule never goes
+		// featureless. If even label+conn can't fit, the loop falls back
+		// to label-only and then to a plain rule.
 		chips = chips[:1]
 	}
 	for {
