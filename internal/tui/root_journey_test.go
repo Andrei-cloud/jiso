@@ -161,9 +161,7 @@ func TestJourneySendWizardLadder(t *testing.T) {
 	})
 }
 
-// TestJourneyDashboardStressWizard: UAT round 9 (F-9g) — t pressed on
-// the dashboard (the LAST STRESS card's taught key) opens the SAME
-// stress wizard §H's t opens, as a modal over the untouched dashboard.
+// `t` on the dashboard opens the same stress wizard §H's t opens, as a modal.
 func TestJourneyDashboardStressWizard(t *testing.T) {
 	escLadder(t, func(t *testing.T, r *sendTestRoot) {
 		pumpKey(r.m, ch('t'))

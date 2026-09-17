@@ -1,9 +1,6 @@
-// hitmap_test.go pins the mouse hit-map machinery (Task 8.1, finding 9):
-// resolve geometry (absolute terminal cells, last-added/topmost wins), the
-// content-relative → absolute translation, and the synthetic messages a
-// resolved hit produces — a key hit must arrive as EXACTLY the key press
-// ch(...) types in these tests, so every existing key.Matches binding fires
-// as if the key were typed.
+// hitmap_test.go pins the mouse hit-map machinery: resolve geometry
+// (absolute cells, last-added wins), the content-relative → absolute
+// translation, and the synthetic messages a resolved hit emits.
 package tui
 
 import (
@@ -18,9 +15,7 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// seedServerLogLines fills the §G log ring with n plainly-numbered lines
-// and pushes the snapshot into the page (the same syncServer path the
-// Update wrapper runs after every message).
+// seedServerLogLines fills the §G log ring with n numbered lines and syncs the page.
 func seedServerLogLines(m *RootModel, n int) {
 	for i := 1; i <= n; i++ {
 		m.serverLog = append(m.serverLog, fmt.Sprintf("log line %02d", i))
@@ -40,10 +35,8 @@ func serverAt(t *testing.T, w, h, lines int) *RootModel {
 	return m
 }
 
-// TestBuildHitMapServerLogRegion pins Task 8.2b registration: the §G LOG
-// pane publishes its DRAWN rect into the per-frame hit map, translated
-// from content-relative to ABSOLUTE coords by frame.ContentOrigin, and
-// the wheel over it resolves the scroll region while dead space does not.
+// the §G log pane publishes its drawn rect into the hit map in absolute
+// coords; the wheel over it resolves the scroll region, dead space does not.
 func TestBuildHitMapServerLogRegion(t *testing.T) {
 	m := serverAt(t, 80, 24, 30)
 	_ = m.View() // renders §G (recording the pane) and rebuilds the map
@@ -55,8 +48,7 @@ func TestBuildHitMapServerLogRegion(t *testing.T) {
 	if len(rel) != 1 {
 		t.Fatalf("§G must publish exactly the log region, got %#v", rel)
 	}
-	// The hit-map entry must be the published rect translated by the
-	// content origin — the same addAbs contract the 8.1 tests pinned.
+	// the entry is the published rect translated by the content origin
 	want := geom.Rect{X: rel[0].Rect.X + ox, Y: rel[0].Rect.Y + oy, W: rel[0].Rect.W, H: rel[0].Rect.H}
 	act, ok := hm.resolve(want.X+want.W/2, want.Y+want.H/2)
 	if !ok || act.kind != hitScroll || act.region != pages.RegionServerLog {
@@ -67,11 +59,7 @@ func TestBuildHitMapServerLogRegion(t *testing.T) {
 		t.Error("a cell above the log pane must not resolve a scroll region")
 	}
 
-	// No log lines: no pane, no region (TestProgPagesReachable's §G golden
-	// depends on §G-without-log registering nothing). Task 8.4 note: every
-	// MinWidth frame now also registers the footer legend's key hits, so
-	// the truthful §G-without-log assertion is "no PAGE geometry" — every
-	// hit is a footer key hit, none a scroll/select region.
+	// no log lines: no pane, no page geometry (footer key hits aside)
 	bare := serverAt(t, 80, 24, 0)
 	_ = bare.View()
 	for _, e := range bare.buildHitMap() {
@@ -81,10 +69,8 @@ func TestBuildHitMapServerLogRegion(t *testing.T) {
 	}
 }
 
-// TestBuildHitMapBelowMinWidthInert pins policy (a): the sub-MinWidth
-// frame renders the too-small notice, but pages still record their
-// section Rects — registering them would resolve phantom hits over ink
-// that is not on screen.
+// the sub-MinWidth frame registers no hits: pages still record rects, but
+// registering them would resolve phantom hits over un-drawn ink.
 func TestBuildHitMapBelowMinWidthInert(t *testing.T) {
 	m := serverAt(t, frame.MinWidth-1, 24, 30)
 	_ = m.View()
@@ -92,17 +78,14 @@ func TestBuildHitMapBelowMinWidthInert(t *testing.T) {
 	if hm := m.buildHitMap(); len(hm) != 0 {
 		t.Fatalf("sub-MinWidth frame registered %d hits, want 0 (phantom-hit policy)", len(hm))
 	}
-	// And the pages did record geometry, proving the skip is the policy
-	// and not an accident of the layout.
+	// the pages did record geometry: the skip is policy, not layout accident
 	if len(m.server.ScrollRegions()) == 0 {
 		t.Fatal("precondition: the page should still record its panes below MinWidth")
 	}
 }
 
-// TestScrollMsgDispatchServerLog pins the handleScrollMsg seam: the region
-// resolves to the ACTIVE page's scrollable and the content-direction
-// delta passes straight through (no negation) into the same offset the
-// keyboard drives.
+// the region resolves to the active page's scrollable; the content-direction
+// delta passes through with no negation.
 func TestScrollMsgDispatchServerLog(t *testing.T) {
 	m := serverAt(t, 80, 24, 30)
 
@@ -121,13 +104,11 @@ func TestScrollMsgDispatchServerLog(t *testing.T) {
 	}
 }
 
-// TestScrollMsgDispatchHelpOverlay pins the overlay branch of the seam:
-// with §M open its region dispatches to the overlay's own window offset,
-// never to the page underneath.
+// with §M open its region dispatches to the overlay's own offset, never
+// to the page underneath.
 func TestScrollMsgDispatchHelpOverlay(t *testing.T) {
 	m := NewRootModel(nil)
-	// Height 6 leaves the overlay a 2-line canvas: the keymap cannot fit,
-	// so the box is genuinely windowed and scrollable.
+	// height 6 leaves a 2-line canvas: the keymap can't fit, so the box is genuinely scrollable
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 6})
 	_, _ = m.Update(ch('?'))
 	if m.help == nil {
@@ -156,10 +137,8 @@ func TestScrollMsgDispatchHelpOverlay(t *testing.T) {
 	}
 }
 
-// TestInstallMouseIgnoresOtherButtons pins policy (b): only the LEFT
-// button replays key hits and only the vertical wheel produces a
-// scrollMsg; middle/right clicks and horizontal wheel steps stay inert so
-// they cannot replay keys or fake a vertical scroll.
+// only the left button replays key hits and only the vertical wheel
+// scrolls; everything else stays inert.
 func TestInstallMouseIgnoresOtherButtons(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
@@ -188,8 +167,7 @@ func TestInstallMouseIgnoresOtherButtons(t *testing.T) {
 	if cmd := v.OnMouse(tea.MouseWheelMsg{X: 45, Y: 5, Button: tea.MouseWheelRight}); cmd != nil {
 		t.Fatal("wheel-right must not emit a vertical scrollMsg")
 	}
-	// Task 8.2c fix 3: a LEFT CLICK on a scroll region is inert too —
-	// only the wheel acts on a scrollable pane.
+	// a left click on a scroll region is inert too: only the wheel acts
 	if cmd := v.OnMouse(tea.MouseClickMsg{X: 45, Y: 5, Button: tea.MouseLeft}); cmd != nil {
 		t.Fatal("a click over a scroll region must stay inert")
 	}
@@ -201,8 +179,7 @@ func TestInstallMouseIgnoresOtherButtons(t *testing.T) {
 
 func TestHitMapResolveTopmost(t *testing.T) {
 	hm := hitMap{}
-	// keyHit is the ctor; the zero-kind literal must mean the same action
-	// (the brief's spelling), which the footer registration will use.
+	// the zero-kind literal must mean the same action as the keyHit ctor
 	hm.add(geom.Rect{X: 0, Y: 20, W: 40, H: 1}, keyHit("4")) // footer "4 server" (absolute)
 	lit := hitAction{key: "4"}
 	if lit != keyHit("4") {
@@ -216,8 +193,7 @@ func TestHitMapResolveTopmost(t *testing.T) {
 		t.Fatal("non-hit cell must not resolve")
 	}
 
-	// A later-added rect that overlaps wins: the last-drawn overlay sits
-	// topmost, so its hits must shadow the page body underneath.
+	// a later-added rect wins: the last-drawn overlay shadows the page underneath
 	hm.add(geom.Rect{X: 4, Y: 19, W: 3, H: 3}, hitAction{key: "?"})
 	if a, _ := hm.resolve(5, 20); a.key != "?" {
 		t.Fatalf("overlapping hit = key %q, want the last-added (topmost) ?", a.key)
@@ -236,10 +212,7 @@ func TestHitMapResolveTopmost(t *testing.T) {
 }
 
 func TestHitMapAddAbsTranslatesContentOrigin(t *testing.T) {
-	// The frame puts the page body at x=2 (side rule + space) and y=1
-	// (top rule) at normal sizes; a page's section Rect is recorded
-	// content-relative, so a hit added through addAbs must land on the
-	// ABSOLUTE cell the mouse reports.
+	// a content-relative rect added via addAbs must resolve at the absolute cell
 	hm := hitMap{}
 	rel := geom.Rect{X: 0, Y: 0, W: 10, H: 3}
 	hm.addAbs(2, 1, rel, hitAction{key: "j"})
@@ -257,15 +230,13 @@ func TestHitMapAddAbsTranslatesContentOrigin(t *testing.T) {
 }
 
 func TestContentOriginTracksFrame(t *testing.T) {
-	// RootModel.contentOrigin is the offset 8.2–8.5 feed to addAbs; it must
-	// track the frame's live shrink decisions, not a frozen constant.
+	// must track the frame's live shrink decisions, not a frozen constant
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	if x, y := m.contentOrigin(); x != 2 || y != 1 {
 		t.Fatalf("contentOrigin at 80x24 = %d,%d, want 2,1 (side rule + top rule)", x, y)
 	}
-	// Height pressure drops the top rule first (frame.chromeParts), so the
-	// content area moves up to y=0.
+	// height pressure drops the top rule first: content moves up to y=0
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 4})
 	if x, y := m.contentOrigin(); x != 2 || y != 0 {
 		t.Fatalf("contentOrigin at 80x4 = %d,%d, want 2,0 (top rule dropped)", x, y)
@@ -294,9 +265,8 @@ func TestHitActionCmdKeyMatchesBindings(t *testing.T) {
 }
 
 func TestHitActionCmdNamedKeys(t *testing.T) {
-	// Named key spellings resolve to the special codes the terminal
-	// delivers, so bindings written as "enter"/"esc"/"shift+tab" match a
-	// synthetic press exactly (the String() side key.Matches compares).
+	// named spellings resolve to the codes the terminal delivers, so
+	// bindings written "enter"/"esc"/"shift+tab" match a synthetic press
 	cases := []struct {
 		key  string
 		want tea.KeyPressMsg
@@ -356,9 +326,8 @@ func TestHitActionCmdNonKeyMsgs(t *testing.T) {
 			}
 		})
 	}
-	// Task 8.2c fix 3: clicking a scroll region is INERT — the wheel is
-	// the only pointer that scrolls, so a left-click on a scrollable pane
-	// must emit nothing (it used to emit a no-op scrollMsg{delta: 0}).
+	// a click on a scroll region is inert: only the wheel scrolls
+	// (it used to emit a no-op scrollMsg{delta: 0})
 	if cmd := scrollHit("tx-list").cmd(); cmd != nil {
 		t.Fatal("a click on a scroll region must be inert, not a scrollMsg")
 	}
@@ -375,21 +344,18 @@ func TestInstallMouseContract(t *testing.T) {
 	if v.OnMouse == nil {
 		t.Fatal("View.OnMouse must be installed")
 	}
-	// The shipped frame's map is empty (real hits arrive with 8.2–8.5):
-	// every cell resolves to nothing.
+	// the shipped frame's map is empty: every cell resolves to nothing
 	if cmd := v.OnMouse(tea.MouseClickMsg{X: 5, Y: 20, Button: tea.MouseLeft}); cmd != nil {
 		t.Fatal("an unregistered cell must resolve to nothing")
 	}
 
-	// One registered key hit + a wheel region, installed on a fresh view
-	// (real hits arrive with Tasks 8.2–8.5).
+	// one registered key hit + a wheel region, installed on a fresh view
 	hm := hitMap{}
 	hm.add(geom.Rect{X: 2, Y: 20, W: 40, H: 1}, keyHit("4"))
 	hm.add(geom.Rect{X: 2, Y: 2, W: 40, H: 10}, scrollHit("page"))
 	var v2 tea.View
 	m.installMouse(&v2, hm)
 
-	// Left click on the footer hit replays the key.
 	click := tea.MouseClickMsg{X: 5, Y: 20, Button: tea.MouseLeft}
 	cmd := v2.OnMouse(click)
 	if cmd == nil {
@@ -399,15 +365,12 @@ func TestInstallMouseContract(t *testing.T) {
 		t.Fatalf("click msg = %#v, want %#v", got, ch('4'))
 	}
 
-	// Task 8.2c fix 3: a left click over a SCROLL region is inert — the
-	// wheel is the only pointer that scrolls.
+	// a left click over a scroll region is inert: only the wheel scrolls
 	if cmd := v2.OnMouse(tea.MouseClickMsg{X: 5, Y: 5, Button: tea.MouseLeft}); cmd != nil {
 		t.Fatal("a click over a scroll region must stay inert")
 	}
 
-	// Wheel over the scroll region → scrollMsg with the CONTENT-direction
-	// delta (the ScrollPreview convention, Task 7.3): wheel-down = +1
-	// (window moves down through the content), wheel-up = -1.
+	// content-direction wheel convention (ScrollPreview): wheel-down = +1, wheel-up = -1
 	down := tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelDown}
 	if got := v2.OnMouse(down)(); got != (scrollMsg{region: "page", delta: 1}) {
 		t.Fatalf("wheel down = %#v, want scrollMsg{page +1} (content-direction convention)", got)
@@ -432,13 +395,9 @@ func TestInstallMouseContract(t *testing.T) {
 }
 
 func TestMouseMsgsRouteAtRoot(t *testing.T) {
-	// The three synthetic msgs are owned by the root router: Update must
-	// consume them (the routing skeleton 8.2–8.5 flesh out) without
-	// panicking and without forwarding to the page. The RAW terminal mouse
-	// msgs belong here too: bubbletea v2.0.9 delivers every mouse event to
-	// View.OnMouse AND then to model.Update (tea.go:808-816, no continue),
-	// so Update must swallow them — otherwise a future mouse-aware page
-	// consumer would act on the raw event and the synthetic msg at once.
+	// the root router owns the synthetic msgs and must swallow the raw
+	// terminal mouse msgs too: bubbletea delivers them to Update as well,
+	// so forwarding would double-fire on a future mouse-aware page
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.Replace(recordingPage{id: "spy"})

@@ -156,10 +156,8 @@ func (s *progSession) runTimeout(t *testing.T, keys string, d time.Duration) pro
 	return progResult{err: err, frame: s.finalFrame(), raw: s.out.String(), model: s.m}
 }
 
-// runScripted types chunks with a pause before each one (mouse events
-// resolve against the LAST rendered view, so every event chunk must
-// arrive after the frame it targets has been flushed), then joins Run
-// exactly like run. The final chunk must quit.
+// runScripted types chunks with a pause before each (mouse events resolve
+// against the last flushed view). The final chunk must quit.
 func (s *progSession) runScripted(t *testing.T, gap time.Duration, chunks ...string) progResult {
 	t.Helper()
 

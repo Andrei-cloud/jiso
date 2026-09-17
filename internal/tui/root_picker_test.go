@@ -1,12 +1,8 @@
-// root_picker_test.go proves the TUI-406b root seam: pages.SettingsPickFileMsg
-// (f on a §L path row) opens the shared widgets.FilePicker as a
-// root-owned modal — it owns the keyboard over the page (q/:/? reach the
-// picker, Esc closes it back to §L), the View carries only the virtual
-// fixture label — a selection returns as a FilePickedMsg whose Path is
-// committed through the settings commit seam (validation included);
-// and the §L save-success line also surfaces as a toast that a ticked
-// age prunes (the widget never reads the clock; now/toastTickf are
-// injected).
+// root_picker_test.go proves the root picker seam: SettingsPickFileMsg
+// opens the shared FilePicker as a root-owned modal (it owns the keyboard;
+// Esc closes back to §L), a selection returns as FilePickedMsg and commits
+// through the settings seam, and the save line also surfaces as a toast
+// that a ticked age prunes (now/toastTickf are injected).
 package tui
 
 import (
@@ -156,12 +152,8 @@ func TestRootToastAppearsThenPrunesOnTickedAge(t *testing.T) {
 
 // --- E5-FIX/M6 regression tests --------------------------------------
 
-// TestRootTxPickFileOpensPickerAndCommitsPath: `f` on §B (the key the §B
-// empty state and the §M registry advertise; UAT round 8 D3 moved it from
-// `t`) opens the shared picker through the OpenFilePickerMsg seam with the
-// .json
-// filter, and a selection commits the tx-file path through the same
-// settings commit path §L uses.
+// `f` on §B opens the shared picker (OpenFilePickerMsg seam, .json filter);
+// a selection commits the tx-file path through the §L settings seam.
 func TestRootTxPickFileOpensPickerAndCommitsPath(t *testing.T) {
 	m := NewRootModel(newTxFileApp(t))
 	fake := fakeSettingsFixture()
@@ -240,12 +232,9 @@ func TestRootTxPickFileLoadErrorSurfacesOnB(t *testing.T) {
 	}
 }
 
-// TestRootTxPickFileClimbsAboveStartDir: UAT round 9 F-9a — the §B
-// production picker roots at "/" with the tx file's dir as Start, so
-// the .. row leads the list and every up leg (enter on the row, u,
-// backspace) climbs ABOVE the start dir. No filePickRootFn here: this
-// pins the production wiring itself (start = the real app config's tx
-// file dir).
+// the §B production picker roots at "/" with the tx file's dir as Start, so
+// the .. row leads and every up leg climbs above the start dir (this pins
+// the production wiring itself: no filePickRootFn).
 func TestRootTxPickFileClimbsAboveStartDir(t *testing.T) {
 	txApp := newTxFileApp(t)
 	m := NewRootModel(txApp)
@@ -282,9 +271,7 @@ func TestRootTxPickFileClimbsAboveStartDir(t *testing.T) {
 	}
 }
 
-// TestRootSettingsPickFileClimbsAboveStartDir: the same leg on §L —
-// the picker may leave the field value's start dir (the fixture hook
-// keeps its relative label; the widget's up leg is the filesystem).
+// the same leg on §L: the picker may leave the field value's start dir.
 func TestRootSettingsPickFileClimbsAboveStartDir(t *testing.T) {
 	fake := fakeSettingsFixture()
 	r := newSettingsTestRoot(t, fake)

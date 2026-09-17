@@ -1,11 +1,6 @@
-// root_keys.go is the routing contract at one seam: a page whose field
-// is in EDIT mode (ClaimsKeyboard()==true) receives EVERY key — no
-// global hotkey fires while the user is typing — and a page that is
-// NOT typing still routes the global layer (?/digits/:/q work).
-// UAT round 8 finding 6 (D2): the old SCR-513 "?"-on-empty carve-out
-// let "?" escape a claiming field into the §M overlay; it is gone, and
-// claims are scoped to edit mode so "?" stays reachable when the user
-// is not typing.
+// root_keys.go is the routing contract at one seam: a page whose field is
+// in EDIT mode receives EVERY key — no global hotkey fires while the user
+// is typing — and a page that is NOT typing still routes the global layer.
 package tui
 
 import (
@@ -18,9 +13,6 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// TestEditingFieldSwallowsGlobalKeys: with the §B live filter open
-// (edit mode), q / 4 / : / ? / c all type into the filter; no page
-// jump, no palette, no help overlay and no quit confirmation may fire.
 func TestEditingFieldSwallowsGlobalKeys(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(ch('2')) // §B transactions
@@ -51,11 +43,6 @@ func TestEditingFieldSwallowsGlobalKeys(t *testing.T) {
 	}
 }
 
-// TestNavigateModeStillRoutesGlobalKeys: UAT round 8 (D2) scoped the §J
-// capture claim to edit mode (a typed path in progress). On the fresh
-// step the user is not typing, so the global layer must work: "?"
-// opens the §M overlay and "q" arms the quit confirm — the old
-// whole-step claim swallowed both.
 func TestNavigateModeStillRoutesGlobalKeys(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	r.gotoAnalyze()
@@ -77,11 +64,7 @@ func TestNavigateModeStillRoutesGlobalKeys(t *testing.T) {
 	}
 }
 
-// TestEditBufferClaimsEveryKey: the [o] output-path editor is an open
-// edit buffer, so the page must claim every key while it is open —
-// q, 4, : and ? all belong to the buffer. Before UAT round 8 the run
-// step edited text without claiming, and the keys escaped into the
-// global layer (q armed the quit, : opened the palette, ? the overlay).
+// while the [o] editor is open every key (q, 4, :, ?) belongs to the buffer.
 func TestEditBufferClaimsEveryKey(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	r.walkToRun(t)

@@ -312,10 +312,8 @@ func TestSessionsEnterSelectLoadsDetail(t *testing.T) {
 	}
 }
 
-// TestSessionsCursorMoveLoadsDetail UAT round 9 (F-9f): a bare down (no
-// Enter) re-points the detail subject at the newly-focused session and
-// loads its stats + history — the §K cursor-follow pattern. A clamped
-// same-row move must not re-fire the load.
+// a bare down (no Enter) re-points the detail subject and loads the newly
+// focused session; a clamped same-row move must not re-fire the load.
 func TestSessionsCursorMoveLoadsDetail(t *testing.T) {
 	fake := fakeSessionsFixture()
 	r := newSessionsTestRoot(t, fake)
@@ -342,10 +340,8 @@ func TestSessionsCursorMoveLoadsDetail(t *testing.T) {
 	}
 }
 
-// TestSessionsDetailWaitShowsLoadingText UAT round 9 (F-9f): while the
-// detail leg for the newly-focused session is in flight the detail panes
-// show the loading marker, not the false "no transactions recorded"
-// empty state; the fold clears it.
+// while the detail leg is in flight the detail panes show the loading
+// marker, not the false "no transactions recorded" empty state.
 func TestSessionsDetailWaitShowsLoadingText(t *testing.T) {
 	fake := fakeSessionsFixture()
 	r := newSessionsTestRoot(t, fake)
@@ -376,9 +372,8 @@ func TestSessionsDetailWaitShowsLoadingText(t *testing.T) {
 	}
 }
 
-// TestSessionsClickLoadsDetail UAT round 9 (F-9f): a click-select on a
-// sessions-list row loads that session's detail through the same seam
-// as the keyboard focus leg (handleSelectMsg reuses handleSessionsFocus).
+// a click-select loads the clicked session's detail through the same seam
+// as the keyboard focus leg.
 func TestSessionsClickLoadsDetail(t *testing.T) {
 	fake := fakeSessionsFixture()
 	r := newSessionsTestRoot(t, fake)
@@ -393,10 +388,8 @@ func TestSessionsClickLoadsDetail(t *testing.T) {
 	}
 }
 
-// TestSessionsLateDetailFoldStaysOffPage UAT round 9 (F-9f): a detail
-// result that lands after the operator jumped away must not fold while
-// another page is current (the applyCtfPreview guard); §I re-arms the
-// leg when it becomes current again.
+// a detail result landing after a page jump must not fold while another
+// page is current; §I re-arms the leg when it becomes current again.
 func TestSessionsLateDetailFoldStaysOffPage(t *testing.T) {
 	fake := fakeSessionsFixture()
 	r := newSessionsTestRoot(t, fake)

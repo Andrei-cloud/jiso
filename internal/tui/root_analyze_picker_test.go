@@ -1,9 +1,7 @@
-// root_analyze_picker_test.go owns the §J file-picker seam: the
-// capture step's [f] (and its empty-commit escape) opens the .pcap
-// picker; the spec step's [f] (UAT round 9 F-9d) opens the .json
-// picker — never the capture picker — and the empty-spec Enter escape
-// stays additive (the picker is not the only path). Split out of
-// root_analyze_test.go to keep both files inside the line ratchet.
+// root_analyze_picker_test.go owns the §J file-picker seam: the capture
+// step's [f] opens the .pcap picker, the spec step's [f] opens the .json
+// picker (never the capture one), and the empty-spec Enter escape stays
+// additive.
 package tui
 
 import (
@@ -35,12 +33,9 @@ func TestAnalyzePickerSelectionCommits(t *testing.T) {
 	}
 }
 
-// TestAnalyzeSpecBrowseOpensSpecPicker: UAT round 9 F-9d — [f] on the
-// spec step opens the shared picker over .json files with target
-// "analyze:spec" (never the .pcap capture picker), starting at the
-// spec path's directory. A decoy .pcap stays unselectable while the
-// .json pick commits through the same spec-choose leg Enter uses
-// (stat-validate + advance to the header step).
+// [f] on the spec step opens the .json picker (target "analyze:spec",
+// never the .pcap one) starting at the spec path's dir; the pick commits
+// through the same spec-choose leg Enter uses.
 func TestAnalyzeSpecBrowseOpensSpecPicker(t *testing.T) {
 	f := fakeAnalyzeFixture()
 	r := newAnalyzeTestRoot(t, f)
@@ -99,10 +94,8 @@ func TestAnalyzeSpecBrowseOpensSpecPicker(t *testing.T) {
 	}
 }
 
-// TestAnalyzeSpecEmptyEnterEscapeAdditive: the spec picker is
-// ADDITIVE, not the only path — Enter with an empty spec still lands
-// on the engine default and reaches the header step without ever
-// opening the picker (the escape that predates F-9d).
+// the spec picker is additive: Enter with an empty spec still lands on
+// the engine default without opening the picker.
 func TestAnalyzeSpecEmptyEnterEscapeAdditive(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	r.gotoAnalyze()

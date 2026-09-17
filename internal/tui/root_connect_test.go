@@ -303,11 +303,8 @@ func TestConnectNilSenderTerminal(t *testing.T) {
 	}
 }
 
-// TestConnectDialogEscLeavesFieldBeforeClose pins the §E two-mode esc
-// order (UAT round 8 / D3): while a field is being typed into, the first
-// esc leaves the FIELD (the dialog stays open, edit mode clears) and only
-// the next esc in navigate mode closes the dialog — the same order the
-// §G form honours (root_server_form_test.go).
+// while a field is being typed into, the first esc leaves the field
+// (dialog stays open, edit mode clears); only the next esc closes it.
 func TestConnectDialogEscLeavesFieldBeforeClose(t *testing.T) {
 	r := newConnectTestRoot(t)
 	r.openHotkey(t)

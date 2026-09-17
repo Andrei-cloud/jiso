@@ -1,6 +1,5 @@
-// root_scenarios_focus_test.go pins the router→§F pane-focus leg: the
-// global Tab/shift-Tab bindings convert to PaneFocusMsg and cycle the
-// real Scenarios page's focused pane (UAT round 9 F-9e).
+// the router's Tab/shift-Tab convert to PaneFocusMsg and cycle the §F
+// page's focused pane.
 package tui
 
 import (
@@ -11,10 +10,8 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// TestTabCyclesScenariosPane: UAT round 9 F-9e — the router's Tab turns
-// into a PaneFocusMsg and reaches the real §F page, cycling the pane
-// focus list → steps; shift-Tab cycles back (the
-// TestTabForwardsPaneFocusMsg contract pinned on the real page).
+// Tab turns into a PaneFocusMsg and reaches the real §F page, cycling
+// focus list → steps; shift-Tab cycles back.
 func TestTabCyclesScenariosPane(t *testing.T) {
 	t.Parallel()
 

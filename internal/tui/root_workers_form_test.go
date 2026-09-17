@@ -168,11 +168,8 @@ type staticErr struct{}
 
 func (staticErr) Error() string { return "boom" }
 
-// TestWorkerWizardHelpEscape: "?" while the wizard is in NAVIGATE mode
-// opens the §M overlay (root modal branch); Esc closes the overlay and
-// the wizard stays open under it; once a filter or param row carries the
-// keyboard (edit mode), "?" types into it (UAT round 8: no global hotkey
-// fires while a field is being typed into).
+// "?" in navigate mode opens the overlay (esc closes it, the wizard stays
+// open); once a field is being typed into, "?" types into it.
 func TestWorkerWizardHelpEscape(t *testing.T) {
 	r := newFormTestRoot(t)
 	r.key(ch('t'))

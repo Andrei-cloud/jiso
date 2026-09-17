@@ -1,15 +1,7 @@
-// hitmap_footer_test.go pins Task 8.4 (UAT round 8 finding 9): clicking a
-// footer legend cell fires its action. The frame's footer packer publishes
-// the ABSOLUTE rect of every PACKED (visible) entry through
-// frame.FooterHits; buildHitMap registers each as a key hit, so a left
-// click replays the dispatch key byte-identically to a typed press
-// (installMouse + updateKey unchanged). Entries the width pressure DROPPED
-// (the "…+N" tail) get no rect and stay inert, and while a root-owned
-// modal owns the keyboard the synthesized key reaches the MODAL — the
-// footer never navigates underneath it and never double-fires.
-//
-// The resolve/addAbs/cmd machinery is pinned in hitmap_test.go; the select
-// legs in hitmap_select_test.go.
+// hitmap_footer_test.go pins footer legend clicks: a click on a packed
+// (visible) entry replays its dispatch key byte-identically; width-dropped
+// entries get no rect and stay inert; with a modal owning the keyboard the
+// synthesized key reaches the modal, never navigating underneath it.
 package tui
 
 import (
@@ -21,10 +13,8 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// footerCellFor returns the ABSOLUTE footer cell frame.FooterHits publishes
-// for the dispatch key on the root's current size and hint list — the same
-// inputs buildHitMap consumes, so the cell a test clicks is the cell the
-// map registers (or the test fails: no such rect).
+// footerCellFor returns the absolute footer cell frame.FooterHits publishes
+// for a dispatch key — the same inputs buildHitMap consumes.
 func footerCellFor(t *testing.T, m *RootModel, dispatch string) frame.FooterHit {
 	t.Helper()
 
@@ -39,8 +29,7 @@ func footerCellFor(t *testing.T, m *RootModel, dispatch string) frame.FooterHit 
 	return frame.FooterHit{}
 }
 
-// sendKey delivers a key through Update and returns the root back (the
-// shape every tui test drives).
+// sendKey delivers a key through Update and returns the root back.
 func sendKey(t *testing.T, m *RootModel, msg tea.KeyPressMsg) *RootModel {
 	t.Helper()
 
@@ -53,9 +42,6 @@ func sendKey(t *testing.T, m *RootModel, msg tea.KeyPressMsg) *RootModel {
 	return rm
 }
 
-// TestClickFooterFiresAction is the Task 8.4 tracer (brief Step 1): on §B,
-// a left click at the ABSOLUTE cell of the "4 server" footer entry replays
-// the ch('4') press and the current page becomes the §G server page.
 func TestClickFooterFiresAction(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -84,19 +70,15 @@ func TestClickFooterFiresAction(t *testing.T) {
 	if got := rm.Current().ID(); got != pages.ServerPageID {
 		t.Fatalf("after the footer click the page = %q, want §G server", got)
 	}
-	// One click, one key: the release over the same cell fires nothing
-	// (the fresh frame re-registers the entry; only the click replays).
+	// one click one key: the release over the same cell fires nothing
 	v2 := rm.View()
 	if cmd := v2.OnMouse(tea.MouseReleaseMsg{X: click.X, Y: click.Y, Button: tea.MouseLeft}); cmd != nil {
 		t.Fatal("the release over a footer hit must not double-fire")
 	}
 }
 
-// TestClickDroppedFooterHintInert pins that only VISIBLE hints are
-// clickable: at LevelNarrow the packer hides the non-primary page keys
-// behind the "…+N" marker, and a dropped entry gets NO rect — neither
-// frame.FooterHits nor the hit map carries its key, while the surviving
-// primary entry still resolves.
+// only visible hints are clickable: a width-dropped entry has no rect in
+// frame.FooterHits or the hit map, while the surviving primary still resolves.
 func TestClickDroppedFooterHintInert(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -122,23 +104,19 @@ func TestClickDroppedFooterHintInert(t *testing.T) {
 			t.Fatalf("the hit map registered a key hit for the dropped entry: %+v", e)
 		}
 	}
-	// The surviving primary trio still resolves on the same footer row,
-	// proving the map is alive and only the DROPPED entry is inert.
+	// the surviving primary still resolves: the map is alive, only the dropped entry is inert
 	keep := footerCellFor(t, m, "q")
 	if act, ok := hm.resolve(keep.X+keep.W/2, keep.Y); !ok || act.kind != hitKey || act.key != "q" {
 		t.Fatalf("the visible \"q quit\" entry = %+v,%v, want its key hit", act, ok)
 	}
-	// The "…+N" marker tail (where the dropped entries used to live) is
-	// dead space: a click right after the last packed entry fires nothing.
+	// the "…+N" marker tail is dead space: a click right after the last packed entry fires nothing
 	dead := tea.MouseClickMsg{X: keep.X + keep.W + 1, Y: keep.Y, Button: tea.MouseLeft}
 	if cmd := v.OnMouse(dead); cmd != nil {
 		t.Fatalf("the overflow marker cell replayed %#v, want inert", cmd())
 	}
 }
 
-// advertisesDispatch reports whether the root's full footer hint list (the
-// packer's input, BEFORE width filtering) carries a hint whose dispatch
-// spelling (its Key, the matching vocabulary) is key.
+// advertisesDispatch reports whether the root's full hint list (before width filtering) carries a dispatch key.
 func advertisesDispatch(m *RootModel, key string) bool {
 	for _, h := range m.footerHints() {
 		if h.Key == key {
@@ -149,11 +127,8 @@ func advertisesDispatch(m *RootModel, key string) bool {
 	return false
 }
 
-// TestFooterClickReachesModal pins the modal-safety contract (brief item
-// 4): a footer click synthesizes a KEY, so with a root-owned modal owning
-// the keyboard the key lands in the MODAL (palette filter text) and never
-// navigates the page behind it. No modalOpen() swallow: the key must
-// reach the modal.
+// a footer click synthesizes a key: with a modal owning the keyboard the
+// key lands in the modal and never navigates the page behind it.
 func TestFooterClickReachesModal(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -184,8 +159,7 @@ func TestFooterClickReachesModal(t *testing.T) {
 		t.Fatalf("the palette leaked the jump key: page = %q, want §B behind the modal", got)
 	}
 
-	// §M owns the keyboard wholesale: the same click's key is swallowed
-	// by the overlay, again without navigating underneath it.
+	// §M swallows the same key, again without navigating underneath
 	_, _ = rm.Update(special(tea.KeyEsc))
 	_, _ = rm.Update(ch('?'))
 	if rm.help == nil {

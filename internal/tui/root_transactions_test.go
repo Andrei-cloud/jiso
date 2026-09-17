@@ -93,9 +93,7 @@ func TestRootTxStateFromApp(t *testing.T) {
 	}
 }
 
-// TestTransactionsFOpenPickerOSort: UAT round 8 D3 — on §B `f` opens the
-// shared tx-file picker (the same key every other file surface uses) and
-// `o` cycles the sort (the key `f` used to own).
+// on §B `f` opens the shared tx-file picker and `o` cycles the sort.
 func TestTransactionsFOpenPickerOSort(t *testing.T) {
 	m := NewRootModel(newTxFileApp(t))
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})

@@ -28,9 +28,7 @@ func assertNoCorruption(t *testing.T, r progResult, width, height int) {
 	}
 }
 
-// frameBoxOpens reports a glyph that opens a section box at the content
-// area's left edge (the ASCII profile's '+'/'|' plus the rounded sets'
-// left glyphs; '-' is the rule dash, not a box opening).
+// frameBoxOpens reports a glyph that opens a section box at the content area's left edge.
 func frameBoxOpens(r rune) bool {
 	switch r {
 	case '+', '|', '│', '┌', '└', '├', '╭', '╰':
@@ -40,12 +38,9 @@ func frameBoxOpens(r rune) bool {
 	return false
 }
 
-// assertSectionsFillFrameWidth pins UAT round 8 finding 5 at the program
-// level: every content line that opens a section box on the content
-// area's left edge must close with box ink exactly one cell inside the
-// right rule (frame columns 2..width-3) — a space there is the trailing
-// gap the ratio splits removed. At least one box line must be seen so
-// the check cannot pass vacuously.
+// assertSectionsFillFrameWidth: every line that opens a section box at the
+// content left edge must close with box ink one cell inside the right rule;
+// at least one box line must be seen (no vacuous pass).
 func assertSectionsFillFrameWidth(t *testing.T, r progResult, width int) {
 	t.Helper()
 
@@ -70,9 +65,7 @@ func assertSectionsFillFrameWidth(t *testing.T, r progResult, width int) {
 	}
 }
 
-// progFillRun runs one real program at (width, 24), lands on the page
-// behind keys ("" is the boot dashboard), and applies the width
-// corruption contract.
+// progFillRun runs one real program at (width, 24) and applies the width-fill contract.
 func progFillRun(t *testing.T, width int, keys string) progResult {
 	t.Helper()
 
@@ -84,9 +77,7 @@ func progFillRun(t *testing.T, width int, keys string) progResult {
 	return r
 }
 
-// progFillPages are the sectioned pages the width-fill contract pins:
-// §G server (hotkey 4) and §I sessions (hotkey 6); the §A dashboard has
-// its own boot golden at 80 and is exercised here at 120/200.
+// progFillPages are the sectioned pages the width-fill contract pins.
 var progFillPages = []struct {
 	name string
 	keys string
@@ -96,10 +87,8 @@ var progFillPages = []struct {
 	{"sessions", "6"},
 }
 
-// TestProgFloor80Cols: at the medium level every sectioned page's boxes
-// span the full content width (the §A dashboard at 80x24 is pinned by
-// TestProgBootGolden, so only §G/§I get goldens here).
 func TestProgFloor80Cols(t *testing.T) {
+	// [1:]: the §A dashboard at 80 is pinned by TestProgBootGolden
 	for _, p := range progFillPages[1:] {
 		t.Run(p.name, func(t *testing.T) {
 			r := progFillRun(t, 80, p.keys)
@@ -109,9 +98,6 @@ func TestProgFloor80Cols(t *testing.T) {
 	}
 }
 
-// TestProgFloor120Cols: at the full level the multi-section bodies
-// (dashboard two-column grid, server STATS/ROUTES split, sessions three
-// panes) divide the content width by ratio with no trailing gap.
 func TestProgFloor120Cols(t *testing.T) {
 	for _, p := range progFillPages {
 		t.Run(p.name, func(t *testing.T) {
@@ -122,10 +108,6 @@ func TestProgFloor120Cols(t *testing.T) {
 	}
 }
 
-// TestProgFloor200Cols: at an ultra-wide terminal no split may freeze at
-// its old fixed maximum — the sections must still fill the content width
-// exactly (the dash/server pages under-filled or froze their ratio here
-// before Task 6.2).
 func TestProgFloor200Cols(t *testing.T) {
 	for _, p := range progFillPages {
 		t.Run(p.name, func(t *testing.T) {

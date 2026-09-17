@@ -1,11 +1,7 @@
-// root_mouse_toggle_test.go pins the UAT round 9 (F-9c) mouse-mode
-// toggle: bubbletea v2.0.9 has no button-events-only mouse mode, so the
-// only way to give the terminal back its native click-drag text selection
-// is to release DECSET 1002 entirely. F9 flips RootModel.mouseEnabled;
-// the NEXT View then either arms the mouse (MouseModeCellMotion +
-// OnMouse + populated hit map — the round-8 status quo) or disarms it
-// completely (MouseModeNone + nil OnMouse + provably EMPTY hit map, so
-// even a hand-typed SGR report can resolve nothing).
+// root_mouse_toggle_test.go pins the F9 mouse-mode toggle: bubbletea has
+// no button-events-only mode, so F9 releases DECSET 1002 entirely. The
+// next View either arms the mouse (CellMotion + OnMouse + populated hit
+// map) or disarms it (None + nil OnMouse + provably empty hit map).
 package tui
 
 import (
@@ -21,9 +17,7 @@ import (
 // ultraviolet decodes "\x1b[20~" (key_table.go: "20" → KeyF9).
 func f9Key() tea.KeyPressMsg { return special(tea.KeyF9) }
 
-// TestMouseEnabledByDefault: NewRootModel arms the mouse (round-8
-// wheel/click features keep working out of the box; Go's zero value for
-// the new bool would silently disable them, so construction must set it).
+// NewRootModel must arm the mouse: the zero value would silently disable it.
 func TestMouseEnabledByDefault(t *testing.T) {
 	m := NewRootModel(nil)
 	if !m.mouseEnabled {
@@ -39,10 +33,8 @@ func TestMouseEnabledByDefault(t *testing.T) {
 	}
 }
 
-// TestF9TogglesMouseMode: F9 flips mouseEnabled and the very next View
-// reflects it in both directions — off releases the terminal (None +
-// nil OnMouse), on re-arms (CellMotion + handler). The toggle is a
-// global key: it works from any page without moving the stack.
+// F9 flips mouseEnabled and the very next View reflects it in both
+// directions; as a global key it works from any page without moving the stack.
 func TestF9TogglesMouseMode(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -66,10 +58,7 @@ func TestF9TogglesMouseMode(t *testing.T) {
 	}
 }
 
-// TestF9OffEmptiesHitMap: the hit map is gated by the same flag, so with
-// the mouse off the frame is provably inert even against a hand-typed SGR
-// report (the resolver has nothing to resolve). F9 on repopulates it: a
-// wheel-over-log scroll hit and the working select path come back.
+// the hit map is gated by the same flag: off empties it, on repopulates it.
 func TestF9OffEmptiesHitMap(t *testing.T) {
 	m := serverAt(t, 80, 24, 30)
 	_ = m.View()
@@ -89,8 +78,7 @@ func TestF9OffEmptiesHitMap(t *testing.T) {
 	if len(hm) == 0 {
 		t.Fatal("F9-on must repopulate the hit map (wheel/click restored)")
 	}
-	// The wheel-over-the-log hit works again: resolve the log pane centre
-	// (absolute coords, the serverAt/TestBuildHitMapServerLogRegion path).
+	// the wheel-over-log hit works again (absolute coords)
 	ox, oy := m.contentOrigin()
 	rel := m.server.ScrollRegions()
 	if len(rel) != 1 {
@@ -104,11 +92,8 @@ func TestF9OffEmptiesHitMap(t *testing.T) {
 	}
 }
 
-// TestF9ClaimedByEditModeField: F9 is a GLOBAL key, and edit-mode claims
-// run before handleGlobalKey (root_keys.go) — so while a field is being
-// typed into, F9 belongs to the FIELD. The text input ignores it (no-op:
-// the filter buffer stays exactly as typed) and the mouse toggle must NOT
-// fire; esc leaves the field first, after which F9 toggles again.
+// edit-mode claims run before global keys: while typing, F9 belongs to the
+// field (no-op there) and must not toggle; esc leaves the field first.
 func TestF9ClaimedByEditModeField(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(ch('2')) // §B transactions

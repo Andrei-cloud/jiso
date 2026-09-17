@@ -1,10 +1,7 @@
-// hitmap_regions_test.go pins the Task 8.2c wheel-region wiring at the
-// root (UAT round 8 finding 9): the modal wheel-freeze (fix 1: the page
-// branch of handleScrollMsg is inert while any root-owned modal owns
-// the screen) and the per-frame hit-map registration of every page
-// region added after the §G tracer (translated by frame.ContentOrigin,
-// inert one row above the drawn box top). The 8.1/8.2 machinery is
-// pinned in hitmap_test.go.
+// hitmap_regions_test.go pins the wheel-region wiring at the root: the
+// modal wheel-freeze and per-frame hit-map registration of every page
+// region (translated by frame.ContentOrigin, inert one row above the
+// drawn box top).
 package tui
 
 import (
@@ -22,8 +19,7 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// txTallFixtureJSON builds an n-transaction tx file (plainly numbered so
-// the rendered window is assertable by row name).
+// txTallFixtureJSON builds an n-transaction tx file with numbered row names.
 func txTallFixtureJSON(n int) string {
 	var b strings.Builder
 	b.WriteString("[")
@@ -38,8 +34,7 @@ func txTallFixtureJSON(n int) string {
 	return b.String()
 }
 
-// newTxTallApp is the newTxFileApp idiom (root_transactions_test.go: the
-// config singleton means never parallel) with n numbered rows.
+// newTxTallApp is the newTxFileApp idiom (never parallel: config singleton) with n rows.
 func newTxTallApp(t *testing.T, n int) *app.App {
 	t.Helper()
 
@@ -68,15 +63,9 @@ func newTxTallApp(t *testing.T, n int) *app.App {
 	return a
 }
 
-// TestScrollMsgTxTableWindowSurvivesSync pins the Task 8.2c review C1:
-// RootModel.Update runs syncPages after EVERY message — including the
-// scrollMsg itself — and the §B sync re-sets the SAME table cursor
-// (SetState → rebuild → SetCursor with the unchanged index). A
-// dragWindow that fired on every SetCursor snapped the wheel window
-// back to the cursor row, making tx:table dead at runtime even though
-// the page-level seam test (which skips the sync wrapper) passed. The
-// wheel must move the window through the REAL Update path and it must
-// stay there; a genuine cursor move (the keyboard) must still drag it.
+// the wheel must move the window through the real Update path (whose
+// post-Update syncPages must not snap it back to the cursor) and a genuine
+// cursor move must still drag the window.
 func TestScrollMsgTxTableWindowSurvivesSync(t *testing.T) {
 	m := NewRootModel(newTxTallApp(t, 40))
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -87,9 +76,7 @@ func TestScrollMsgTxTableWindowSurvivesSync(t *testing.T) {
 		t.Fatalf("the wheel returned cmd %v, want nil", cmd)
 	}
 	content := m.View().Content
-	// The window moved AND survived the post-Update syncPages: five rows
-	// down, so the first row is out of the window while the new first
-	// row renders.
+	// the window moved and survived the post-Update syncPages
 	if !strings.Contains(content, "Tx 06") {
 		t.Errorf("after wheel-down 5 the window must render the new first row:\n%s", content)
 	}
@@ -97,9 +84,7 @@ func TestScrollMsgTxTableWindowSurvivesSync(t *testing.T) {
 		t.Errorf("the wheel window snapped back to the cursor on the post-Update syncPages:\n%s", content)
 	}
 
-	// The same-cursor guard must not have cost the keyboard its drag:
-	// after a deep wheel, a REAL cursor move (j) drags the window back
-	// to the cursor.
+	// the same-cursor guard must not cost the keyboard its drag
 	m.Update(scrollMsg{region: pages.RegionTxTable, delta: 1000}) // bottom clamp
 	_ = m.View()
 	if strings.Contains(m.View().Content, "Tx 01") {
@@ -115,12 +100,8 @@ func TestScrollMsgTxTableWindowSurvivesSync(t *testing.T) {
 	}
 }
 
-// TestScrollMsgFrozenByModal pins Task 8.2c fix 1: while a root-owned
-// modal owns the screen (palette, §M overlay, §N3 confirm), the page
-// branch of handleScrollMsg is inert — a wheel resolved to the page's
-// own region id must not move the frozen page behind the modal. This
-// also closes the 8.2b §M margin quirk: with the overlay open, wheeling
-// outside the help box no longer scrolls the page underneath.
+// while a root-owned modal is up the page branch of handleScrollMsg is
+// inert — wheeling at the page's own region id must not move the frozen page.
 func TestScrollMsgFrozenByModal(t *testing.T) {
 	m := serverAt(t, 80, 24, 30)
 
@@ -147,10 +128,7 @@ func TestScrollMsgFrozenByModal(t *testing.T) {
 		t.Fatal("after the palette closed the page must scroll again")
 	}
 
-	// §M open: a wheel over the page margins around the box no longer
-	// scrolls the page underneath (the 8.2b quirk, now frozen like the
-	// other modals; the box's own region is pinned in
-	// TestScrollMsgDispatchHelpOverlay).
+	// §M open: the margins around the box no longer scroll the page underneath
 	_, _ = m.Update(ch('?'))
 	if m.help == nil {
 		t.Fatal("? must open the §M overlay")
@@ -164,8 +142,7 @@ func TestScrollMsgFrozenByModal(t *testing.T) {
 		t.Fatal("esc must close the overlay")
 	}
 
-	// A pending §N3 confirm (q at root arms the quit confirm) freezes
-	// the page behind it too.
+	// a pending quit confirm freezes the page behind it too
 	_, _ = m.Update(ch('q'))
 	if m.workersConfirm == nil || !m.workersConfirm.Pending() {
 		t.Fatal("q at root must arm the quit confirmation")
@@ -176,11 +153,8 @@ func TestScrollMsgFrozenByModal(t *testing.T) {
 	}
 }
 
-// TestBuildHitMapPageRegions pins Task 8.2c registration for the pages
-// registered beyond the §G tracer: each region reaches the per-frame
-// hit map translated by frame.ContentOrigin (wheel over the drawn box
-// centre resolves it), and a wheel one row above the box's drawn top
-// border resolves nothing under that region id.
+// every page region reaches the hit map translated by ContentOrigin, and
+// a wheel one row above the box's drawn top resolves nothing under that id.
 func TestBuildHitMapPageRegions(t *testing.T) {
 	narrowPreview := strings.Repeat("filler\n", 40)
 	cases := []struct {
@@ -321,17 +295,12 @@ func TestBuildHitMapPageRegions(t *testing.T) {
 			if !ok || act.region != tc.want {
 				t.Fatalf("pane centre = %+v,%v, want a hit on %q", act, ok, tc.want)
 			}
-			// Task 8.3: the centre of a ROW-BEARING pane (tx, workers,
-			// sessions list, analyze roster) now resolves the topmost
-			// SELECT hit carrying the same region id — the wheel still
-			// scrolls through it, a click selects. Text panes (review,
-			// preview, records) keep the plain scroll hit.
+			// a row-bearing pane's centre resolves the topmost select hit
+			// (same region id); text panes keep the plain scroll hit
 			if act.kind != hitScroll && act.kind != hitSelect {
 				t.Fatalf("pane centre resolved kind %v on %q, want scroll or select", act.kind, act.region)
 			}
-			// One row above the drawn top border must not resolve THIS
-			// region (it may legitimately resolve the pane stacked above
-			// it, e.g. the analyze roster over its preview).
+			// one row above the drawn top border must not resolve THIS region
 			if a2, ok2 := hm.resolve(abs.X+abs.W/2, abs.Y-1); ok2 && a2.region == tc.want {
 				t.Errorf("a cell above the box top resolved %q: the region rect is not the drawn ink", tc.want)
 			}

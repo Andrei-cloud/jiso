@@ -30,8 +30,7 @@ func TestAnalyzeRunOpensItemPickerAndWritesSelected(t *testing.T) {
 		t.Fatalf("engine ran %d times, want 1", f.runN)
 	}
 	opts := f.runOpts[0]
-	// UAT round 8 finding 6: the unchosen header rides the run opts as ""
-	// (the engine default applies in the analyzer, not in the wizard).
+	// the unchosen header rides the run opts as "" (engine default applies)
 	if opts.Mode != app.AnalyzeModeTx || opts.HeaderType != "" {
 		t.Fatalf("run opts = %+v", opts)
 	}
@@ -161,12 +160,9 @@ func TestAnalyzeWriteOverwriteConfirmFires(t *testing.T) {
 	}
 }
 
-// TestAnalyzeOutputOpensPicker: UAT round 8 finding 6 — the run-step
-// [o] output editor is no longer type-only: the browse affordance [f]
-// opens the shared picker with target "analyze:output", a file pick
-// names the output file itself, a folder pick yields a usable
-// <folder>/<effective base name> path, and Esc in the picker leaves the
-// effective path untouched.
+// the run-step [o] editor's [f] browse opens the picker (target
+// "analyze:output"): a file pick names the output, a folder pick yields
+// <folder>/<base name>, Esc leaves the effective path untouched.
 func TestAnalyzeOutputOpensPicker(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	f := r.fakeSrc(t)
@@ -183,9 +179,7 @@ func TestAnalyzeOutputOpensPicker(t *testing.T) {
 		t.Fatalf("picker target = %q, want %q", r.m.filePickTarget, "analyze:output")
 	}
 
-	// A folder pick must yield a usable output path: the picked folder
-	// plus the effective output's file name (the engine writes a file,
-	// never a directory).
+	// a folder pick yields <folder>/<effective base name>: the engine writes a file, never a directory
 	dir := t.TempDir()
 	r.pump(widgets.FilePickedMsg{Path: dir, Label: "fixture/"})
 	wantDir := filepath.Join(dir, "transaction.json")

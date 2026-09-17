@@ -1,11 +1,8 @@
-// root_scenario_detail_test.go pins the §F step message-preview load
-// (UAT round 9 F-9e c, task 9.8b): Enter-on-step arms one async load of the
-// step's request/response (the §I handleSessionsReview pattern), the run-step
-// payload comes from the retained report, a never-run step previews its
-// template's raw composition, the arm's nil clear re-arms the overlay for a
-// same-step re-request after Esc, a second request while one is in flight is
-// ignored, and an error folds an honest note — never a fabricated message.
-// Lives apart from root_scenarios_test.go at its repohealth line budget.
+// root_scenario_detail_test.go pins the §F step message-preview load:
+// Enter-on-step arms one async load, the run-step payload comes from the
+// retained report, a never-run step previews its template composition, a
+// same-step re-request after Esc re-arms, an in-flight request ignores
+// duplicates, and an error folds an honest note — never a fabricated message.
 package tui
 
 import (
@@ -21,11 +18,8 @@ import (
 	"jiso/internal/tui/palette"
 )
 
-// --- Task 9.8b: the step message-preview load (root side) --------------------
-
 // scenPackFor packs a minimal MTI (+ optional field 39) message with the
-// fixture app's loaded spec — the bytes a real engine run would have
-// captured into StepResult.RequestPayload/ResponsePayload.
+// fixture app's loaded spec.
 func scenPackFor(t *testing.T, m *RootModel, mti, rc string) string {
 	t.Helper()
 
@@ -48,8 +42,7 @@ func scenPackFor(t *testing.T, m *RootModel, mti, rc string) string {
 	return string(packed)
 }
 
-// completeScenarioRun drives a completed "E2E Purchase" run whose report
-// carries the captured payloads — the retained truth the preview reads back.
+// completeScenarioRun drives a completed "E2E Purchase" run whose report carries the captured payloads.
 func completeScenarioRun(t *testing.T, m *RootModel, steps []transactions.StepResult) {
 	t.Helper()
 
@@ -63,12 +56,9 @@ func completeScenarioRun(t *testing.T, m *RootModel, steps []transactions.StepRe
 	}
 }
 
-// TestRootScenarioStepDetailLoadsRunPayload: Enter on a step of a completed
-// run arms one async load (the §I handleSessionsReview pattern), the arm
-// clears the cached preview as its own pushed state, a second request while
-// one is in flight is ignored, and the fold lands the real captured
-// request/response in the overlay (payload from the retained report, never a
-// placeholder).
+// Enter on a step of a completed run arms one async load; the arm clears
+// the cached preview as its own pushed state, ignores requests while in
+// flight, and the fold lands the real captured payloads.
 func TestRootScenarioStepDetailLoadsRunPayload(t *testing.T) {
 	m := NewRootModel(newScenarioApp(t))
 	req := scenPackFor(t, m, "0800", "")
@@ -133,11 +123,8 @@ func TestRootScenarioStepDetailLoadsRunPayload(t *testing.T) {
 	}
 }
 
-// TestRootScenarioStepDetailReArmsAfterEsc pins the 9.8a Minor 3 carry-
-// forward: after Esc, a re-request of the SAME step must re-open the overlay.
-// That only works because the arm's nil clear reaches the page as its own
-// pushed state on the arm tick (stepPreviewShownID sees nil→payload, never
-// payload→payload).
+// after Esc, re-requesting the SAME step re-opens the overlay — only works
+// because the arm's nil clear reaches the page as its own pushed state.
 func TestRootScenarioStepDetailReArmsAfterEsc(t *testing.T) {
 	m := NewRootModel(newScenarioApp(t))
 	req := scenPackFor(t, m, "0800", "")
@@ -170,12 +157,8 @@ func TestRootScenarioStepDetailReArmsAfterEsc(t *testing.T) {
 	}
 }
 
-// TestRootScenarioStepDetailPendingComposesRequest: a step that never ran
-// previews the honest raw composition of its declared template (the §C
-// compose path — no dataset row drawn, though a $stan auto field still
-// advances the persisted counter, see the F2 note on ComposeRaw), never a
-// response and never a fabricated payload; the overlay names the missing
-// reply and labels the composed request "not sent yet" (UAT round 9 F1).
+// a never-run step previews its template's honest raw composition — never
+// a response, never a fabricated payload; the overlay labels it "not sent yet".
 func TestRootScenarioStepDetailPendingComposesRequest(t *testing.T) {
 	m := NewRootModel(newScenarioApp(t))
 	_, _ = m.Update(palette.GoToPageMsg{ID: "scenarios"})
@@ -215,9 +198,7 @@ func TestRootScenarioStepDetailPendingComposesRequest(t *testing.T) {
 	}
 }
 
-// TestRootScenarioStepDetailErrorFoldsNote: a failing load folds an honest
-// note into the preview (no message is invented), clears the in-flight guard,
-// and the overlay shows the note instead of fake sections.
+// a failing load folds an honest note into the preview and clears the in-flight guard.
 func TestRootScenarioStepDetailErrorFoldsNote(t *testing.T) {
 	m := NewRootModel(newScenarioApp(t))
 	_, _ = m.Update(palette.GoToPageMsg{ID: "scenarios"})

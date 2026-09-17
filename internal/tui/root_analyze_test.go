@@ -271,12 +271,9 @@ func (r *analyzeTestRoot) mustStep(t *testing.T, want int) {
 	}
 }
 
-// TestAnalyzeHelpOpensOnFreshCaptureStep: UAT round 8 (D2) scoped the
-// capture claim to edit mode, so the fresh step is navigate mode and
-// "?" reaches the §M overlay synchronously through the global layer
-// (SCR-513's every-page contract, now without the deleted carve-out);
-// once a path is being typed, every colliding key — q, digits, ":" and
-// "?" included — reaches the draft (SCR-502).
+// on the navigate-mode capture step "?" reaches the §M overlay
+// (SCR-513's every-page contract); once a path is being typed, every
+// colliding key reaches the draft (SCR-502).
 func TestAnalyzeHelpOpensOnFreshCaptureStep(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	r.gotoAnalyze()
@@ -309,8 +306,7 @@ func TestAnalyzeWalksFlowAndEnumerates(t *testing.T) {
 	if f.enumN != 1 {
 		t.Fatalf("enumeration ran %d times, want 1", f.enumN)
 	}
-	// UAT round 8 finding 6: no header prefill — the unchosen header rides
-	// the leg as "" and the engine's own default framing applies.
+	// no header prefill: the unchosen header rides the leg as ""
 	if f.enumPaths[0] != r.pcap || f.enumHeaders[0] != "" {
 		t.Fatalf("enumeration args = %q/%q, want the capture and the unset header (engine default)",
 			f.enumPaths[0], f.enumHeaders[0])

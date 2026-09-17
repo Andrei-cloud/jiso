@@ -141,14 +141,9 @@ func TestProgQuitReturns(t *testing.T) {
 	}
 }
 
-// TestProgMouseClickInert pins the mouse plumbing end-to-end (Task 8.1,
-// finding 9): the armed view writes the mouse-mode DECSET sequences
-// (1002+1006, a mode change — NOT SGR, so the colorless goldens pinning
-// the final frame content are untouched), a real SGR mouse report typed
-// into the input pipe parses and reaches View.OnMouse, and a click over
-// still-unregistered space is silently inert — the session keeps
-// rendering and quits clean. Real hit registration arrives with
-// Tasks 8.2–8.5; this proves the pipe is live underneath them.
+// end-to-end mouse plumbing: the armed view writes the mouse DECSETs
+// (1002/1006, not SGR), a typed SGR report reaches View.OnMouse, and a
+// click over unregistered space is inert with the session quitting clean.
 func TestProgMouseClickInert(t *testing.T) {
 	s := newProgSession(t, 80, 24)
 	s.delay = 80 * time.Millisecond // first frame (and its OnMouse) flushed
@@ -166,20 +161,13 @@ func TestProgMouseClickInert(t *testing.T) {
 	checkProgGolden(t, "boot", r.frame)
 }
 
-// f9Bytes is F9 as the terminal spells it on the wire: ultraviolet's
-// key_table.go decodes "\x1b[20~" to KeyF9 (code "20").
+// f9Bytes is F9 as the terminal spells it on the wire.
 const f9Bytes = "\x1b[20~"
 
-// TestProgMouseOffReleasesDecset pins the Task 9.2 off-case mirror of
-// TestProgMouseClickInert: a model that starts with the mouse disabled
-// writes NO mouse DECSET to the terminal at all (1002/1006 stay absent,
-// so the terminal keeps native click-drag text selection), and even a
-// hand-typed SGR wheel report changes nothing — the disarmed View has no
-// OnMouse and the hit map is empty.
+// a mouse-off model writes NO mouse DECSET (the terminal keeps native
+// text selection) and a hand-typed SGR wheel report changes nothing.
 func TestProgMouseOffReleasesDecset(t *testing.T) {
-	// Region geometry comes from a plain mouse-on §G run (the published
-	// rect only exists after the page rendered — the baseline pattern of
-	// TestWheelScrollsServerLog).
+	// region geometry comes from a plain mouse-on §G run (the rect only exists after the page rendered)
 	base := newProgSession(t, 80, 24)
 	seedServerLogLines(base.m, 30)
 	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
@@ -216,14 +204,10 @@ func TestProgMouseOffReleasesDecset(t *testing.T) {
 	}
 }
 
-// TestProgF9TogglesDecset pins the toggle end-to-end over the raw
-// stream: the mouse arms at boot (1002h/1006h, round-8 status quo — the
-// wheel moves the §G log), F9 releases the terminal (1002l/1006l written
-// and further wheels inert), and F9 again re-arms (the next wheel moves
-// the log again).
+// end-to-end toggle: mouse arms at boot, F9 releases the terminal (further
+// wheels inert), F9 again re-arms.
 func TestProgF9TogglesDecset(t *testing.T) {
-	// Region geometry comes from a plain §G run (content-relative rect,
-	// translated by the content origin — the TestWheelScrollsServerLog path).
+	// region geometry comes from a plain §G run (content-relative rect translated by the content origin)
 	base := newProgSession(t, 80, 24)
 	seedServerLogLines(base.m, 30)
 	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
@@ -268,17 +252,13 @@ func TestProgF9TogglesDecset(t *testing.T) {
 }
 
 // sgrWheelUp/sgrWheelDown encode an SGR (xterm 1006) wheel report at the
-// ABSOLUTE 0-based cell (x,y): the terminal spells rows/columns 1-based,
-// button 64 = wheel up, 65 = wheel down (ultraviolet decodeMouseButton).
+// absolute 0-based cell (x,y) — the terminal spells it 1-based.
 func sgrWheelUp(x, y int) string   { return fmt.Sprintf("\x1b[<64;%d;%dM", x+1, y+1) }
 func sgrWheelDown(x, y int) string { return fmt.Sprintf("\x1b[<65;%d;%dM", x+1, y+1) }
 
-// TestWheelScrollsServerLog proves the wheel end-to-end (Task 8.2b,
-// finding 9): a real SGR wheel report typed into the input pipe resolves
-// against the §G hit-map region, dispatches scrollMsg at the root, and
-// moves the SAME logScroll offset the j/k keys drive — while a wheel over
-// a cell outside the log pane stays inert. The rendered log window must
-// move with the offset.
+// a typed SGR wheel report resolves the §G region, moves the same
+// logScroll offset the keys drive, and the rendered window moves with it;
+// a wheel outside the pane stays inert.
 func TestWheelScrollsServerLog(t *testing.T) {
 	// Baseline: §G with a log taller than the pane, following the newest.
 	base := newProgSession(t, 80, 24)
@@ -296,15 +276,9 @@ func TestWheelScrollsServerLog(t *testing.T) {
 		t.Fatalf("baseline log offset = %d, want 0 (following the newest)", got)
 	}
 
-	// The wheel cell is the CENTRE of the region the page published from
-	// its last render — but the published rect is CONTENT-RELATIVE, so
-	// the test translates it by frame.ContentOrigin (the same offset
-	// hitMap.addAbs applies) before typing it as an SGR report: these are
-	// genuinely ABSOLUTE terminal cells. If the translation were dropped
-	// from addAbs the reports would land outside the registered rect and
-	// the wheel would stop moving the log. The outside cell sits one row
-	// ABOVE the box's drawn top border — the row above is page head with
-	// no region registered, so a wheel there must stay inert.
+	// the wheel cell is the region centre translated by ContentOrigin (the
+	// published rect is content-relative; the reports must be absolute);
+	// the outside cell sits one row above the drawn box top
 	regions := r0.model.server.ScrollRegions()
 	if len(regions) != 1 || regions[0].ID != pages.RegionServerLog {
 		t.Fatalf("§G must publish exactly the %q region, got %#v", pages.RegionServerLog, regions)
@@ -318,9 +292,7 @@ func TestWheelScrollsServerLog(t *testing.T) {
 		t.Fatalf("outside cell (%d,%d) is inside the log rect %v", outX, outY, abs)
 	}
 
-	// Wheel session: two wheel-UPs walk the window back through history
-	// (offset 0→2), one wheel-DOWN advances it toward the newest (2→1),
-	// and a wheel-UP over the outside cell must change nothing.
+	// two wheel-ups walk back through history, one down advances, one up outside changes nothing
 	s := newProgSession(t, 80, 24)
 	seedServerLogLines(s.m, 30)
 	r := s.runScripted(t, 80*time.Millisecond,
@@ -335,8 +307,7 @@ func TestWheelScrollsServerLog(t *testing.T) {
 	if got := r.model.server.LogScroll(); got != 1 {
 		t.Fatalf("after 2x wheel-up + 1x wheel-down + 1x wheel-up outside the pane, log offset = %d, want 1", got)
 	}
-	// The rendered log window moved with the offset: the newest line left
-	// the pane and the row just above the fold is now visible.
+	// the rendered log window moved with the offset
 	if strings.Contains(r.frame, "log line 30") {
 		t.Errorf("scrolled frame still shows the newest line:\n%s", r.frame)
 	}
@@ -349,15 +320,10 @@ func TestWheelScrollsServerLog(t *testing.T) {
 	checkProgGolden(t, "wheel_server_log", r.frame)
 }
 
-// TestWheelFrozenByModal pins Task 8.2c fix 1 end-to-end: with the
-// command palette open over §G, the SAME absolute wheel cell that moves
-// the log in TestWheelScrollsServerLog must leave the page frozen — the
-// palette owns the screen and draws over the page, so the wheel over
-// the page area behind it scrolls nothing.
+// with the palette open over §G, the same absolute wheel cell that moves
+// the log leaves the page behind frozen.
 func TestWheelFrozenByModal(t *testing.T) {
-	// Baseline: read the region geometry from a plain §G run (the page
-	// publishes it content-relative; the wheel cell is the centre
-	// translated by frame.ContentOrigin, exactly as in the 8.2b test).
+	// baseline: read the region geometry from a plain §G run
 	base := newProgSession(t, 80, 24)
 	seedServerLogLines(base.m, 30)
 	r0 := base.runScripted(t, 80*time.Millisecond, "4", "\x03")
@@ -371,9 +337,7 @@ func TestWheelFrozenByModal(t *testing.T) {
 	rel := regions[0].Rect
 	wx, wy := rel.X+ox+rel.W/2, rel.Y+oy+rel.H/2
 
-	// Wheel session: the palette opens over §G, then two wheel-UPs land
-	// on the log pane's absolute centre. The page behind stays frozen:
-	// LogScroll must still be 0 when the session ends.
+	// the palette opens over §G, then two wheel-ups land on the log centre; the page stays frozen
 	s := newProgSession(t, 80, 24)
 	seedServerLogLines(s.m, 30)
 	r := s.runScripted(t, 80*time.Millisecond,

@@ -284,12 +284,8 @@ func TestHelpOverlayGoldenTransactionsTrueColor(t *testing.T) {
 		renderHelpOverlay(t, pages.TransactionsPageID, colorprofile.TrueColor, 100))
 }
 
-// TestHelpOverlayTrueColorKeysAreBold pins UAT round-8 finding 3: every
-// key token in the truecolor overlay must carry the Theme.Key badge
-// (bold + accent), not the plain-accent style the overlay used before.
-// The bold form is the combined SGR "\x1b[1;38;2;68;147;248m" (dark-mode
-// accent #4493f8); the old plain-accent rendering "\x1b[38;2;68;147;248m"
-// directly before a key must be gone. Key TEXT is untouched (Phase 5).
+// every key token in the truecolor overlay carries the bold Theme.Key badge
+// (bold+accent); the old plain-accent rendering must be gone.
 func TestHelpOverlayTrueColorKeysAreBold(t *testing.T) {
 	t.Parallel()
 
@@ -386,12 +382,8 @@ func helpRegistryDump(registry []Page, km *globalKeyMap) string {
 	return b.String()
 }
 
-// TestHelpOverlayScrollByWindowsContent pins the Task 8.2a primitive:
-// with a pane height set the overlay renders a window of its content
-// lines between the rules, and ScrollBy moves that window (d>0 = down)
-// clamped to 0..max(0, contentH-paneH). Without a pane height — and at
-// scrollOff 0 in every case — the box renders exactly as before scrolling
-// (the goldens' byte-identical default).
+// with a pane height the overlay windows its content and ScrollBy moves
+// the window, clamped to 0..contentH-paneH; without one the render is untouched.
 func TestHelpOverlayScrollByWindowsContent(t *testing.T) {
 	t.Parallel()
 
@@ -407,8 +399,7 @@ func TestHelpOverlayScrollByWindowsContent(t *testing.T) {
 		t.Fatalf("fixture too small to window: %d content lines\n%s", content, full)
 	}
 
-	// No pane height: everything fits, the wheel is a no-op, and the
-	// unscrolled render is untouched.
+	// no pane height: the wheel is a no-op and the render is untouched
 	h.ScrollBy(3)
 	if h.scrollOff != 0 {
 		t.Fatalf("unbounded overlay must not scroll: scrollOff=%d", h.scrollOff)
@@ -463,8 +454,7 @@ func TestHelpOverlayScrollByWindowsContent(t *testing.T) {
 	}
 }
 
-// TestHelpOpenResetsScrollOffset pins the Task 8.2a convention that a
-// fresh open of the §M overlay starts at the top of the keymap.
+// a fresh open of the overlay resets scrollOff to the top.
 func TestHelpOpenResetsScrollOffset(t *testing.T) {
 	t.Parallel()
 

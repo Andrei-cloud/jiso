@@ -171,8 +171,7 @@ func TestRootServerEditedValuesReachServeLeg(t *testing.T) {
 	if r.last.port != "8123" || r.last.spec != "/tmp/custom-spec.json" {
 		t.Fatalf("serve leg got %+v", r.last)
 	}
-	// Finding 1 (D1c): the "Routes file" value reaches the serve leg as the
-	// routes-file argument, never as a fabricated tx-path fallback.
+	// the routes value reaches the serve leg as routes-file, never as a fabricated tx-path fallback
 	if r.last.routesFile != "/tmp/routes-only.json" || r.last.txPath != "" {
 		t.Fatalf("routes wiring = txPath %q routesFile %q, want \"\" and /tmp/routes-only.json",
 			r.last.txPath, r.last.routesFile)
@@ -296,12 +295,8 @@ func serverFieldIdx(t *testing.T, d *pages.ConnectDialog, key string) int {
 	return -1
 }
 
-// TestServerFormTypingLetterFInFieldDoesNotOpenPicker pins the two-mode
-// contract (UAT round 8 finding 2 / D3): in NAVIGATE mode `f` is the
-// file-pick key for the focused browsable field; typing enters EDIT mode
-// (the first printable types itself), and there `f` types literally into
-// the field — the picker must NOT open (the confirmed §G leak: `f` could
-// never be typed into a form field).
+// in navigate mode `f` opens the picker for the focused browsable field;
+// typing enters edit mode, where `f` types literally and the picker stays closed.
 func TestServerFormTypingLetterFInFieldDoesNotOpenPicker(t *testing.T) {
 	r := newServeTestRoot(t)
 	r.upd(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -315,7 +310,7 @@ func TestServerFormTypingLetterFInFieldDoesNotOpenPicker(t *testing.T) {
 		t.Fatal("the form must open in navigate mode")
 	}
 
-	// Navigate mode: f opens the picker (D3, unchanged).
+	// navigate mode: f opens the picker
 	r.key('f')
 	if r.m.filePick == nil {
 		t.Fatal("[f] in navigate mode must open the picker")
@@ -345,10 +340,8 @@ func TestServerFormTypingLetterFInFieldDoesNotOpenPicker(t *testing.T) {
 	}
 }
 
-// TestServerFormEscLeavesFieldBeforeScreen pins the esc order of the
-// two-mode form (D3): the first esc leaves EDIT mode — the field stays
-// focused with its typed value, the form stays open, nothing starts —
-// and only the second esc (navigate mode) leaves the screen.
+// the first esc leaves edit mode (field keeps focus and typed value, form
+// open, nothing starts); only the second esc leaves the screen.
 func TestServerFormEscLeavesFieldBeforeScreen(t *testing.T) {
 	r := newServeTestRoot(t)
 	r.upd(tea.WindowSizeMsg{Width: 120, Height: 32})

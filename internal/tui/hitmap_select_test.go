@@ -1,14 +1,7 @@
-// hitmap_select_test.go pins Task 8.3 (UAT round 8 finding 9): a LEFT
-// CLICK inside a visible row selects that row — the cursor moves to the
-// row's data index through the same clamping the keyboard uses — while
-// the WHEEL over the very same cell still scrolls the pane (one hit,
-// two behaviors: the row rect carries the pane's scroll region id AND
-// the select index, registered after the pane scrollHit so the click
-// resolves topmost). A click on the plain pane background stays inert
-// (the 8.2c rule), and a click NEVER selects the page behind an open
-// modal: handleSelectMsg reuses the handleScrollMsg modalOpen gate.
-// The machinery (resolve, addAbs, installMouse) is pinned in
-// hitmap_test.go / hitmap_regions_test.go.
+// hitmap_select_test.go pins click-to-select: a left click in a visible
+// row selects it through the keyboard's clamping, the wheel over the same
+// cell still scrolls, pane background clicks stay inert, and an open modal
+// freezes selection of the page behind it.
 package tui
 
 import (
@@ -27,9 +20,7 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// selectRowAt finds the published row rect of (region, index) from the
-// page's LAST render — the geometry a click must land on — failing the
-// test when the page published no such row.
+// selectRowAt finds the published row rect of (region, index) from the page's last render.
 func selectRowAt(t *testing.T, m *RootModel, id string, index int) geom.Rect {
 	t.Helper()
 
@@ -47,11 +38,6 @@ func selectRowAt(t *testing.T, m *RootModel, id string, index int) geom.Rect {
 	return geom.Rect{}
 }
 
-// TestClickSelectsTransactionsRow is the Task 8.3 tracer (brief Step 1):
-// a left click at the screen y of the transactions table's 3rd visible
-// row selects it (Table.Cursor()==2); the wheel over the SAME cell
-// still scrolls the pane; a click on the plain pane background (the box
-// top border) stays inert.
 func TestClickSelectsTransactionsRow(t *testing.T) {
 	m := NewRootModel(newTxTallApp(t, 40))
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -74,8 +60,7 @@ func TestClickSelectsTransactionsRow(t *testing.T) {
 		t.Fatalf("after click-select the table cursor = %d, want 2", m.tx.Cursor())
 	}
 
-	// The wheel over the SAME row cell still scrolls its pane (one hit,
-	// two behaviors): the row action carries the pane's region id.
+	// the wheel over the same row cell still scrolls its pane (one hit, two behaviors)
 	v2 := m.View()
 	wheel := tea.MouseWheelMsg{X: click.X, Y: click.Y, Button: tea.MouseWheelDown}
 	wcmd := v2.OnMouse(wheel)
@@ -92,13 +77,9 @@ func TestClickSelectsTransactionsRow(t *testing.T) {
 		t.Errorf("the wheel did not move the window through the pane:\n%s", content)
 	}
 
-	// Click the SAME physical cell with the window scrolled down by one:
-	// the row under the cursor maps to data index scrollOff + (y −
-	// contentTop), NOT the visible row number (UAT round 8 review: at
-	// scrollOff 0 the two are indistinguishable, so only a scrolled click
-	// pins the offset term). The window top moved down one row, so the
-	// cell that mapped to Tx 03 at the top now shows the NEXT data row:
-	// scrollOff 1 + visibleIndex 2 = Tx 04 (index 3).
+	// the same cell with the window scrolled by one maps to data index
+	// scrollOff + visibleIndex (3), not the visible row number (2): only
+	// a scrolled click pins the offset term
 	v3 := m.View()
 	scmd := v3.OnMouse(click)
 	if scmd == nil {
@@ -111,9 +92,7 @@ func TestClickSelectsTransactionsRow(t *testing.T) {
 		t.Fatalf("after scrolled click-select the cursor = %d, want 3", m.tx.Cursor())
 	}
 
-	// A click on the plain pane BACKGROUND (the table box's top border
-	// row, inside the scroll region but on no row) stays inert: only the
-	// wheel acts there (the 8.2c rule).
+	// a click on the pane background (box top border, no row) stays inert
 	bg := m.tx.ScrollRegions()[0].Rect
 	inert := v2.OnMouse(tea.MouseClickMsg{X: ox + bg.X + bg.W/2, Y: oy + bg.Y, Button: tea.MouseLeft})
 	if inert != nil {
@@ -121,10 +100,8 @@ func TestClickSelectsTransactionsRow(t *testing.T) {
 	}
 }
 
-// TestSelectMsgFrozenByModal pins the mandatory gate: handleSelectMsg
-// reuses modalOpen exactly like handleScrollMsg, so a click resolved to
-// the page area behind an open modal (palette, §M overlay) never selects
-// the frozen page underneath — and selection resumes once it closes.
+// handleSelectMsg reuses the modalOpen gate: a straggler selectMsg must
+// not move the page behind an open modal, and selection resumes once it closes.
 func TestSelectMsgFrozenByModal(t *testing.T) {
 	m := NewRootModel(newTxTallApp(t, 40))
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -135,8 +112,7 @@ func TestSelectMsgFrozenByModal(t *testing.T) {
 		t.Fatalf("baseline (no modal): cursor = %d, want 5", m.tx.Cursor())
 	}
 
-	// The command palette draws over the page: a straggler selectMsg for
-	// the page region must not move the cursor behind it.
+	// the palette draws over the page: a straggler selectMsg must not move the cursor
 	_, _ = m.Update(ch(':'))
 	if m.pal == nil {
 		t.Fatal(": must open the command palette")
@@ -162,10 +138,8 @@ func TestSelectMsgFrozenByModal(t *testing.T) {
 	}
 }
 
-// TestClickSelectsFilePickerEntry pins the file-picker leg: clicking an
-// entry row moves the picker cursor AND runs the widget's own entry
-// selection — a selectable file commits through FilePickedMsg (the same
-// cmd Enter emits), a directory row descends.
+// clicking a picker entry row moves the cursor and runs the widget's own
+// selection: a file commits via FilePickedMsg, a directory descends.
 func TestClickSelectsFilePickerEntry(t *testing.T) {
 	t.Run("file commits", func(t *testing.T) {
 		m := NewRootModel(nil)
@@ -183,9 +157,7 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 		}
 		v := m.View()
 
-		// Entries: the synthesized .. row leads, then dirs (specs/), then
-		// files → "a.json" is data index 2. The picker rows are published
-		// as ABSOLUTE rects (hit = drawn ink, round-8 doctrine).
+		// entries: ".." leads, then dirs, then files → "a.json" is data index 2
 		var row geom.Rect
 		for _, rh := range m.pickerRowHits() {
 			if rh.Index == 2 {
@@ -222,8 +194,7 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 		m.Update(fcmd())
 		_ = m.View()
 
-		// Index 0 is now the .. parent row; index 1 is the specs/
-		// directory: the click enters it (like Enter), no commit cmd.
+		// index 0 is the .. parent row, index 1 the specs/ dir: the click descends, no commit cmd
 		_, cmd := m.Update(selectMsg{region: regionPicker, index: 1})
 		if cmd != nil {
 			t.Fatalf("a directory click returned %v, want nil (descend, no commit)", cmd())
@@ -243,8 +214,7 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 		m.Update(fcmd())
 		_ = m.View()
 
-		// Row 0 is the synthesized .. entry (UAT round 9 F-9b): clicking
-		// it climbs above the start dir (like Enter on it), no commit.
+		// row 0 is the .. entry: clicking it climbs above the start dir, no commit
 		_, cmd := m.Update(selectMsg{region: regionPicker, index: 0})
 		if cmd != nil {
 			t.Fatalf("the .. row click returned %v, want nil (climb, no commit)", cmd())
@@ -255,16 +225,12 @@ func TestClickSelectsFilePickerEntry(t *testing.T) {
 	})
 }
 
-// TestClickSelectsEverySurface wires the same-shape click-select across
-// the remaining surfaces (brief Step 3): workers table, sessions list,
-// sessions tx-history, server routes, analyze generated items. State is
-// seeded through the root's own caches so the post-Update syncPages keeps
-// the selection the click made (the production identity path).
+// same-shape click-select across the remaining surfaces, seeded through
+// the root's own caches so syncPages keeps the click's selection.
 func TestClickSelectsEverySurface(t *testing.T) {
 	pushWorkers := func(m *RootModel) {
-		// Six rows (not the 40 the 8.2c push used): every provisional
-		// cache row also draws a PROGRESS line, and 40 of those would
-		// legitimately squeeze the table's pane to a 1-row wheel window.
+		// six rows: each cache row also draws a progress line and 40 would
+		// squeeze the table's wheel window to one row
 		for i := 1; i <= 6; i++ {
 			m.workerRowFor(fmt.Sprintf("w-%02d", i))
 		}
@@ -346,8 +312,7 @@ func TestClickSelectsEverySurface(t *testing.T) {
 			if msg != (selectMsg{region: tc.id, index: 2}) {
 				t.Fatalf("row click = %#v, want selectMsg{%q 2}", msg, tc.id)
 			}
-			// The click survives the post-Update syncPages: the page
-			// re-tracks the selected identity exactly like the keyboard.
+			// the click survives the post-Update syncPages identity re-track
 			if _, _ = m.Update(msg); tc.cursor(m) != 2 {
 				t.Fatalf("after click-select the cursor = %d, want 2", tc.cursor(m))
 			}
@@ -355,12 +320,9 @@ func TestClickSelectsEverySurface(t *testing.T) {
 	}
 }
 
-// TestClickSelectsScrolledSessionRow pins the offset term on the FLAT
-// renderer (renderFlat/RowHits), the same mutation guard the grid leg in
-// TestClickSelectsTransactionsRow gives recordGridRows: after the wheel
-// moved the window down by one, the same physical cell maps to data index
-// scrollOff + visibleIndex (3), NOT the visible row number the
-// pre-scroll render showed (2).
+// same offset guard as the grid leg in TestClickSelectsTransactionsRow:
+// after a wheel the same cell maps to scrollOff + visibleIndex, not the
+// pre-scroll visible row number.
 func TestClickSelectsScrolledSessionRow(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -385,8 +347,7 @@ func TestClickSelectsScrolledSessionRow(t *testing.T) {
 		t.Fatalf("click-select cursor = %d, want 2", m.sessions.ListCursor())
 	}
 
-	// Wheel the window down one through the pane (over the row's own
-	// cell, which also pins that the wheel still scrolls a scrolled pane).
+	// wheel the window down one (over the row's own cell, so the wheel still scrolls a scrolled pane)
 	v2 := m.View()
 	wcmd := v2.OnMouse(tea.MouseWheelMsg{X: cell.X, Y: cell.Y, Button: tea.MouseWheelDown})
 	if wcmd == nil {
@@ -394,9 +355,7 @@ func TestClickSelectsScrolledSessionRow(t *testing.T) {
 	}
 	m.Update(wcmd())
 
-	// The same physical cell now shows the NEXT data row (the window top
-	// moved down one): scrollOff 1 + visibleIndex 2 = 3, NOT the visible
-	// row number 2 the pre-scroll render showed.
+	// the same cell now shows the next data row: scrollOff 1 + visibleIndex 2 = 3
 	v3 := m.View()
 	scmd := v3.OnMouse(cell)
 	if scmd == nil {
@@ -410,12 +369,9 @@ func TestClickSelectsScrolledSessionRow(t *testing.T) {
 	}
 }
 
-// TestFilePickerRowsSuppressedUnderConfirm pins the publication-side
-// defense (UAT round 8 review): handleSelectMsg's picker branch runs
-// BEFORE the modalOpen gate, so the confirmPending() check in buildHitMap
-// is the only thing keeping a click from selecting an entry under a §N3
-// confirm — with a confirm pending over the open picker, no cell resolves
-// a picker select hit and a click on a picker row's cell stays inert.
+// the picker branch of handleSelectMsg runs before the modalOpen gate, so
+// buildHitMap's confirmPending() suppression is what keeps a click from
+// selecting an entry under a pending confirm.
 func TestFilePickerRowsSuppressedUnderConfirm(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -428,8 +384,7 @@ func TestFilePickerRowsSuppressedUnderConfirm(t *testing.T) {
 		t.Fatal("f on §B must open the picker")
 	}
 
-	// Precondition: with only the picker up, its rows ARE registered (the
-	// suppression below must be the confirm's doing, not a dead map).
+	// precondition: with only the picker up its rows are registered (the suppression must be the confirm's doing)
 	rows := m.pickerRowHits()
 	if len(rows) == 0 {
 		t.Fatal("precondition: the open picker publishes clickable rows")
@@ -439,8 +394,7 @@ func TestFilePickerRowsSuppressedUnderConfirm(t *testing.T) {
 		t.Fatalf("precondition: picker row = %+v,%v, want the select hit", act, ok)
 	}
 
-	// Arm a §N3 confirm over the open picker (the quit path's own dialog;
-	// the overlay stack draws confirms LAST, above even the picker).
+	// arm a §N3 confirm over the open picker (confirms draw last, above even the picker)
 	m.workersConfirm = widgets.NewConfirmDialog(m.themeOrNil(), "quit jiso?")
 	if !m.confirmPending() {
 		t.Fatal("precondition: the confirm must be pending")
@@ -452,9 +406,7 @@ func TestFilePickerRowsSuppressedUnderConfirm(t *testing.T) {
 			t.Fatalf("picker row %d still resolves a select hit under the confirm: %+v", r.Index, act)
 		}
 	}
-	// And a click on a picker row's cell commits nothing: §B behind the
-	// picker is the empty state (no rows registered), so every picker-row
-	// cell is dead space while the confirm owns the screen.
+	// a click on a picker row's cell commits nothing while the confirm owns the screen
 	v := m.View()
 	for _, r := range rows {
 		if cmd := v.OnMouse(tea.MouseClickMsg{X: r.Rect.X + r.Rect.W/2, Y: r.Rect.Y, Button: tea.MouseLeft}); cmd != nil {
