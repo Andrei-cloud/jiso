@@ -1,30 +1,11 @@
-// root_scenario_run.go owns the §F live operation (SCR-506): the page
-// stays a presentation-only consumer of ScenariosState snapshots while
-// root runs the SAME engine the CLI `scenario run` uses —
-// transactions.NewScenarioRunner over the app's service and collection —
-// in a goroutine and feeds every per-step transition back as
-// root-internal messages through the injectable sender (the send/bridge
-// pattern), so no real program is required in tests.
+// root_scenario_run.go owns the live scenario run: root runs the same
+// engine the CLI `scenario run` uses in a goroutine and feeds every
+// per-step transition back as root-internal messages through the
+// injectable sender, so tests need no real program.
 //
-// Per-step streaming design: the engine gained a minimal observer hook
-// (transactions.StepProgress, fired before each step and after each step
-// with its result and newly extracted session values; the CLI never
-// installs it, so CLI behaviour and the exit-4 mapping are untouched).
-// Each hook event rides straight into a scenarioStepMsg; a fake engine
-// without the hook still lands correctly because applyScenarioDone
-// backfills any unresolved rows from the final app.ScenarioReport.
-//
-// Wiring rationale (moved out of the root_model.go field block at its
-// repohealth line budget): scenarios is the §F page — a registry entry after
-// the 8 hotkey slots, reachable via the palette ":scenarios" (the wire-compat
-// slot id "scenario" stays with the merged §C inspector; §F steals no hotkey).
-// scenarioRun is the live-run truth (nil = never run); the goroutine reports
-// scenarioStepMsg/scenarioDoneMsg values through scenarioSender (run wires
-// program.Send through wireSenders — run.go; tests inject a collector — the
-// bridge pattern), and runScenario overrides the engine leg (nil = the
-// production transactions.ScenarioRunner, the SAME engine the CLI scenario
-// run uses). scenarioLastReport holds the last completed report for `e`;
-// scenarioStatusLine is the toast-less export line.
+// The engine's StepProgress hook is optional: events ride straight into
+// scenarioStepMsg, and a run without the hook still lands correctly
+// because applyScenarioDone backfills unresolved rows from the final report.
 package tui
 
 import (
@@ -39,15 +20,13 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// scenarioEngine runs one scenario, optionally reporting per-step
-// progress. The production leg installs the observer on the engine;
-// tests inject a fake that emits the hook (or doesn't) by hand.
+// scenarioEngine runs one scenario, optionally reporting per-step progress.
+// The production leg installs the observer; tests inject a fake.
 type scenarioEngine func(name string, observe func(transactions.StepProgress)) (*transactions.TestReport, error)
 
 // scenarioStepMsg reports one per-step transition from the run goroutine
-// into Update (root-internal; the pages fence keeps it out of pages).
-// Started marks the pre-step event; otherwise Result/Extracted carry the
-// finished step, mirroring transactions.StepProgress.
+// into Update (root-internal). Started marks the pre-step event; otherwise
+// Result/Extracted carry the finished step.
 type scenarioStepMsg struct {
 	scenarioID string
 	index      int
@@ -76,15 +55,12 @@ type scenarioRun struct {
 }
 
 // SetScenarioSender overrides how scenario run messages reach the
-// program. Run wires (*tea.Program).Send; tests inject a collector and
-// re-enter Update by hand (the SetSendSender idiom).
+// program; tests inject a collector and re-enter Update by hand.
 func (m *RootModel) SetScenarioSender(send bridge.Sender) { m.scenarioSender = send }
 
 // startScenarioRun launches (or ignores) a live run for scenario id:
-// ignored without an app, and ignored while one is in flight (single
-// live op — the send rule). It pushes the §F page at the current size,
-// arms the goroutine, and returns no cmd (the goroutine reports through
-// the sender; the page never ticks).
+// ignored without an app or while one is in flight (single live op). It
+// arms the goroutine and returns no cmd; the page never ticks.
 func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 	if m.app == nil || id == "" {
 		m.debug.logf("scenario run id=%s (no app wired)", id)
@@ -99,9 +75,8 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 
 	m.scenarioRun = &scenarioRun{id: id, steps: m.declaredSteps(id)}
 	m.scenarioStatusLine = ""
-	// A new run invalidates the step-detail leg: the old preview describes a
-	// previous report, and an in-flight fold must turn stale instead of
-	// re-opening the overlay over the fresh stream (the §I seq lifecycle).
+	// A new run invalidates the step-detail leg: the old preview describes
+	// a previous report, so clear it and bump the seq to turn stragglers stale.
 	m.scenarioDetail.seq++
 	m.scenarioDetail.preview = nil
 
@@ -114,9 +89,8 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 
 	sender := m.scenarioSender
 	if sender == nil {
-		// No program seam (library use without Run): the engine leg's
-		// emits would drop and wedge §F in-flight forever, so close the
-		// run with the terminal failure now (never running the engine).
+		// No program seam: the engine leg's emits would drop and wedge the
+		// run in-flight forever, so close it with a terminal failure now.
 		m.scenarioRun.done = true
 		m.scenarioRun.summary = "run failed: " + errNoSenderWired.Error()
 		m.syncScenarios()
@@ -135,8 +109,8 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// walkScenario is the run goroutine: hook events go to the program
-// send-func as they arrive; the final report (or error) closes the run.
+// walkScenario is the run goroutine: hook events go to the sender as they
+// arrive; the final report (or error) closes the run.
 func (m *RootModel) walkScenario(
 	sender bridge.Sender,
 	engine scenarioEngine,
@@ -162,12 +136,10 @@ func (m *RootModel) walkScenario(
 	emit(scenarioDoneMsg{scenarioID: id, report: report, err: err})
 }
 
-// appScenarioRun is the production engine leg: the exact
-// transactions.ScenarioRunner the CLI scenario run builds (same service,
-// same collection), with the SCR-506 observer installed. It performs no
-// connect of its own — steps honestly fail with the engine's
-// "connection is offline" until a connection exists (the §E dialog or a
-// later auto-connect ticket).
+// appScenarioRun is the production leg: the same ScenarioRunner the CLI
+// scenario run builds, with the per-step observer installed. It performs
+// no connect — steps honestly fail with the engine's own
+// "connection is offline" until a connection exists.
 func (m *RootModel) appScenarioRun(name string, observe func(transactions.StepProgress)) (*transactions.TestReport, error) {
 	tc, ok := m.app.Transactions().(*transactions.TransactionCollection)
 	if !ok {
@@ -182,9 +154,9 @@ func (m *RootModel) appScenarioRun(name string, observe func(transactions.StepPr
 	return runner.RunScenario(name)
 }
 
-// applyScenarioStep folds one per-step transition into the machine
-// truth: started lights the ⏳ row; finished derives status, latency,
-// RC, and the sub-line note from the APP-203 ScenarioStepView.
+// applyScenarioStep folds one per-step transition into the run truth:
+// started lights the running row; finished derives status, latency, RC,
+// and the sub-line note from the app's step view.
 func (m *RootModel) applyScenarioStep(msg scenarioStepMsg) (tea.Model, tea.Cmd) {
 	r := m.scenarioRun
 	if r == nil || r.id != msg.scenarioID || r.done {
@@ -220,10 +192,9 @@ func (m *RootModel) applyScenarioStep(msg scenarioStepMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// applyScenarioDone closes the run: the final banner comes from the
-// APP-203 ScenarioReport totals, unresolved rows (a hook-less fake
-// engine) are backfilled from the same view, and the report lands in
-// m.scenarioLastReport for `e`.
+// applyScenarioDone closes the run: the banner comes from the report
+// totals, unresolved rows (a hook-less engine) are backfilled from the
+// same view, and the report lands in m.scenarioLastReport for `e`.
 func (m *RootModel) applyScenarioDone(msg scenarioDoneMsg) (tea.Model, tea.Cmd) {
 	r := m.scenarioRun
 	if r == nil || r.id != msg.scenarioID || r.done {
@@ -262,16 +233,14 @@ func (m *RootModel) applyScenarioDone(msg scenarioDoneMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// formatScenarioSummary renders the final banner `3/3 passed · 7ms
-// total` (wireframe §F; the engine reports whole milliseconds, so the
-// wireframe's 7.1ms sample renders as its engine truth).
+// formatScenarioSummary renders the final banner `3/3 passed · 7ms total`
+// from the report totals.
 func formatScenarioSummary(v *app.ScenarioReport) string {
 	return fmt.Sprintf("%d/%d passed · %s total", v.PassedSteps, v.TotalSteps, formatScenarioDuration(v.Duration))
 }
 
-// formatScenarioDuration formats the banner total: ms below a second
-// (one decimal kept when the duration carries one), seconds below a
-// minute, minutes beyond. "" only for the never-run zero.
+// formatScenarioDuration formats the banner total: ms, seconds, or
+// minutes; "" only for the never-run zero.
 func formatScenarioDuration(d time.Duration) string {
 	switch {
 	case d <= 0:

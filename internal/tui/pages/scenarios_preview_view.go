@@ -1,8 +1,6 @@
-// scenarios_preview_view.go renders the §F step message-preview overlay
-// (UAT round 9 F-9e c): the page title pinned above a scrollable window
-// of the preview body, with the reconstructed request/response sections
-// in the §I review shape. The overlay's keyboard and scroll maths live
-// in scenarios_preview.go; the panes live in scenarios_view.go.
+// scenarios_preview_view.go renders the step message-preview overlay:
+// the page title pinned above a scrollable window of the preview body.
+// The overlay's keyboard and scroll maths live in scenarios_preview.go.
 package pages
 
 import (
@@ -12,27 +10,20 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// The step message-preview overlay's non-payload lines (UAT round 9
-// F-9e c). One line each, symbol+word for the loading marker (the
-// pendingGlyph degrades to ".." under the ascii theme, so goldens stay
-// 7-bit).
+// The overlay's fixed lines; the pendingGlyph degrades to ".." under the
+// ascii theme, so goldens stay 7-bit.
 const (
 	scenPreviewLoadingWord    = "loading"
 	scenPreviewEmptyText      = "run the scenario to capture the message"
 	scenPreviewNoResponseText = "no response - run the scenario"
-	// scenPreviewComposedText labels a REQUEST the page shows for a step
-	// that never ran (UAT round 9 F1): the payload is ComposeRaw's honest
-	// composition, not a capture, and the label says so next to the
-	// REQUEST title. ASCII-only, so the 7-bit goldens stay clean.
+	// scenPreviewComposedText labels a REQUEST shown for a step that never
+	// ran: an honest composition, not a capture. ASCII-only for 7-bit goldens.
 	scenPreviewComposedText = "request composed from template - not sent yet"
 )
 
-// renderStepPreview draws the message-preview overlay: the page title
-// pinned above a WINDOW of the preview body starting at
-// s.stepPreviewScroll (the §I renderReview contract — the scroll is
-// clamped here against the live content, so a stale offset after a
-// resize still renders sanely). The panes are not drawn this frame and
-// publish no section rects.
+// renderStepPreview draws the title pinned above a window of the preview
+// body starting at stepPreviewScroll, clamped here against the live
+// content; the panes publish no section rects this frame.
 func (s *Scenarios) renderStepPreview(title string, h, w int) string {
 	body := strings.Split(strings.TrimRight(s.stepPreviewBody(), "\n"), "\n")
 	avail := max(h-stepPreviewHeadH, 1)
@@ -42,20 +33,17 @@ func (s *Scenarios) renderStepPreview(title string, h, w int) string {
 	return clipBlockStyled(s.th, title+"\n"+window, h, w)
 }
 
-// stepPreviewBody renders the step message preview: a headline (step
-// number + scenario), the reconstructed REQUEST — and RESPONSE when
-// root captured one — in the same §C-style sections as the §I review,
-// closed by the esc hint (Esc owns the keyboard first). An in-flight
-// load shows the loading marker and a step that captured nothing shows
-// the run hint; the page never invents a message.
+// stepPreviewBody renders the preview headline, the reconstructed REQUEST
+// and RESPONSE when captured, and the esc hint. An in-flight load shows
+// the loading marker; a step that captured nothing shows the run hint —
+// the page never invents a message.
 func (s *Scenarios) stepPreviewBody() string {
 	p := s.state.Preview
 
 	var b strings.Builder
 
 	if p == nil {
-		// Defensive: the overlay arms from a pushed Preview, so this is
-		// only reachable if root clears the payload mid-flight.
+		// Defensive: reachable only if root clears the payload mid-flight.
 		b.WriteString(s.th.TextMuted.Render(s.pendingGlyph()+" "+scenPreviewLoadingWord) + "\n")
 		b.WriteString(s.previewHintLine())
 
@@ -70,27 +58,23 @@ func (s *Scenarios) stepPreviewBody() string {
 		b.WriteString(s.th.TextMuted.Render(s.pendingGlyph()+" "+scenPreviewLoadingWord) + "\n")
 	case p.Request == nil && p.Response == nil:
 		if p.Note != "" {
-			// A folded load failure names its cause (task 9.8b); the note is
-			// root-stamped text, the page adds only the error styling.
+			// A folded load failure names its cause: root-stamped text,
+			// the page adds only the error styling.
 			b.WriteString(s.th.Status(theme.KindError, p.Note) + "\n")
 		} else {
 			b.WriteString(s.th.TextMuted.Render(scenPreviewEmptyText) + "\n")
 		}
 	default:
 		if p.Composed {
-			// A pending step's REQUEST is a composition, not a capture
-			// (UAT round 9 F1): the muted label sits right above the
-			// REQUEST title so the operator can always tell a previewed
-			// message from real traffic.
+			// A pending step's REQUEST is a composition, not a capture:
+			// the muted label sits above the REQUEST title.
 			b.WriteString(s.th.TextMuted.Render(scenPreviewComposedText) + "\n")
 		}
 		b.WriteString(s.stepPreviewMessage("REQUEST", p.Request))
 		if p.Response != nil {
 			b.WriteString(s.stepPreviewMessage("RESPONSE", p.Response))
 		} else {
-			// The missing half is named, not invented (task 9.8b): the
-			// pending template composition and a run step that captured no
-			// reply both show the title plus an honest cause line.
+			// The missing half is named, never invented.
 			b.WriteString(titleLine(s.th, "RESPONSE") + "\n" +
 				s.th.TextMuted.Render(scenPreviewNoResponseText) + "\n")
 		}
@@ -100,9 +84,9 @@ func (s *Scenarios) stepPreviewBody() string {
 	return b.String()
 }
 
-// stepPreviewMessage renders one reconstructed message section (the §I
-// reviewMessage shape: packed HEX block, then the parsed FIELDS block;
-// raw fallbacks and parse errors are surfaced, never hidden).
+// stepPreviewMessage renders one reconstructed message section: packed
+// HEX block, then the parsed FIELDS block; raw fallbacks and parse errors
+// are surfaced, never hidden.
 func (s *Scenarios) stepPreviewMessage(title string, m *TxReviewMessage) string {
 	if m == nil {
 		return titleLine(s.th, title) + "\n" +
@@ -125,8 +109,7 @@ func (s *Scenarios) stepPreviewMessage(title string, m *TxReviewMessage) string 
 	return b.String()
 }
 
-// previewHintLine closes the overlay body with the scroll hint (the §I
-// review hint; the separator follows the theme's glyph mode).
+// previewHintLine closes the overlay body with the scroll hint.
 func (s *Scenarios) previewHintLine() string {
 	sep := s.th.Separator()
 

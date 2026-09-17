@@ -1,13 +1,8 @@
-// scenarios_view.go renders the §F body: a title row (SCENARIOS (N),
-// live filter text, report path) above a master-detail split — the
-// SCENARIOS list section and the STEPS section side by side on one
-// shared title row at ≥ frame.FullWidth, the steps pane below the list
-// below it (responsive contract). Both panes are titled widgets.Section
-// boxes (ModeStandard, exactly w×h) whose widths plus the gap sum to the
-// content width (UAT round 9 F-9e alignment). The focused pane accents
-// its title and lights its border (the §I focus contract). The frame
-// owns the surrounding chrome; sizing comes from frame.ContentSize
-// (dashboard layout.go pattern).
+// scenarios_view.go renders the page body: a title row above a
+// master-detail split (side by side at wide widths, steps below the list
+// when narrow). Both panes are titled ModeStandard Sections drawing
+// exactly w×h whose widths plus the gap sum to the content width — the
+// steps pane absorbs the remainder — so they join flush on one title row.
 package pages
 
 import (
@@ -27,18 +22,14 @@ const (
 	titleScenarios = "SCENARIOS"
 	titleSteps     = "STEPS"
 
-	// scenRunningWord accompanies the running glyph (symbol+word,
-	// never color alone). The wireframe's ⏳ is an emoji; the design
-	// contract forbids emoji chips, so running uses the theme ok/error
-	// glyph family's neutral marker: "…" (".." ascii) + "running".
+	// Running marker is symbol+word, never color alone; the ascii dot
+	// keeps goldens 7-bit.
 	scenRunningWord = "running"
 	scenPendingDot  = "…"
 	scenASCIIDot    = ".."
 
-	// scenMinListWidth is the List's floor width before the first size
-	// msg; scenListFraction sizes the master column at split widths with
-	// a floor-only clamp (UAT round 8 finding 5: no ceiling — the STEPS
-	// pane absorbs the remainder so the band fills the content width).
+	// List floor width before the first size msg, and the master column
+	// fraction; the clamp is floor-only so STEPS absorbs the remainder.
 	scenMinListWidth = 24
 	scenListFraction = 3 // list column = content width / 3, floored
 
@@ -60,9 +51,8 @@ func (s *Scenarios) render(w, h int) string {
 
 	title := s.titleRow(w)
 
-	// The message-preview overlay replaces the panes while it is up (the
-	// §I review body-swap pattern): the panes are not drawn, so they
-	// publish no section rects this frame.
+	// The preview overlay replaces the panes while up; they publish no
+	// section rects this frame.
 	if s.stepPreviewOpen {
 		return s.renderStepPreview(title, h, w)
 	}
@@ -83,17 +73,13 @@ func (s *Scenarios) render(w, h int) string {
 
 	if w >= frame.FullWidth {
 		listW := max(w/scenListFraction, scenMinListWidth)
-		// STEPS is the remainder: the two panes plus the gap sum exactly
-		// to the content width (the floor cannot bite at
-		// w >= frame.FullWidth, and the removed 44-cell ceiling used to
-		// freeze the split and leave a trailing gap — UAT round 8
-		// finding 5 / round 9 F-9e, the §I sessions_view.go pattern).
+		// STEPS is the remainder: panes plus gap sum exactly to the
+		// content width (the floor cannot bite at frame.FullWidth).
 		stepsW := w - listW - scenSectionGap
 		panesY := 1 + errLines // the title row, plus the error strip if any
 
-		// Both panes are titled ModeStandard Sections drawing exactly
-		// w×h, so the origins advance by the DRAWN widths the join
-		// actually consumes (measured strings), never by nominal terms.
+		// Origins advance by the DRAWN widths the join actually consumes
+		// (measured strings), never by nominal terms.
 		listSec := s.listBox(0, panesY, listW, paneH)
 		stepsSec := s.stepsBox(lipgloss.Width(listSec)+scenSectionGap, panesY, stepsW, paneH)
 
@@ -107,28 +93,20 @@ func (s *Scenarios) render(w, h int) string {
 	upperH := paneH - lowerH
 	panesY := 1 + errLines
 
-	// Stacked: both panes are full-content-width titled Sections; the
-	// list section's "\n" terminator costs no line of its own, so the
-	// STEPS title starts on its own row exactly where the drawn list
-	// lines end (§I stacked convention, no gap row).
+	// Stacked: the list section's "\n" terminator costs no line of its
+	// own, so the STEPS title starts exactly where the drawn list ends.
 	listSec := s.listBox(0, panesY, w, upperH)
 	stepsSec := s.stepsBox(0, panesY+lipgloss.Height(listSec), w, lowerH)
 
 	return clipBlockStyled(s.th, head+listSec+"\n"+stepsSec+"\n"+footer, h, w)
 }
 
-// scenErrMaxLines caps the dedicated error strip: two wrapped lines
-// carry a full engine error at typical widths without eating the STEPS
-// pane's height.
+// scenErrMaxLines caps the dedicated error strip without eating the STEPS pane's height.
 const scenErrMaxLines = 2
 
-// errorStrip is the dedicated error area (UAT round 5): the FIRST
-// failed step's full error, word-wrapped into at most scenErrMaxLines
-// lines with the error status style. Before it existed, the only place
-// the error appeared was the clipped sub-line under the step, where a
-// long pack error read as an unreadable fragment. Empty (and
-// zero-height) when no step failed, so passing frames render
-// byte-identical to before.
+// errorStrip is the dedicated error area: the FIRST failed step's full
+// error, word-wrapped and error-styled. Empty (and zero-height) when no
+// step failed.
 func (s *Scenarios) errorStrip(w int) string {
 	text := ""
 	for _, st := range s.state.SelectedSteps {
@@ -145,10 +123,8 @@ func (s *Scenarios) errorStrip(w int) string {
 	return s.wrapErrorLines("error: "+text, max(w-1, 8))
 }
 
-// wrapErrorLines word-wraps text into at most maxLines lines of w
-// cells, error-styled (symbol+word on the first line only, never color
-// alone); the last kept line clips with the ellipsis so overflow is
-// honest.
+// wrapErrorLines word-wraps text into at most maxLines error-styled lines
+// (symbol+word on the first line only); overflow clips with an honest ellipsis.
 func (s *Scenarios) wrapErrorLines(text string, w int) string {
 	words := strings.Fields(text)
 	var lines []string
@@ -186,8 +162,7 @@ func (s *Scenarios) wrapErrorLines(text string, w int) string {
 }
 
 // titleRow renders "SCENARIOS (4)  filter: ▏  report: scenario-report.json"
-// clipped to the content width (the report segment shows the export
-// destination root pushed; dash = not derived yet).
+// clipped to the content width (dash = not derived yet).
 func (s *Scenarios) titleRow(w int) string {
 	filter := dashIf(s.th, s.filter)
 	if s.filtering {
@@ -203,10 +178,9 @@ func (s *Scenarios) titleRow(w int) string {
 	return clipCells(line, w, clipTail(s.th))
 }
 
-// bannerLine is the bottom line: the final banner (Summary) and, once
-// `e` ran, the export status line beside it (toast-less feedback —
-// TUI-406b will add real toasts); with no banner yet, the live running
-// hint. One line, symbol+word throughout.
+// bannerLine is the bottom line: the final banner and, once `e` ran, the
+// export status beside it; else the live running hint. Symbol+word
+// throughout, never color alone.
 func (s *Scenarios) bannerLine() string {
 	base, tail := plainDecor(s.th, s.state.Summary), plainDecor(s.th, s.state.StatusLine)
 	w := s.bannerWidth()
@@ -233,19 +207,12 @@ func (s *Scenarios) bannerWidth() int {
 	return w
 }
 
-// listBox renders the master pane as a titled Section (the same shared
-// box as STEPS): the list widget sized to the box's content area, the
-// whole thing drawn through widgets.Section in ModeStandard — the mode
-// that draws a box of exactly w×h (h includes the title line), so both
-// panes join flush on the same title row (UAT round 9 F-9e; the old
-// border-only w-2 box staggered the panes). The pane records its
-// section Rect at (x,y) like every other sectioned page, and the pane
-// holding focus accents its title and lights its border (the §I
-// UAT-round-5 focus rendering contract).
+// listBox renders the master pane through the shared widgets.Section in
+// ModeStandard (a box of exactly w×h, so both panes join flush on the same
+// title row). The focused pane accents its title and lights its border.
 func (s *Scenarios) listBox(x, y, w, h int) string {
 	focused := s.pane == ScenarioPaneList
-	// Content rows: the section spends one line on its title and two on
-	// the box rules; the body clips to w-4 cells (the Section convention).
+	// Content rows: the section spends one line on its title and two on the box rules.
 	inner := max(h-3, 1)
 	s.list.SetSize(max(w-4, 2), inner)
 
@@ -257,18 +224,12 @@ func (s *Scenarios) listBox(x, y, w, h int) string {
 	return out
 }
 
-// stepsBox renders the detail pane: step rows plus sub-lines, or the
-// "select a scenario" hint when root pushed no rows, drawn through the
-// one shared widgets.Section (ModeStandard: the box is exactly w wide,
-// matching the list pane so the two join flush — UAT round 9 F-9e). The
-// step rows arrive pre-clipped to the box's CONTENT width, so the
-// section's own clip is a no-op and the bytes cannot move; the section's
-// Rect is recorded at its content-relative origin, and the pane holding
-// focus accents its title and lights its border (the §I contract).
+// stepsBox renders the detail pane (step rows plus sub-lines, or the
+// select-a-scenario hint) through the same ModeStandard Section. Step rows
+// arrive pre-clipped to the box's content width, so the section's clip is a no-op.
 func (s *Scenarios) stepsBox(x, y, w, h int) string {
 	focused := s.pane == ScenarioPaneSteps
-	// Content width: the box is w wide including its two border
-	// columns, so the body gets w-4.
+	// Content width: the box is w wide including its borders, so the body gets w-4.
 	inner := s.stepsBody(max(w-4, 1), max(h-3, 1))
 
 	sec := widgets.NewSection(s.th, paneTitle(s.th, titleSteps, focused))
@@ -279,13 +240,10 @@ func (s *Scenarios) stepsBox(x, y, w, h int) string {
 	return out
 }
 
-// stepsBody renders one line per step with an optional indented sub-line
-// (extract/validate notes, validation diff). Rows beyond the visible
-// window are dropped (truncate-never-wrap; the list owns scrolling, the
-// step pane shows what fits) — but the window slides just far enough to
-// keep the row under the step cursor visible, and that row carries the
-// theme's two-cell selector marker (the widgets.List cursor rendering,
-// UAT round 9 F-9e c; ascii keeps it 7-bit).
+// stepsBody renders one line per step plus an optional indented sub-line.
+// Rows beyond the window are dropped, never wrapped; the window slides
+// just far enough to keep the step cursor's row visible, marked by the
+// theme's selector.
 func (s *Scenarios) stepsBody(w, h int) string {
 	if len(s.state.SelectedSteps) == 0 {
 		return s.th.TextMuted.Render("select a scenario - enter runs it")
@@ -315,10 +273,8 @@ func (s *Scenarios) stepsBody(w, h int) string {
 	return strings.Join(lines, "\n")
 }
 
-// stepWindow is the step index the STEPS body starts drawing from: 0
-// while the whole stream fits (the historic truncate-never-wrap view),
-// else the latest window start that still keeps the step cursor's line
-// inside the visible window.
+// stepWindow is the step index the STEPS body draws from: 0 while the
+// whole stream fits, else the latest start keeping the cursor's line visible.
 func (s *Scenarios) stepWindow(h int) int {
 	steps := s.state.SelectedSteps
 	cur := min(s.stepCursor, len(steps)-1)
@@ -346,7 +302,6 @@ func (s *Scenarios) stepWindow(h int) int {
 
 // stepLine renders " 1  Purchase Authorization  0200 → RC 00 ✓ 3ms" (or
 // the running/pending variants; the arrow + dash keep unknowns honest).
-// The cursor row swaps the leading blank for the theme's selector.
 func (s *Scenarios) stepLine(st StepRow, w int, cursor bool) string {
 	idx := padLeft(strconv.Itoa(st.Index), 2)
 	budget := stepNameBudget(w)
@@ -360,8 +315,7 @@ func (s *Scenarios) stepLine(st StepRow, w int, cursor bool) string {
 		s.th.Deemphasized.Render(scenArrow(s.th)) + " " + tail
 }
 
-// scenArrow is the step-row separator for th's glyph mode (the wireframe
-// arrow; ASCII keeps goldens 7-bit).
+// scenArrow is the step-row separator for th's glyph mode (ascii keeps goldens 7-bit).
 func scenArrow(th *theme.Theme) string {
 	if th.ASCII {
 		return "->"
@@ -371,10 +325,8 @@ func scenArrow(th *theme.Theme) string {
 }
 
 // plainDecor degrades the decorative separators root builds into state
-// strings (the "·" segment join, the "→" in export feedback, "…"
-// ellipses, em dashes, the "±" latency jitter) to ASCII equivalents, so
-// ascii-mode goldens stay 7-bit while root keeps emitting the wireframe
-// glyphs. Shared by the §F banner/notes and the §G latency cells.
+// strings (· → — ±) to ASCII equivalents, so ascii-mode goldens stay 7-bit
+// while root keeps emitting the wireframe glyphs.
 func plainDecor(th *theme.Theme, s string) string {
 	if !th.ASCII {
 		return s
@@ -387,9 +339,8 @@ func plainDecor(th *theme.Theme, s string) string {
 	return s
 }
 
-// stepTail renders the "RC 00 ✓ 3ms" / ".. running" / dash segment: the
-// status symbol trails the values (wireframe order); the symbol+word
-// pairing lives in the glyphs and the running word, never color alone.
+// stepTail renders the "RC 00 ✓ 3ms" / running / dash segment; the
+// symbol+word pairing lives in the glyphs and the running word, never color alone.
 func (s *Scenarios) stepTail(st StepRow) string {
 	switch st.Status {
 	case StepRunning:
@@ -413,9 +364,8 @@ func (s *Scenarios) stepTail(st StepRow) string {
 	}
 }
 
-// stepNoteLine renders the indented sub-line: pass notes stay muted
-// with the ok symbol appended (extract/validate summary), fail notes get
-// the error status style (validation diff `39 expect "00" got "96"`).
+// stepNoteLine renders the indented sub-line: pass notes stay muted with
+// the ok symbol appended, fail notes get the error status style.
 func (s *Scenarios) stepNoteLine(st StepRow, w int) string {
 	const indent = "      "
 
@@ -431,8 +381,7 @@ func (s *Scenarios) stepNoteLine(st StepRow, w int) string {
 	}
 }
 
-// pendingGlyph is the running marker for th's glyph mode (the wireframe
-// ⏳ is an emoji; the contract's symbol+word pair uses the neutral dot).
+// pendingGlyph is the running marker for th's glyph mode (symbol+word uses the neutral dot).
 func (s *Scenarios) pendingGlyph() string {
 	if s.th.ASCII {
 		return scenASCIIDot
@@ -441,17 +390,14 @@ func (s *Scenarios) pendingGlyph() string {
 	return scenPendingDot
 }
 
-// emptyStateBody renders "no scenarios — load via :" with the palette
-// key accent-styled (transactions empty-state pattern; the dash follows
-// the theme's ASCII mode). The CLI prints "No scenarios defined in the
-// configuration file"; the TUI follows the wireframe wording.
+// emptyStateBody renders "no scenarios — load via :" with the palette key
+// accent-styled; the dash follows the theme's ASCII mode.
 func (s *Scenarios) emptyStateBody() string {
 	return s.th.TextMuted.Render("no scenarios "+dashIf(s.th, "")+" load via ") + s.th.Accent.Render(":")
 }
 
-// stepNameBudget is the step-row name column width for a pane of total
-// width w (the two-cell selector + " 1  " prefix, the MTI cell, the
-// arrow, and the "RC 00 ✓ 3ms" tail keep a fixed reserve).
+// stepNameBudget is the step-row name column for a pane of width w: what
+// is left after the selector, index, MTI, arrow, and status-tail reserve.
 func stepNameBudget(w int) int {
 	return max(w-30, 8)
 }
@@ -466,7 +412,7 @@ func padLeft(s string, n int) string {
 }
 
 // padTo right-pads s with spaces to width n (already-wide s is kept —
-// unlike connect_view.go's padRight, which always adds one space).
+// unlike padRight, which always adds one space).
 func padTo(s string, n int) string {
 	if w := lipgloss.Width(s); w < n {
 		return s + strings.Repeat(" ", n-w)
@@ -475,8 +421,8 @@ func padTo(s string, n int) string {
 	return s
 }
 
-// formatStepDuration is the step-row time cell ("3ms", "1.2s"; "" for
-// the not-yet-run zero so unknowns render as nothing, not zeros).
+// formatStepDuration is the step-row time cell ("3ms", "1.2s"); "" for
+// the never-run zero, which renders as nothing, not a zero.
 func formatStepDuration(d time.Duration) string {
 	switch {
 	case d <= 0:

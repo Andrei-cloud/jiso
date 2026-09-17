@@ -1,9 +1,7 @@
-// scenarios_preview.go is the §F step message preview (UAT round 9
-// F-9e c): the Enter-on-step trigger, the overlay's keyboard, and its
-// scroll maths. The page never loads anything — Enter emits
-// ScenarioStepDetailMsg and root pushes ScenariosState.Preview back;
-// SetState arms the overlay when that Preview's identity changes (the
-// §I sessions review pattern, sessions_keys.go / sessions.go).
+// scenarios_preview.go is the step message preview: the Enter-on-step
+// trigger, the overlay's keyboard, and its scroll maths. The page never
+// loads anything — Enter emits ScenarioStepDetailMsg and root pushes
+// ScenariosState.Preview back, arming the overlay when its identity changes.
 package pages
 
 import (
@@ -15,20 +13,15 @@ import (
 	"jiso/internal/tui/frame"
 )
 
-// StepCursor reports the STEPS-pane cursor index (0 when the stream is
-// empty; tests; the §I ListCursor/HistoryCursor accessor pattern).
+// StepCursor reports the STEPS-pane cursor index (0 when the stream is empty).
 func (s *Scenarios) StepCursor() int { return s.stepCursor }
 
-// StepPreviewOpen reports the message-preview overlay state (tests; the
-// §I ReviewOpen accessor).
+// StepPreviewOpen reports whether the message-preview overlay is open.
 func (s *Scenarios) StepPreviewOpen() bool { return s.stepPreviewOpen }
 
 // stepDetail yields the detail request for the step under the STEPS
-// cursor (Enter on the steps pane, the Task 9.7 Minor: it must NOT run
-// the list scenario). An empty stream yields nothing; the overlay opens
-// later from the pushed Preview, never optimistically here (the §I
-// handleSessionsReview doctrine: the overlay opens when the result
-// arrives).
+// cursor; an empty stream yields nothing. The overlay opens later from
+// the pushed Preview, never optimistically here.
 func (s *Scenarios) stepDetail() (Page, tea.Cmd) {
 	steps := s.state.SelectedSteps
 	if len(steps) == 0 {
@@ -40,11 +33,9 @@ func (s *Scenarios) stepDetail() (Page, tea.Cmd) {
 	return s, func() tea.Msg { return ScenarioStepDetailMsg{StepIndex: st.Index, ScenarioID: id} }
 }
 
-// updateStepPreview is the preview overlay's keyboard: Esc closes
-// first, then j/k (and arrows) scroll one line and pgup/pgdn page (the
-// finding-8 scrollable-overlay doctrine: an overlay taller than the
-// window must stay reachable, esc hint included). Unknown keys are
-// swallowed; the overlay owns the keyboard.
+// updateStepPreview is the overlay's keyboard: Esc closes first, then
+// j/k scroll one line and pgup/pgdn page; unknown keys are swallowed —
+// the overlay owns the keyboard.
 func (s *Scenarios) updateStepPreview(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	switch {
 	case key.Matches(msg, s.nav.Cancel):
@@ -62,9 +53,8 @@ func (s *Scenarios) updateStepPreview(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	return s, nil
 }
 
-// scrollStepPreviewBy moves the overlay's top line, clamped to the
-// scroll extent (the view clamps again against the live content, so a
-// stale scroll after a resize still renders sanely).
+// scrollStepPreviewBy moves the overlay's top line within the scroll
+// extent (the view clamps again against the live content).
 func (s *Scenarios) scrollStepPreviewBy(delta int) {
 	s.stepPreviewScroll = max(s.stepPreviewScroll+delta, 0)
 	if ext := s.stepPreviewScrollExtent(); ext > 0 && s.stepPreviewScroll > ext {

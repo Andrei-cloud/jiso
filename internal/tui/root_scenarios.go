@@ -1,10 +1,6 @@
-// root_scenarios.go builds the §F ScenariosState from the app's loaded
-// tx file and derives the display strings the page renders (SCR-506).
-// Root owns all App access: the scenario list comes from the same
-// TransactionCollection the CLI `scenario list` walks, step MTIs from the
-// repository's Info (field 0 of the template — the §B mtiFromFields
-// helper), and the completed-report views from app.NewScenarioReport
-// (the APP-203 shape) so notes reuse its fields instead of re-deriving.
+// root_scenarios.go builds the ScenariosState from the app's loaded tx
+// file and derives the display strings the page renders. Root owns all
+// app access; the page consumes snapshots only.
 package tui
 
 import (
@@ -19,13 +15,9 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// scenarioReportDefaultPath is the §F export destination. Source of the
-// convention: the CLI `scenario run --report` flag (internal/cli/cmd
-// scenario.go) has NO default — it only saves when a path is given, and
-// RunScenarioCommand.saveReport writes the marshalled TestReport there
-// verbatim. The TUI needs one fixed destination for `e`, so it uses
-// scenario-report.json in the cwd and writes the same TestReport JSON;
-// a user-set path via the palette lands with TUI-406b (forms).
+// scenarioReportDefaultPath is the export destination for `e`: the CLI
+// --report flag has no default, so the TUI fixes scenario-report.json in
+// the cwd and writes the same TestReport JSON there.
 const scenarioReportDefaultPath = "scenario-report.json"
 
 // scenarioReportPath is the export destination root uses for `e`.
@@ -38,8 +30,7 @@ func (m *RootModel) scenarioReportPath() string {
 }
 
 // scenarioCollection returns the concrete collection behind the app's
-// Repository (the CLI scenario commands type-assert the same way; nil
-// without an app or with a foreign implementation).
+// Repository (nil without an app or with a foreign implementation).
 func (m *RootModel) scenarioCollection() *transactions.TransactionCollection {
 	if m.app == nil {
 		return nil
@@ -52,9 +43,7 @@ func (m *RootModel) scenarioCollection() *transactions.TransactionCollection {
 	return tc
 }
 
-// syncScenarios pushes a fresh §F snapshot into the canonical page
-// instance (Update-wrapper placement mirrors syncDashboard/
-// syncTransactions/syncSend).
+// syncScenarios pushes a fresh snapshot into the canonical page instance.
 func (m *RootModel) syncScenarios() {
 	if m.scenarios == nil {
 		return
@@ -62,10 +51,9 @@ func (m *RootModel) syncScenarios() {
 	m.scenarios.SetState(m.scenariosState())
 }
 
-// scenariosState derives the §F snapshot: the scenario list, the step
-// rows for the scenario under the page's cursor (live run rows while
-// that scenario runs, declared pending rows otherwise), the run flags,
-// the final banner, and the export status line.
+// scenariosState derives the snapshot: the scenario list, the step rows
+// for the scenario under the cursor (live-run rows while that scenario
+// runs, declared pending rows otherwise), run flags, and the banners.
 func (m *RootModel) scenariosState() pages.ScenariosState {
 	st := pages.ScenariosState{
 		ReportPath: m.scenarioReportPath(),
@@ -85,9 +73,8 @@ func (m *RootModel) scenariosState() pages.ScenariosState {
 
 	sel := m.scenarios.SelectedID()
 	if sel == "" && len(st.Scenarios) > 0 {
-		// The page clamps its cursor to row 0 on the first SetState;
-		// predict that so the very first snapshot already carries the
-		// selected scenario's steps.
+		// Predict the page's clamp to row 0 on the first SetState so the
+		// very first snapshot already carries the selected scenario's steps.
 		sel = st.Scenarios[0].ID
 	}
 	if r := m.scenarioRun; r != nil {
@@ -106,9 +93,8 @@ func (m *RootModel) scenariosState() pages.ScenariosState {
 	return st
 }
 
-// declaredSteps builds the pending step rows for scenario id (Index +
-// Name + template MTI). Unknown scenario → no rows (the page shows its
-// select-a-scenario hint).
+// declaredSteps builds the pending step rows for scenario id (Index,
+// Name, template MTI); an unknown scenario yields no rows.
 func (m *RootModel) declaredSteps(id string) []pages.StepRow {
 	tc := m.scenarioCollection()
 	if tc == nil {
@@ -132,8 +118,7 @@ func (m *RootModel) declaredSteps(id string) []pages.StepRow {
 }
 
 // stepMTI is the step row's MTI: field 0 of the step's transaction
-// template via the repository's Info (the §B derivation); "" (dash) for
-// template-less steps or repository failures — unknown, never guessed.
+// template via the repository's Info; "" (dash) when unknown, never guessed.
 func (m *RootModel) stepMTI(step transactions.ScenarioStep) string {
 	if m.app == nil || step.UseTransactionID == "" {
 		return ""
@@ -161,13 +146,10 @@ func (m *RootModel) scenarioAssertions(id string, index int) []transactions.Asse
 	return scenario.Steps[index].Validate
 }
 
-// scenarioStepNote derives a step row's sub-line from the APP-203
-// ScenarioStepView fields (never re-derived from raw payloads): the
-// engine error verbatim when set, else the validation diff
-// `39 expect "00" got "96"` per failed assertion, else the pass summary
-// `extract AuthId=482913 · validate 39=00` (extract values come from the
-// engine's per-step progress event, assertion expectations from the
-// scenario definition — a passed assertion's actual equals its expect).
+// scenarioStepNote derives a step row's sub-line from the app's
+// ScenarioStepView fields: the engine error verbatim when set, else the
+// validation diff per failed assertion, else the extract/validate pass
+// summary (expectations come from the scenario definition).
 func scenarioStepNote(th *theme.Theme, sv app.ScenarioStepView, extracted map[string]string, assertions []transactions.Assertion) string {
 	if sv.Error != "" {
 		return sv.Error
@@ -206,8 +188,7 @@ func scenarioStepNote(th *theme.Theme, sv app.ScenarioStepView, extracted map[st
 }
 
 // validateSeg renders "validate 39=00 7=auto"-style expectations: exact
-// assertions as field=expect, regex as field~re, existence as
-// field exists=t/f. Empty when the step declares no assertions.
+// assertions as field=expect, regex as field~re, existence as field exists=t/f.
 func validateSeg(assertions []transactions.Assertion) string {
 	parts := make([]string, 0, len(assertions))
 	for _, a := range assertions {
@@ -231,9 +212,8 @@ func validateSeg(assertions []transactions.Assertion) string {
 }
 
 // scenarioStepRC is the step row's response code: field 39 of the step's
-// response payload, best-effort unpacked with the app's spec (the same
-// spec the engine asserted against). "" (dash) when no payload, no spec,
-// or the payload does not unpack — unknown, never guessed.
+// response payload, best-effort unpacked with the app's spec. "" (dash)
+// when unknown, never guessed.
 func (m *RootModel) scenarioStepRC(result *transactions.StepResult) string {
 	if m.app == nil || result == nil || result.ResponsePayload == "" {
 		return ""
