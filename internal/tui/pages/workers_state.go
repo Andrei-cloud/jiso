@@ -1,15 +1,8 @@
-// workers_state.go holds the §H state contract (wireframe
-// .opencode/plans/02-tui-wireframes.md §H) and the page→router messages.
-// Root owns the worker truth: it starts workers through the App manager
-// (WorkerStart/StressStart), stops them (WorkerStop/WorkerStopAll), and
-// folds the throttled WorkerStarted/WorkerProgress/WorkerStopped bus
-// events into its row cache — the bridge consumer the events package was
-// designed for. Every display string (status word, INTERVAL/TPS cell,
-// runtime, circuit cell, sparkline heights, progress rows, summary
-// sections) is root-derived with the injectable clock and pushed via
-// SetState; the page never imports internal/app and never reads the
-// clock (the SCR-501 data-flow contract). Row status flips ONLY when the
-// WorkerStopped event arrives — stops never write status optimistically.
+// workers_state.go holds the §H state contract and the page→router
+// messages. Root derives every display string with its injectable clock
+// and pushes it via SetState; the page never touches internal/app nor
+// reads the clock. Row status flips only when the WorkerStopped event
+// arrives — stops never write status optimistically.
 package pages
 
 // WorkersPageID is the router id of the §H workers & stress page:
@@ -26,10 +19,8 @@ const (
 	StatusCircuitBroke = "circuit-broke"
 )
 
-// WorkerRow is one WORKERS table row: every column is a finished display
-// string. Status is one of the canonical tokens above (the page renders
-// symbol+word); ID is the canonical 8-char worker id (the table cursor
-// position maps back to it for `k`).
+// WorkerRow is one WORKERS table row; every column is a finished display
+// string and Status is one of the canonical tokens above.
 type WorkerRow struct {
 	ID          string
 	Type        string // "background" | "stress"
@@ -42,12 +33,9 @@ type WorkerRow struct {
 	Circuit     string // "" (nothing to report, dashed) | "4/10" | "TRIPPED (10/10)"
 }
 
-// ProgressRow is one per-worker progress line (superfile Processes
-// pattern). Pct is the completion percent (−1 = unknown total → the page
-// renders the degraded count line, never a spinner). Counts is the
-// suffix ("7,940/19,200 sent"); ETA the root-derived suffix line
-// ("ETA 01:12" while active, morphed to "elapsed 00:48" on done — the
-// morph happens root-side with the fake clock).
+// ProgressRow is one per-worker progress line. Pct < 0 means an unknown
+// total (the page renders the degraded count line, never a spinner);
+// ETA is root-derived.
 type ProgressRow struct {
 	ID     string
 	Pct    int
@@ -69,16 +57,12 @@ type SummaryBarRow struct {
 	Count int
 }
 
-// StressSummaryState is the completed stress run's summary (root-built
-// from the app's StressSummary — the same sections the CLI stats view
-// renders, restyled as boxed sections per UAT round 4: the report must
-// be as informative as the legacy table). nil anywhere in the pipeline
-// means "no summary": the page never invents one.
+// StressSummaryState is a completed stress run's summary, all sections
+// root-built. nil anywhere means "no summary"; the page never invents one.
 type StressSummaryState struct {
 	WorkerID string
-	// Status is the canonical status token (done/stopped/circuit-broke);
-	// the title renders it as symbol+word. Success is the ok/sent ratio
-	// ("99.3%", "" when nothing was sent).
+	// Status is the canonical status token; Success is the ok/sent ratio
+	// ("" when nothing was sent).
 	Status   string
 	Success  string
 	Run      []SummaryKV // transactions · target · plan · runtime · sent
@@ -104,11 +88,9 @@ type SummaryTxRow struct {
 }
 
 // WorkersState is the immutable §H snapshot root pushes into the page.
-// Sparkline holds the normalized 0..7 block heights (root keeps the
-// last ~24 TPS samples; pages.NormalizeSparkline does the math);
-// SparkLabel the "w-2 inst 118.4 · avg 96.2" prefix; Net the derived
-// net-health line ("" renders nothing). StatusLine is the root-stamped
-// action line (no-op notices, stop errors).
+// Sparkline holds the normalized 0..7 block heights, SparkLabel the TPS
+// prefix, Net the derived net-health line, StatusLine the root-stamped
+// action line.
 type WorkersState struct {
 	Workers    []WorkerRow
 	Sparkline  []int
@@ -119,22 +101,19 @@ type WorkersState struct {
 	StatusLine string
 }
 
-// WorkersOpenFormMsg asks the router to open a start form (b = "bgsend",
-// t = "stress"); the modal reuses the §E dialog machinery, as the §G
-// server form did.
+// WorkersOpenFormMsg asks the router to open a start form
+// (b = "bgsend", t = "stress").
 type WorkersOpenFormMsg struct{ Kind string }
 
 // WorkersStopMsg asks the router to stop the worker with the given id
-// (`k` on the selected row). Terminal rows are root-checked no-ops with
-// a status line; the row itself flips only when WorkerStopped arrives.
+// (`k`). Terminal rows are root-checked no-ops; the row flips only when
+// WorkerStopped arrives.
 type WorkersStopMsg struct{ ID string }
 
-// WorkersStopAllMsg asks the router to stop every worker (`K`); with
-// active workers root opens the widgets.ConfirmDialog first
-// (default No — the SCR-507 pattern).
+// WorkersStopAllMsg asks the router to stop every worker (`K`); root
+// confirms first when workers are active.
 type WorkersStopAllMsg struct{}
 
 // WorkersPopMsg asks the router to pop the §H page (Esc; no-op at
-// depth 1, the ServerPopMsg pattern). The summary overlay owns Esc
-// first while open.
+// depth 1). The summary overlay owns Esc first while open.
 type WorkersPopMsg struct{}

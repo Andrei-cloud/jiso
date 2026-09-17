@@ -1,18 +1,8 @@
-// worker_wizard_state.go holds the §H worker-wizard contract (UAT round
-// 4): ONE wizard type serves both background-send and stress starts —
-// "the option for background and for stress testing probably should be
-// in a form of wizard rather than on empty pane two options as now".
-// The wizard is tx ▸ rate/params ▸ run: a scrollable 5-row transaction
-// list (multi-select for stress, single-select for bgsend), labeled
-// inline parameter rows, and a summary run step whose Enter emits the
-// start message. The start legs (App StressStart/WorkerStart) stay
-// root-side; the page owns presentation and the resolved params.
-//
-// The bounds/validation strings moved here from the retired §N2
-// ConnectDialog forms (root_stress_form.go / root_workers_form.go) so
-// the wizard's inline validation and the root's start-leg re-check
-// share ONE source: the stress strings mirror the PAR-306 shim's own
-// validateStressNumbers texts, the bgsend strings the App's own bounds.
+// worker_wizard_state.go holds the §H worker-wizard contract: ONE
+// wizard type serves both background-send and stress starts (tx ▸
+// rate/params ▸ run). The start legs stay root-side; the validation
+// strings here are shared by the wizard's inline checks and the root's
+// start-leg re-check so they cannot drift apart.
 package pages
 
 import (
@@ -43,11 +33,9 @@ var workerStepNames = map[string][]string{
 	WorkerModeBg:     {"tx", "params", "run"},
 }
 
-// WorkerTxVisibleRows is the transaction list's window height (UAT round
-// 4: "a subwindow in modal for list of transaction with only 5 visible
-// but window is scrollable"). Cursor movement auto-scrolls the window;
-// the "▴ n above" / "v n below" marker lines make the scrollability
-// obvious.
+// WorkerTxVisibleRows is the transaction list's window height; cursor
+// movement auto-scrolls the window and the marker lines above/below make
+// the scrollability obvious.
 const WorkerTxVisibleRows = 5
 
 // Parameter keys of the step-2 inline rows.
@@ -60,11 +48,8 @@ const (
 	WorkerParamInterval = "interval"
 )
 
-// Prefills mirror the SAME sources the retired forms used: the stress
-// defaults are the PAR-306 `jiso stress` flag defaults
-// (internal/cli/cmd/stress.go: tps 10, ramp 30s, duration 1m,
-// workers 1); the bgsend defaults are the REPL bgsend survey defaults
-// (interval "1s", count "1").
+// Prefills mirror the CLI `jiso stress` flag defaults (stress) and the
+// REPL bgsend defaults.
 const (
 	WorkerDefaultTps      = "10"
 	WorkerDefaultRamp     = "30s"
@@ -90,7 +75,7 @@ type WorkerRun struct {
 	Interval time.Duration
 }
 
-// Inline validation strings (verbatim from the retired §N2 forms).
+// Inline validation strings.
 const (
 	workerErrSelectTx      = "select at least one transaction"
 	workerErrNotNumber     = "please enter a valid number"
@@ -99,10 +84,9 @@ const (
 	workerErrCountBound    = "count must be a number greater than 0"
 )
 
-// StressBoundsError mirrors the PAR-306 shim's validateStressNumbers
-// texts ("" when the values are in bounds); the wizard's step-2 Enter
-// and the root's start leg both gate on it, so an invalid run never
-// reaches the App.
+// StressBoundsError returns the first out-of-bounds message for the
+// stress numbers ("" when all are in bounds); the wizard's step-2 Enter
+// and the root's start leg both gate on it.
 func StressBoundsError(tps, workers int, ramp, duration time.Duration) string {
 	switch {
 	case tps <= 0:
@@ -122,10 +106,9 @@ func StressBoundsError(tps, workers int, ramp, duration time.Duration) string {
 	return ""
 }
 
-// ResolveStressRun validates the raw step-2 strings in the retired
-// form's exact order (names, tps, workers, ramp, duration, bounds) and
-// returns the resolved run plus "" — or a zero run plus the inline
-// error text.
+// ResolveStressRun validates the raw step-2 strings in fixed order
+// (names, tps, workers, ramp, duration, bounds) and returns the resolved
+// run, or a zero run plus the inline error text.
 func ResolveStressRun(names []string, tpsS, rampS, durationS, workersS string) (WorkerRun, string) {
 	if len(names) == 0 {
 		return WorkerRun{}, workerErrSelectTx
@@ -156,8 +139,8 @@ func ResolveStressRun(names []string, tpsS, rampS, durationS, workersS string) (
 	}, ""
 }
 
-// ResolveBgRun validates the bgsend shape in the retired form's exact
-// order (interval, then count).
+// ResolveBgRun validates the bgsend shape in fixed order (interval, then
+// count).
 func ResolveBgRun(name, intervalS, countS string) (WorkerRun, string) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -179,9 +162,8 @@ func ResolveBgRun(name, intervalS, countS string) (WorkerRun, string) {
 }
 
 // WorkerWizardState is the root-pushed snapshot: the loaded transaction
-// names (the repository's ListNames, the retired forms' option source),
-// the start-leg in-flight stamp, and the root-side lines (Progress
-// while the leg runs, Error when it or the tx-file load failed).
+// names, the start-leg in-flight stamp, and the root-side progress and
+// error lines.
 type WorkerWizardState struct {
 	TxItems  []WizardItem
 	InFlight bool
@@ -190,16 +172,14 @@ type WorkerWizardState struct {
 }
 
 // WorkerWizardStartMsg is Enter on the run step: the root runs the
-// start leg with the resolved params (the same StressStart/WorkerStart
-// entries the CLI shims drive).
+// start leg with the resolved params.
 type WorkerWizardStartMsg struct{ Run WorkerRun }
 
 // WorkerWizardCloseMsg is Esc on the first step: the root drops the
-// modal (a start leg in flight keeps reporting into the guarded result
-// seam, exactly like the retired forms' Esc).
+// modal; a start leg in flight keeps reporting into the guarded seam.
 type WorkerWizardCloseMsg struct{}
 
 // WorkerWizardBrowseMsg is [f] on the transaction step: open the shared
-// file picker over .json tx files (the AnalyzeBrowseMsg pattern; the
-// pick refreshes the candidate list and stays on step 1).
+// file picker over .json tx files; the pick refreshes the candidate list
+// and stays on step 1.
 type WorkerWizardBrowseMsg struct{}

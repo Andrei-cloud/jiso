@@ -1,13 +1,7 @@
-// grid.go is the §A grid: how the seven cards are banded into rows and how the
-// rows are fitted to the terminal height. layout.go owns the box a card is drawn
-// in and the clip/style primitives it uses; nothing here knows what a card says.
-//
-// The two-column grid is banded into rows on purpose. It used to fit the left and
-// right columns independently and join them top-aligned, which meant that from the
-// second band down nothing lined up: CONNECTION's bottom border sat a line above
-// MOCK SERVER's, LAST SEND's a line below SERVER LOG's, and the page had no
-// horizontal line running across it. A band gives both of its cards the same
-// height, so their borders land on the same lines.
+// grid.go is the §A grid: how the seven cards band into rows and how the
+// rows fit the terminal height. A band gives both of its cards the same
+// height so their borders land on the same lines; nothing here knows what
+// a card says.
 package pages
 
 import (
@@ -16,10 +10,9 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// dashPriority is the grid's card order, most important first. renderStacked
-// renders in this order, and the fitter drops in the reverse order, so the narrow
-// stack and the two-column grid agree on what an operator loses first when the
-// terminal is too short. (CONNECTION and QUICK ACTIONS set never and survive.)
+// dashPriority is the grid's card order, most important first; the fitter
+// drops and shrinks in the reverse order. CONNECTION and QUICK ACTIONS
+// set never and survive.
 var dashPriority = []string{cardConn, cardServer, cardLog, cardSend, cardSession, cardActions, cardStress}
 
 // dashRow is one band of the two-column grid: the card in the left column and the
@@ -30,9 +23,8 @@ type dashRow struct {
 	right *dashCard
 }
 
-// members returns the band's cards, left first. Either side can be nil: the last
-// band has no left card, and dropping a card leaves its band with one. The fitter
-// must not deref the gap, which is what a plain two-element literal did.
+// members returns the band's non-nil cards, left first; the last band can
+// be right-only, so the fitter must not deref the gap.
 func (r dashRow) members() []*dashCard {
 	cards := make([]*dashCard, 0, 2)
 	for _, c := range []*dashCard{r.left, r.right} {
@@ -68,10 +60,10 @@ func rowHeight(rows []dashRow, gap int) int {
 	return total
 }
 
-// fitRows shrinks bands bottom-up to their minimum, drops the lowest-priority
-// cards while the grid still overflows, then grows what is left. It always
-// terminates: shrink and grow move one body line per step against a bounded
-// natural height, and a drop strictly removes a card.
+// fitRows shrinks bands bottom-up to their minimum, drops the
+// lowest-priority cards while the grid still overflows, then grows what is
+// left. Shrink and grow move one body line per step against a bounded
+// natural height, so it always terminates.
 func fitRows(rows []dashRow, h, gap int) []dashRow {
 	for rowHeight(rows, gap) > h {
 		if shrinkRow(rows) {
@@ -95,10 +87,9 @@ func fitRows(rows []dashRow, h, gap int) []dashRow {
 	return rows
 }
 
-// shrinkRow takes one body line off the lowest-priority band that can still pay
-// for it, and within a band off the lower-priority card that sets the band's
-// height. Taking a line from a card that is already shorter than the band would
-// not shrink the grid, so the caller's loop would never converge.
+// shrinkRow takes one body line off the lowest-priority band that can pay
+// for it, and within a band off the lower-priority card that sets the
+// band's height; a card already shorter than the band cannot shrink it.
 func shrinkRow(rows []dashRow) bool {
 	for i := len(rows) - 1; i >= 0; i-- {
 		h := rows[i].height()
@@ -116,10 +107,9 @@ func shrinkRow(rows []dashRow) bool {
 	return false
 }
 
-// growRow gives one body line to the card furthest below its natural height,
-// scanning bands top-down. That is what makes the SERVER LOG absorb spare height
-// (its natural is the whole compacted tail), and a band grows once the card that
-// needed the catch-up passes its neighbour.
+// growRow gives one body line to the card furthest below its natural
+// height, scanning bands top-down — this is what makes the SERVER LOG
+// absorb spare height (its natural is the whole compacted tail).
 func growRow(rows []dashRow) bool {
 	for _, r := range rows {
 		var best *dashCard
@@ -144,17 +134,10 @@ func growRow(rows []dashRow) bool {
 	return false
 }
 
-// dropCard removes the lowest-priority card that may be dropped. The band keeps its
-// remaining card and disappears when both of its cards are gone; the caller must
-// adopt the result, since removing a band is not visible through the shared slice
-// header.
-//
-// A never-droppable card goes only as a last resort, once the grid still does not
-// fit with nothing else left. That is the fitter choosing to lose a card whole
-// rather than letting clampHeight slice its bottom border off, which is what used
-// to happen below two bands of content height: QUICK ACTIONS is drawn last, so the
-// card the fitter was told to keep was precisely the one the terminal chopped in
-// half. CONNECTION outranks it, so the connection truth is what survives.
+// dropCard removes the lowest-priority droppable card (a never-card goes
+// only as a last resort, lost whole rather than left for clampHeight to
+// slice its bottom border off); the band disappears when both cards are
+// gone. The caller must adopt the result.
 func dropCard(rows []dashRow) ([]dashRow, bool) {
 	for _, lastResort := range []bool{false, true} {
 		for _, id := range reversedPriority(dashPriority) {
@@ -230,10 +213,9 @@ func (d *Dashboard) renderStacked(w, h int) string {
 // (there the card shrinks via the fitter instead of being pre-cut).
 const narrowOff = 0
 
-// renderRows stacks the bands, each band's two cards side by side at the band
-// height, so the boxes of one band share a top and a bottom border. The band
-// scan also knows each card's content-relative origin, which is exactly what
-// cardBox records into the page's section rects.
+// renderRows stacks the bands, each band's two cards side by side at the
+// band height, so the boxes of one band share a top and a bottom border
+// and each card's content-relative origin is what cardBox records.
 func (d *Dashboard) renderRows(rows []dashRow, leftW, rightW, gap int) string {
 	bands := make([]string, 0, len(rows))
 
@@ -247,9 +229,8 @@ func (d *Dashboard) renderRows(rows []dashRow, leftW, rightW, gap int) string {
 		}
 
 		// The right column starts where the drawn left segment ends plus
-		// the gap column (measured, not nominal: the hit-map origin must
-		// land on ink), and the next band where this band's drawn lines
-		// end (bands join on a single "\n" with no gap rows).
+		// the gap (measured, not nominal: the hit-map origin must land on
+		// ink), and the next band where this band's drawn lines end.
 		rightX := lipgloss.Width(left) + gap
 		right := blankCell(rightW, h+cardOverhead)
 		if r.right != nil {
@@ -307,20 +288,17 @@ func (d *Dashboard) renderColumn(cards []*dashCard, w, gap int) string {
 		card := d.cardBox(c.title, body, 0, y, w, c.kept)
 		parts = append(parts, card)
 		// The column joins cards with gap+1 newlines: the terminator
-		// costs no line of its own, only the gap blank rows do (and the
-		// narrow stack passes gap 0 — the phantom +1 there was exactly
-		// the drift this measurement removes).
+		// costs no line of its own, only the gap blank rows do.
 		y += lipgloss.Height(card) + gap
 	}
 
 	return strings.Join(parts, strings.Repeat("\n", gap+1))
 }
 
-// fitCards shrinks card bodies bottom-up (lowest priority first) to their min,
-// drops the lowest-priority droppable cards while the column still overflows, and
-// finally grows bodies top-down (priority order, so the SERVER LOG absorbs the
-// spare height) while room remains. It always terminates: shrink/grow move one
-// line per step and drop strictly removes cards.
+// fitCards shrinks card bodies bottom-up (lowest priority first) to their
+// min, drops the lowest-priority droppable cards while the column
+// overflows, then grows bodies top-down so the SERVER LOG absorbs spare
+// height. One line per step, so it always terminates.
 func fitCards(cards []*dashCard, h, gap int) []*dashCard {
 	for colHeight(cards, gap) > h {
 		if shrinkOne(cards) {
@@ -369,14 +347,10 @@ func shrinkOne(cards []*dashCard) bool {
 	return false
 }
 
-// dropOne removes the lowest-priority card that may be dropped and returns the
-// shortened column (the caller must adopt the result: the truncation is not
-// visible through the shared slice header).
-//
-// It drops by dashPriority rather than by position; the narrow stack is built in
-// that order, so this is the same bottom-up drop it always did, with one addition
-// it did not have: a never-droppable card goes as a last resort rather than being
-// left for clampHeight to cut in half.
+// dropOne removes the lowest-priority droppable card and returns the
+// shortened column (the caller must adopt the result). A never-card goes
+// only as a last resort rather than being left for clampHeight to cut in
+// half.
 func dropOne(cards []*dashCard) ([]*dashCard, bool) {
 	for _, lastResort := range []bool{false, true} {
 		for _, id := range reversedPriority(dashPriority) {

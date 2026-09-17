@@ -8,21 +8,13 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// The §A card bodies. layout.go owns the grid (cards, the height fitter and the
-// box/clip primitives); this file owns what each card says. The split is the
-// seam the file itself already had: nothing here knows about columns, gaps or
-// the fitter, and nothing here is called by the fitter's internals.
-// --- card bodies ---------------------------------------------------------
+// The §A card bodies: layout.go owns the grid (cards, the height fitter
+// and the box/clip primitives); this file owns what each card says.
 
 // connBodyLines renders the link truth: the symbol+word status with the
-// target, then the static link config folded into one line (header, TLS, up,
-// retries). Unknown parts render the dash.
-//
-// With no target at all there is nothing to dash, and the old render was a bare
-// "-" -- which told the operator neither the state nor what to do about it. The
-// design contract says empty states name the next action, so the card now says
-// "no link - c connects" (or "reconnects" once a link has been and went away),
-// matching "no send yet - s sends" and "no stress run - t starts one".
+// target, then the static link config folded into one line; unknown parts
+// render the dash. With no target the card names the next action instead
+// of a bare dash ("no link - c connects").
 func (d *Dashboard) connBodyLines() []string {
 	c := d.state.Conn
 
@@ -79,16 +71,16 @@ func (d *Dashboard) connStatusValue(c ConnectionCard) string {
 }
 
 // serverCardBodyLines renders the MOCK SERVER card: running → the live
-// line plus the stats line; stopped → the wireframe's empty state that
-// teaches the 4 hotkey.
+// line plus the stats line; stopped → the empty state teaching the 4
+// hotkey.
 func (d *Dashboard) serverCardBodyLines() []string {
 	sc := d.state.Server
 	if !sc.Running {
 		dot := pickGlyph(d.th, glyphDotOff, asciiDotOff)
 
 		return []string{
-			// UAT round 5 honesty: the 4 key jumps to the server page;
-			// the form starts there (Enter), not from the dashboard.
+			// The 4 key jumps to the server page; the form starts there
+			// (Enter), not from the dashboard.
 			d.muted(dot+" stopped · ") +
 				keyGlyph(d.th, hotkeyMockServer) +
 				d.muted(" opens the server page"),
@@ -119,9 +111,8 @@ func (d *Dashboard) serverCardBodyLines() []string {
 }
 
 // sendCardBodyLines renders the LAST SEND card: time + tx, the MTI turn
-// with the RC badge, the elapsed/validation line, and the reopen
-// affordance as body copy (the actual Enter is the "View last send"
-// quick-action row — no card-focus system). Empty state teaches the s.
+// with the RC badge, and the reopen affordance as body copy (the real
+// Enter is the "View last send" quick-action row — no card-focus system).
 func (d *Dashboard) sendCardBodyLines() []string {
 	s := d.state.LastSend
 	if s == nil {
@@ -154,10 +145,8 @@ func (d *Dashboard) sendCardBodyLines() []string {
 		d.th.Dim.Render(dashIf(d.th, s.Time)) + " " + d.value(s.TxName),
 		line2,
 		line3,
-		// UAT round 9 (F-9g): the old " · h hexdump" span was a
-		// displayed-but-dead key — h toggles the §D panes only inside
-		// the send exchange, and a dashboard hexdump has no target
-		// view. The honest affordance is the enter row alone.
+		// h toggles the §D panes only inside the send exchange, so no
+		// hexdump key is taught here; the enter row alone is honest.
 		keyGlyph(d.th, "enter") + d.muted(" open"),
 	}
 }
@@ -190,9 +179,9 @@ func (d *Dashboard) stressCardBodyLines() []string {
 }
 
 // logBodyLines compacts the root-stamped raw ring copy with the §G
-// page's renderer (oldest first; the card renders the tail, newest at
-// the bottom). Unrecognized lines pass through verbatim — the compact
-// form is an optimization, never a filter.
+// page's renderer (oldest first; the card renders the tail). Unrecognized
+// lines pass through verbatim — compacting is an optimization, never a
+// filter.
 func (d *Dashboard) logBodyLines() []string {
 	if len(d.state.ServerLog) == 0 {
 		return []string{d.th.TextMuted.Render("no server output yet")}

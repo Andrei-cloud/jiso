@@ -1,11 +1,6 @@
-// connect_view.go renders the §E dialog (wireframe §E): an accent CONNECT
-// title over a bordered box (the dashboard section idiom — lipgloss v2 has
-// no border-title API), one line per field with a left focus marker, radios
-// as ●/○ pairs ("(*)"/"( )" in ascii mode) wrapping onto continuation lines,
-// dim rows for disabled fields, the root-stamped notes (loaded ✓/✗, "caller
-// only"), the error line in the theme error kind, and the in-flight
-// progress line that replaces the whole form. Fixed-height by design: the
-// frame truncates overflow at floor sizes exactly like it does for pages.
+// connect_view.go renders the §E dialog: an accent title over a bordered
+// box, one line per field (fields wrap onto continuation lines; disabled
+// rows dim), and an in-flight progress line that replaces the whole form.
 package pages
 
 import (
@@ -21,7 +16,7 @@ import (
 )
 
 const (
-	// connectBoxWidth is the dialog box width from the wireframe (62).
+	// connectBoxWidth is the dialog box width.
 	connectBoxWidth = 62
 	// connectLabelCol is the label column inside the box: the longest
 	// form label ("Station ID") plus the two-cell gap.
@@ -42,9 +37,8 @@ func (d *ConnectDialog) View() string {
 	}
 
 	bw := max(min(connectBoxWidth, w-2), connectBoxMin)
-	// In lipgloss v2 Width() is the TOTAL box width (borders included),
-	// so the renderable content column is the box width minus the two
-	// border columns.
+	// In lipgloss v2 Width() is the total box width (borders included),
+	// so the content column is the box width minus the two border columns.
 	inner := bw - 2
 
 	var body string
@@ -64,15 +58,11 @@ func (d *ConnectDialog) View() string {
 		widgets.Border(d.th, false).Width(bw).Render(body)
 }
 
-// FieldRowHits reports the DRAWN field rows relative to the dialog's own
-// View origin (the FilePicker.RowHits doctrine, UAT round 8 Task 8.5
-// click-to-focus): every line the field's fieldLine drew belongs to its
-// rect — radio and checklist rows wrap onto continuation lines — while
-// the header picker's overlay lines and the error line belong to no
-// field, and the in-flight progress body draws no fields at all and
-// publishes nothing (hit = drawn ink). The root centers the composed
-// View and translates these into the absolute cells its hit map
-// resolves; §G reuses the same dialog and the same rects.
+// FieldRowHits reports the drawn field rows relative to the dialog's own
+// View origin: every line the field's fieldLine drew belongs to its rect
+// (hit = drawn ink), while the picker overlay and error lines belong to
+// no field and the in-flight body publishes nothing. The root translates
+// these into the absolute cells its hit map resolves.
 func (d *ConnectDialog) FieldRowHits() []widgets.RowHit {
 	if d.state.InFlight || len(d.state.Fields) == 0 {
 		return nil
@@ -94,14 +84,10 @@ func (d *ConnectDialog) FieldRowHits() []widgets.RowHit {
 		})
 		y += h
 		if d.pickerOpen && f.Kind == FieldPicker {
-			// The overlay spliced under the picker row is the overlay's
-			// own ink, not a field: its lines publish no focus hit. It
-			// occupies exactly Height(pickerBox) lines — the '\n'
-			// formFields writes before it STARTS the overlay's first
-			// line, adding no blank line — so the fields below the
-			// overlay keep their rects on their own drawn rows (review
-			// fix: counting the separator as a line shifted every below
-			// rect one row down, off its ink).
+			// The overlay under the picker row is the overlay's own ink
+			// and occupies exactly Height(pickerBox) lines — the '\n'
+			// written before it adds no blank line — so the fields below
+			// it keep their rects on their own drawn rows.
 			y += lipgloss.Height(d.pickerBox(inner))
 		}
 	}
@@ -111,12 +97,9 @@ func (d *ConnectDialog) FieldRowHits() []widgets.RowHit {
 
 // formBody renders the editable form, optional error line, and the
 // [Enter]/[Esc] footer.
-// formFields renders the form's fields, an open picker and the root-stamped error,
-// with no key line. The section C dialog adds its own footer underneath; the
-// section B send wizard embeds these fields as one of its steps and owns the keys
-// for that step, so it must not inherit a second key line. It used to: the dialog's
-// footer and the wizard's own stacked on top of each other, both reading
-// "[Enter] connect [Esc] cancel", the second one flush against the box border.
+// formFields renders the form's fields, an open picker, and the
+// root-stamped error — with no key line. Callers own their footer; the
+// wizard step that embeds these fields must not inherit a second key line.
 func (d *ConnectDialog) formFields(inner int) string {
 	var b strings.Builder
 	for i, f := range d.state.Fields {
@@ -159,9 +142,8 @@ func (d *ConnectDialog) progressLines(inner int) string {
 	return clipCells(line, inner, clipTail(d.th))
 }
 
-// footer right-aligns the dialog's own key line inside the box (the
-// wireframe's "[Enter] connect   [Esc] cancel"; in flight only Esc
-// remains).
+// footer right-aligns the dialog's own key line inside the box; in
+// flight only Esc remains.
 func (d *ConnectDialog) footer(inner int, enter bool) string {
 	base := d.th.Deemphasized
 	keys := keySpan(d.th, base, "Esc", "cancel")
@@ -178,10 +160,8 @@ func (d *ConnectDialog) footer(inner int, enter bool) string {
 	return keyLine(keys, inner)
 }
 
-// keyLine right-aligns a dialog's key line inside a box of inner cells, inset from
-// the border. Three dialogs each carried their own copy of this arithmetic, and
-// each one landed the last cell of "cancel" directly on the box border, where it
-// reads as part of the frame rather than as the end of a word.
+// keyLine right-aligns a dialog's key line inside a box of inner cells,
+// inset from the border so the last cell never reads as part of the frame.
 func keyLine(keys string, inner int) string {
 	return strings.Repeat(" ", max(inner-footerInset-lipgloss.Width(keys), 0)) + keys
 }
@@ -211,14 +191,10 @@ func (d *ConnectDialog) fieldLine(focused bool, f FormField, inner int) string {
 	default:
 		part = d.textPart(f, focused, valueCol)
 		if f.Note != "" {
-			// The note is the row's second column. Appended straight after the
-			// value, it began at a different cell on every row -- an empty value
-			// put "(visa header only)" at 14, "10.0.0.5" put "(caller only)" at 22
-			// -- so the hints that explain a field were scattered down the form.
-			//
-			// The column pads rather than clips: a value longer than the column
-			// keeps every cell it has and pushes that one row's note along, since
-			// hiding which TLS file is picked is worse than one note sitting right.
+			// The note is the row's second column. The column pads rather
+			// than clips: a long value keeps every cell and pushes its
+			// note along — hiding which TLS file is picked is worse than
+			// one note sitting right.
 			part = padRight(part, connectValueW)
 		}
 	}
@@ -268,10 +244,9 @@ func (d *ConnectDialog) radioPart(f FormField, valueCol int) string {
 	return strings.Join(lines, "\n")
 }
 
-// checklistPart renders the multi-select grid ("▸[x] Purchase" for the
-// cursor row, "[ ]" boxes wrapping onto continuation lines like the
-// radio part), followed by a dim "N selected" line (the §N2
-// multi-select's count, mirroring superfile's "N selected" badge).
+// checklistPart renders the multi-select grid (▸ marks the cursor row,
+// boxes wrap onto continuation lines like the radio part), followed by a
+// dim "N selected" line.
 func (d *ConnectDialog) checklistPart(f FormField, valueCol int) string {
 	if len(f.Options) == 0 {
 		return d.th.Deemphasized.Render("no transactions loaded")
@@ -322,17 +297,15 @@ func (d *ConnectDialog) pickerPart(f FormField, focused bool) string {
 		v += d.cursor()
 	}
 
-	// The browse marker is the row's second column: the cell a text row's note
-	// occupies, so the picker rows and the text rows read as one table instead of
-	// two columns that each start where their value happened to end. Padded, never
-	// clipped (see fieldLine).
+	// The browse marker is the row's second column: padded, never clipped
+	// (see fieldLine), so picker and text rows read as one table.
 	return padRight(v, connectValueW) + d.th.Deemphasized.Render("  "+d.pick("▸", ">"))
 }
 
-// pickerBox renders the nested header-format overlay (proposal 04 §A.3):
-// a bordered list inset inside the dialog box, spliced under the picker
-// row. The title carries the live filter and match count; j/k/arrows move,
-// Enter picks, Esc closes keeping the old value.
+// pickerBox renders the nested header-format overlay: a bordered list
+// inset inside the dialog box, spliced under the picker row. The title
+// carries the live filter and match count; Enter picks, Esc closes
+// keeping the old value.
 func (d *ConnectDialog) pickerBox(inner int) string {
 	f := d.focused()
 	if f == nil || f.Kind != FieldPicker {

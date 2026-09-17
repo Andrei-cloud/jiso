@@ -1,10 +1,8 @@
-// connect_fields.go holds the §E connect-dialog state contract
-// (wireframe §E, SCR-505). The form is root-built: the root model builds
-// the initial ConnectFormState from config/session prefill, recomputes
-// every field's Enabled flag from the form DATA on each relevant change,
-// and stamps the TLS note after a filesystem check — the dialog itself is
-// presentation + input routing only and never touches internal/app, the
-// filesystem, or the clock.
+// connect_fields.go holds the §E connect-dialog state contract. The
+// form is root-built: the root recomputes every Enabled flag from the
+// form data and stamps the TLS note; the dialog itself is presentation +
+// input routing only and never touches internal/app, the filesystem, or
+// the clock.
 package pages
 
 import (
@@ -13,10 +11,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Field keys of the §E form, in render order. IP and Port replace the old
-// combined Target/Bind pair (proposal 04 §A): the port is shared by both
-// modes (dial port for caller, bind port for listener) and the IP is the
-// dial-out host, dimmed and skipped in listener mode.
+// Field keys of the §E form, in render order. The port is shared by both
+// modes; the IP is the dial-out host, dimmed and skipped in listener mode.
 const (
 	ConnectFieldMode        = "mode"
 	ConnectFieldIP          = "ip"
@@ -39,25 +35,20 @@ const (
 	FieldText FieldKind = iota
 	// FieldRadio is an option row (j/k and arrows adjust, wrapping).
 	FieldRadio
-	// FieldChecklist is a multi-select option grid (the §H stress form's
-	// tx multi-select, SCR-508): j/k and arrows move the cursor, space
-	// toggles the option under it. Checked[i] mirrors Options[i];
-	// Value holds the comma-join of the checked options (the §N2
-	// multi-select pattern the REPL's survey.MultiSelect prompt used).
+	// FieldChecklist is a multi-select option grid: j/k and arrows move
+	// the cursor, space toggles; Checked mirrors Options and Value holds
+	// the comma-join of the checked options.
 	FieldChecklist
-	// FieldPicker is a collapsed option row (proposal 04 §A.3): the row
-	// renders the selected value plus a ▸ affordance; Enter/space/right
-	// open a nested overlay list (j/k move, type filters, Enter picks,
-	// Esc closes keeping the old value). Value/Selected mirror each other
-	// like the radio kind; the overlay state is page-owned.
+	// FieldPicker is a collapsed option row: the selected value plus a ▸
+	// affordance; Enter/space open a nested overlay list (type filters,
+	// Enter picks, Esc closes keeping the old value). Value/Selected
+	// mirror each other; the overlay state is page-owned.
 	FieldPicker
 )
 
 // FormField is one §E row. Radio fields keep Value mirrored to
-// Options[Selected] so root reads one canonical string per field.
-// Enabled/Note/NoteKind are root-stamped DATA (enable rules and the TLS
-// loaded ✓/✗ note); the dialog renders enabled vs dim and never derives
-// them itself.
+// Options[Selected]; Enabled/Note/NoteKind are root-stamped data the
+// dialog renders but never derives.
 type FormField struct {
 	Key      string
 	Label    string
@@ -109,35 +100,33 @@ func (f *FormField) toggleAt(i int) {
 }
 
 // ConnectFormState is the immutable §E snapshot the root pushes into the
-// dialog (SetState preserves the page-owned focus, like SendState.HexOn).
-// InFlight swaps the form for the root-stamped progress line; Error holds
-// the final-failure line (rendered with the theme error kind).
+// dialog (SetState preserves the page-owned focus). InFlight swaps the
+// form for the root-stamped progress line; Error holds the final-failure
+// line.
 type ConnectFormState struct {
 	Fields   []FormField
 	InFlight bool
 	Progress string // "attempt 2/3" (root-stamped)
 	Backoff  string // "backoff 1.5s" (root-stamped, shown while waiting)
 	Error    string
-	// Title overrides the box title ("" = "CONNECT"). SCR-507 reuses
-	// this dialog machinery for the §G server start form ("SERVER").
+	// Title overrides the box title ("" = "CONNECT"; the §G server form
+	// uses "SERVER").
 	Title string
 	// EnterLabel names the Enter action ("" = "connect").
 	EnterLabel string
 }
 
-// Option lists (§E data). The header list mirrors the REAL selectable
-// length types of internal/utils/length.go SelectLength (ascii4, binary2,
-// bcd2, binary4, NAPS, visa — NAPS shares the binary2 codec and is offered
-// separately, as the REPL connect prompt does), displayed in the §E
-// wireframe order with binary2 first.
+// Option lists (§E data), displayed binary2 first. The header options
+// mirror the selectable length types of the app's length package; NAPS
+// shares the binary2 codec and is offered separately.
 var (
 	ConnectModeOptions   = []string{"Caller", "Listener"}
 	ConnectHeaderOptions = []string{"binary2", "ascii4", "bcd2", "binary4", "NAPS", "visa"}
 	ConnectYesNoOptions  = []string{"Yes", "No"}
 )
 
-// ConnectHeaderHints annotates each header option in the §E header picker
-// (proposal 04 §A.3), index-aligned with ConnectHeaderOptions.
+// ConnectHeaderHints annotates each header option, index-aligned with
+// ConnectHeaderOptions.
 var ConnectHeaderHints = []string{
 	"2-digit binary", "4-digit ascii", "2-digit bcd",
 	"4-digit binary", "NAPS length", "visa station id",
@@ -154,17 +143,14 @@ func HeaderHint(option string) string {
 	return ""
 }
 
-// ConnectHeaderIsVisa reports whether a header option is the visa header —
-// identified exactly the way internal/utils/length.go SelectLength and
-// App.ConnectWithOptions special-case it (case-insensitive "visa", the one
-// length type that carries a station ID).
+// ConnectHeaderIsVisa reports whether a header option is the visa header
+// — the one length type that carries a station ID (case-insensitive).
 func ConnectHeaderIsVisa(option string) bool {
 	return strings.EqualFold(strings.TrimSpace(option), "visa")
 }
 
 // Modal is the overlay contract the connect dialog implements: the root
-// renders frame + overlay (the dialog's View composed over the content
-// area, the palette pattern) and the page stack stays untouched.
+// renders frame + overlay; the page stack stays untouched.
 type Modal interface {
 	Update(msg tea.Msg) (Modal, tea.Cmd)
 	View() string

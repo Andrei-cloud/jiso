@@ -1,12 +1,8 @@
-// hotkey.go carries the UAT round-4 convention: every key glyph that is
-// an actionable hotkey inside body copy renders the Theme.Key badge
-// (bold accent), so inline hints visually match the frame footer's
-// accented keys. The
-// surrounding copy keeps its own base style — and because lipgloss only
-// emits an outer Render's escape pair around the whole string (an inner
-// reset drops the outer tint for everything after it), the helpers here
-// style the non-key spans with the base explicitly instead of relying
-// on a later whole-line Render.
+// hotkey.go carries the convention that every actionable key glyph in
+// body copy renders the Theme.Key badge (bold accent), matching the
+// footer's accented keys. An inner reset drops the outer tint, so the
+// helpers style non-key spans explicitly rather than relying on a later
+// whole-line Render.
 package pages
 
 import (
@@ -15,9 +11,8 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// keyGlyph renders one actionable key glyph (b, Enter, space, …) in the
-// Theme.Key badge for splicing into body hint strings; the caller keeps
-// its own base-styled spans around it.
+// keyGlyph renders one actionable key glyph in the Theme.Key badge for
+// splicing into body hint strings.
 func keyGlyph(th *theme.Theme, key string) string {
 	return th.Key(key)
 }

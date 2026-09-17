@@ -1,15 +1,8 @@
 // worker_wizard_view.go renders the §H worker wizard as one centered
-// modal box in the analyze wizard's visual vocabulary: a
-// "STRESS  1 tx ▸ 2 rate ▸ 3 run" rail (current step accented, the
-// rest dim), the step body, the inline error line, and a right-aligned
-// key footer. Step 1's transaction list is a subwindow with EXACTLY 5
-// visible rows (UAT round 4) whose scrollability is unmistakable: a
-// "▴ n above" first line and a "v n below" last line name the hidden
-// rows ("^"/"v" under theme.ASCII), ▸ marks the cursor, [x]/[ ] boxes
-// tick the stress multi-select (dim "N selected" line under the
-// window), and the bgsend single-select shows ●/○ radios. EVERY line is
-// clipped to the box's inner width (clipCells + clipTail): no fragment
-// may leak past the frame at any width ≥ the frame minimum.
+// modal box: the step rail (current step accented, the rest dim), the
+// step body, the inline error line, and a right-aligned key footer.
+// EVERY line is clipped to the box's inner width — no fragment may leak
+// past the frame at any width ≥ the frame minimum.
 package pages
 
 import (
@@ -29,8 +22,7 @@ const (
 	workerWizardBoxMin   = 44
 
 	// workerParamLabelCol is the label column of the step-2 rows, the
-	// run-step summary rows, and the filter line (analyze's
-	// analyzeListLabelWidth idiom).
+	// run-step summary rows, and the filter line.
 	workerParamLabelCol = 9
 )
 
@@ -67,9 +59,8 @@ func (w *WorkerWizard) errorLine() string {
 	return w.state.Error
 }
 
-// rail renders "STRESS  1 tx ▸ 2 rate ▸ 3 run": the accent title, then
-// the numbered step labels with the current step accented and the rest
-// dim (the analyze railLine vocabulary).
+// rail renders the accent title then the numbered step labels, the
+// current step accented and the rest dim.
 func (w *WorkerWizard) rail(inner int) string {
 	// three sections at most: the title, the step body and the key line
 	parts := make([]string, 0, 3)
@@ -90,13 +81,9 @@ func (w *WorkerWizard) rail(inner int) string {
 	return clipCells(strings.Join(parts, "  "), inner, clipTail(w.th))
 }
 
-// RailRowHits reports the rail's drawn step-label spans relative to the
-// wizard's own View origin (the FilePicker.RowHits doctrine, UAT round 8
-// Task 8.5 click-to-focus): one cell tall on the rail line — the box's
-// top border sits above it, and the rail's own title span to its left —
-// clipped to the width rail clips to (a label past the clip drew no ink
-// and publishes no hit). The root centers the composed View and
-// translates these into the absolute cells its hit map resolves.
+// RailRowHits reports the rail's drawn step-label spans (View-relative,
+// clipped: a label past the clip draws no ink and publishes no hit);
+// root translates them into the absolute cells its hit map resolves.
 func (w *WorkerWizard) RailRowHits() []widgets.RowHit {
 	width := w.width
 	if width <= 0 {
@@ -117,7 +104,7 @@ func (w *WorkerWizard) RailRowHits() []widgets.RowHit {
 	return out
 }
 
-// title is the wizard's box title (the retired forms' dialog titles).
+// title is the wizard's box title.
 func (w *WorkerWizard) title() string {
 	if w.mode == WorkerModeStress {
 		return "STRESS"
@@ -166,10 +153,9 @@ func (w *WorkerWizard) txBody(inner int) string {
 	return strings.Join(lines, "\n")
 }
 
-// listBox renders the subwindow: up to WorkerTxVisibleRows rows from
-// the scroll window, bracketed by the "▴ n above" / "v n below"
-// markers whenever rows hide beyond the window's edges (the obvious
-// scroll affordance the UAT asked for).
+// listBox renders the subwindow: up to WorkerTxVisibleRows rows from the
+// scroll window, bracketed by the "▴ n above" / "v n below" markers
+// whenever rows hide beyond the window's edges.
 func (w *WorkerWizard) listBox(shown []int, inner int) string {
 	lo, hi := w.top, min(w.top+WorkerTxVisibleRows, len(shown))
 	rows := make([]string, 0, WorkerTxVisibleRows+2)
@@ -210,9 +196,8 @@ func (w *WorkerWizard) txRow(itemIdx, row, inner int) string {
 	return clipCells(w.th.TextMuted.Render(line), inner, clipTail(w.th))
 }
 
-// checkbox renders the stress theme.BoxChecked/theme.BoxUnchecked tick box or the bgsend
-// ●/○ radio (ASCII "(*)"/"( )" — the connect dialog's selection
-// glyphs) for a candidate name.
+// checkbox renders the stress tick box or the bgsend radio for a
+// candidate name.
 func (w *WorkerWizard) checkbox(label string) string {
 	if w.mode != WorkerModeStress {
 		if w.picked == label {
@@ -235,8 +220,7 @@ func (w *WorkerWizard) checkbox(label string) string {
 }
 
 // selectedLine is the stress count line under the list: the dim
-// "N selected (space toggles)" badge (the §N2 checklist's idiom), the
-// toggle hint alone while nothing is ticked.
+// "N selected" badge, the toggle hint alone while nothing is ticked.
 func (w *WorkerWizard) selectedLine(inner int) string {
 	n := len(w.SelectedNames())
 	base := w.th.Deemphasized
@@ -249,8 +233,7 @@ func (w *WorkerWizard) selectedLine(inner int) string {
 	return clipCells("  "+text, inner, clipTail(w.th))
 }
 
-// filterLine shows the live "/" filter with the accent caret (the
-// analyze filterLine idiom).
+// filterLine shows the live "/" filter with the accent caret.
 func (w *WorkerWizard) filterLine(inner int) string {
 	caret := ""
 	if w.filtering {
@@ -283,8 +266,7 @@ func (w *WorkerWizard) paramsBody(inner int) string {
 	return strings.Join(rows, "\n")
 }
 
-// paramHints are the step-2 rows' dim bounds hints — the exact note
-// strings the retired §N2 forms carried.
+// paramHints are the step-2 rows' dim bounds hints.
 var paramHints = map[string]map[string]string{
 	WorkerModeStress: {
 		WorkerParamTps:      "(1-100000)",
@@ -334,8 +316,7 @@ func (w *WorkerWizard) txSummary() string {
 	return strings.Join(names, ", ")
 }
 
-// summaryRow renders one run-step "label  value" row (the analyze
-// summaryRow idiom).
+// summaryRow renders one run-step "label  value" row.
 func (w *WorkerWizard) summaryRow(label, value string, inner int) string {
 	line := w.th.Deemphasized.Render(padRight(label, workerParamLabelCol)) +
 		w.th.TextPrimary.Render(value)
@@ -343,15 +324,14 @@ func (w *WorkerWizard) summaryRow(label, value string, inner int) string {
 	return clipCells(line, inner, clipTail(w.th))
 }
 
-// footer right-aligns the step's key line (the send wizard's footer
-// vocabulary).
+// footer right-aligns the step's key line.
 func (w *WorkerWizard) footer(inner int) string {
 	base := w.th.Deemphasized
 	var keys string
 	switch w.step {
 	case WorkerStepTx:
-		// Step 1 is the wizard's first step: Esc closes it (the UAT
-		// wizard contract), so the footer always reads cancel here.
+		// Step 1 is the first step: Esc closes it, so the footer reads
+		// cancel here.
 		keys = keySpan(w.th, base, "Enter", "next") + base.Render("   ") +
 			keySpan(w.th, base, "/", "filter") + base.Render("   ") +
 			keySpan(w.th, base, "f", "browse") + base.Render("   ") +
@@ -368,8 +348,7 @@ func (w *WorkerWizard) footer(inner int) string {
 				keySpan(w.th, base, "Esc", "back")
 		}
 	}
-	// Clipped before padding: at the narrow box clamp the key line may
-	// never overrun the frame (clip, never wrap).
+	// Clip before padding: the key line may never overrun the frame.
 	keys = clipCells(keys, inner, clipTail(w.th))
 	return keyLine(keys, inner)
 }

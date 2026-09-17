@@ -1,26 +1,13 @@
-// worker_wizard.go is the §H worker start wizard (UAT round 4): the
-// background-send and stress options leave the empty pane's two-option
-// line and become a three-step wizard modal — "1 tx ▸ 2 rate ▸ 3 run"
-// (stress) / "1 tx ▸ 2 params ▸ 3 run" (bgsend). Step 1 is a scrollable
-// candidate list with EXACTLY 5 visible rows and obvious scroll
-// affordances ("▴ n above" / "v n below" marker lines, ASCII "^"/"v"):
-// the ▸ cursor auto-scrolls the window, space toggles rows (stress
-// multi-select, with a dim "N selected" line) or Enter picks one row
-// (bgsend single-select), and "/" opens a substring filter. Step 2
-// edits labeled inline rows (one focused at a time, up/down moves
-// focus, printables/backspace edit) with an inline error line; Enter
-// advances only when every value resolves. Step 3 summarizes and Enter
-// emits WorkerWizardStartMsg; a root-side failure keeps the wizard open
-// with the error line. Esc backs one step and closes on step 1.
+// worker_wizard.go is the §H worker start wizard: a three-step modal —
+// "1 tx ▸ 2 rate/params ▸ 3 run" — with a scrollable 5-row candidate
+// list (space multi-select or Enter single-select, "/" filter), labeled
+// inline-edit param rows, and a run summary. It is presentation + input
+// routing only: every leg runs root-side, and the wizard never touches
+// internal/app nor reads the clock.
 //
-// Like the send wizard, the modal is presentation + input routing:
-// every leg (tx-file load, StressStart/WorkerStart) runs root-side;
-// the wizard never touches internal/app and never reads the clock (the
-// SCR-501 data-flow contract). The tx step claims the keyboard while
-// its "/" filter is open and the param step claims it only while a row
-// is being typed into (values carry digits and duration letters that
-// collide with global bindings); the root modal branch keeps "?" opening
-// the §M overlay in navigate mode only (the wizard's Editing below).
+// The tx step claims the keyboard while its "/" filter is open and the
+// param step only while a row is being typed into; navigate mode claims
+// nothing, so "?" stays a help key there. Ctrl+C stays global.
 package pages
 
 import (
@@ -42,9 +29,9 @@ type WorkerWizard struct {
 	width, height int
 	step          int
 
-	// step 1 (tx list): filter line, cursor, scroll window top, and the
-	// selections (checked aligns to state.TxItems so filtering and
-	// refreshes never lose a toggle; picked is the bgsend single-select).
+	// step 1 (tx list): filter line, cursor, scroll window top, and
+	// selections; checked aligns to state.TxItems so filtering and
+	// refreshes never lose a toggle.
 	filtering bool
 	draft     string
 	sel       int
@@ -53,8 +40,7 @@ type WorkerWizard struct {
 	picked    string
 
 	// step 2 (params): focused row, its inline validation line, and the
-	// two-mode flag (UAT round 8 / D3): the row is highlighted in navigate
-	// mode until a printable enters edit mode; esc leaves the row first.
+	// two-mode flag: a printable enters edit mode; esc leaves the row first.
 	focus    int
 	editing  bool
 	params   map[string]string
@@ -155,11 +141,10 @@ func (w *WorkerWizard) SelectedNames() []string {
 	return out
 }
 
-// SetState replaces the root-owned data, preserving the page-owned
-// step, cursor, scroll window, filter, and parameter edits. The
-// checked/picked selections re-align to the refreshed candidates BY
-// NAME, so a tx-file reload through [f] keeps every selection whose
-// name still exists (the UAT round 4 picker contract).
+// SetState replaces the root-owned data, preserving the page-owned step,
+// cursor, scroll window, filter, and parameter edits. Checked/picked
+// selections re-align to refreshed candidates BY NAME, so a tx-file
+// reload keeps every selection whose name still exists.
 func (w *WorkerWizard) SetState(st WorkerWizardState) {
 	prev := w.state.TxItems
 	w.state = st
@@ -188,11 +173,8 @@ func (w *WorkerWizard) SetState(st WorkerWizardState) {
 	w.clampTop()
 }
 
-// HomeSelection seeds the bgsend single-select on the first candidate
-// (the retired form's radio prefill), so Enter with no navigation
-// picks the repository's first name; the stress multi-select opens
-// empty (at least one toggle is required). Root calls it once after
-// loading the initial state.
+// HomeSelection seeds the bgsend single-select on the first candidate;
+// the stress multi-select opens empty. Root calls it once after loading.
 func (w *WorkerWizard) HomeSelection() {
 	if w.mode == WorkerModeBg && w.picked == "" && len(w.state.TxItems) > 0 {
 		w.picked = w.state.TxItems[0].Label
@@ -200,21 +182,15 @@ func (w *WorkerWizard) HomeSelection() {
 }
 
 // ClaimsKeyboard implements KeyboardClaimer: the claim is the two-mode
-// edit flag (UAT round 8 / D3). The tx step owns the keyboard while its
-// "/" filter is open (tx names carry q, digits and ":" that must not quit
-// or jump pages); the param step owns it only while a row is being typed
-// into (duration values type letters like m and s). Navigate mode claims
-// nothing, so the root modal branch keeps "?" a help key there. Ctrl+C
-// stays global.
+// edit flag — the tx step claims while its "/" filter is open, the param
+// step only while a row is being typed into. Navigate mode claims nothing.
 func (w *WorkerWizard) ClaimsKeyboard() bool {
 	return w.Editing()
 }
 
-// Editing reports the two-mode flag of the whole wizard (UAT round 8 /
-// D3): true while the tx step's "/" filter is open or the param step has
-// entered a row. The root modal branch (root_workers_form.go) keeps "?"
-// opening the §M overlay only while this is false; once a field owns the
-// keyboard, "?" types into it (the strict D2 rule).
+// Editing reports the two-mode flag: true while the tx step's "/" filter
+// is open or the param step has entered a row; "?" stays a help key only
+// while this is false.
 func (w *WorkerWizard) Editing() bool {
 	switch w.step {
 	case WorkerStepTx:
@@ -238,9 +214,8 @@ func (w *WorkerWizard) resolveRun() (WorkerRun, string) {
 	return ResolveBgRun(w.picked, w.params[WorkerParamInterval], w.params[WorkerParamCount])
 }
 
-// paramKeys are the step-2 row keys in display order (stress: tps,
-// ramp, duration, workers — the retired form's order; bgsend: count,
-// interval).
+// paramKeys are the step-2 row keys in display order (stress: tps, ramp,
+// duration, workers; bgsend: count, interval).
 func (w *WorkerWizard) paramKeys() []string {
 	if w.mode == WorkerModeStress {
 		return []string{WorkerParamTps, WorkerParamRamp, WorkerParamDuration, WorkerParamWorkers}
@@ -250,8 +225,7 @@ func (w *WorkerWizard) paramKeys() []string {
 }
 
 // filteredTx returns the TxItems indices matching the draft
-// (case-insensitive substring over label + path, the wizard's own
-// filter semantics from the send wizard).
+// (case-insensitive substring over label + path).
 func (w *WorkerWizard) filteredTx() []int {
 	f := strings.ToLower(strings.TrimSpace(w.draft))
 	idx := make([]int, 0, len(w.state.TxItems))
@@ -302,10 +276,8 @@ func (w *WorkerWizard) clampSel() {
 	}
 }
 
-// clampTop scrolls the window the MINIMUM distance that keeps the
-// cursor inside the 5-row view: the top follows the cursor down one
-// row at a time (UAT expectation: j×6 over 20 rows lands on "▴ 2
-// above", not a page jump).
+// clampTop scrolls the window the MINIMUM distance that keeps the cursor
+// inside the 5-row view (no page jumps).
 func (w *WorkerWizard) clampTop() {
 	n := len(w.filteredTx())
 	if w.top > n-WorkerTxVisibleRows {
@@ -319,8 +291,7 @@ func (w *WorkerWizard) clampTop() {
 	}
 }
 
-// pick returns the ascii form under theme.ASCII, the truecolor form
-// otherwise (the send wizard's rule).
+// pick returns the ascii form under theme.ASCII, the truecolor otherwise.
 func (w *WorkerWizard) pick(truecolor, ascii string) string {
 	if w.th.ASCII {
 		return ascii

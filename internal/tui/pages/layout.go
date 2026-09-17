@@ -1,19 +1,8 @@
-// layout.go renders the §A body — the proposal-05 §3 information grid:
-// live signals get the big panes, static config gets compact cards. Wide
-// (>= dashWideCols) runs two columns (left dashLeftColW / right flex):
-// CONNECTION, LAST SEND and LAST STRESS stack left; MOCK SERVER, SERVER
-// LOG, SESSION and QUICK ACTIONS stack right, the SERVER LOG absorbing
-// the spare height. Medium (>= dashMediumCols) keeps the two columns
-// with wrapped (clipped) card rows and no fixed 46. Narrow stacks the
-// cards in priority order — CONNECTION, MOCK SERVER, SERVER LOG (capped
-// at narrowLogRows body rows), LAST SEND, SESSION, QUICK ACTIONS, LAST
-// STRESS — shrinking bodies bottom-up and dropping the lowest-priority
-// cards first when the terminal is too short (CONNECTION and QUICK
-// ACTIONS never drop: the page must always answer "am I connected?" and
-// always expose its action list). The EVENT FEED pane is gone: the
-// CONNECTION card, the timestamped status strip and the SERVER LOG card
-// carry that truth. Sizing comes from frame.ContentSize; the frame owns
-// the surrounding chrome.
+// layout.go renders the §A body: two card columns at wide/medium content
+// widths, a priority stack at narrow, shrinking bodies bottom-up and
+// dropping the lowest-priority cards first (CONNECTION and QUICK ACTIONS
+// never drop). Sizing comes from frame.ContentSize; the frame owns the
+// surrounding chrome.
 package pages
 
 import (
@@ -29,9 +18,9 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// Section titles (proposal 05 §3 wireframe). The page renders titles +
-// boxes only; the frame owns the surrounding chrome. MOCK SERVER
-// (titleServer) and SERVER LOG (titleLog) reuse the §G page's constants.
+// Section titles. The page renders titles + boxes; the frame owns the
+// chrome. MOCK SERVER (titleServer) and SERVER LOG (titleLog) reuse the
+// §G page's constants.
 const (
 	titleConnection = "CONNECTION"
 	titleLastSend   = "LAST SEND"
@@ -40,14 +29,13 @@ const (
 	titleActions    = "QUICK ACTIONS"
 
 	// Card-body next-action key glyphs (rendered with the HotKey style
-	// inside card bodies; the tile TITLES carry no badges, UAT round 5).
+	// inside card bodies; the tile TITLES carry no badges).
 	hotkeyConnection = "c"
 	hotkeyLastSend   = "s"
 	hotkeyMockServer = "4"
 
-	// Grid breakpoints (proposal 05 §3). The wide left column is sized
-	// relative to the terminal (UAT round 5: fixed columns do not
-	// adapt); see dashLeftCol.
+	// Grid breakpoints; the wide left column is sized relative to the
+	// terminal (fixed columns do not adapt); see dashLeftCol.
 	dashWideCols   = 130
 	dashMediumCols = 100
 	// dashColGap is the blank row/column between cards in the two-column
@@ -56,8 +44,7 @@ const (
 	dashColGap = 1
 
 	// narrowLogRows caps the SERVER LOG card body rows in the narrow
-	// stack (wireframe: 4 rows); the two-column grid lets the card
-	// absorb the spare right-column height instead.
+	// stack; the two-column grid lets the card absorb spare height.
 	narrowLogRows = 4
 
 	// cardOverhead is the line cost of one card: title + two border rows.
@@ -85,9 +72,8 @@ func (d *Dashboard) View() tea.View {
 }
 
 // dashCard is one grid card: a pre-built body plus the fitter's
-// allocation. body renders at most kept lines (the actions card renders
-// its list lazily at the allocated height; the log card renders its
-// TAIL so shrinking drops the oldest lines, never the newest).
+// allocation. body renders at most kept lines; the log card renders its
+// TAIL so shrinking drops the oldest lines, never the newest.
 type dashCard struct {
 	id      string
 	title   string
@@ -129,22 +115,18 @@ func (d *Dashboard) render(w, h int) string {
 	}
 }
 
-// dashLeftCol sizes the wide-grid left column as its 35% ratio of the
-// content width (UAT round 5: panes adopt to the terminal size; UAT
-// round 8 finding 5: the 64-cell ceiling froze the split on wide
-// terminals, so the ratio keeps only its floor clamp). The right column
-// absorbs the remainder (renderTwoCol), so one band sums exactly to the
-// content width.
+// dashLeftCol sizes the wide-grid left column as a 35% ratio of the
+// content width with only a floor clamp. The right column absorbs the
+// remainder, so one band sums exactly to the content width.
 func dashLeftCol(w int) int {
 	return max(w*35/100, 40)
 }
 
-// cardBox renders the plain "TITLE" (no key badge, UAT round 5) over the
-// body clipped into a bordered box of total size w×(bodyH+3), so joins
-// stay aligned, through the one shared widgets.Section (the body clips
-// to the box's CONTENT width w-4 so lipgloss never word-wraps a card
-// line into an extra row). The section's Rect is recorded on the page
-// with the grid's content-relative origin.
+// cardBox renders the plain title (no key badge) over the body clipped
+// into a bordered box of total size w×(bodyH+3), through the shared
+// widgets.Section. The body clips to the box's content width so lipgloss
+// never word-wraps a card line; the section's Rect is recorded on the
+// page with the grid's content-relative origin.
 func (d *Dashboard) cardBox(title, body string, x, y, w, bodyH int) string {
 	sec := widgets.NewSection(d.th, title)
 	out, _ := sec.Render(body, x, y, w, bodyH+3)
@@ -158,9 +140,8 @@ func titleLine(th *theme.Theme, title string) string {
 	return th.Accent.Render(title)
 }
 
-// paneTitle accents a pane title when the pane holds focus and mutes
-// it otherwise (UAT round 5: every title accented at once made the
-// active pane ambiguous; the focused pane also lights its border).
+// paneTitle accents a pane title when the pane holds focus and mutes it
+// otherwise.
 func paneTitle(th *theme.Theme, title string, focused bool) string {
 	if focused {
 		return titleLine(th, title)
@@ -207,21 +188,16 @@ func (d *Dashboard) kv(label, value string) string {
 
 // --- cards ---------------------------------------------------------------
 
-// Cards carry NO title hotkey badge (UAT round 5): the badges advertised
-// keys whose action lived on another screen, duplicating the footer's
-// legend and lying about what the key does to the tile. Keys live in the
-// footer legend and the quick-actions rows; card bodies keep only
-// truthful next-action hints.
+// Cards carry no title hotkey badge: a badge would advertise a key whose
+// action lives on another screen. Keys live in the footer legend and the
+// quick-actions rows; card bodies keep only truthful next-action hints.
 
 func (d *Dashboard) connCard() *dashCard {
 	body := d.connBodyLines()
 
 	c := d.newCard(cardConn, titleConnection,
 		func(int, int) []string { return d.connBodyLines() }, len(body))
-	// The card that answers "am I connected?" outranks every other one, as the
-	// never field always claimed -- but only QUICK ACTIONS actually set it, so the
-	// two-column grid could drop the connection truth while the doc and the stack
-	// test promised it could not.
+	// The card that answers "am I connected?" must never drop.
 	c.never = true
 
 	return c
@@ -289,9 +265,8 @@ func (d *Dashboard) actionsCard() *dashCard {
 
 // --- formatting helpers ---------------------------------------------------
 
-// shortUptime renders a pointer uptime in the wireframe's short form
-// ("05:40"); a nil or non-positive-unknown value becomes "" so the
-// caller substitutes the dash. Hours appear only past one hour.
+// shortUptime renders a pointer uptime compactly; a nil or unknown value
+// becomes "" so the caller substitutes the dash.
 func shortUptime(d *time.Duration) string {
 	if d == nil {
 		return ""

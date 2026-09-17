@@ -11,55 +11,43 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// connectActionID is the palette action id 'c' preselects once SCR-505
-// registers the connect dialog action; until then 'c' parks the cursor
-// on the top row of the quick-actions list.
+// connectActionID is the palette action id of the connect row.
 const connectActionID = "connect"
 
 // disconnectActionID is the palette action the 'D' quick key and the §A
-// quick-actions row share (TUI-514). The row is listed only while
-// DashboardState.HasConnection marks a live connection — the page learns
-// that from root's snapshot, never from the app.
+// quick-actions row share. The row is listed only while root's snapshot
+// marks a live connection — the page never learns that from the app.
 const disconnectActionID = "disconnect"
 
-// sendWizardActionID is the proposal-04 §B quick-action row: "Send
-// transaction (s)" opens the send wizard. The page lists it only while a
-// connection is live ("send should appear only when connected"); the
-// palette keeps the command always available, where the wizard itself
-// opens the connect step first.
+// sendWizardActionID opens the send wizard. The page lists it only while
+// a connection is live; the palette keeps the command always available,
+// where the wizard itself opens the connect step first.
 const sendWizardActionID = "send-wizard"
 
 // The scenario runner and the stress workers both put messages on the
-// wire, so their quick-action rows are connection-dependent too (UAT:
-// options that only work on a live link stay hidden while offline).
+// wire, so their quick-action rows are connection-dependent too.
 const (
 	gotoScenariosActionID = "goto.scenarios"
 	gotoWorkersActionID   = "goto.workers"
 )
 
 // lastSendActionID reopens the last completed §D snapshot; the row only
-// appears after a send has run (UAT). Proposal 05 §3: the LAST SEND
-// card's "enter open" affordance rides this same row — Enter on the row
-// dispatches LastSendViewMsg, the router's single viewLastSend path.
+// appears after a send has run, and Enter on it dispatches
+// LastSendViewMsg.
 const lastSendActionID = "last-send"
 
-// stressSummaryActionID is the proposal-05 §3 LAST STRESS reopen row:
-// "Stress summary" appears only while a completed stress run exists
-// (DashboardState.LastStress != nil) and dispatches
-// LastStressSummaryMsg — the router's single summary-overlay path. No
-// card-focus system: the row is the affordance (the dashboard claims no
-// keys beyond what already existed).
+// stressSummaryActionID is the LAST STRESS reopen row: "Stress summary"
+// appears only while a completed stress run exists and dispatches
+// LastStressSummaryMsg. There is no card-focus system — the row is the
+// affordance.
 const stressSummaryActionID = "last-stress"
 
-// Dashboard is the §A landing page: the proposal-05 §3 information grid
-// — CONNECTION, MOCK SERVER, LAST SEND, LAST STRESS, SERVER LOG, SESSION
-// and QUICK ACTIONS cards over the palette action registry. It is a
-// reference type: the router keeps one canonical instance in its
-// registry, so the quick-actions cursor survives page jumps. All app
-// data arrives via SetState from the root model — the page never touches
-// internal/app and never reads the clock. The EVENT FEED pane is gone
-// (proposal 05 §3): its content lives in the CONNECTION card, the
-// timestamped status strip and the live SERVER LOG card.
+// Dashboard is the §A landing page: an information grid of CONNECTION,
+// MOCK SERVER, LAST SEND, LAST STRESS, SERVER LOG, SESSION and QUICK
+// ACTIONS cards over the palette action registry. It is a reference type
+// kept canonical in the router registry, so the quick-actions cursor
+// survives page jumps. All app data arrives via SetState from the root
+// model — the page never touches internal/app and never reads the clock.
 type Dashboard struct {
 	th    *theme.Theme
 	state DashboardState
@@ -69,23 +57,16 @@ type Dashboard struct {
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 
-	// sections records the geom.Rect of every widgets.Section this
-	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
-	// absolute offsets into the frame chrome).
+	// sections records the rect of every widgets.Section this page drew
+	// during the last render, in draw order, content-relative.
 	sections []geom.Rect
 }
 
 // dashNav is the page's keymap: the enter binding that runs the selected
-// quick action, the 'D' quick key that drops the live connection
-// (TUI-514 — uppercase counterpart of the global 'c' connect hotkey;
-// nothing on this page or in the global keymap binds it), and the 't'
-// quick key that opens the stress wizard (UAT round 9 F-9g: the LAST
-// STRESS card's "no stress run · t starts one" glyph was displayed-but-
-// dead — the key only lived on §H). The feed scroll bindings left with
-// the EVENT FEED pane; j/k reach the quick-actions list through the
-// shared widgets nav keys (registered via tableNavHelp, the drift-pinned
-// source).
+// quick action, the 'D' quick key that drops the live connection (the
+// uppercase counterpart of the global 'c' connect hotkey, bound nowhere
+// else), and the 't' quick key that opens the stress wizard. j/k reach
+// the quick-actions list through the shared widgets nav keys.
 type dashNav struct {
 	Run          key.Binding
 	Disconnect   key.Binding
@@ -131,13 +112,10 @@ func (d *Dashboard) Theme() *theme.Theme { return d.th }
 // Size reports the last terminal size seen via WindowSizeMsg.
 func (d *Dashboard) Size() (width, height int) { return d.width, d.height }
 
-// SetState replaces the rendered snapshot (root pushes it on boot, on
-// every Update, and after bridge events). The quick-actions list is
-// rebuilt from state.Actions, keeping the cursor in range; the
-// disconnect row is listed only while a connection is live (TUI-514 —
-// the palette keeps the command at all times, where it behaves sanely
-// without one), and the last-send / last-stress reopen rows only while
-// their cards have content (UAT / proposal 05 §3).
+// SetState replaces the rendered snapshot and rebuilds the quick-actions
+// list from state.Actions, keeping the cursor in range. Connection-
+// dependent rows (connect/disconnect/send/goto) list only with a live
+// connection; the reopen rows only while their cards have content.
 func (d *Dashboard) SetState(state DashboardState) {
 	d.state = state
 
@@ -158,19 +136,18 @@ func (d *Dashboard) SetState(state DashboardState) {
 				continue
 			}
 		case gotoScenariosActionID, gotoWorkersActionID:
-			// UAT: rows whose action only works on a live link stay
-			// hidden while offline (the palette still carries them).
+			// Rows whose action needs a live link stay hidden while
+			// offline (the palette still carries them).
 			if !state.HasConnection {
 				continue
 			}
 		case lastSendActionID:
-			// UAT: the row only exists once a send has completed.
+			// The row only exists once a send has completed.
 			if state.LastSend == nil {
 				continue
 			}
 		case stressSummaryActionID:
-			// Proposal 05 §3: the reopen row only exists once a stress
-			// run has completed.
+			// The reopen row only exists once a stress run completed.
 			if state.LastStress == nil {
 				continue
 			}
@@ -179,10 +156,9 @@ func (d *Dashboard) SetState(state DashboardState) {
 		kept = append(kept, a)
 	}
 
-	// One column for the whole list, so every badge lands on the same cell.
-	// UAT round 5: rows carry NO key badges — the digits duplicate the
-	// footer legend and the letters duplicate the page's own footer hints;
-	// the rows are selected with Enter, not with their advertised keys.
+	// One column for the whole list, so every badge lands on the same
+	// cell. Rows carry no key badges: they are selected with Enter, not
+	// with their advertised keys.
 	column := widgets.HintColumn(labels)
 	items := make([]widgets.Item, 0, len(kept))
 	for _, a := range kept {
@@ -195,10 +171,8 @@ func (d *Dashboard) SetState(state DashboardState) {
 	d.actions.SetItems(items)
 }
 
-// Update routes sizes and the page-local keys. Everything else — bus
-// events (the EVENT FEED pane is gone), pane-focus toggles (the page has
-// a single focusable list), unrelated msgs — is ignored with a nil
-// command.
+// Update routes sizes and the page-local keys; everything else is
+// ignored with a nil command.
 func (d *Dashboard) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -212,12 +186,8 @@ func (d *Dashboard) Update(msg tea.Msg) (Page, tea.Cmd) {
 
 // updateKey is the page-local keymap: enter runs the selected action, D
 // emits the disconnect Msg (root decides: leg, confirm, or sane info
-// no-op), t emits the stress-wizard open Msg (the same message §H's t
-// emits — the router's openWorkersForm path owns the modal; the page
-// never opens anything itself), and every other key (j/k, g/G, home/end)
-// scrolls the quick-actions list. The page-local "c parks the cursor on
-// the connect row" handler is gone (UAT round 5): the global c binding
-// always claims the key first, so the handler was production-dead.
+// no-op), t emits the stress-wizard open Msg (the page never opens
+// anything itself), and every other key scrolls the quick-actions list.
 func (d *Dashboard) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	switch {
 	case key.Matches(msg, d.nav.Run):
@@ -227,10 +197,8 @@ func (d *Dashboard) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 		return d, func() tea.Msg { return out }
 	case key.Matches(msg, d.nav.StressWizard):
-		// UAT round 9 (F-9g): the LAST STRESS card's taught t is now
-		// real — the exact message Workers.updateKey emits for its own
-		// t (WorkerModeStress is the documented Kind value), so root
-		// opens the identical wizard from either page.
+		// The exact message Workers.updateKey emits for its own t, so
+		// root opens the identical wizard from either page.
 		return d, func() tea.Msg { return WorkersOpenFormMsg{Kind: WorkerModeStress} }
 	default:
 		var cmd tea.Cmd
@@ -241,11 +209,9 @@ func (d *Dashboard) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 }
 
 // runSelectedAction dispatches the selected quick action's Msg through
-// its Run (the same contract the palette uses); the router interprets
-// the Msg. This is the LAST SEND ("View last send" → LastSendViewMsg)
-// and LAST STRESS ("Stress summary" → LastStressSummaryMsg) reopen
-// path — the cards' "enter" affordances are the rows, never a parallel
-// card-focus mechanism.
+// its Run (the same contract the palette uses); the router interprets it.
+// This is the last-send/last-stress reopen path — the cards' "enter"
+// affordances are the rows, never a parallel card-focus mechanism.
 func (d *Dashboard) runSelectedAction() tea.Cmd {
 	item, ok := d.actions.Selected()
 	if !ok {
@@ -264,44 +230,32 @@ func (d *Dashboard) runSelectedAction() tea.Cmd {
 }
 
 // Hints is the §A context keymap; c/enter are primary so the narrow
-// footer keeps them (the router appends the global bindings), and so is
-// the F9 text-selection toggle (UAT round 9: it must survive the 80-col
-// budget to be findable). D is the §A disconnect quick key (TUI-514):
-// always advertised — pressing it without a connection is the root's
-// sane info no-op, never a dead key.
-// The "tab focus pane" hint left with the EVENT FEED pane: the page has
-// one focusable list, so j/k scroll it and no pane toggle exists.
+// footer keeps them. D is always advertised: pressing it without a
+// connection is the root's sane info no-op, never a dead key. The page
+// has one focusable list, so j/k scroll it and no pane toggle exists.
 func (d *Dashboard) Hints() []frame.KeyHint {
 	hints := []frame.KeyHint{
 		{Key: theme.KeyEnter, Desc: "run", Primary: true},
 	}
 	if d.state.HasConnection {
-		// Connected (proposal 04): c drops the link and s opens the send
-		// wizard; the old D drop row is redundant and stays out to keep
-		// the footer inside its pinned budget.
+		// Connected: c drops the link and s opens the send wizard; the
+		// redundant D row stays out to keep the footer in budget.
 		hints = append(hints,
 			frame.KeyHint{Key: "c", Desc: "disconnect", Primary: true},
 			frame.KeyHint{Key: "s", Desc: "send", Primary: true})
 	} else {
 		hints = append(hints,
 			frame.KeyHint{Key: "c", Desc: "connect", Primary: true},
-			// "drop" (not "disconnect"): with the two page primaries and
-			// the global ones, "D disconnect" would push "q quit / back"
-			// past the 90-col footer budget frame_view_test.go pins.
+			// "drop" (not "disconnect"): the fuller label would push
+			// "q quit / back" past the pinned 90-col footer budget.
 			frame.KeyHint{Key: "D", Desc: "drop"})
 	}
-	// The wireframe leads the page legend with the connect/disconnect key.
 	lead, run := hints[1], hints[0]
 	hints = append(hints, frame.KeyHint{Key: theme.KeyNavJK, Desc: hintScroll})
-	// UAT round 9 (F-9c): advertise the global F9 mouse/text-selection
-	// toggle here so the obscure key is findable on the landing page.
-	// Spelled "F9" for display (the router's MouseToggle binding owns the
-	// real key); primary like c/enter above because the 80-col footer
-	// budget already drops every trailing non-primary entry and a hint
-	// nobody ever sees is not discoverability. It is a display-only
-	// legend cell for the click hit map (synthKeyPress spells no "F9"),
-	// which is the honest outcome while a mouse-off frame registers no
-	// hits at all.
+	// Advertise the global F9 selection toggle here so the obscure key is
+	// findable on the landing page. It is a display-only legend cell for
+	// the click hit map (synthKeyPress spells no "F9"), never a wrong
+	// press.
 	f9 := frame.KeyHint{Key: "F9", Desc: "select", Primary: true}
 
 	return append([]frame.KeyHint{lead, run, f9}, hints[2:]...)

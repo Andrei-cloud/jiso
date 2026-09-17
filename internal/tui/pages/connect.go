@@ -1,23 +1,8 @@
-// connect.go is the §E connect dialog (SCR-505): a modal overlay, not a
-// page. The root keeps it open in m.dlg, routes key presses here while it
-// owns the keyboard, and recomputes the root-side data (Enabled flags, TLS
-// note, in-flight progress, failure line) via SetState — the dialog never
-// touches internal/app, the filesystem, or the clock. Tab/shift+Tab cycle
-// focus SKIPPING disabled fields; j/k and the arrows adjust the focused
-// radio (wrapping); text fields capture printable runes (j/k included —
-// the SCR-502 live-filter lesson) and backspace deletes. Enter/esc are
-// intercepted by the router (start connect / cancel) and never reach the
-// edit routing below.
-//
-// The form is two-mode (UAT round 8 finding 2 / D3): NAVIGATE mode
-// highlights a field without typing into it, so the router-level keys
-// keep their meaning (f opens the focused browsable field's picker,
-// enter commits, esc leaves the screen); typing a printable enters EDIT
-// mode and types the character itself, and there every key is literal
-// (f included — the §G form could never type "f"). Esc leaves edit mode
-// first, field still focused; the next esc reaches the router and leaves
-// the screen. Enter commits in both modes (it is the submit key; the
-// enter-to-edit trigger is typing, so nothing collides with submit).
+// connect.go is the §E connect dialog: a modal overlay (not a page)
+// that never touches internal/app, the filesystem, or the clock. The
+// form is two-mode: typing a printable enters edit mode and keys go to
+// the field; esc leaves the field first, the next esc reaches the router
+// (start connect / cancel). Enter commits in both modes.
 package pages
 
 import (
@@ -37,19 +22,15 @@ type ConnectDialog struct {
 	state ConnectFormState
 	focus int
 
-	// editing is the two-mode flag (UAT round 8 / D3): false = navigate
-	// mode (the field is highlighted, nothing typed), true = the focused
-	// field is being typed into. Typing a printable enters it; esc and a
-	// focus move (tab / SetFocus) leave it. The root router reads
-	// Editing() to decide whether f browses or types.
+	// editing is the two-mode flag: false = navigate (field highlighted,
+	// nothing typed), true = the focused field is being typed into.
 	editing bool
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 	nav           connectNav
 
-	// Header picker overlay (proposal 04 §A.3), page-owned like focus:
-	// SetState never touches it. pickerSel indexes the filtered options;
-	// Enter on the overlay mirrors the picked option into the field.
+	// Header picker overlay, page-owned like focus: SetState never touches
+	// it. pickerSel indexes the filtered options.
 	pickerOpen   bool
 	pickerFilter string
 	pickerSel    int
@@ -136,31 +117,23 @@ func (d *ConnectDialog) State() ConnectFormState { return d.state.clone() }
 // enabled field exists).
 func (d *ConnectDialog) Focus() int { return d.focus }
 
-// Editing reports whether the focused field is being typed into (the
-// two-mode flag of the form, UAT round 8 / D3). The root router browses
-// with f only while this is false, and lets esc leave the field before it
-// leaves the screen.
+// Editing reports whether the focused field is being typed into; the
+// root router browses with f only while this is false.
 func (d *ConnectDialog) Editing() bool { return d.editing }
 
-// SetFocus moves the highlighted field (the router's click-to-focus and
-// tests): an out-of-range or disabled index clamps onto the nearest
-// enabled field like SetState, and the new field lands in navigate mode
-// (highlighted, not typed into). An open header picker closes with the
-// move (UAT round 8 Task 8.5): the overlay draws INSIDE the form under
-// the picker row, so leaving it open would keep a stale overlay drawn
-// over the newly focused field while the keyboard already belongs to
-// that field — the same close-the-overlay rule the Tab move follows.
+// SetFocus moves the highlighted field, clamping onto the nearest enabled
+// one; the new field lands in navigate mode and an open header picker
+// closes, so no stale overlay stays drawn over the field taking focus.
 func (d *ConnectDialog) SetFocus(i int) {
 	d.focus = clampFocus(d.state.Fields, i)
 	d.editing = false
 	d.pickerOpen = false
 }
 
-// SetState replaces the rendered snapshot, preserving the page-owned focus
-// (kept when the field at that index is still enabled, otherwise moved to
-// the nearest enabled field) and the last size. The edit mode survives a
-// root push (the root syncs after every keystroke); it clears when the
-// clamp moves the focus, since a newly-highlighted field starts navigate.
+// SetState replaces the rendered snapshot, preserving the page-owned
+// focus (moved to the nearest enabled field if the old one got disabled)
+// and the last size. The edit mode survives a root push; it clears when
+// the clamp moves the focus.
 func (d *ConnectDialog) SetState(state ConnectFormState) {
 	d.state = state
 	if next := clampFocus(state.Fields, d.focus); next != d.focus {
@@ -183,10 +156,9 @@ func (d *ConnectDialog) Update(msg tea.Msg) (Modal, tea.Cmd) {
 	return d, nil
 }
 
-// updateKey is the edit state machine (see file header for the contract).
-// The two-mode esc order (D3): esc while editing leaves the FIELD first
-// (mode flips to navigate, focus and value untouched); the router only
-// sees the esc that leaves the screen.
+// updateKey is the edit state machine. Two-mode esc order: esc while
+// editing leaves the FIELD first (focus and value untouched); the router
+// only sees the esc that leaves the screen.
 func (d *ConnectDialog) updateKey(msg tea.KeyPressMsg) {
 	if d.state.InFlight {
 		return
@@ -229,9 +201,8 @@ func (d *ConnectDialog) updateKey(msg tea.KeyPressMsg) {
 }
 
 // updatePicker routes one key while the header overlay owns the keyboard:
-// j/k/arrows move, Enter applies, Esc dismisses, printable runes filter and
-// backspace unfilters. Enter/Esc reach here only because the router checks
-// PickerOpen first.
+// j/k/arrows move, Enter applies, Esc dismisses, printables filter.
+// Enter/Esc reach here only because the router checks PickerOpen first.
 func (d *ConnectDialog) updatePicker(msg tea.KeyPressMsg) {
 	switch {
 	case key.Matches(msg, key.NewBinding(key.WithKeys(theme.KeyEnter))):
@@ -256,7 +227,7 @@ func (d *ConnectDialog) updatePicker(msg tea.KeyPressMsg) {
 }
 
 // pickerFiltered returns the option indices matching the filter
-// (case-insensitive substring, proposal 04 §A.3).
+// (case-insensitive substring).
 func (d *ConnectDialog) pickerFiltered() []int {
 	f := d.focused()
 	if f == nil {
@@ -295,12 +266,9 @@ func (d *ConnectDialog) pickerPick() {
 	f.Value = f.Options[f.Selected]
 }
 
-// editFocused routes input to the focused (enabled) field: arrows/j/k
-// adjust radios with wrap, printable runes and backspace edit text fields
-// (and enter edit mode — the first printable types itself, UAT round 8 /
-// D3; radios, checklists and the header picker have nothing to type into
-// and never enter edit mode). Non-printable keys (ctrl chords, enter,
-// esc) do nothing here; the router owns them.
+// editFocused routes input to the focused field: arrows/j/k adjust radios
+// and checklists; printables and backspace edit text fields (entering edit
+// mode). The router owns ctrl chords, enter, and esc.
 func (d *ConnectDialog) editFocused(msg tea.KeyPressMsg) {
 	f := d.focused()
 	if f == nil {

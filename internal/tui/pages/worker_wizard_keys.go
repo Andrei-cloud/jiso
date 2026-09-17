@@ -1,7 +1,5 @@
-// worker_wizard_keys.go is §H's worker-form keyboard: field cursor, stepping, the
-// value editor, and which Enter means "start the worker" rather than "next field".
-// The form's fields and their validation are in worker_wizard.go; this file is only
-// the key routing between them.
+// worker_wizard_keys.go is §H's worker-form key routing: field cursor,
+// stepping, the value editor, and which Enter starts the worker.
 package pages
 
 import (
@@ -9,9 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Update routes sizes and keys; every key reaches here (the root's
-// modal branch forwards the keyboard wholesale while the wizard is
-// open, like the send wizard's).
+// Update routes sizes and keys; the root's modal branch forwards the
+// keyboard wholesale while the wizard is open.
 func (w *WorkerWizard) Update(msg tea.Msg) (Modal, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -24,9 +21,8 @@ func (w *WorkerWizard) Update(msg tea.Msg) (Modal, tea.Cmd) {
 }
 
 // updateKey routes one key: an in-flight start leg freezes the wizard
-// (Esc alone still closes it, as the retired forms did); the tx and
-// param steps own their editors; Enter advances through the step's
-// validation and Esc backs one step (closing on step 1).
+// (Esc alone still closes); the tx and param steps own their editors;
+// Enter advances through validation and Esc backs one step.
 func (w *WorkerWizard) updateKey(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	if w.state.InFlight {
 		if key.Matches(msg, w.nav.Cancel) {
@@ -49,16 +45,14 @@ func (w *WorkerWizard) updateKey(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 }
 
 // updateTxStep edits step 1: an open "/" filter owns the printables
-// (the SCR-502 lesson — j and k included go into the filter); with the
-// filter closed the cursor moves (auto-scrolling the 5-row window),
-// space toggles a stress row, "/" opens the filter, [f] browses, and
-// Enter commits the selection into step 2.
+// (j and k included go into the filter); with the filter closed the
+// cursor moves (auto-scrolling the 5-row window), space toggles a stress
+// row, "/" opens the filter, [f] browses, and Enter commits the selection.
 func (w *WorkerWizard) updateTxStep(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	if w.filtering {
 		switch {
 		case key.Matches(msg, w.nav.Cancel):
-			// Esc closes the filter first (back's contract); the
-			// second press walks the wizard.
+			// Esc closes the filter first; the next press walks back.
 			return w.back()
 		case key.Matches(msg, w.nav.Enter):
 			return w.commitTx()
@@ -96,10 +90,8 @@ func (w *WorkerWizard) updateTxStep(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	case key.Matches(msg, w.nav.Filter):
 		w.filtering = true
 	case key.Matches(msg, w.nav.Browse):
-		// [f] in NAVIGATE mode opens the root-owned file picker; the
-		// edit-mode branch above already consumed any f into the draft
-		// (the two-mode gate, Task 5.2: filtering IS Editing() here,
-		// the §G server-form pattern made uniform).
+		// [f] in navigate mode opens the root-owned file picker; the
+		// edit-mode branch above already consumed any f into the draft.
 		return w, emitMsg(WorkerWizardBrowseMsg{})
 	}
 
@@ -107,11 +99,10 @@ func (w *WorkerWizard) updateTxStep(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 }
 
 // updateParams edits step 2: up/down move the row focus (code-only, so
-// j/k stay typeable into duration values), printables extend the
-// focused value, backspace trims it, and Enter advances only when the
-// whole field set resolves. The row is two-mode (UAT round 8 / D3):
-// typing enters edit mode, and esc there leaves the row first (focus and
-// value kept) before any later esc backs the step.
+// j/k stay typeable into duration values), printables extend the focused
+// value, and Enter advances only when the whole field set resolves.
+// Two-mode: typing enters edit mode; esc there leaves the row first
+// (focus and value kept) before any later esc backs the step.
 func (w *WorkerWizard) updateParams(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	keys := w.paramKeys()
 	if w.editing && key.Matches(msg, w.nav.Cancel) {
@@ -209,8 +200,8 @@ func (w *WorkerWizard) commitTx() (Modal, tea.Cmd) {
 	return w, nil
 }
 
-// back steps one wizard step back (clearing the filter first when one
-// is open, like the send wizard's); on the first step it closes.
+// back steps one wizard step back, clearing an open filter first; on the
+// first step it closes.
 func (w *WorkerWizard) back() (Modal, tea.Cmd) {
 	if w.filtering || w.draft != "" {
 		w.filtering = false
@@ -246,12 +237,10 @@ func (w *WorkerWizard) setStep(n int) {
 	}
 }
 
-// BackToStep lands on an EARLIER rail step for a rail click (UAT round 8
-// Task 8.5): the same setStep the wizard's own Esc walk uses, so the
-// arrival clears the step-local error lines and the row edit mode. A
-// forward or current index changes nothing — forward transitions are the
-// step's Enter leg with its resolveRun validation, and a rail click must
-// not bypass them.
+// BackToStep lands on an EARLIER rail step for a rail click, using the
+// same setStep walk as Esc. A forward or current index changes nothing:
+// forward transitions are the step's Enter leg with its validation, and
+// a rail click must not bypass them.
 func (w *WorkerWizard) BackToStep(n int) {
 	if n < 0 || n >= w.step {
 		return

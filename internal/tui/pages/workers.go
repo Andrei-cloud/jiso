@@ -1,15 +1,7 @@
-// workers.go is the §H workers & stress page (SCR-508): the worker
-// table (wireframe columns ID TYPE TRANSACTION STATUS THR INTERVAL/TPS
-// RUNTIME OK/FAIL CIRCUIT), the TPS sparkline strip, one eighth-block
-// progress row per active worker (the superfile Processes pattern,
-// reusing the progress Bar), and the stress summary overlay. It is a
-// reference type kept canonical in the router registry, so the table
-// cursor survives page jumps. All data arrives via SetState from root —
-// the page never touches internal/app and never reads the clock (the
-// SCR-501 data-flow contract). Bus events drive every row change root-
-// side; the page ignores EventMsg values entirely. The start forms and
-// the stop-all confirm are root-owned modals (the §E/§G dialog
-// machinery), never part of the page stack.
+// workers.go is the §H workers & stress page: worker table, TPS
+// sparkline, per-worker progress rows, and the stress-summary overlay.
+// Data arrives only via SetState from root; the page ignores EventMsg
+// values and never reads the clock.
 package pages
 
 import (
@@ -30,29 +22,23 @@ type Workers struct {
 	table *widgets.Table
 	nav   workersNav
 
-	// summaryOpen tracks the overlay per summary identity: a newly
-	// pushed Summary re-arms the overlay, Esc closes it (the route
-	// detail pattern — the overlay owns Esc first).
+	// A newly pushed Summary re-arms the overlay; Esc closes it first.
 	summaryOpen    bool
 	summaryShownID string
 
 	width, height int // last tea.WindowSizeMsg (terminal, not content area)
 
-	// tableRect is the DRAWN workers table box (content-relative,
-	// measured from the rendered string like every sectionRect) recorded
-	// during the last render; the zero value means the table was not on
-	// screen (the stress-summary overlay owns the body). It is the
-	// geometry the wheel hit map registers under RegionWorkersTable.
+	// tableRect is the drawn workers table box (content-relative),
+	// recorded during the last render; the zero value means the table
+	// was not on screen. It is the rect the wheel hit map registers.
 	tableRect geom.Rect
 
-	// selRows are the DRAWN worker-row rects (content-relative) recorded
-	// during the last render for the Task 8.3 click-select seam, under
-	// RegionWorkersTable (wheel over a row still scrolls the pane).
+	// selRows are the drawn worker-row rects (content-relative) from the
+	// last render; a wheel over a row still scrolls the pane.
 	selRows []SelectRegion
 }
 
-// §H owns one wheel-scrollable, click-selectable region (the workers
-// table) and implements the Task 8.2c/8.3 seams.
+// §H owns one wheel-scrollable, click-selectable region (the workers table).
 var (
 	_ Scroller = (*Workers)(nil)
 	_ Selector = (*Workers)(nil)
@@ -108,8 +94,7 @@ func NewWorkers(th *theme.Theme) *Workers {
 	return w
 }
 
-// ID reports the router id of this page (WorkersPageID — the wire-compat
-// slot name "stress", kept for hotkey 4 and the palette ":stress" jump).
+// ID reports the router id of this page.
 func (w *Workers) ID() string { return WorkersPageID }
 
 // Theme exposes the resolved theme (view helpers and tests).
@@ -121,9 +106,8 @@ func (w *Workers) Size() (width, height int) { return w.width, w.height }
 // SummaryOpen reports the stress-summary overlay state (tests).
 func (w *Workers) SummaryOpen() bool { return w.summaryOpen }
 
-// ScrollRegions publishes the table's drawn rect: the region exists
-// exactly while the table is on screen, so the stress-summary overlay
-// publishes nothing and the wheel over it stays inert.
+// ScrollRegions publishes the table's drawn rect; while the stress-summary
+// overlay owns the body it publishes nothing and the wheel stays inert.
 func (w *Workers) ScrollRegions() []ScrollRegion {
 	if w.tableRect.W <= 0 || w.tableRect.H <= 0 {
 		return nil
@@ -132,12 +116,9 @@ func (w *Workers) ScrollRegions() []ScrollRegion {
 	return []ScrollRegion{{ID: RegionWorkersTable, Rect: w.tableRect}}
 }
 
-// ScrollRegion drives the SAME row window the pgup/pgdn keys move (via
-// the table's cursor-dragging navigation and its own wheel window): the
-// wheel's content-direction delta (d>0 = down) passes straight into
-// Table.ScrollBy, which clamps at both ends. The window is sized to the
-// real pane budget (content minus the head, TPS strip, and PROGRESS
-// rows) on every render, so it cannot go stale.
+// ScrollRegion drives the same row window the pgup/pgdn keys move;
+// Table.ScrollBy clamps at both ends, and the window is resized to the
+// real pane budget on every render so it cannot go stale.
 func (w *Workers) ScrollRegion(id string, d int) bool {
 	if id != RegionWorkersTable || w.tableRect.W <= 0 {
 		return false
@@ -147,13 +128,12 @@ func (w *Workers) ScrollRegion(id string, d int) bool {
 	return true
 }
 
-// SelectRegions publishes the table's drawn row rects (Task 8.3): one
-// per visible row under RegionWorkersTable, recorded by the last render.
+// SelectRegions publishes the table's drawn row rects, one per visible
+// row, recorded by the last render.
 func (w *Workers) SelectRegions() []SelectRegion { return w.selRows }
 
 // SelectRegion moves the table cursor to the clicked row (clamped like
-// the keyboard nav; SetState re-places by index, which the click has
-// already moved).
+// the keyboard nav).
 func (w *Workers) SelectRegion(id string, index int) bool {
 	if id != RegionWorkersTable || index < 0 || index >= len(w.state.Workers) {
 		return false
@@ -168,10 +148,8 @@ func (w *Workers) SelectRegion(id string, index int) bool {
 func (w *Workers) Cursor() int { return w.table.Cursor() }
 
 // OpenSummary re-arms the stress-summary overlay for the summary the
-// page already carries (proposal 05 §3: the §A LAST STRESS card's
-// "Stress summary" quick action reopens the existing §H overlay for the
-// same worker id — the same state the WorkerStopped fold stamped, no
-// second summary implementation).
+// page already carries (the §A LAST STRESS card reopens the same overlay
+// for the same worker id, no second summary implementation).
 func (w *Workers) OpenSummary() {
 	if w.state.Summary != nil {
 		w.summaryOpen = true
@@ -190,10 +168,9 @@ func (w *Workers) SelectedID() string {
 	return w.state.Workers[i].ID
 }
 
-// SetState replaces the rendered snapshot (root pushes it on boot, on
-// every bus event, and on every runtime tick). The table is recomposed
-// over the new rows and the cursor clamped; a Summary whose WorkerID
-// differs from the last shown one re-arms the overlay.
+// SetState replaces the rendered snapshot; the table is recomposed over
+// the new rows and the cursor clamped. A Summary with a new WorkerID
+// re-arms the overlay.
 func (w *Workers) SetState(state WorkersState) {
 	prev := w.table.Cursor()
 	w.state = state
@@ -222,8 +199,7 @@ func (w *Workers) SetState(state WorkersState) {
 }
 
 // Update routes sizes, keys, and the overlay close; bus events are
-// root-side truth and are ignored with a nil command (root folds them
-// into the next SetState).
+// root-side truth and are ignored here.
 func (w *Workers) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:

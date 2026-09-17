@@ -21,8 +21,8 @@ func dashIf(th *theme.Theme, s string) string {
 	return Dash
 }
 
-// DashboardPageID is the router slot name of the dashboard (wireframe §A):
-// hotkey 1, footer label "dash".
+// DashboardPageID is the router slot name of the dashboard: hotkey 1,
+// footer label "dash".
 const DashboardPageID = "dashboard"
 
 // Dash is the unknown-value marker (design contract: unknown fields render
@@ -90,10 +90,9 @@ type ConnectionCard struct {
 	Retries *int
 }
 
-// SessionCard is the §A session snapshot (proposal 05 §3). The counters
-// come from the async App.SessionStats read folded root-side; Known is
-// false until the first successful snapshot, and every unknown number
-// renders as the dash (never a zero-value lie).
+// SessionCard is the §A session snapshot: the counters come from the
+// async App.SessionStats read folded root-side; Known is false until the
+// first snapshot and every unknown number renders as the dash.
 type SessionCard struct {
 	ID     string
 	TxSent int
@@ -107,10 +106,9 @@ type SessionCard struct {
 }
 
 // LastSendCard is the §A LAST SEND snapshot: the completed §D exchange
-// pre-derived root-side (Time is the injectable-clock stamp formatted at
-// completion; the MTIs are the field-0 cells of the exchange rows). The
-// pointer is nil until a send has run, which also gates the "View last
-// send" quick-action row (UAT).
+// pre-derived root-side (Time is the clock stamp formatted at completion;
+// the MTIs are the field-0 cells of the exchange rows). The pointer is nil
+// until a send has run, which also gates the "View last send" row.
 type LastSendCard struct {
 	Time    string // "15:04:05" completion time, root-stamped
 	TxName  string
@@ -131,7 +129,7 @@ type LastSendCard struct {
 type LastStressCard struct {
 	Time string // "15:04:05" completion time, root-stamped
 	ID   string
-	// Done is the wireframe's ✓: true for a clean "done" stop.
+	// Done is true for a clean "done" stop.
 	Done    bool
 	OkPct   string // "100.0%"
 	Workers string // "1 worker" / "4 workers"
@@ -139,10 +137,9 @@ type LastStressCard struct {
 	P99     string // "0.3ms"
 }
 
-// ServerCard is the §A MOCK SERVER card snapshot (proposal 05 §3): the
-// running truth plus the frozen-or-live §G stats, all root-derived.
-// StatsKnown is false before the first snapshot; the card then renders
-// the wireframe's dash placeholders.
+// ServerCard is the §A MOCK SERVER card snapshot: the running truth plus
+// the §G stats, all root-derived. StatsKnown is false before the first
+// snapshot; the card then renders dash placeholders.
 type ServerCard struct {
 	Running    bool
 	Port       string
@@ -153,8 +150,8 @@ type ServerCard struct {
 }
 
 // DashboardState is the immutable snapshot root pushes into the dashboard
-// (root owns the App access; M5 screens follow the same pattern). Actions
-// is the palette action registry the quick-actions list renders.
+// (root owns the App access). Actions is the palette action registry the
+// quick-actions list renders.
 type DashboardState struct {
 	Conn       ConnectionCard
 	Server     ServerCard
@@ -162,16 +159,14 @@ type DashboardState struct {
 	LastSend   *LastSendCard
 	LastStress *LastStressCard
 	// ServerLog is the root-stamped raw mock-server ring copy (oldest
-	// first); the SERVER LOG card compacts it with CompactServerLog and
-	// renders the tail, newest at the bottom (proposal 05 §3).
+	// first); the SERVER LOG card compacts it and renders the tail.
 	ServerLog []string
 	Actions   []palette.Action
 
-	// HasConnection marks a live connection (TUI-514): root derives it
-	// from the latest ConnectionEvent / app snapshot and stamps it here;
-	// the page never touches internal/app. It gates the quick-actions
-	// visibility of the disconnect row (the key itself stays bound —
-	// pressing it without a connection is a root-side sane no-op).
+	// HasConnection marks a live connection: root derives it from the
+	// latest ConnectionEvent / app snapshot; the page never touches
+	// internal/app. It gates the disconnect row's visibility — the key
+	// itself stays bound (a root-side sane no-op without a connection).
 	HasConnection bool
 }
 

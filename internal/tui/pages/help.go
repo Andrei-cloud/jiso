@@ -8,18 +8,15 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// §M help-overlay group titles (wireframe §M: navigation / page actions;
-// the router adds the "global" group from its own keymap).
+// §M help-overlay group titles; the router adds its own "global" group.
 const (
 	HelpGroupNavigation = "navigation"
 	HelpGroupActions    = "page actions"
 )
 
-// HelpEntry is one §M help-overlay line: which group it belongs to, the
-// display key string, and the action note. Pages build their entries inside
-// the nav constructor from the SAME key.Bindings the page matches on, so
-// the overlay can never advertise a key that does not exist (drift pin:
-// help_test.go reflects every nav struct's bindings against these entries).
+// HelpEntry is one §M help-overlay line. Pages build their entries in the
+// nav constructor from the SAME key.Bindings the page matches on, so the
+// overlay can never advertise a key that does not exist.
 type HelpEntry struct {
 	Group string
 	Keys  string
@@ -34,9 +31,8 @@ type HelpProvider interface {
 }
 
 // tableNavHelp derives the navigation group from the shared widgets
-// List/Table bindings (single registered source). shadowed key strings —
-// keys a page claims for its own actions (workers' k) — are dropped from
-// the display so the overlay never lists a dead navigation key.
+// List/Table bindings. Shadowed keys (keys a page claims for its own
+// actions) are dropped so the overlay never lists a dead navigation key.
 func tableNavHelp(shadowed ...string) []HelpEntry {
 	out := make([]HelpEntry, 0, 6)
 	for _, l := range widgets.NavHelp() {
@@ -96,56 +92,54 @@ func actEntry(note string, binds ...key.Binding) HelpEntry {
 }
 
 // HelpEntries implements HelpProvider for every real screen: each list is
-// built inside the page's nav constructor from the very bindings the page
-// matches on (drift pin: help_test.go). Settings builds its nav per key
-// press (nav()), so its entries come from the same fresh constructor.
+// built in the page's nav constructor from the very bindings the page
+// matches on (drift pin).
 
-// HelpEntries is the §M legend for the §A grid: page hotkeys, drill-downs and the connection verbs, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §A grid: page hotkeys, drill-downs
+// and the connection verbs.
 func (d *Dashboard) HelpEntries() []HelpEntry { return d.nav.help }
 
-// HelpEntries is the §M legend for the transaction list: selecting, sending and the dataset picker, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the transaction list: selecting,
+// sending and the dataset picker.
 func (t *Transactions) HelpEntries() []HelpEntry { return t.nav.help }
 
-// HelpEntries is the §M legend for the §C reconstructed-message view and its pane focus, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §C reconstructed-message view and
+// its pane focus.
 func (i *Inspector) HelpEntries() []HelpEntry { return i.nav.help }
 
-// HelpEntries is the §M legend for the §D send exchange and its field editor, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §D send exchange and its field
+// editor.
 func (s *Send) HelpEntries() []HelpEntry { return s.nav.help }
 
-// HelpEntries is the §M legend for the scenario list: choose, run, and inspect a step, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the scenario list: choose, run, and
+// inspect a step.
 func (s *Scenarios) HelpEntries() []HelpEntry { return s.nav.help }
 
-// HelpEntries is the §M legend for the §F embedded mock server: start, stop and the stats keys, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §F embedded mock server: start,
+// stop and the stats keys.
 func (s *Server) HelpEntries() []HelpEntry { return s.nav.help }
 
-// HelpEntries is the §M legend for the §K worker list: start, stop and open a worker's result, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §K worker list: start, stop and
+// open a worker's result.
 func (w *Workers) HelpEntries() []HelpEntry { return w.nav.help }
 
-// HelpEntries is the §M legend for the §I session browser: list, drill in, and the pane toggle, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §I session browser: list, drill in,
+// and the pane toggle.
 func (s *Sessions) HelpEntries() []HelpEntry { return s.nav.help }
 
-// HelpEntries is the §M legend for the §H analyze wizard: its step keys and the run controls, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the §H analyze wizard: its step keys
+// and the run controls.
 func (a *Analyze) HelpEntries() []HelpEntry { return a.nav.help }
 
-// HelpEntries is the §M legend for the CTF export page: pick a session, choose the records, write the file, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the CTF export page: pick a session,
+// choose the records, write the file.
 func (c *Ctf) HelpEntries() []HelpEntry { return c.nav.help }
 
-// HelpEntries is the §M legend for the settings grid. Settings is the one page
-// that builds its nav on every key press rather than once at startup, so its
-// legend comes from the same fresh constructor as the keys it lists -- which is
-// what keeps the two from drifting apart.
+// HelpEntries is the §M legend for the settings grid. Settings builds its
+// nav on every key press, so its legend comes from the same fresh
+// constructor as the keys it lists.
 func (s *Settings) HelpEntries() []HelpEntry { return s.nav().help }
 
-// HelpEntries is the §M legend for the connect form: field navigation, the dial/listen choice and the header step, built in the page's nav constructor from the same bindings the page matches
-// on, so §M cannot advertise a key the page has stopped handling.
+// HelpEntries is the §M legend for the connect form: field navigation,
+// the dial/listen choice and the header step.
 func (d *ConnectDialog) HelpEntries() []HelpEntry { return d.nav.help }

@@ -1,14 +1,9 @@
-// workers_view.go renders the §H body (wireframe §H): the WORKERS table
-// (ID TYPE TRANSACTION STATUS THR INTERVAL/TPS RUNTIME OK/FAIL
-// CIRCUIT — the Table truncates, never wraps), the TPS sparkline strip
-// ("TPS w-2 ▁▂▃▅▆▇█ inst 118.4 · avg 96.2" plus the derived net line),
-// and one progress Bar row per active worker (eighth-block fill, ascii
-// # — the progress package's own degradation ladder sizes each row). At
-// ≥ frame.FullWidth the TPS strip is its own line; below it the strip
-// folds into the status line under the title (the wireframe's 80×24
-// fallback). The stress summary overlay replaces the whole body while
-// open (percentiles + RC breakdown + histogram sections). Everything is
-// pre-derived display data; the only math here is bar sizing.
+// workers_view.go renders the §H body: the WORKERS table (the Table
+// truncates, never wraps), the TPS sparkline strip (its own line at
+// ≥ frame.FullWidth, folded into the status line below), and one
+// progress Bar row per active worker. The stress-summary overlay
+// replaces the whole body while open. Everything is pre-derived display
+// data; the only math here is bar sizing.
 package pages
 
 import (
@@ -37,14 +32,9 @@ const (
 	summaryBarMax = 24
 )
 
-// workersEmptyHint names the next actions (wireframe empty state) with
-// the b/t key glyphs pre-rendered in the HotKey style (UAT round 4:
-// inline hotkeys must read as hotkeys, matching the footer's accented
-// keys). The escape-stripped text is exactly "no workers - b
-// background-send · t stress test" ("|" separator in ascii mode, keeping
-// ascii goldens 7-bit). The Table re-renders the whole message in
-// TextMuted; lipgloss v2 splices the outer style around pre-styled
-// segments, so the glyphs keep their bold-accent.
+// workersEmptyHint names the next actions with the b/t key glyphs
+// pre-rendered in the HotKey style. The Table re-renders the message in
+// TextMuted; the outer style keeps the glyphs' bold-accent.
 func workersEmptyHint(th *theme.Theme) string {
 	sep := th.Separator()
 
@@ -62,14 +52,12 @@ func workersColumns() []widgets.Column {
 		{Title: "TYPE", Width: 10},
 		{Title: colTransaction, Width: 13, Flex: true},
 		{Title: colStatus, Width: 17}, // ascii "[x] circuit-broke"
-		// Counts of different digit counts, so they are laid out on their units.
 		{Title: "THR", Width: 3, AlignRight: true},
 		{Title: "INTERVAL/TPS", Width: 12},
 		{Title: "RUNTIME", Width: 9},
 		{Title: "OK/FAIL", Width: 10, AlignRight: true},
-		// An empty circuit cell means the breaker has nothing to report; the cell
-		// takes the same dash every other no-value cell in this table takes, so a
-		// quiet column does not read as a table that failed to fill in.
+		// Empty circuit cells take the same dash every no-value cell in
+		// this table takes, so a quiet column reads as empty, not broken.
 		{Title: "CIRCUIT", Width: 15},
 	}
 }
@@ -81,15 +69,12 @@ func (w *Workers) View() tea.View {
 	return tea.NewView(w.render(wt, h))
 }
 
-// render lays out title + status line + table + TPS strip + progress rows
-// (or the summary overlay), clipped to exactly h lines of at most wt-2 cells:
-// every block gets the same width budget, so nothing draws wider than the
-// table it is aligned under.
+// render lays out title + status line + table + TPS strip + progress
+// rows (or the summary overlay), clipped to exactly h lines of at most
+// wt-2 cells.
 func (w *Workers) render(wt, h int) string {
-	// inner is the single width budget every block on this page shares. The
-	// table used to size itself at wt-2 while the status line, the TPS strip and
-	// the PROGRESS rows clipped to the full content width, so a progress row
-	// could run a cell past the right edge of the table it sits under.
+	// inner is the single width budget every block on this page shares,
+	// so nothing draws past the table's right edge.
 	inner := max(wt-2, 4)
 	w.tableRect = geom.Rect{} // the table re-publishes below, or not at all
 	w.selRows = w.selRows[:0] // and so do its click rows
@@ -104,10 +89,8 @@ func (w *Workers) render(wt, h int) string {
 	}
 
 	// The TPS strip and PROGRESS rows are pure functions of the state,
-	// so they are measured BEFORE the table: whatever vertical budget the
-	// head, the strip, and the progress rows leave is the table's real
-	// pane (Task 8.2c: the wheel window fills the pane instead of the
-	// table drawing unbounded and being clipped mid-row).
+	// so they are measured BEFORE the table: whatever budget remains is
+	// the table's real pane for the wheel window.
 	strip := w.tpsStrip(inner)
 	rows := w.progressBlock(inner)
 	paneH := max(h-(strings.Count(head, "\n")+1)-strHeight(strip)-strHeight(rows), tableGridChrome+1)
@@ -115,13 +98,11 @@ func (w *Workers) render(wt, h int) string {
 	w.table.SetWidth(inner)
 	w.table.SetHeight(max(paneH-tableGridChrome, 1))
 	body := w.table.View()
-	// Publish the DRAWN table box for the wheel hit map (Task 8.2c):
-	// measured from the composed string like every recorded section rect.
+	// Publish the drawn table box for the wheel hit map.
 	headH := strings.Count(head, "\n") + 1
 	w.tableRect = sectionRect(0, headH, body)
-	// And the drawn rows for the click hit map (Task 8.3): the table
-	// body starts under the head lines, so the widget's row rects shift
-	// down by the head height into content coords.
+	// And the drawn rows for the click hit map: the widget's row rects
+	// shift down by the head height into content coords.
 	w.selRows = selectRows(w.selRows, RegionWorkersTable, w.table.RowHits(), 0, headH)
 
 	if strip != "" {
@@ -134,9 +115,8 @@ func (w *Workers) render(wt, h int) string {
 	return clipBlockStyled(w.th, head+"\n"+body, h, inner)
 }
 
-// strHeight is the drawn line count of an optional body block: an empty
-// block draws nothing here (lipgloss.Height("") would count one phantom
-// line and steal a table row from the pane budget).
+// strHeight is the drawn line count of an optional body block; empty
+// draws nothing (lipgloss.Height("") would count a phantom line).
 func strHeight(s string) int {
 	if s == "" {
 		return 0
@@ -147,7 +127,7 @@ func strHeight(s string) int {
 
 // statusLine is the root-stamped action line (no-op notices, stop
 // errors), plus the TPS strip folded in when the width has no room for
-// its own line (the wireframe's "table only, TPS in status line").
+// its own line.
 func (w *Workers) statusLine(wt int) string {
 	parts := make([]string, 0, 2)
 	if w.state.StatusLine != "" {
@@ -204,9 +184,8 @@ func (w *Workers) tpsText() string {
 }
 
 // progressBlock renders the PROGRESS section: one Bar row per active
-// worker (superfile Processes pattern). Unknown totals (Pct < 0) render
-// the degraded count line — never a spinner, which would need a clock
-// the page does not own.
+// worker. Unknown totals (Pct < 0) render the degraded count line —
+// never a spinner, which would need a clock the page does not own.
 func (w *Workers) progressBlock(wt int) string {
 	if len(w.state.Progress) == 0 {
 		return ""
@@ -239,12 +218,9 @@ func (w *Workers) progressLine(p ProgressRow, width int) string {
 	return bar.View(width)
 }
 
-// summaryBody renders the stress-summary overlay (UAT round 4: as
-// informative as the legacy CLI table, in the page's boxed
-// vocabulary): a title with worker id + status + success ratio, the
-// RUN plan, LATENCY MS (percentiles + budget), RESPONSE CODES beside
-// HISTOGRAM at wide widths, the PER TRANSACTION breakdown, and the
-// esc affordance. Every value is a root-derived display string.
+// summaryBody renders the stress-summary overlay: title, RUN plan,
+// LATENCY MS, RESPONSE CODES beside HISTOGRAM at wide widths, PER
+// TRANSACTION, and the esc affordance. Every value is root-derived.
 func (w *Workers) summaryBody(wt int) string {
 	s := w.state.Summary
 	var b strings.Builder
@@ -315,11 +291,8 @@ func summarySep(th *theme.Theme) string {
 }
 
 // summaryBox draws one titled rounded box around pre-styled body lines
-// (the server page's sectionW idiom; body lines are clipped to the box
-// interior). The frame comes from the shared widgets.Border accessor:
-// the summary boxes vary in height with their pre-styled bodies, so
-// they compose the one shared border with their own Width maths rather
-// than a fixed-size Section.
+// clipped to the box interior. Boxes vary in height with their bodies,
+// so they compose the shared border with their own Width maths.
 func (w *Workers) summaryBox(title, body string, wt int) string {
 	box := widgets.Border(w.th, false).
 		Width(max(wt-2, 1)).
