@@ -6,7 +6,7 @@ import (
 	app "jiso/internal/app"
 )
 
-// TestSilenceServiceDebug pins the UAT fix: the TUI session must run
+// TestSilenceServiceDebug pins: the TUI session must run
 // with the service debug side channel off, because its stderr hex
 // dumps corrupt the alt-screen frames (§D panes rendered raw dumps).
 func TestSilenceServiceDebug(t *testing.T) {

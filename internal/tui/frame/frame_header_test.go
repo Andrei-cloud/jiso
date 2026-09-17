@@ -7,7 +7,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// TestHeaderChip pins the UAT fix: a configured header framing renders
+// TestHeaderChip pins: a configured header framing renders
 // as an "hdr <type>" chip right after the connection chip.
 func TestHeaderChip(t *testing.T) {
 	t.Parallel()

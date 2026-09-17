@@ -375,7 +375,7 @@ func TestPersistWorker(t *testing.T) {
 // TestStateDirResolution pins the persistent-state contract: JISO_STATE_DIR
 // wins verbatim, then XDG_STATE_HOME/jiso, then $HOME/.local/state/jiso —
 // never os.TempDir, which the OS reclaims and silently reset the STAN
-// counter between runs (UAT round 3).
+// counter between runs.
 func TestStateDirResolution(t *testing.T) {
 	t.Run("JISO_STATE_DIR wins verbatim", func(t *testing.T) {
 		want := filepath.Join(t.TempDir(), "hermetic")

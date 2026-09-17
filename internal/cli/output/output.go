@@ -1,6 +1,6 @@
 // Package output provides the v2 CLI output renderer.
 //
-// Contract (ansi.md-derived): stdout carries command output only. Under
+// Contract: stdout carries command output only. Under
 // --json stdout is pure parseable JSON with zero decoration (no colors, no
 // table chars, no trailing prose); notices are suppressed under --quiet and
 // --json; --dry-run is surfaced to commands as a resolved boolean so

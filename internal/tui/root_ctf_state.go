@@ -1,4 +1,4 @@
-// root_ctf_state.go derives the §K CtfState snapshot (the SCR-501
+// root_ctf_state.go derives the §K CtfState snapshot (the
 // data-flow contract): the page receives display data only — list rows
 // with root-derived short ids, relative times, and approved cells; the
 // SUMMARY line with root-formatted money; the preview overlay content;
@@ -14,7 +14,7 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// syncCtf prefills the form defaults once (the wireframe §K values:
+// syncCtf prefills the form defaults once (the §K values:
 // CIB 400129, batch 1, output ./out/CTF_001.dat — "last used" lives in
 // root state, the page only renders it) and pushes the snapshot.
 func (m *RootModel) syncCtf() {
@@ -72,7 +72,7 @@ func (m *RootModel) ctfDBPath() string {
 	return src.DBPath()
 }
 
-// ctfSummaryLine is the wireframe SUMMARY line: "148 tx · $ 12,450.00
+// ctfSummaryLine is the SUMMARY line: "148 tx · $ 12,450.00
 // total · header/trailer dates auto" from the last preview (the dates
 // are base2's, root renders the fixed tail).
 func (m *RootModel) ctfSummaryLine() string {

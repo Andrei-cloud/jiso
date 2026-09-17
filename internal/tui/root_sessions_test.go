@@ -1,4 +1,4 @@
-// root_sessions_test.go proves the SCR-509 root contract with a fake
+// root_sessions_test.go proves the root contract with a fake
 // façade (no real DB above the seam): entry onto §I arms the session-
 // list query off the UI thread and folds the result into the page, the
 // queries never run for other pages, `r` re-queries, a WorkerStopped
@@ -95,7 +95,7 @@ func (f *fakeSessions) ReviewTx(_ context.Context, txID int64) (*app.DbTransacti
 	return f.review, nil
 }
 
-// fakeSessionsFixture is the wireframe §I data in façade shapes.
+// fakeSessionsFixture is the §I data in façade shapes.
 func fakeSessionsFixture() *fakeSessions {
 	ts := func(h, m int) time.Time { return time.Date(2026, 9, 9, h, m, 0, 0, time.UTC) }
 

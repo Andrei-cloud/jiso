@@ -16,7 +16,7 @@ import (
 // reference type: the router keeps one canonical instance in its
 // registry, so tab/cursor/tree state survives page jumps. All app data
 // arrives via SetState from the root model — the page never touches
-// internal/app and never reads the clock (the SCR-501 contract).
+// internal/app and never reads the clock (the contract).
 //
 // The page owns only page-local interaction state: the tab cycle index
 // (unknown tabs are impossible), the tree cursor/scroll, the expand set
@@ -39,7 +39,7 @@ type Inspector struct {
 
 	// sections records the geom.Rect of every widgets.Section this
 	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
+	// content-relative origin (the hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
 }
@@ -80,7 +80,7 @@ func newInspNav() inspNav {
 	return nav
 }
 
-// NewInspector builds the page. A nil theme selects theme.Default()
+// NewInspector builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewInspector(th *theme.Theme) *Inspector {
 	if th == nil {

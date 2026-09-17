@@ -1,4 +1,4 @@
-// settings_test.go pins the §L page contract (SCR-512): the grid
+// settings_test.go pins the §L page contract: the grid
 // renders root-pushed rows; Enter opens the focused field as a text
 // input (printable/backspace edit, Enter commits, Esc reverts the
 // field); a committed-but-rejected draft stays visible beside its
@@ -16,7 +16,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// settingsFixtureState is the wireframe §L data in root-pushed shape
+// settingsFixtureState is the §L data in root-pushed shape
 // (fixed display strings; no clock, no terminal paths).
 func settingsFixtureState(th *theme.Theme) SettingsState {
 	return SettingsState{

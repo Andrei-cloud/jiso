@@ -41,7 +41,7 @@ type toastEntry struct {
 	at   time.Time
 }
 
-// Toast is the shared transient status line (TUI-406b): Push appends
+// Toast is the shared transient status line: Push appends
 // (stack capped at MaxToastStack, oldest dropped), Prune removes
 // entries at least ttl older than the now the OWNER passes — the
 // widget owns no clock, the root's tick supplies it. View renders the

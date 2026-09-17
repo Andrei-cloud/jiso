@@ -31,7 +31,7 @@ const (
 // never a negative or oversized fill.
 //
 // Eighths opts into sub-cell fill precision (▂▌▉ partial blocks after the
-// full ones, the wireframe §H per-worker rows); it is an opt-in so every
+// full ones, the §H per-worker rows); it is an opt-in so every
 // pre-existing caller keeps the full-block form, and it degrades to the
 // plain "#"/"." ascii fill under theme.ASCII (7-bit goldens stay 7-bit).
 type Bar struct {

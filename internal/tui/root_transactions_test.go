@@ -50,7 +50,7 @@ func newTxFileApp(t *testing.T) *app.App {
 }
 
 // TestRootTxSlotWired: slot 2 of a nil-app root is the real transactions
-// page and hotkey 2 lands on it (wireframe slot 2, footer label "tx").
+// page and hotkey 2 lands on it (slot 2, footer label "tx").
 func TestRootTxSlotWired(t *testing.T) {
 	m := NewRootModel(nil)
 	if _, ok := m.registry[1].(*pages.Transactions); !ok {
@@ -116,8 +116,8 @@ func TestTransactionsFOpenPickerOSort(t *testing.T) {
 }
 
 // TestRootTxRowMsgsAreNoOps: s/f (send/picker) and the §C compose msg
-// reach root, change nothing, and run no command (SCR-504/picker land
-// later). Enter (TxDetailMsg) is wired since SCR-503 and lives in
+// reach root, change nothing, and run no command (the picker land
+// later). Enter (TxDetailMsg) is wired and lives in
 // root_inspector_test.go.
 func TestRootTxRowMsgsAreNoOps(t *testing.T) {
 	m := NewRootModel(nil)

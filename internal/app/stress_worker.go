@@ -71,7 +71,7 @@ type stressWorker struct {
 // and finishes. numWorkers concurrent senders execute the selected
 // transactions asynchronously. It returns the worker ID.
 //
-// Events on App.Events(): WorkerStarted{ID, "stress"} at launch,
+// Events on App.Events: WorkerStarted{ID, "stress"} at launch,
 // throttled WorkerProgress per completion batch (see progressInterval),
 // and a final WorkerStopped with reason "done", StatusStopped, or
 // "failed: N consecutive failures" (circuit breaker).

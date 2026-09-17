@@ -1,5 +1,5 @@
-// workers_test.go covers the §H page contract (SCR-508): empty state
-// names the next action, the wireframe columns render, every status is
+// workers_test.go covers the §H page contract: empty state
+// names the next action, the columns render, every status is
 // symbol+word (circuit-broke included, never color alone), `k`/`K`
 // dispatch the typed messages with the selected id, the summary overlay
 // owns Esc first and hands it back, and narrow widths truncate without
@@ -16,7 +16,7 @@ import (
 	"jiso/internal/tui/frame"
 )
 
-// workersFixtureState is the wireframe §H sample table (fixed display
+// workersFixtureState is the §H sample table (fixed display
 // strings — the page renders them verbatim).
 func workersFixtureState() WorkersState {
 	return WorkersState{

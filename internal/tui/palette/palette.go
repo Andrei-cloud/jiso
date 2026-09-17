@@ -105,7 +105,7 @@ func (m *Model) Cursor() int { return m.list.Cursor() }
 
 // SelectedActionID reports the ID of the list's current selection, or
 // false when nothing is selected. Read-only accessor for the router's
-// lifecycle log (TUI-409): it names the executed action on submit without
+// lifecycle log: it names the executed action on submit without
 // reaching into the widget's internals.
 func (m *Model) SelectedActionID() (string, bool) {
 	item, ok := m.list.Selected()

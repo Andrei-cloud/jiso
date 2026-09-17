@@ -1,5 +1,5 @@
 // ctfview_test.go covers the §K façade against a fixture DB built in
-// t.TempDir() with the db package (the goldentest buildFixtureDB
+// t.TempDir with the db package (the goldentest buildFixtureDB
 // shape): one Visa-headered session with two approved + one declined
 // transaction and one non-Visa session. It pins the eligibility filter
 // (`ctf list` rows + approved counts), the dry preview (counts, totals,

@@ -214,7 +214,7 @@ func TestRootWizardSpecStepOpensOnCurrent(t *testing.T) {
 	}
 }
 
-// TestRootDirectSendStaysOnDashboard: UAT round 5 — DirectSendMsg with
+// TestRootDirectSendStaysOnDashboard: DirectSendMsg with
 // a live connection and a loaded spec + tx file sends immediately and
 // keeps the operator on the dashboard (the LAST SEND tile carries the
 // outcome); no wizard opens and the template is recorded for the next
@@ -255,7 +255,7 @@ func TestRootDirectSendFallsBackToWizard(t *testing.T) {
 
 // TestRootWizardSpecFileRejected: a file without transactions (a spec)
 // never advances the step — the file step keeps its cursor with a
-// naming error line (UAT: "no templates" dead end on the send step).
+// naming error line ("no templates" dead end on the send step).
 func TestRootWizardSpecFileRejected(t *testing.T) {
 	r := wizardTestRoot(t)
 	r.connect()
@@ -264,7 +264,7 @@ func TestRootWizardSpecFileRejected(t *testing.T) {
 		t.Fatalf("write spec: %v", err)
 	}
 	r.upd(palette.OpenSendWizardMsg{})
-	// UAT round 5: a fully configured session homes the wizard on the
+	// A fully configured session homes the wizard on the
 	// send step; stepping back (Esc) twice lands on spec, from where
 	// the rejection path below walks file again.
 	if got := r.m.wizard.CurrentStepID(); got != pages.WizardStepSend {

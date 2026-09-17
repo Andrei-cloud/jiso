@@ -172,14 +172,14 @@ func CurrentPath() string {
 }
 
 // ErrDBNotFound reports a --db path whose file does not exist. Read-only
-// commands (PAR-311) must surface it as a config-class failure naming the
+// commands must surface it as a config-class failure naming the
 // path instead of letting InitDB create an empty database.
 var ErrDBNotFound = errors.New("database file does not exist")
 
 // OpenExisting opens an existing database for the read-only review commands
 // (db stats, db tx, ctf list, ctf export). Unlike InitDB it never creates the
 // database file: a missing path yields ErrDBNotFound wrapping the os.Stat
-// result (PAR-311). An existing file is opened and its schema ensured
+// result. An existing file is opened and its schema ensured
 // exactly as InitDB does, so existing-but-table-less databases keep their
 // current "report what they are" behavior. Write paths (REPL, serve, golden
 // fixture builder) keep using InitDB.

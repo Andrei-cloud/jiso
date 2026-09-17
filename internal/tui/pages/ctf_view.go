@@ -1,4 +1,4 @@
-// ctf_view.go renders the §K body (wireframe §K): the title line
+// ctf_view.go renders the §K body: the title line
 // ("VISA BASE II — CTF EXPORT"), then at ≥ frame.FullWidth the two
 // panes side by side — SESSIONS list (short id, relative time,
 // approved counts) and the PARAMETERS form (four label+input rows with
@@ -61,7 +61,7 @@ func (c *Ctf) render(w, h int) string {
 	// The empty-state hint repeats the note verbatim when the whole
 	// database is missing (both name "database not configured - pass
 	// --db…"); showing it twice is clutter, so render it only when it
-	// adds something the root note did not already say (UAT round 6 QA).
+	// adds something the root note did not already say (QA).
 	if line := c.emptyHintLine(); line != "" && line != note {
 		head += "\n" + clipCells(c.th.TextMuted.Render(line), w, clipTail(c.th))
 		headH++
@@ -100,7 +100,7 @@ func (c *Ctf) render(w, h int) string {
 	return clipBlockStyled(c.th, head+"\n"+listSec+"\n"+paramsSec+"\n"+footer, h, w)
 }
 
-// headerLine is the wireframe title row: the accent title with its
+// headerLine is the title row: the accent title with its
 // em/ASCII dash, and the configured db path (dash when unset).
 func (c *Ctf) headerLine(w int) string {
 	dash := "\u2014"
@@ -127,10 +127,10 @@ func (c *Ctf) noteLine(w int) string {
 	return clipCells(c.th.Status(theme.KindWarn, c.state.Note), w, clipTail(c.th))
 }
 
-// summaryLine is the wireframe SUMMARY line: the root-derived
+// summaryLine is the SUMMARY line: the root-derived
 // "148 tx · $ 12,450.00 total · header/trailer dates auto" text (dash
 // until the first preview). While the cursor-following dry leg is in
-// flight it reads "… computing" (UAT round 6: the summary follows the
+// flight it reads "… computing" (the summary follows the
 // cursor, and the operator sees the recalculation happen).
 func (c *Ctf) summaryLine(w int) string {
 	label := "SUMMARY: "
@@ -151,9 +151,9 @@ func (c *Ctf) summaryLine(w int) string {
 	return clipCells(c.th.Deemphasized.Render(label)+c.th.Status(kind, value), w, clipTail(c.th))
 }
 
-// hintLine is the wireframe action line under the SUMMARY. While the
-// PARAMETERS pane holds focus it names the edit keys instead (UAT round
-// 6: the form's editability must be visible, not folklore).
+// hintLine is the action line under the SUMMARY. While the
+// PARAMETERS pane holds focus it names the edit keys instead:
+// the form's editability must be visible, not folklore).
 func (c *Ctf) hintLine(w int) string {
 	if c.state.WriteLine != "" {
 		return clipCells(c.th.Dim.Render(c.state.WriteLine), w, clipTail(c.th))
@@ -186,7 +186,7 @@ func (c *Ctf) paramsBox(x, y, w, h int) string {
 }
 
 // paramsBody renders the four form rows. The unfocused BIN placeholder
-// is plain dim text — it no longer fakes a caret (UAT round 6: the
+// is plain dim text — it no longer fakes a caret (the
 // borrowed caret on an UNFOCUSED row read as "this is the editable
 // one", which is exactly why the focused-and-editable CIB looked locked).
 func (c *Ctf) paramsBody() string {
@@ -219,8 +219,8 @@ func (c *Ctf) paneTitle(title string, focused bool) string {
 	return c.th.TextMuted.Render(title)
 }
 
-// previewBody renders the record viewer overlay (UAT round 6
-// wireframe): headline lines, EVERY record in a scrollable box with a
+// previewBody renders the record viewer overlay:
+// headline lines, EVERY record in a scrollable box with a
 // position ruler above and below, the viewer status line, and the
 // write/close line (the overlay owns the keyboard first). (x, y) is the
 // content-relative origin of the overlay body under the page head; the
@@ -232,7 +232,7 @@ func (c *Ctf) previewBody(x, y, w int) string {
 		b.WriteString(c.th.TextPrimary.Render(line) + "\n")
 	}
 	box := c.recordsBox(w)
-	// Publish the DRAWN box for the wheel hit map (Task 8.2c): measured
+	// Publish the DRAWN box for the wheel hit map: measured
 	// from the composed string like every recorded section rect, below
 	// the headline lines the overlay pins first.
 	c.recRect = sectionRect(x, y+len(p.Headline), box)

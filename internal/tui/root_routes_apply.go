@@ -82,7 +82,7 @@ func (m *RootModel) routeCtfMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.CtfPopMsg:
 		// Esc on the §K page (same pop rule as the other merged pages;
 		// the preview overlay and the form own Esc earlier, inside the
-		// page). leaveCtf runs FIRST (E5-FIX/M3): the pop must bump the
+		// page). leaveCtf runs FIRST: the pop must bump the
 		// seq like Push/Replace do, or an in-flight list/preview/write
 		// leg lands on the page the user just left.
 		m.leaveCtf()
@@ -164,7 +164,7 @@ func (m *RootModel) routeSettingsMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.SettingsPopMsg:
 		// Esc on the §L page (same pop rule as the other merged pages;
 		// the edit buffer and the save overlay own Esc earlier, inside
-		// the page). leaveSettings runs FIRST (E5-FIX/M3): the pop must
+		// the page). leaveSettings runs FIRST: the pop must
 		// bump the seq like Push/Replace do, or an in-flight
 		// load/apply/save leg lands on the page the user just left.
 		m.leaveSettings()

@@ -1,4 +1,4 @@
-// settingsapply.go is the §L write side (SCR-512). ApplySettings
+// settingsapply.go is the §L write side. ApplySettings
 // validates every patched value PER FIELD and mutates the App-visible
 // config (config.Config, mutex-guarded) for live-safe keys only: an
 // invalid field is reported per-field and skipped, valid siblings
@@ -79,7 +79,7 @@ func (a *App) ApplySettings(_ context.Context, patch map[string]string) map[stri
 
 // SaveSettings persists patch (only the changed keys) to the user
 // config file (XDG path or $JISO_CONFIG — tests point JISO_CONFIG at
-// t.TempDir()). Validation is all-or-nothing for the save: one invalid
+// t.TempDir). Validation is all-or-nothing for the save: one invalid
 // key returns an error naming it and writes nothing. The resolved
 // write path is returned for the success line.
 func (a *App) SaveSettings(_ context.Context, patch map[string]string) (string, error) {

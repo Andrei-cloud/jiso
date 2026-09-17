@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestMarshalItemPreviewSortsFieldKeys UAT round 6: the generated-item
+// TestMarshalItemPreviewSortsFieldKeys: the generated-item
 // picker preview must show ISO8583 field keys in numeric ascending order
 // (0,2,11,14), not Go's default map order (0,11,14,2). Composite
 // subfields sort numerically too (7 before 56).

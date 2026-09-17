@@ -1,5 +1,5 @@
-// settingsview_test.go pins the §L façade contract (SCR-512) with a
-// fixture user config file in t.TempDir() (JISO_CONFIG override — the
+// settingsview_test.go pins the §L façade contract with a
+// fixture user config file in t.TempDir (JISO_CONFIG override — the
 // real user file is never touched): CurrentSettings sources resolve
 // env > config > default with a "session" fallback; ApplySettings is
 // per-field atomic (invalid field reports an error, valid siblings

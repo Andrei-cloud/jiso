@@ -23,7 +23,7 @@ func tableFixture(th *theme.Theme, width int) *Table {
 	return m
 }
 
-// TestTableSetFocusedHidesCursor: UAT round 5 — an unfocused table
+// TestTableSetFocusedHidesCursor: an unfocused table
 // renders its cursor row as plain text (no selector marker, no
 // selection background) so a multi-pane page shows one obvious cursor.
 func TestTableSetFocusedHidesCursor(t *testing.T) {

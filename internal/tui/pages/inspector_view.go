@@ -19,12 +19,12 @@ import (
 // frame-visible title, like titleTransactions).
 const titleInspector = "INSPECTOR"
 
-// inspectorEmptyHint is the §C empty state (wireframe §comparison table:
+// inspectorEmptyHint is the §C empty state (the comparison table:
 // “Select a transaction first.”).
 const inspectorEmptyHint = "Select a transaction first."
 
 // fieldsPaneTitle is the fields pane header (the interpolated/live
-// marker from the wireframe).
+// marker from the design).
 const fieldsPaneTitle = "FIELDS (interpolated"
 
 // fieldsLive is the fields-pane title suffix after the arrow.
@@ -98,7 +98,7 @@ func (in *Inspector) crumbTabs(w int) string {
 }
 
 // breadcrumb renders "Transactions > <TxName>" (dash when no tx is
-// inspected). The separator is the wireframe's ▸, ASCII ">" in ascii mode.
+// inspected). The separator is the ▸, ASCII ">" in ascii mode.
 func (in *Inspector) breadcrumb() string {
 	tx := dashIf(in.th, in.state.TxName)
 

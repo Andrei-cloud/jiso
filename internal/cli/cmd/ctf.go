@@ -110,7 +110,7 @@ func printCTFExportBanner(w, notice io.Writer, s *ctfExportSummary) {
 }
 
 // ctfSessionID resolves the session to export: --session is the headless
-// contract spelling (PAR-308) and wins when both it and the legacy
+// contract spelling and wins when both it and the legacy
 // --session-id are given; an explicitly empty value is the usage class.
 func ctfSessionID(cmd *cobra.Command) string {
 	for _, name := range []string{"session", "session-id"} {
@@ -151,7 +151,7 @@ func newCTFExportCmd() *cobra.Command {
 
 	// A missing --session/--session-id is a usage error (exit 2) reported by
 	// RunE, not MarkFlagRequired, so either spelling satisfies the
-	// requirement (M1 review #4; PAR-308).
+	// requirement.
 
 	return cmd
 }
@@ -170,7 +170,7 @@ func runCTFExport(cmd *cobra.Command, _ []string) error {
 
 	if sessionID == "" {
 		// Absence and an explicitly empty value are the same usage
-		// class (exit 2, M1 review #4; PAR-308).
+		// class (exit 2).
 		msg := "--session is required (legacy alias: --session-id)"
 		_, _ = fmt.Fprintf(out.Err(), "Error: %s\n", msg)
 
@@ -182,7 +182,7 @@ func runCTFExport(cmd *cobra.Command, _ []string) error {
 		return errors.New("database not configured (use --db flag)")
 	}
 
-	// Read path (PAR-311): open without creating; a missing file
+	// Read path: open without creating; a missing file
 	// exits 3 naming the path, it never leaves a fresh database
 	// behind.
 	if err := db.OpenExisting(dbPath); err != nil {
@@ -202,7 +202,7 @@ func runCTFExport(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	// --dry-run prints the plan and writes nothing (M1 review #3).
+	// --dry-run prints the plan and writes nothing.
 	if out.DryRun() {
 		plan := summaryFromCTF(sessionID, cleanPath, result, len(txs), true, false)
 
@@ -224,7 +224,7 @@ func loadCTFSessionAndTxs(sessionID string) (*db.SessionRecord, []*db.EnrichedTr
 	session, err := db.GetSessionByID(sessionID)
 	if err != nil {
 		// An unknown session is a config-class failure naming the
-		// id (exit 3, PAR-308); other load errors stay exit 1.
+		// id (exit 3); other load errors stay exit 1.
 		if errors.Is(err, db.ErrSessionNotFound) {
 			return nil, nil, &ExitConfigError{Path: sessionID, Err: errors.New("unknown session")}
 		}
@@ -299,7 +299,7 @@ func newCTFListCmd() *cobra.Command {
 				return errors.New("database not configured (use --db flag)")
 			}
 
-			// Read path (PAR-311): open without creating; a missing file
+			// Read path: open without creating; a missing file
 			// exits 3 naming the path, it never leaves a fresh database
 			// behind.
 			if err := db.OpenExisting(dbPath); err != nil {

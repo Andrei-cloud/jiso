@@ -14,8 +14,8 @@ import (
 	"jiso/internal/app/events"
 )
 
-// TUI-409 debug plumbing tests. All hermetic: JISO_STATE_DIR points at a
-// t.TempDir(), so the lifecycle log can never touch the developer's real
+// debug plumbing tests. All hermetic: JISO_STATE_DIR points at a
+// t.TempDir, so the lifecycle log can never touch the developer's real
 // state directory, and programs run over the pipe harness (no PTY).
 
 func keyCh(c rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: c, Text: string(c)} }
@@ -123,7 +123,7 @@ func TestDebugOffWritesNoLogFile(t *testing.T) {
 
 // TestDebugPaletteAndBridgeLines: unit-level coverage of the remaining
 // milestones (palette open/exec/close, bridge start/stop) without a
-// program, using the same hooks run() drives.
+// program, using the same hooks run drives.
 func TestDebugPaletteAndBridgeLines(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(debugEnv, "1")

@@ -11,10 +11,10 @@ import (
 )
 
 // wireSenders installs the program's Send seam on every live-operation
-// leg the model runs in a goroutine: the send stages (SCR-504), the
-// connect attempts (SCR-505), and the scenario run (SCR-506). run()
+// leg the model runs in a goroutine: the send stages, the
+// connect attempts, and the scenario run. run()
 // calls it once per session; tests call it directly with a collector.
-// E5-FIX: the scenario leg was once left unwired here, so §F silently
+// The scenario leg was once left unwired here, so §F silently
 // dropped every step/done message and wedged at "running" forever —
 // this single seam (plus its regression test) keeps all three wired
 // together.
@@ -42,13 +42,13 @@ func wireSenders(m *RootModel, send bridge.Sender) {
 //     unconditionally (cursed_renderer.go:175-201, 257-265). So the
 //     terminal is never left in alt screen after a panic, and this
 //     package must not add its own recover or restore (never
-//     "defer p.RestoreTerminal()" per contract).
+//     "defer p.RestoreTerminal" per contract).
 //
 // This function only wires the model and the program, never installs signal
 // handlers, and never calls os.Exit. A clean quit returns nil; application
 // may be nil only in tests.
 //
-// Event bridge (TUI-404/TUI-408): the model subscribes to the app's event
+// Event bridge: the model subscribes to the app's event
 // bus and pumps it into the program via program.Send. stopBridge runs on
 // every path after program.Run returns — normal quit, program error, or the
 // v2-recovered panic — so no bridge pump goroutine outlives Run (the pump's
@@ -63,7 +63,7 @@ func Run(ctx context.Context, application *app.App) error {
 // (the idiom bubbletea's own tea_test.go:556-577 uses to drive Run without
 // a TTY, including its panic-exit assertions).
 func run(ctx context.Context, model *RootModel, opts ...tea.ProgramOption) error {
-	// Debug side channels (TUI-409), both env-gated and nil when off:
+	// Debug side channels, both env-gated and nil when off:
 	// $JISO_DEBUG opens <state>/tui.log for lifecycle milestones,
 	// $JISO_PROFILE binds loopback pprof for the session's lifetime.
 	dbg := newDebugLogger()
@@ -88,8 +88,8 @@ func run(ctx context.Context, model *RootModel, opts ...tea.ProgramOption) error
 	// capture) exists: each prints a one-time init line, and landing
 	// those lines in the scrollback beats a mid-send write inside the
 	// alt screen — the RRN init line used to smash the §F pane borders
-	// on the first scenario step that auto-filled field 37 (UAT round
-	// 5). They must NOT be touched after installConsoleSink: its writer
+	// on the first scenario step that auto-filled field 37 .
+	// They must NOT be touched after installConsoleSink: its writer
 	// forwards synchronously through program.Send, which blocks until
 	// Run is consuming.
 	utils.GetCounter()
@@ -97,15 +97,15 @@ func run(ctx context.Context, model *RootModel, opts ...tea.ProgramOption) error
 
 	program := tea.NewProgram(model, append([]tea.ProgramOption{tea.WithContext(ctx)}, opts...)...)
 
-	// Live-operation senders: every goroutine leg (send stages SCR-504,
-	// connect attempts SCR-505, scenario runs SCR-506) reports through
+	// Live-operation senders: every goroutine leg (send stages,
+	// connect attempts, scenario runs) reports through
 	// program.Send; tests replace the seams via the Set*Sender setters.
 	wireSenders(model, program.Send)
 
-	// UAT: internal/connection's system output (unsafe read errors,
+	// Internal/connection's system output (unsafe read errors,
 	// reconnect chatter, route notices) used to corrupt the alt screen
 	// via raw stderr writes; it is captured into the bottom console
-	// strip for the session and restored on exit. UAT round 5 extends
+	// strip for the session and restored on exit. It extends
 	// the capture to the utils counters' worker warnings and the
 	// transactions collection loader.
 	restoreConsole := installConsoleSink(program.Send)
@@ -123,7 +123,7 @@ func run(ctx context.Context, model *RootModel, opts ...tea.ProgramOption) error
 
 	_, err := program.Run()
 
-	// Shutdown ordering (TUI-408): stop the pump before returning on all
+	// Shutdown ordering: stop the pump before returning on all
 	// exit paths. program.Run has by now cancelled v2's internal ctx and
 	// joined its handler goroutines; the pump goroutine itself is detached
 	// in v2's command runner (tea.go:727-740), so this Stop is the join

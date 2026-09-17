@@ -69,7 +69,7 @@ func TestRunQuitStopsBridgeAndExitsAltScreen(t *testing.T) {
 // TestRunBridgeEventDrivenQuitStopsPump: the program quits only because the
 // pump delivered a bridge.Msg — proof the pump goroutine ran inside
 // the session — and assertGoroutinesSettled then proves run's stopBridge
-// reaped it before returning (shutdown ordering, TUI-408).
+// reaped it before returning (shutdown ordering).
 func TestRunBridgeEventDrivenQuitStopsPump(t *testing.T) {
 	a := newLifecycleApp(t)
 	m := NewRootModel(a)

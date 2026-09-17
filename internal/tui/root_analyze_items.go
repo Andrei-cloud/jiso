@@ -1,7 +1,7 @@
 // root_analyze_items.go owns the §J generated-item selection. Root keeps
 // the roster (built once per run attach, with each item's file form) and
 // the deselection keys; the write leg persists exactly
-// app.AnalyzeOutput.SelectedItems().
+// app.AnalyzeOutput.SelectedItems.
 package tui
 
 import (

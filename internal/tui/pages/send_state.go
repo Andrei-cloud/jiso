@@ -1,11 +1,11 @@
-// send_state.go holds the §D state contract (wireframe
-// .opencode/plans/02-tui-wireframes.md §D) and the page→router messages.
+// send_state.go holds the §D state contract and
+// the page→router messages.
 // Root owns the live operation: it walks the Connect▸Send▸Receive▸Parse▸
 // Validate stages, stamps every time-derived value with its injectable
 // clock, computes the correlation notes and the RC badge, and pushes
 // SendState snapshots via SetState — the page never touches internal/app,
-// never reads the clock, and never ticks itself (SCR-501 data-flow
-// contract, extended to the first live screen by SCR-504).
+// never reads the clock, and never ticks itself (data-flow
+// contract, extended to the first live screen).
 package pages
 
 import "time"

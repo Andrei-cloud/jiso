@@ -31,7 +31,7 @@ const (
 // ConfirmDialog is the §N3 confirm widget: an overlay-style renderer that
 // returns a string the page composes over its content. Destructive
 // actions only; default is No — only an explicit y confirms, while n,
-// esc, and enter all cancel. After a decision Pending() is false, View()
+// esc, and enter all cancel. After a decision Pending is false, View
 // renders empty (the page drops the overlay), and further keys are
 // ignored.
 type ConfirmDialog struct {

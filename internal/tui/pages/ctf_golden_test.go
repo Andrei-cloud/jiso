@@ -33,7 +33,7 @@ func ctfPreviewState(th *theme.Theme) CtfState {
 
 // ctfGoldenRecords are three fixed 168-char Base II records (space-
 // padded): long enough to pass any golden window, so the goldens pin
-// the ruler alignment and the column-window clip (UAT round 6).
+// the ruler alignment and the column-window clip.
 func ctfGoldenRecords() []string {
 	return []string{
 		padRight("05004242424242424242000000000000000ARN000100129 090700000000001000 8400000000001000 840GOLDEN MERCHANT ONE", 168),

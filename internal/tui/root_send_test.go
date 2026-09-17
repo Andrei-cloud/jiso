@@ -110,7 +110,7 @@ func (r *sendTestRoot) runHappySend(t *testing.T, id string) {
 	r.wantQuiet(t)
 }
 
-// TestSendHistoryStampingAndOverlay: UAT round 5 — a completed send
+// TestSendHistoryStampingAndOverlay: a completed send
 // lands in the bounded ring; ":send history" opens the overlay; Enter
 // freezes §D on the picked entry; Esc pops back to the history.
 func TestSendHistoryStampingAndOverlay(t *testing.T) {
@@ -177,7 +177,7 @@ func mkMsg(t *testing.T, spec *iso8583.MessageSpec, mti string, vals map[int]str
 	return msg
 }
 
-// cannedRequest/cannedResponse mirror the wireframe §D exchange: the PAN
+// cannedRequest/cannedResponse mirror the §D exchange: the PAN
 // and STAN echo, field 38 is response-only, RC 00 approves.
 func cannedRequest(t *testing.T, spec *iso8583.MessageSpec) *iso8583.Message {
 	t.Helper()
@@ -570,7 +570,7 @@ func TestSendNilSenderTerminal(t *testing.T) {
 
 // TestViewLastSend: the ":last send" action reopens §D on the last
 // completed run; with no completed run it toasts and the stack is
-// untouched (UAT: returning to a previously sent transaction).
+// untouched (returning to a previously sent transaction).
 func TestViewLastSend(t *testing.T) {
 	m := NewRootModel(nil)
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})

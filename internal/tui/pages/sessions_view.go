@@ -110,7 +110,7 @@ func (s *Sessions) render(w, h int) string {
 	return clipBlockStyled(s.th, head+"\n"+statsSec+"\n"+histSec, h, w)
 }
 
-// headerLine is the wireframe title row: accent title, the configured
+// headerLine is the title row: accent title, the configured
 // db path (dash when unset), and the live filter segment with the caret
 // while filter mode owns the keyboard.
 func (s *Sessions) headerLine(w int) string {

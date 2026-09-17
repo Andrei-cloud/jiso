@@ -64,10 +64,10 @@ func TestStubCommandsExit2(t *testing.T) {
 		args   []string
 		ticket string
 	}{
-		// tui left the stub set in TUI-401; its contract lives in
-		// TestTUIRequiresTerminalExit2 below. stress left it in PAR-306;
-		// its missing --tx usage error is pinned in exit_test.go and the
-		// golden harness.
+		// The tui stub's contract lives in
+		// TestTUIRequiresTerminalExit2 below; the stress missing --tx
+		// usage error is pinned in exit_test.go and the golden
+		// harness.
 	}
 
 	for _, tc := range cases {
@@ -92,7 +92,7 @@ func TestStubCommandsExit2(t *testing.T) {
 	}
 }
 
-// TestTUIRequiresTerminalExit2 pins the TUI-401 contract: `jiso tui` without
+// TestTUIRequiresTerminalExit2 pins the contract: `jiso tui` without
 // a TTY fails as a usage error (exit 2) naming the requirement, before the
 // Bubble Tea program could ever launch. In-process the go tool always
 // captures the test binary's stdout through a pipe, so the guard is

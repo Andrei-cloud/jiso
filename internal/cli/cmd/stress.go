@@ -23,7 +23,7 @@ import (
 // response or the response timeout, so a healthy run never reaches it.
 const stressCompletionGrace = 30 * time.Second
 
-// newStressCmd builds the PAR-306 headless stress command: it drives the
+// newStressCmd builds the headless stress command: it drives the
 // App worker manager (the same StressStart/StressStop/StressSummaryByID
 // entry points the TUI worker screens use), blocks until the duration
 // elapses or SIGINT, and prints the final StressSummary.
@@ -114,7 +114,7 @@ func executeStress(cmd *cobra.Command) error {
 
 	if host == "" || port == "" {
 		// Config-class failure naming the resolution sources (send/
-		// connect-check message precedent, PAR-306 taxonomy: exit 3).
+		// connect-check message precedent, taxonomy: exit 3).
 		return &ExitConfigError{Err: errors.New(missingTargetMessage("stress", host, port))}
 	}
 

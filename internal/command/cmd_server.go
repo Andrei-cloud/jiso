@@ -23,7 +23,7 @@ type ServerCommand struct {
 	spec   *iso8583.MessageSpec
 	routes []config.MockRouteConfig
 	tc     transactions.Repository
-	// statsStop halts the PAR-304 side-channel snapshot ticker and
+	// statsStop halts the side-channel snapshot ticker and
 	// removes the state/snapshot files on a clean stop.
 	statsStop func() error
 }
@@ -42,7 +42,7 @@ func (sc *ServerCommand) PrintStats() {
 }
 
 // DirectServerOptions configures the foreground `jiso serve start` run
-// (PAR-309). Zero values keep the pre-PAR-309 behavior: block until
+// Zero values keep the legacy behavior: block until
 // SIGINT/SIGTERM, print the human stats summary, stop cleanly.
 type DirectServerOptions struct {
 	Port       string
@@ -60,7 +60,7 @@ type DirectServerOptions struct {
 }
 
 // RunDirectServer blocks in direct CLI mode until SIGINT/SIGTERM. A clean
-// signal stop stops the server (the PAR-304 side-channel files are removed
+// signal stop stops the server (the side-channel files are removed
 // by StopServer), optionally dumps the final stats to ReportPath and — under
 // JSONStdout — to stdout, and returns nil so the process exits 0: for a
 // foreground server under systemd, being stopped by a signal is success,
@@ -168,7 +168,7 @@ func (sc *ServerCommand) StartServer(port, headerType string) error {
 
 	_, _ = fmt.Fprintf(os.Stderr, "Embedded ISO8583 Mock Server started on port %s (Header: %s) 🟢\n", port, headerType)
 
-	// PAR-304 side-channel: publish the state file and start the stats
+	// side-channel: publish the state file and start the stats
 	// snapshot refresh so `jiso serve stats` can query this server from
 	// another process. A failure here degrades to "no state file" (serve
 	// stats will report not-running) but never blocks the server itself.
@@ -198,7 +198,7 @@ func (sc *ServerCommand) StopServer() error {
 		return fmt.Errorf("failed to stop mock server: %w", err)
 	}
 
-	// Clean stop retires the PAR-304 side-channel files, so `serve stats`
+	// Clean stop retires the side-channel files, so `serve stats`
 	// immediately reports "no running server" instead of a stale PID.
 	sc.stopSideChannel()
 

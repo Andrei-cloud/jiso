@@ -1,4 +1,4 @@
-// output.go is the package's single system-output sink (UAT round 5):
+// output.go is the package's single system-output sink:
 // the STAN/RRN counter lifecycle lines (init notices, persist warnings)
 // used to write straight to os.Stderr, which corrupted the TUI's
 // alternate screen mid-frame — a scenario run rendered the RRN init line

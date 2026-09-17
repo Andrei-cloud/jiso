@@ -1,5 +1,5 @@
 // analyzeengine.go holds the ONE analyze engine orchestration shared by
-// the PAR-307 headless command and the SCR-510 §J TUI wizard: capture
+// the headless command and the §J TUI wizard: capture
 // flow enumeration, flow auto-pick, the per-mode engine calls
 // (StreamAnalyzer / VarianceEngine / Correlator / ScenarioBuilder), and
 // the generated-items output path. It was extracted from
@@ -34,7 +34,7 @@ const (
 )
 
 // AnalyzeDefaultScenarioName is the scenario scaffold name used when no
-// prompt can ask for one (the wizard's default answer, PAR-307).
+// prompt can ask for one (the wizard's default answer).
 const AnalyzeDefaultScenarioName = "PCAP Captured Test Scenario"
 
 // AnalyzeEngineOptions are the inputs of one engine run over a single
@@ -53,9 +53,9 @@ type AnalyzeEngineOptions struct {
 // EnumeratePCAPFlows enumerates the capture's flows (port -> message
 // count per direction). An empty enumeration is a config-class error
 // naming the pcap: the analyze paths never fabricate a flow (E1-FIX #1
-// lesson). UAT round 5: src flows are enumerated too so a capture taken
+// lesson). The src flows are enumerated too so a capture taken
 // on the server side (where the requests arrive as src) is analyzable;
-// PickAnalyzeFlow keeps dst-first precedence so the PAR-307 auto-pick
+// PickAnalyzeFlow keeps dst-first precedence so the auto-pick
 // behavior on ordinary captures is unchanged.
 func EnumeratePCAPFlows(pcapPath string) ([]analyzer.TrafficDirection, error) {
 	dirs, err := analyzer.InspectPCAPDirections(pcapPath)
@@ -85,8 +85,8 @@ func EnumeratePCAPFlows(pcapPath string) ([]analyzer.TrafficDirection, error) {
 }
 
 // flowModeRank orders flow modes by template quality for the auto-pick:
-// dst (our requests) first, src (server-side captures' requests) last
-// (UAT round 5).
+// dst (our requests) first, src (server-side captures' requests)
+// last.
 func flowModeRank(d analyzer.TrafficDirection) int {
 	switch d.Mode {
 	case analyzer.DirectionDst:
@@ -100,18 +100,18 @@ func flowModeRank(d analyzer.TrafficDirection) int {
 
 // PickAnalyzeFlow resolves the analyzed flow: port <= 0 auto-picks the
 // highest-message flow (ties broken by lower port for determinism, the
-// PAR-307 --yes contract); an explicit port must hit an enumerated flow,
+// --yes contract); an explicit port must hit an enumerated flow,
 // else a config-class error names the available ports. dst wins over src
 // whenever both exist for the same port (the request half is the
 // template source); src-only ports — server-side captures — resolve to
-// their src flow (UAT round 5).
+// their src flow.
 func PickAnalyzeFlow(flows []analyzer.TrafficDirection, port int, pcapPath string) (analyzer.TrafficDirection, error) {
 	if port > 0 {
 		return pickAnalyzeFlowPort(flows, port, pcapPath)
 	}
 
 	// Auto-pick: dst flows outrank src (request halves are the template
-	// source); the PAR-307 highest-message/lowest-port tie rule applies
+	// source); the highest-message/lowest-port tie rule applies
 	// within the outranked set first.
 	best := flows[0]
 	bestRank := flowModeRank(best)
@@ -130,7 +130,7 @@ func PickAnalyzeFlow(flows []analyzer.TrafficDirection, port int, pcapPath strin
 // pickAnalyzeFlowPort resolves an explicit port: dst wins when both
 // directions exist at that port; a src-only port (server-side capture)
 // resolves to its src flow; an unknown port is a config-class error
-// listing the available ports once each (UAT round 5).
+// listing the available ports once each.
 func pickAnalyzeFlowPort(flows []analyzer.TrafficDirection, port int, pcapPath string) (analyzer.TrafficDirection, error) {
 	var fallback analyzer.TrafficDirection
 	found := false
@@ -208,7 +208,7 @@ func AnalyzeOutputFile(cfg *config.Config, mode string) string {
 }
 
 // StatPath is the §J spec-step validation leg: a missing/unreachable
-// path comes back as a config-class error naming it (PAR-311: surfaced
+// path comes back as a config-class error naming it (surfaced
 // as inline field text, never a crash, never a created file).
 func (a *App) StatPath(_ context.Context, path string) error {
 	if path == "" {

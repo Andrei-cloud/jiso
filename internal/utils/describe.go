@@ -16,7 +16,7 @@ import (
 var defaultSpecName = "ISO 8583"
 
 // FieldContainer should be implemented by the type to be described.
-// We use GetSubfields() as a common method to get subfields.
+// We use GetSubfields as a common method to get subfields.
 // While Message doesn't implement FieldContainer directly, we wrap it with MessageWrapper.
 type FieldContainer interface {
 	GetSubfields() map[string]field.Field
@@ -67,7 +67,7 @@ var (
 var FilterField = iso8583.FilterField
 
 // MessageWrapper implements FieldContainer for the iso8583.Message, since it has
-// GetFields() but not GetSubfields() and returns map[int]field.Field.
+// GetFields but not GetSubfields and returns map[int]field.Field.
 type MessageWrapper struct {
 	*iso8583.Message
 }

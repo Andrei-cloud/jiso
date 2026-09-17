@@ -1,5 +1,5 @@
 // root_server_form_test.go covers the §G start-form root contract
-// (SCR-507): "c" opens the form ONLY on the §G page (the global connect
+// "c" opens the form ONLY on the §G page (the global connect
 // dialog keeps every other page), prefill comes from the cobra shim's
 // sources (9999/binary2 flag defaults + config spec/routes paths), a
 // failed start keeps the modal open with the error and never auto-retry,
@@ -43,7 +43,7 @@ func TestRootServerFormPrefillFromShimSources(t *testing.T) {
 	if st.Title != "SERVER" || st.EnterLabel != "start" {
 		t.Errorf("form identity = %q/%q, want SERVER/start", st.Title, st.EnterLabel)
 	}
-	// UAT round 4: no fabricated defaults. A never-started form carries
+	// No fabricated defaults. A never-started form carries
 	// the config's spec/routes and nothing else; port/header stay empty
 	// (the header radio renders unselected) and the shim defaults apply
 	// only at Enter.
@@ -66,7 +66,7 @@ func TestRootServerFormPrefillFromShimSources(t *testing.T) {
 
 // TestServerFormPrefillsLastStart: a successful start stamps the
 // state-dir memory, and a reopened form prefills exactly those values
-// (no config, no shim defaults) (UAT round 4).
+// (no config, no shim defaults).
 func TestServerFormPrefillsLastStart(t *testing.T) {
 	r := newServeTestRoot(t)
 	_, _ = r.m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -92,7 +92,7 @@ func TestServerFormPrefillsLastStart(t *testing.T) {
 	}
 
 	// (The successful start already closed the dialog; esc would now
-	// unwind to the dashboard — proposal 05 §4 — so the reopen goes
+	// unwind to the dashboard so the reopen goes
 	// straight through "c" on §4.)
 	r.key('c')
 	after := r.m.serverDlg.State()
@@ -222,8 +222,8 @@ func (r *serveTestRoot) upd(msg tea.Msg) {
 
 // TestServerFormFieldPicker: [f] on the §G form's spec/routes fields
 // opens the shared file picker and the pick lands in the focused field
-// preserving the other values; [f] on port/header is inert (UAT round
-// 3: the routes/tx-file field had no browse).
+// preserving the other values; [f] on port/header is inert:
+// the routes/tx-file field had no browse.
 func TestServerFormFieldPicker(t *testing.T) {
 	r := newServeTestRoot(t)
 	r.upd(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -381,7 +381,7 @@ func TestServerFormEscLeavesFieldBeforeScreen(t *testing.T) {
 
 // TestServerLogStaysOnServerPage: mock-server lines render ONLY inside
 // the §4 page's LOG pane — never the global console strip, never the
-// dashboard or any other screen (UAT round 3: "[SERVER]" fragments
+// dashboard or any other screen("[SERVER]" fragments
 // smeared across §D).
 func TestServerLogStaysOnServerPage(t *testing.T) {
 	r := newServeTestRoot(t)

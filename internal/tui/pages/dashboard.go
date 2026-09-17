@@ -90,7 +90,7 @@ func newDashNav() dashNav {
 	return nav
 }
 
-// NewDashboard builds the page. A nil theme selects theme.Default()
+// NewDashboard builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewDashboard(th *theme.Theme) *Dashboard {
 	if th == nil {
@@ -125,7 +125,7 @@ func (d *Dashboard) SetState(state DashboardState) {
 		switch a.ID {
 		case connectActionID:
 			if state.HasConnection {
-				continue // the row toggles to Disconnect (proposal 04)
+				continue // the row toggles to Disconnect
 			}
 		case disconnectActionID:
 			if !state.HasConnection {

@@ -370,7 +370,7 @@ func TestClickSelectsScrolledSessionRow(t *testing.T) {
 }
 
 // the picker branch of handleSelectMsg runs before the modalOpen gate, so
-// buildHitMap's confirmPending() suppression is what keeps a click from
+// buildHitMap's confirmPending suppression is what keeps a click from
 // selecting an entry under a pending confirm.
 func TestFilePickerRowsSuppressedUnderConfirm(t *testing.T) {
 	m := NewRootModel(nil)

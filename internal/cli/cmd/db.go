@@ -31,7 +31,7 @@ func newDbCmd() *cobra.Command {
 
 // dbStatsView is the JSON+human shape of `jiso db stats --session <id>`:
 // the shared SessionOverview renderer lives in internal/command and is used
-// by both this surface and the REPL `dbstats` view (M1 review #23).
+// by both this surface and the REPL `dbstats` view.
 type dbStatsView = cmdpkg.SessionOverview
 
 func newDbStatsCmd() *cobra.Command {
@@ -68,7 +68,7 @@ func parseDbStatsArgs(args []string) (dbStatsArgs, error) {
 		id, parseErr := strconv.ParseInt(raw, 10, 64)
 		if parseErr != nil || id <= 0 {
 			// A non-numeric or non-positive transaction ID is a usage
-			// error, not a runtime failure (M1 review #18).
+			// error, not a runtime failure.
 			return dbStatsArgs{sub: "tx"}, fmt.Errorf("invalid transaction ID %q: jiso db stats tx <id>", raw)
 		}
 
@@ -86,7 +86,7 @@ func valueAt(args []string, i int) string {
 	return ""
 }
 
-// executeDbStats dispatches the headless `db stats` surface (PAR-305):
+// executeDbStats dispatches the headless `db stats` surface:
 // list / tx <id> / --session (or positional session ID) overview, and with
 // no session a DB-level summary. The interactive review menu stays REPL-only
 // (`dbstats`); this cobra path never prompts.
@@ -124,7 +124,7 @@ func executeDbStats(cmd *cobra.Command, args []string) error {
 		parsed.sessionID = flagSession
 	}
 
-	// Read path (PAR-311): open without creating; a missing file exits 3
+	// Read path: open without creating; a missing file exits 3
 	// naming the path, it never leaves a fresh database behind.
 	if err := db.OpenExisting(dbPath); err != nil {
 		return &ExitConfigError{Path: dbPath, Err: err}
@@ -157,7 +157,7 @@ func executeDbStats(cmd *cobra.Command, args []string) error {
 }
 
 // dbNotConfiguredError fails with exit 3 naming every source a database
-// path can come from (PAR-305). The user config path is named when known.
+// path can come from. The user config path is named when known.
 func dbNotConfiguredError() error {
 	_, ucPath, _ := userconfig.Load()
 
@@ -169,7 +169,7 @@ func dbNotConfiguredError() error {
 	return &ExitConfigError{Err: fmt.Errorf("database not configured: set %s", source)}
 }
 
-// dbStatsDatabaseSummary is `db stats` with no session (PAR-305): the
+// dbStatsDatabaseSummary is `db stats` with no session: the
 // DB-level summary over real rows only. This replaces the M1-review-#1
 // "session ID is required with --json" guard: that guard existed because the
 // only candidate was EnsureSessionID's fresh UUID, i.e. a fabricated
@@ -195,7 +195,7 @@ func dbStatsSessionOverview(out *output.Renderer, sessionID string) error {
 	rec, err := db.GetSessionByID(sessionID)
 	if err != nil {
 		// A missing/unknown session is a load failure naming the ID
-		// (PAR-305): exit 3, never a fabricated record (E1-FIX #1).
+		// Exit 3, never a fabricated record.
 		return &ExitConfigError{Err: fmt.Errorf("failed to get session info: %w", err)}
 	}
 
@@ -205,7 +205,7 @@ func dbStatsSessionOverview(out *output.Renderer, sessionID string) error {
 	}
 
 	// Auxiliary queries must not silently drop sections under --json
-	// (M1 review #17): a failing query fails the command.
+	// A failing query fails the command.
 	stress, err := db.GetSessionStressTestSummaries(sessionID)
 	if err != nil {
 		return &ExitConfigError{Err: fmt.Errorf("failed to get stress test summaries: %w", err)}

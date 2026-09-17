@@ -55,7 +55,7 @@ func (sr *ScenarioRunner) runStep(step ScenarioStep, scenarioDatasetName string)
 	// fields into a fresh request message.
 	reqMsg := sr.buildStepRequest(msg, step, datasetName)
 
-	// Prove the request packs BEFORE touching the network (UAT round 5):
+	// Prove the request packs BEFORE touching the network:
 	// a template value that does not fit the loaded spec (length/prefix
 	// mismatch) used to be swallowed here, and the identical error
 	// resurfaced from Send as a misleading "network send failed" while
@@ -111,7 +111,7 @@ func (sr *ScenarioRunner) failStep(result StepResult, step ScenarioStep, req *is
 // packStepRequest packs a step's request message and returns it as the
 // reporting payload. A pack error means the composed message does not
 // fit the LOADED SPEC (a length/prefix mismatch, not a network fault),
-// so the error names the spec — the UAT round 5 message that claimed
+// so the error names the spec — the message that claimed
 // "network send failed" while the mock server ran and the client was
 // connected was exactly this local pack failure.
 func (sr *ScenarioRunner) packStepRequest(reqMsg *iso8583.Message) (string, error) {

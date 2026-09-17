@@ -1,5 +1,5 @@
 // root_session_stats.go owns the §A SESSION card's async counters
-// (proposal 05 §3 P4). The card never queries: root reads
+// The card never queries: root reads
 // App.SessionStats for the live session id OFF the UI thread — the read
 // runs inside a tea.Cmd and reports back as a seq-tokened
 // sessionStatsTickMsg, exactly the §G serve-stats lifecycle
@@ -24,7 +24,7 @@ import (
 )
 
 // sessionStatsTickInterval is the §A SESSION card's refresh cadence
-// (proposal 05 §3: a 2 s tick, display only).
+// (a 2 s tick, display only).
 const sessionStatsTickInterval = 2 * time.Second
 
 // sessionStatsTickMsg is one read's result carrying its arming-generation

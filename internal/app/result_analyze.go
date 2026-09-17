@@ -40,14 +40,14 @@ type AnalyzeOutput struct {
 	Warnings []string `json:"warnings,omitempty"`
 
 	// items are the generated config items this result would persist
-	// (SCR-510 §J preview-before-write): unexported so the analyze
+	// (§J preview-before-write): unexported so the analyze
 	// report wire format is unchanged, carried on the result so the
 	// §J write leg (WriteAnalyze) persists exactly what the preview
 	// promised without re-running the engine.
 	items []config.Item
 
 	// excluded names (ItemKey form) the operator deselected in the §J
-	// item picker (UAT round 6: choose which generated transaction
+	// item picker (choose which generated transaction
 	// types land in the file). Unexported: the analyze report wire
 	// format never sees it.
 	excluded map[string]bool
@@ -68,7 +68,7 @@ func (o *AnalyzeOutput) SetExcluded(keys []string) {
 }
 
 // SelectedItems returns the generated items minus the deselected ones
-// — exactly what WriteAnalyze persists (UAT round 6).
+// — exactly what WriteAnalyze persists.
 func (o *AnalyzeOutput) SelectedItems() []config.Item {
 	if o == nil {
 		return nil
@@ -118,8 +118,8 @@ func (o *AnalyzeOutput) AttachGeneratedItems(items []config.Item) {
 
 // AnalyzeFlowView is one aggregated transaction flow (an
 // analyzer.CapturedFlow without the in-memory messages). The
-// direction/histogram fields are the SCR-510 §J enumeration extras
-// (omitempty keeps the PAR-307 analyze report wire format unchanged
+// direction/histogram fields are the §J enumeration extras
+// (omitempty keeps the analyze report wire format unchanged
 // when unset).
 type AnalyzeFlowView struct {
 	Key   string `json:"key"`
@@ -130,7 +130,7 @@ type AnalyzeFlowView struct {
 
 	Direction    string            `json:"direction,omitempty"`     // "dst" (requests) or "src" (responses)
 	ServerPort   int               `json:"server_port,omitempty"`   // the flow's server port
-	PeerPort     int               `json:"peer_port,omitempty"`     // the other end of the conversation (UAT round 7)
+	PeerPort     int               `json:"peer_port,omitempty"`     // the other end of the conversation
 	MTIHistogram []AnalyzeMTICount `json:"mti_histogram,omitempty"` // deterministic: count desc, MTI asc
 	SignonCount  int               `json:"signon_count,omitempty"`  // 0800/0810 messages in the flow
 }

@@ -1,6 +1,6 @@
-// send_golden_test.go pins the §D exchange view at the wireframe baseline
+// send_golden_test.go pins the §D exchange view at the baseline
 // 120x32 for the two terminal states (approved, timeout) and both
-// glyph/colour modes (SCR-504; same harness as the dashboard goldens).
+// glyph/colour modes (; same harness as the dashboard goldens).
 package pages
 
 import (

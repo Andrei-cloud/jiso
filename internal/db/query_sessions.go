@@ -242,7 +242,7 @@ func GetVisaSessions() ([]*SessionRecord, error) {
 
 // ErrSessionNotFound is returned by GetSessionByID when the database has no
 // row for the session ID: callers must surface it instead of receiving a
-// fabricated zero-value record (M1 review #1).
+// fabricated zero-value record.
 var ErrSessionNotFound = errors.New("session not found")
 
 // ErrTransactionNotFound is returned by GetTransactionByID when the database

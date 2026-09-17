@@ -195,7 +195,7 @@ func newAnalyzeNav() analyzeNav {
 	return nav
 }
 
-// NewAnalyze builds the page. A nil theme selects theme.Default()
+// NewAnalyze builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewAnalyze(th *theme.Theme) *Analyze {
 	if th == nil {

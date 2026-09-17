@@ -1,8 +1,8 @@
 // analyzeview_fixture_test.go carries the §J façade test fixture: the
-// PAR-307 golden pcap builder copied from internal/cli/goldentest
-// (SCR-510 ticket: same topology — 8080 with three request/response
+// golden pcap builder copied from internal/cli/goldentest
+// (same topology — 8080 with three request/response
 // exchanges, 9999 with one — so the enumeration/pick expectations match
-// the CLI goldens), writing into t.TempDir().
+// the CLI goldens), writing into t.TempDir.
 package app
 
 import (
@@ -16,7 +16,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// Fixture topology (PAR-307): two server ports carrying ASCII4-framed ISO8583
+// Fixture topology: two server ports carrying ASCII4-framed ISO8583
 // over TCP — 8080 with three request/response exchanges and 9999 with one.
 // `analyze --yes` must therefore pick 8080 (highest message count), and
 // scenario mode must correlate three pairs on it.

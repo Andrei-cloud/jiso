@@ -23,7 +23,7 @@ func specWithField(id int, fs *field.Spec) *iso8583.MessageSpec {
 	}
 }
 
-// TestValidateStringFieldLengthUndersize: UAT round 5 — a value shorter
+// TestValidateStringFieldLengthUndersize: a value shorter
 // than a fixed-prefix field's length is a guaranteed Pack failure at
 // send time (it surfaced there as a misleading "network send failed");
 // the validator must reject it at load with the real cause instead.
@@ -110,7 +110,7 @@ func TestPackStepRequestNamesSpec(t *testing.T) {
 	msg := iso8583.NewMessage(&spec)
 	require.NoError(t, msg.Field(0, "0800"))
 	// Spec87 field 22 is ASCII.Fixed length 3; "02" is a guaranteed
-	// local pack failure (UAT round 5 class).
+	// local pack failure (class).
 	require.NoError(t, msg.Field(22, "02"))
 
 	_, err := sr.packStepRequest(msg)

@@ -1,5 +1,5 @@
 // Package tui implements the jiso Bubble Tea v2 terminal frontend: the root
-// model, the page-stack router, and the hybrid keymap (TUI-401). It consumes
+// model, the page-stack router, and the hybrid keymap. It consumes
 // ONLY the internal/app façade — never internal/cli or internal/command —
 // and is enforced by TestTuiForbiddenImports in imports_guard_test.go.
 package tui

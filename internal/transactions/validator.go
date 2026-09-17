@@ -136,8 +136,8 @@ func (tc *TransactionCollection) validateTransactionFields(t Transaction) error 
 // fields without padding are ALSO checked for undersize: moov's prefixer
 // refuses EncodeLength when dataLen != fixLen, so a short value is a
 // guaranteed Pack failure — catching it at load names the real problem
-// instead of letting it resurface mid-run as a misleading send error
-// (UAT round 5).
+// instead of letting it resurface mid-run as a misleading send
+// error.
 func validateStringFieldLength(fieldID int, v string, targetSpec *iso8583.MessageSpec) error {
 	if v == utils.KeywordAuto || v == utils.KeywordRandom {
 		return nil // These are valid special values

@@ -13,11 +13,11 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// Layer-2 golden program tests (TUI-407): real tea.Program sessions over
+// Layer-2 golden program tests: real tea.Program sessions over
 // pipes at the pinned 80×24, goldens under testdata/program/.
 
 // TestProgBootGolden: boot → first frame is the §A dashboard in full
-// 80×24 chrome; ctrl+c then returns nil from Run (UAT: 'q' now arms the
+// 80×24 chrome; ctrl+c then returns nil from Run ('q' now arms the
 // quit confirmation, so goldens exit through the immediate escape).
 func TestProgBootGolden(t *testing.T) {
 	s := newProgSession(t, 80, 24)
@@ -101,7 +101,7 @@ func TestProgHelpOverlay(t *testing.T) {
 }
 
 // TestProgPaletteSend: ':' opens the palette, typing "send" filters to
-// the send wizard (proposal 04 §B — the wizard replaced the legacy
+// the send wizard (the wizard replaced the legacy
 // transactions-jump for this query), Enter opens it over the current
 // page; ctrl+c quits with the wizard on screen (the captured frame).
 func TestProgPaletteSend(t *testing.T) {
@@ -127,7 +127,7 @@ func TestProgPaletteSend(t *testing.T) {
 }
 
 // TestProgQuitReturns: 'q' + confirm 'y' at root makes Run return nil —
-// the program actually terminates (UAT: quit is confirmed first).
+// the program actually terminates (quit is confirmed first).
 func TestProgQuitReturns(t *testing.T) {
 	s := newProgSession(t, 80, 24)
 	r := s.run(t, "qy")

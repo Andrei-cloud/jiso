@@ -1,5 +1,5 @@
-// ctf_records_view.go renders the §K record viewer (UAT round 6
-// wireframe): EVERY record the write emits, in a bordered box with a
+// ctf_records_view.go renders the §K record viewer:
+// EVERY record the write emits, in a bordered box with a
 // position ruler above and below. Records are fixed-width Base II lines
 // wider than any terminal, so the box is a two-dimensional window:
 // records scroll vertically (↑↓/j/k, PgUp/PgDn) and the column window
@@ -210,7 +210,7 @@ func (c *Ctf) recordBoxWidth() int {
 // §K owns one wheel-scrollable region (the record viewer box). The
 // region seam and the viewer's keyboard live here, next to the renderer
 // whose geometry they share (ctf.go keeps the page core within its
-// file budget; UAT round 8 Task 8.2c).
+// file budget).
 var _ Scroller = (*Ctf)(nil)
 
 // ScrollRegions publishes the RECORDS viewer box's drawn rect: the
@@ -245,7 +245,7 @@ func (c *Ctf) ScrollRegion(id string, d int) bool {
 
 // updatePreviewKeys is the record viewer's keyboard (the overlay owns
 // it wholesale): Esc closes, w writes, ↑↓/j/k walk records, PgUp/PgDn
-// page, ←→/h/l shift the column window (UAT round 6: every record is
+// page, ←→/h/l shift the column window (every record is
 // shown and its character position is readable through the rulers).
 func (c *Ctf) updatePreviewKeys(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	total := 0

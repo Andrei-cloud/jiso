@@ -150,7 +150,7 @@ func TestRootToastAppearsThenPrunesOnTickedAge(t *testing.T) {
 	}
 }
 
-// --- E5-FIX/M6 regression tests --------------------------------------
+// --- regression tests --------------------------------------
 
 // `f` on §B opens the shared picker (OpenFilePickerMsg seam, .json filter);
 // a selection commits the tx-file path through the §L settings seam.
@@ -204,7 +204,7 @@ func TestRootTxPickFileOpensPickerAndCommitsPath(t *testing.T) {
 
 // TestRootTxPickFileLoadErrorSurfacesOnB: a tx-file picked from §B that the
 // app REJECTS must surface the reason on the transactions page, not fall back
-// to the empty state in silence (UAT round 7).
+// to the empty state in silence.
 func TestRootTxPickFileLoadErrorSurfacesOnB(t *testing.T) {
 	m := NewRootModel(newTxFileApp(t))
 	fake := fakeSettingsFixture()
@@ -289,7 +289,7 @@ func TestRootSettingsPickFileClimbsAboveStartDir(t *testing.T) {
 	}
 }
 
-// TestToastDefaultTTLPinned: the wireframe pins the toast age to 3s
+// TestToastDefaultTTLPinned: the design pins the toast age to 3s
 // (the old default outlived it).
 func TestToastDefaultTTLPinned(t *testing.T) {
 	t.Parallel()

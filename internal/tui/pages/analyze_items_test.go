@@ -15,7 +15,7 @@ import (
 // set, Enter applies the deselection, Esc discards, and a fresh
 // ItemsID (new run) re-arms it.
 
-// analyzeItemsFixture is the picker roster for the UAT round 6 tests.
+// analyzeItemsFixture is the picker roster for the tests.
 func analyzeItemsFixture() []AnalyzeItemRow {
 	return []AnalyzeItemRow{
 		{
@@ -43,7 +43,7 @@ func analyzeDoneWithItems() AnalyzeState {
 	return st
 }
 
-// TestAnalyzeItemsPickerOpensAndApplies UAT round 6: a run result
+// TestAnalyzeItemsPickerOpensAndApplies: a run result
 // re-presents the picker (claims the keyboard, lists every item and the
 // cursor row's file form); space deselects, Enter applies the
 // deselection, and the picker closes.
@@ -78,7 +78,7 @@ func TestAnalyzeItemsPickerOpensAndApplies(t *testing.T) {
 	}
 }
 
-// TestAnalyzeItemsPickerEscAppliesAndXReopens UAT round 7: Esc APPLIES the
+// TestAnalyzeItemsPickerEscAppliesAndXReopens: Esc APPLIES the
 // selection (no longer silently discards it), so backing out to the run step
 // and pressing w writes exactly the picked set; [x] reopens the picker; the
 // 'a' key toggles all/none.
@@ -108,7 +108,7 @@ func TestAnalyzeItemsPickerEscAppliesAndXReopens(t *testing.T) {
 	}
 }
 
-// TestAnalyzeItemPickerCouplesDataset UAT round 7: a transaction and the
+// TestAnalyzeItemPickerCouplesDataset: a transaction and the
 // dataset it draws from share a group, so deselecting the transaction
 // deselects its dataset too (and vice versa) — the write carries a dataset
 // only with its transaction.
@@ -143,7 +143,7 @@ func TestAnalyzeItemPickerCouplesDataset(t *testing.T) {
 	}
 }
 
-// TestAnalyzeItemsPickerReopensOnNewItemsID UAT round 6: a NEW run
+// TestAnalyzeItemsPickerReopensOnNewItemsID: a NEW run
 // (ItemsID bump) re-presents the picker; re-pushes of the same ID
 // leave the operator's close in place.
 func TestAnalyzeItemsPickerReopensOnNewItemsID(t *testing.T) {
@@ -166,7 +166,7 @@ func TestAnalyzeItemsPickerReopensOnNewItemsID(t *testing.T) {
 	}
 }
 
-// TestAnalyzeItemsPickerColumnsAlign UAT round 6 QA: the roster's NAME
+// TestAnalyzeItemsPickerColumnsAlign QA: the roster's NAME
 // and KIND columns must line up on every row AND with the header, no
 // matter how long each item name is (names are padded to a fixed width).
 func TestAnalyzeItemsPickerColumnsAlign(t *testing.T) {

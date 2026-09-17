@@ -14,7 +14,7 @@ import (
 // the original analyze persistence contract: this is the ONE generated-
 // items writer shared by the interactive wizard, the headless analyze
 // (SaveConfigItems delegates here), and the §J TUI wizard write leg
-// (SCR-510). Moved verbatim from internal/command so internal/app can
+// Moved verbatim from internal/command so internal/app can
 // write generated items without importing the survey-bound package.
 func SaveItems(filename string, newItems []Item) error {
 	// Create directory if needed

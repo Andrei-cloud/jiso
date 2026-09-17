@@ -123,9 +123,9 @@ func (tc *TransactionCollection) Compose(name string) (*iso8583.Message, error) 
 }
 
 // ComposeRaw populates the fields the transaction spells out and stops: no
-// dataset row is drawn. NOTE the honest caveat (UAT round 9 F2): auto-keyword
+// dataset row is drawn. NOTE the honest caveat: auto-keyword
 // fields still flow through setAutoFields, and a $stan field draws its value
-// from GetCounter().GetStan() — an atomic increment of the persisted global
+// from GetCounter.GetStan — an atomic increment of the persisted global
 // counter. So composing a $stan template DOES consume a sequence value and
 // previews a STAN the real send will not reuse (it draws the next one). The
 // increment is safe and intended; only the old "no sequence number is

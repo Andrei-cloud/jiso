@@ -10,7 +10,7 @@ import (
 )
 
 // TestRootInspectorSlotWired: the inspector is a drill-down registered
-// after the eight wireframe hotkey slots (registry[8]); hotkey 3 lands
+// after the eight hotkey slots (registry[8]); hotkey 3 lands
 // on the §F scenarios page, and the inspector's empty state renders
 // when it is entered directly.
 func TestRootInspectorSlotWired(t *testing.T) {
@@ -77,7 +77,7 @@ func TestRootInspectorEscPops(t *testing.T) {
 
 // TestRootInspectorPopAtDepth1: InspectorPopMsg at depth 1 (the
 // drill-down replacing the stack) is a no-op — the stack never empties.
-// TestRootInspectorPopAtDepth1: proposal 05 §4 — Esc on a
+// TestRootInspectorPopAtDepth1: Esc on a
 // hotkey-jumped page at depth 1 navigates home to the dashboard (the
 // stack never empties; it unwinds).
 func TestRootInspectorPopAtDepth1(t *testing.T) {
@@ -151,7 +151,7 @@ func TestRootInspectorStateSurvivesJumps(t *testing.T) {
 
 // TestRootInspectorComposeFromPage: Enter on a leaf row of the real
 // inspector yields TxComposeMsg, which root treats as a logged no-op
-// until SCR-504.
+// for now.
 func TestRootInspectorComposeFromPage(t *testing.T) {
 	m := NewRootModel(newTxFileApp(t))
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})

@@ -1,4 +1,4 @@
-// root_ctf_test.go proves the SCR-511 root contract with a fake façade
+// root_ctf_test.go proves the root contract with a fake façade
 // (no real DB above the seam): entry onto §K arms the eligible-list
 // query off the UI thread, Enter runs the dry preview (overlay opens
 // with count + first/last records, nothing written), w stats root-side
@@ -99,7 +99,7 @@ func (f *fakeCtf) stat(path string) (os.FileInfo, error) {
 	return nil, os.ErrNotExist
 }
 
-// fakeCtfFixture is the wireframe §K data in façade shapes.
+// fakeCtfFixture is the §K data in façade shapes.
 func fakeCtfFixture() *fakeCtf {
 	ts := func(h, m int) time.Time { return time.Date(2026, 9, 9, h, m, 0, 0, time.UTC) }
 
@@ -356,7 +356,7 @@ func TestCtfNoLegStaysEmpty(t *testing.T) {
 	}
 }
 
-// --- E5-FIX/M3 regression tests --------------------------------------
+// --- regression tests --------------------------------------
 
 // TestCtfStaleListClearsWaitAndReArms: generate bumps the seq while a
 // list load is in flight; the stale result must clear ctfListWait (the
@@ -462,7 +462,7 @@ func TestCtfBatchNonPositiveRejected(t *testing.T) {
 	}
 }
 
-// TestCtfCursorMoveRunsDryLegWithoutOverlay UAT round 6: the SUMMARY
+// TestCtfCursorMoveRunsDryLegWithoutOverlay: the SUMMARY
 // follows the list cursor. Moving onto the second session runs the dry
 // preview for THAT session and folds the summary with the viewer
 // closed; Enter then REUSES the computed summary (no second query) and
@@ -497,7 +497,7 @@ func TestCtfCursorMoveRunsDryLegWithoutOverlay(t *testing.T) {
 	}
 }
 
-// TestCtfSelectStaleResultDropped UAT round 6: two dry legs in flight
+// TestCtfSelectStaleResultDropped: two dry legs in flight
 // carry arm-time seqs; the first one's late result must not fold over
 // the newer one (the serverStats seq lifecycle).
 func TestCtfSelectStaleResultDropped(t *testing.T) {
@@ -524,7 +524,7 @@ func TestCtfSelectStaleResultDropped(t *testing.T) {
 	}
 }
 
-// TestCtfFormEditRerunsDryLeg UAT round 6: a PARAMETERS edit (here a
+// TestCtfFormEditRerunsDryLeg: a PARAMETERS edit (here a
 // CIB digit) re-runs the dry leg for the row under the cursor, so the
 // SUMMARY tracks the form, not just the cursor.
 func TestCtfFormEditRerunsDryLeg(t *testing.T) {

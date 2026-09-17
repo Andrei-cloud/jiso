@@ -1,8 +1,8 @@
 package theme
 
 // This file is the single source of truth for the TUI visual language
-// (design contract: .opencode/plans/00-overhaul-plan.md §"TUI design
-// contract") and doubles as the token reference for M5 screens.
+// (the design contract) and doubles as the token reference for M5
+// screens.
 //
 // Column semantics:
 //   - light/dark: TrueColor hexes, picked per background via

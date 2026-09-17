@@ -197,7 +197,7 @@ func newSessionsNav() sessionsNav {
 	return nav
 }
 
-// NewSessions builds the page; a nil theme selects theme.Default().
+// NewSessions builds the page; a nil theme selects theme.Default.
 func NewSessions(th *theme.Theme) *Sessions {
 	if th == nil {
 		th = theme.Default()
@@ -375,7 +375,7 @@ func (s *Sessions) emptyText() string {
 	}
 }
 
-// emptyHintLine is the wireframe's full empty-state sentence naming the
+// emptyHintLine is the full empty-state sentence naming the
 // next action, rendered across the page when the list is empty.
 func (s *Sessions) emptyHintLine() string {
 	if s.filtering || s.filter != "" || len(s.state.Sessions) > 0 {

@@ -1,4 +1,4 @@
-// bar_eighths_test.go pins the opt-in sub-cell fill (SCR-508 §H): with
+// bar_eighths_test.go pins the opt-in sub-cell fill (§H): with
 // Eighths set on a non-ascii theme the boundary cell becomes the partial
 // block for the remainder eighths; ascii themes and Eighths=false stay
 // on the whole-cell fill. Also pins that Note reaches the known-total

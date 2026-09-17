@@ -1,4 +1,4 @@
-// root_connect_form.go owns the §E form DATA (SCR-505): the root builds
+// root_connect_form.go owns the §E form DATA: the root builds
 // the initial form from config (or the session-prefill of the last
 // successful connect), recomputes every field's Enabled flag from the form
 // values on every relevant change, and stamps the TLS note after its own
@@ -15,7 +15,7 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// connectFieldSpec is the static shape of one §E row (wireframe §E order).
+// connectFieldSpec is the static shape of one §E row.
 type connectFieldSpec struct {
 	key      string
 	label    string
@@ -200,7 +200,7 @@ func connectOptionIndex(options []string, want, def string) int {
 }
 
 // applyConnectRules recomputes every field's Enabled flag from the form
-// DATA (wireframe §E: "Fields enable/disable by mode & header type"):
+// DATA:
 // target belongs to caller mode, bind port to listener mode, and the
 // station ID to the visa header only — the same case-insensitive visa
 // identification internal/utils/length.go SelectLength uses. Everything
@@ -276,7 +276,7 @@ func (m *RootModel) syncConnect() {
 		syncConnectDialog(m.dlg, m.stampTLSNote)
 	}
 	// The wizard's step-0 form is the same dialog machinery and needs the
-	// same re-derivation (proposal 04 §B).
+	// same re-derivation.
 	if m.wizard != nil {
 		syncConnectDialog(m.wizard.ConnectForm(), m.stampTLSNote)
 	}

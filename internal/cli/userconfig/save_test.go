@@ -1,4 +1,4 @@
-// save_test.go pins the SCR-512 §L persistence contract: Save merges
+// save_test.go pins the §L persistence contract: Save merges
 // only the changed keys (typed per schema), untouched keys survive,
 // the result round-trips through Load, and unparsable values error
 // without writing.

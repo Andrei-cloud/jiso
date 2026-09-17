@@ -92,7 +92,7 @@ func TestExitConfigErrorNamesFile(t *testing.T) {
 
 // TestExitConfigErrorNilErrDoesNotPanic asserts a value-only
 // ExitConfigError (no wrapped Err) renders without dereferencing nil and
-// still maps to the config exit code (M1 review #10).
+// still maps to the config exit code.
 func TestExitConfigErrorNilErrDoesNotPanic(t *testing.T) {
 	tests := []struct {
 		name string
@@ -180,7 +180,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 
 // TestDbStatsTxInvalidIDExitsUsage asserts a non-numeric or missing
 // transaction ID under `db stats tx` is a usage error (exit 2), not a
-// runtime failure (M1 review #18).
+// runtime failure.
 func TestDbStatsTxInvalidIDExitsUsage(t *testing.T) {
 	tests := []struct {
 		name string
@@ -221,7 +221,7 @@ func TestScenarioRunMissingSpecFileExitsConfig(t *testing.T) {
 	assert.Empty(t, out.String())
 }
 
-// TestMissingSpecExit3NamesSpecNotUserConfig asserts PAR-300: an exit-3
+// TestMissingSpecExit3NamesSpecNotUserConfig asserts: an exit-3
 // file-existence failure names the offending file in the ExitConfigError,
 // never the unrelated user-config path pointed at by JISO_CONFIG.
 func TestMissingSpecExit3NamesSpecNotUserConfig(t *testing.T) {

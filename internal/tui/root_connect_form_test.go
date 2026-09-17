@@ -13,7 +13,7 @@ import (
 
 // TestConnectPrefillLastConn: values the config leaves unset prefill
 // from the remembered last-successful connect; explicit config values
-// win over the memory (UAT: "make connection details as last used").
+// win over the memory ("make connection details as last used").
 func TestConnectPrefillLastConn(t *testing.T) {
 	t.Setenv("JISO_STATE_DIR", t.TempDir())
 	if err := app.SaveLastConnection(app.LastConnection{Host: "10.1.2.3", Port: "45455", Header: "binary2"}); err != nil {
@@ -58,7 +58,7 @@ func TestConnectSuccessRemembersLastConn(t *testing.T) {
 
 // TestEffectiveHeaderTracksLiveLink: the card and the top-rule chip show
 // the framing the LIVE link actually uses (form selection wins), not
-// the app fallback (UAT: form binary2, screen lied with ascii4).
+// the app fallback (form binary2, screen lied with ascii4).
 func TestEffectiveHeaderTracksLiveLink(t *testing.T) {
 	t.Setenv("JISO_STATE_DIR", t.TempDir())
 	r := newConnectTestRoot(t)

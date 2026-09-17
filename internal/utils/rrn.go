@@ -52,7 +52,7 @@ func GetRRNInstance() *RRN {
 		// Initialize RRN with the loaded value. The init line only
 		// carries information when the persisted value is non-zero;
 		// printing it at 0 was test-output and scrollback noise (the
-		// line itself goes through the package sink, UAT round 5).
+		// line itself goes through the package sink).
 		rrnInstance = &RRN{value: data.RRNValue}
 		if data.RRNValue != 0 {
 			outputf("RRN counter initialized with persisted value: %d\n", data.RRNValue)

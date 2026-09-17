@@ -134,7 +134,7 @@ func TestCTFCliCommand_ExportDryRunWritesNothing(t *testing.T) {
 }
 
 // TestCTFCliCommand_ExportJSONIsPure asserts the export banner is suppressed
-// under --json in favour of a pure-JSON summary (M1 review #14).
+// under --json in favour of a pure-JSON summary.
 func TestCTFCliCommand_ExportJSONIsPure(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "cli_ctf_json.db")
@@ -173,9 +173,9 @@ func TestCTFCliCommand_ExportJSONIsPure(t *testing.T) {
 	assert.False(t, fileExists(planPath))
 }
 
-// TestCTFCliCommand_ExportMissingSessionIDExitsUsage asserts a missing
-// --session/--session-id is a usage error (exit 2) naming the flag
-// (M1 review #4; PAR-308).
+// TestCTFCliCommand_ExportMissingSessionIDExitsUsage asserts a
+// missing --session/--session-id is a usage error (exit 2)
+// naming the flag.
 func TestCTFCliCommand_ExportMissingSessionIDExitsUsage(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "cli_ctf_usage.db")
@@ -195,7 +195,7 @@ func TestCTFCliCommand_ExportMissingSessionIDExitsUsage(t *testing.T) {
 
 // TestCTFCliCommand_ExportSessionAliasAndYes asserts the headless spelling
 // `ctf export --session <id> --yes` works: --yes is a no-op, --session
-// resolves, and --dry-run with them still writes nothing (PAR-308).
+// resolves, and --dry-run with them still writes nothing.
 func TestCTFCliCommand_ExportSessionAliasAndYes(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "cli_ctf_alias.db")

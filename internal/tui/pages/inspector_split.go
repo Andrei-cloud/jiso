@@ -1,4 +1,4 @@
-// inspector_split.go renders the §C wireframe layout at wide terminals:
+// inspector_split.go renders the §C layout at wide terminals:
 // the FIELDS pane and a right pane (packed/bitmap/raw — Tab retargets
 // it) side by side, validation below. Below inspectorSplitMinWidth the
 // page keeps the single-tab stack (inspector_view.go).
@@ -14,7 +14,7 @@ import (
 )
 
 // inspectorSplitMinWidth is the content width at which FIELDS and the
-// right pane sit side by side (the wireframe baseline).
+// right pane sit side by side (the baseline).
 const inspectorSplitMinWidth = 100
 
 // splitBody is the side-by-side body: FIELDS left, right pane right,

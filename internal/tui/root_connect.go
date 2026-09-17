@@ -32,7 +32,7 @@ const defaultConnectAttempts = 3
 
 // defaultConnectBackoff is the fixed wait before each retry attempt: the
 // config exposes no retry-interval knob (only connect/response timeouts),
-// so the dialog uses the wireframe §E displayed value (backoff 1.5s).
+// so the dialog uses the §E displayed value (backoff 1.5s).
 const defaultConnectBackoff = 1500 * time.Millisecond
 
 // ConnectAttemptMsg stamps one attempt start (and the backoff waited
@@ -382,7 +382,7 @@ func (m *RootModel) connectAttempts() int {
 }
 
 // connectBackoffDur resolves the wait before attempt n (injectable for
-// fast tests; default: the wireframe's fixed 1.5s).
+// fast tests; default: the fixed 1.5s).
 func (m *RootModel) connectBackoffDur(n int) time.Duration {
 	if m.connectBackoff != nil {
 		return m.connectBackoff(n)

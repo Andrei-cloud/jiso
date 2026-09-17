@@ -53,7 +53,7 @@ type Bridge struct {
 
 // New wires the bridge. A nil send is replaced by a sink that drops
 // messages (useful when a model is armed without a program, e.g. pure
-// Update tests). A nil ctx is treated as context.Background().
+// Update tests). A nil ctx is treated as context.Background.
 func New(ctx context.Context, src <-chan events.Event, send Sender) *Bridge {
 	if ctx == nil {
 		ctx = context.Background()

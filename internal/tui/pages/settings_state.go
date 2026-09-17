@@ -1,5 +1,5 @@
-// settings_state.go holds the §L state contract (wireframe §L) and the
-// page→router messages (SCR-512). Root owns every App touch: it loads
+// settings_state.go holds the §L state contract and the
+// page→router messages. Root owns every App touch: it loads
 // app.SettingsView snapshots off the UI thread, runs ApplySettings on
 // each committed field, and drives SaveSettings; the page receives
 // SettingsState — display rows with source/marker/error strings already
@@ -28,7 +28,7 @@ type SettingsRow struct {
 	Marker string
 	Error  string
 	// Pickable marks a file-path field: `f` opens the shared file
-	// picker (TUI-406b); root resolves the directory and predicate.
+	// picker; root resolves the directory and predicate.
 	Pickable bool
 }
 
@@ -72,14 +72,14 @@ type SettingsSaveConfirmMsg struct{}
 
 // SettingsSaveCancelMsg is Esc inside the save overlay: nothing is
 // written and the live edits stay session-only (Esc "discards" the
-// save, per the wireframe footer).
+// save, per the footer).
 type SettingsSaveCancelMsg struct{}
 
 // SettingsRefreshMsg asks root to reload the snapshot (r).
 type SettingsRefreshMsg struct{}
 
 // SettingsPickFileMsg is f on a Pickable row: root opens the shared
-// widgets.FilePicker overlay (TUI-406b); the chosen path returns as a
+// widgets.FilePicker overlay; the chosen path returns as a
 // SettingsCommitMsg through the same validation seam.
 type SettingsPickFileMsg struct{ Key string }
 

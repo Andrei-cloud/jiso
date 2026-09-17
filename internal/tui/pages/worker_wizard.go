@@ -83,7 +83,7 @@ func newWorkerWizardNav() workerWizardNav {
 
 // NewWorkerWizard builds the wizard for one mode ("stress"/"bgsend")
 // with the mode's prefilled parameter rows (see the WorkerDefault*
-// source contract). A nil theme selects theme.Default().
+// source contract). A nil theme selects theme.Default.
 func NewWorkerWizard(th *theme.Theme, mode string) *WorkerWizard {
 	if th == nil {
 		th = theme.Default()

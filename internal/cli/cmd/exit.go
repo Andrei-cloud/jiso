@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// v2 process exit code taxonomy (ansi.md-derived).
+// v2 process exit code taxonomy.
 const (
 	// ExitOK is the process exit code for success.
 	ExitOK = 0
@@ -27,7 +27,7 @@ const (
 
 // ExitCodeError signals that a command finished with an explicit process exit
 // code. The command is expected to have already written its message to
-// cmd.ErrOrStderr(); main maps this error to os.Exit without reprinting.
+// cmd.ErrOrStderr; main maps this error to os.Exit without reprinting.
 type ExitCodeError struct {
 	Code int
 }

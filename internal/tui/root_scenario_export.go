@@ -1,11 +1,11 @@
-// root_scenario_export.go owns the §F `e` export (SCR-506): the page
+// root_scenario_export.go owns the §F `e` export: the page
 // yields ScenarioExportMsg, and root writes the LAST completed report as
 // JSON in a tea.Cmd (Update never blocks on I/O), folding the result
 // back as scenarioExportedMsg. With no completed report the status line
 // says "no report yet" instead of silently succeeding (no toast widget
-// until TUI-406b — footer/banner line).
+// until footer/banner line).
 //
-// E5-FIX/M6: the write is gated like the §K export — `e` first runs an
+// The write is gated like the §K export — `e` first runs an
 // os.Stat leg; an existing scenario-report.json opens the §N3 overwrite
 // confirm (default No) instead of silently destroying the previous
 // report, and scenarioWriteWait is the single-flight so two rapid `e`
@@ -113,7 +113,7 @@ func (m *RootModel) armScenarioExport(path string) (tea.Model, tea.Cmd) {
 
 // applyScenarioExportConfirmed proceeds with the write of the exact
 // pending path (never recovered from the question text — a trailing
-// "?" would mangle it; the E5-FIX/M3 lesson).
+// "?" would mangle it; the lesson).
 func (m *RootModel) applyScenarioExportConfirmed() (tea.Model, tea.Cmd) {
 	path := m.scenarioExportPending
 	m.scenarioConfirm = nil

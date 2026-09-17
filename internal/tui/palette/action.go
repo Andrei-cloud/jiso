@@ -1,4 +1,4 @@
-// Package palette implements the command palette (TUI-405): an action
+// Package palette implements the command palette: an action
 // registry, a hand-rolled fuzzy matcher, and the input+list overlay widget
 // the root model opens on ":" / Ctrl+P.
 //
@@ -33,21 +33,21 @@ type PushPageMsg struct {
 }
 
 // OpenConnectMsg asks the router to open the §E connect dialog as an
-// overlay on the current page (SCR-505): the page stack is untouched, Esc
+// overlay on the current page: the page stack is untouched, Esc
 // returns to the same page. The palette action and the dashboard quick
 // action both emit it, so every entry point lands on one router handler.
 type OpenConnectMsg struct{}
 
-// DisconnectMsg asks the router to close the live connection (TUI-514,
-// closes REGRESSION-1): the palette action and the §A quick key both emit
+// DisconnectMsg asks the router to close the live connection: the
+// palette action and the §A quick key both emit
 // it, so every entry point lands on one router handler. The router owns
 // the semantics — with a connection it disconnects (a §N3 confirm first
 // while workers are active or the serve engine runs), without one it is a
 // sane no-op with an info toast.
 type DisconnectMsg struct{}
 
-// OpenSendWizardMsg asks the router to open the send wizard (proposal 04
-// §B): one modal that walks spec ▸ tx file ▸ template, prefixed with a
+// OpenSendWizardMsg asks the router to open the send wizard:
+// one modal that walks spec ▸ tx file ▸ template, prefixed with a
 // connect step when no connection is live ("send selected from the menu
 // with connection settings undefined opens connection settings first").
 // The palette action, the dashboard quick action and the global "s" key
@@ -61,10 +61,10 @@ const (
 )
 
 // registerSendActions registers the palette's send family: the wizard
-// (proposal 04 §B, always available — offline it opens with the connect
+// (always available — offline it opens with the connect
 // step first; the §A quick action hides it until a connection exists),
 // the last-send view (toasts when nothing ran), and the send history
-// overlay (UAT round 5).
+// overlay.
 func registerSendActions(r *Registry) {
 	r.Register(Action{
 		ID:       "send-wizard",
@@ -93,8 +93,8 @@ func registerSendActions(r *Registry) {
 	})
 }
 
-// DirectSendMsg asks the router for the one-keystroke send (UAT round
-// 5): with a live connection and a loaded spec + tx file it starts the
+// DirectSendMsg asks the router for the one-keystroke send:
+// with a live connection and a loaded spec + tx file it starts the
 // send immediately — from the dashboard the operator stays put and the
 // LAST SEND tile carries the outcome — falling back to the send wizard
 // only when something is unresolved. The dashboard quick action and the
@@ -109,19 +109,19 @@ type LastSendViewMsg struct{}
 
 // SendHistoryMsg asks the router to open the send-history overlay: the
 // scrollable list of this session's completed sends; Enter on a row
-// freezes §D on it, whose h toggle switches detail ↔ hex (UAT round 5:
+// freezes §D on it, whose h toggle switches detail ↔ hex:
 // the send menu should keep a history, not just the single LAST SEND).
 type SendHistoryMsg struct{}
 
 // LastStressSummaryMsg asks the router to reopen the stress summary
-// overlay for the last completed stress run (proposal 05 §3 LAST STRESS
+// overlay for the last completed stress run (LAST STRESS
 // card): the §A quick-action row and the LAST STRESS "enter summary"
 // affordance both emit it, and the router lands on the existing §H
 // overlay path. The router toasts when no stress run completed.
 type LastStressSummaryMsg struct{}
 
 // QuitRequestMsg asks the router to quit; the router confirms first
-// (UAT: exit confirmation before the application quits). Ctrl+C stays
+// (exit confirmation before the application quits). Ctrl+C stays
 // the immediate escape hatch.
 type QuitRequestMsg struct{}
 
@@ -163,7 +163,7 @@ func (r *Registry) Register(a Action) {
 func (r *Registry) Actions() []Action { return r.actions }
 
 // jumpAction builds the palette action for page slot i (0-based): the
-// title is the wireframe's "go to <page>" label, the hint is the digit.
+// title is the "go to <page>" label, the hint is the digit.
 func jumpAction(i int, id, title string, keywords []string) Action {
 	kw := append([]string{id, "page", itoa(i + 1)}, keywords...)
 
@@ -178,12 +178,12 @@ func jumpAction(i int, id, title string, keywords []string) Action {
 	}
 }
 
-// DashboardActions returns the §A quick-action list exactly as the
-// wireframe draws it: Connect / reconnect, then the five page-entry
+// DashboardActions returns the §A quick-action list exactly as the design
+// draws it: Connect / reconnect, then the five page-entry
 // verbs whose dim badge is the target page's hotkey digit. Enter runs
 // the row; the Run closures emit the same GoToPageMsg/OpenConnectMsg the
 // digit hotkeys emit, so every entry point lands on one router handler.
-// The Disconnect row (TUI-514) rides along — the page hides it while no
+// The Disconnect row rides along — the page hides it while no
 // connection is live.
 func DashboardActions() []Action {
 	out := []Action{
@@ -202,9 +202,9 @@ func DashboardActions() []Action {
 			Run:      func([]string) tea.Msg { return DisconnectMsg{} },
 		},
 	}
-	// Proposal 04 §B: the wizard row sits right under the connect pair;
+	// The wizard row sits right under the connect pair;
 	// the page hides it until a connection exists (and swaps the
-	// connect/disconnect rows by connection state). UAT round 5: the
+	// connect/disconnect rows by connection state). The
 	// row sends directly when the session config is complete, falling
 	// back to the wizard otherwise.
 	out = append(out, Action{
@@ -222,7 +222,7 @@ func DashboardActions() []Action {
 		Keywords: []string{"last", kwPrevious, "result", "again", "resend"},
 		Run:      func([]string) tea.Msg { return LastSendViewMsg{} },
 	})
-	// UAT round 5: the scrollable send history (Enter freezes §D on a
+	// The scrollable send history (Enter freezes §D on a
 	// row; h there toggles detail ↔ hex).
 	out = append(out, Action{
 		ID:       "send-history",
@@ -230,7 +230,7 @@ func DashboardActions() []Action {
 		Keywords: []string{kwHistory, kwPrevious, "sends", "log"},
 		Run:      func([]string) tea.Msg { return SendHistoryMsg{} },
 	})
-	// Proposal 05 §3: reopen the last completed stress run's summary
+	// Reopen the last completed stress run's summary
 	// overlay; the page hides the row until a stress run completed (and
 	// the root toasts when none exists).
 	out = append(out, Action{
@@ -260,7 +260,7 @@ func DashboardActions() []Action {
 
 // pageJumpSpec is one hotkey jump slot: the registry id (mirroring
 // internal/tui.PageIDs, hard-coded here so palette stays leaf-level), the
-// wireframe footer label, the palette title, and searchable keywords
+// Footer label, the palette title, and searchable keywords
 // (legacy ids stay findable so muscle memory like ":send" keeps working).
 type pageJumpSpec struct {
 	id       string
@@ -269,7 +269,7 @@ type pageJumpSpec struct {
 	keywords []string
 }
 
-// pageJumps is the wireframe's 1..8 page order:
+// pageJumps is the 1..8 page order:
 // "1 dash 2 tx 3 scenarios 4 server 5 workers 6 sessions 7 analyze 8 ctf".
 var pageJumps = []pageJumpSpec{
 	{"dashboard", "dash", "go to dashboard", []string{"dash", "status", "home"}},
@@ -282,14 +282,14 @@ var pageJumps = []pageJumpSpec{
 	{"ctf", "ctf", "go to CTF export", []string{"clearing", "export", "base2", "visa"}},
 }
 
-// Seed builds the palette registry: the 8 wireframe page jumps (with the
+// Seed builds the palette registry: the 8 page jumps (with the
 // hotkey digit as their hint) plus show-help (push) and quit. The Run
 // closures stay router Msgs.
 func Seed() *Registry {
 	r := NewRegistry()
 
-	// SCR-505: the §E connect dialog, first in the registry so the §A
-	// quick-actions list shows "Connect / reconnect" on top (wireframe §A
+	// The §E connect dialog, first in the registry so the §A
+	// quick-actions list shows "Connect / reconnect" on top (§A
 	// / §E). Run emits OpenConnectMsg; the router opens the overlay.
 	r.Register(Action{
 		ID:       "connect",
@@ -301,8 +301,8 @@ func Seed() *Registry {
 		},
 	})
 
-	// TUI-514 (closes REGRESSION-1): drop the live connection without
-	// quitting or reconnecting — the REPL `disconnect` parity entry.
+	// Drop the live connection without quitting or reconnecting — the
+	// REPL `disconnect` parity entry.
 	// Second in the registry so the §A quick-actions list shows it right
 	// under Connect; the page hides the row while no connection exists
 	// (DashboardState.HasConnection). Run emits DisconnectMsg; the router
@@ -317,7 +317,7 @@ func Seed() *Registry {
 		},
 	})
 
-	// Proposal 04 §B + UAT round 5: the send family (wizard, last-send
+	// The send family (wizard, last-send
 	// view, send history).
 	registerSendActions(r)
 
@@ -325,7 +325,7 @@ func Seed() *Registry {
 		r.Register(jumpAction(i, j.id, j.title, j.keywords))
 	}
 
-	// The §L settings page has no hotkey slot (the wireframe's 8 slots are
+	// The §L settings page has no hotkey slot (the 8 slots are
 	// taken), so it carries no digit hint; the router resolves
 	// GoToPageMsg{"settings"} against the registry.
 	r.Register(Action{

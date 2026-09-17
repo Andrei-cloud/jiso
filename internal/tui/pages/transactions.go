@@ -30,7 +30,7 @@ type Transactions struct {
 
 	filtering bool
 	filter    string
-	sortStep  int // index into sortCycle; 0 = name asc (wireframe default)
+	sortStep  int // index into sortCycle; 0 = name asc (default)
 
 	view       []TxRow // filtered+sorted rows, parallel to table rows
 	selectedID string  // identity of the row under the cursor
@@ -102,7 +102,7 @@ var sortCycle = [6]struct {
 // sortColumnNames labels the sort indicator per cycle column.
 var sortColumnNames = [3]string{"name", "mti", "description"}
 
-// NewTransactions builds the page; a nil theme selects theme.Default().
+// NewTransactions builds the page; a nil theme selects theme.Default.
 func NewTransactions(th *theme.Theme) *Transactions {
 	if th == nil {
 		th = theme.Default()

@@ -1,4 +1,4 @@
-// output.go is the package's single system-output sink (UAT round 5):
+// output.go is the package's single system-output sink:
 // transaction-collection load warnings used to write straight to
 // os.Stderr, which corrupts the TUI's alternate screen mid-frame —
 // changing the transaction file mid-session reloads the collection and

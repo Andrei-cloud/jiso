@@ -7,7 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Layer-2 floor tests (TUI-407): real programs at degraded sizes. The
+// Layer-2 floor tests: real programs at degraded sizes. The
 // frame must shed chrome per the responsive contract and never panic or
 // emit a line wider than the terminal (layout corruption).
 
@@ -131,7 +131,7 @@ func TestProgFloor60Cols(t *testing.T) {
 	if !strings.Contains(r.frame, "CONNECTION") {
 		t.Errorf("60-col frame lost the page title:\n%s", r.frame)
 	}
-	// UAT round 6 QA: below NarrowWidth the top rule keeps the identity
+	// QA: below NarrowWidth the top rule keeps the identity
 	// label (only the informational chips drop, and the invented
 	// hard-status clock is gone with the old header).
 	if !strings.Contains(r.frame, "jiso") {

@@ -28,7 +28,7 @@ type consoleLineMsg struct{ text string }
 
 // serverLineMsg carries one internal/server (mock server) line into the
 // model; unlike consoleLineMsg it never reaches the global strip — the
-// router keeps it in the §4 page's own LOG pane (UAT round 3).
+// router keeps it in the §4 page's own LOG pane.
 type serverLineMsg struct{ text string }
 
 // consoleRingMax bounds the retained lines (oldest dropped).
@@ -45,7 +45,7 @@ type consoleWriter struct {
 	dead atomic.Bool
 }
 
-// newConsoleWriter builds the capture sink; retire() stops delivery.
+// newConsoleWriter builds the capture sink; retire stops delivery.
 func newConsoleWriter(send func(tea.Msg)) *consoleWriter {
 	return &consoleWriter{send: send}
 }
@@ -90,7 +90,7 @@ func (w *consoleWriter) Close() error {
 var _ io.Writer = (*consoleWriter)(nil)
 
 // appendConsoleLine stamps one system line into the ring, receipt-
-// timestamped (UAT round 4: an undated line reads as current truth even
+// timestamped(an undated line reads as current truth even
 // when it is an hour old).
 func (m *RootModel) appendConsoleLine(text string) {
 	m.console = append(m.console, m.stampLine(text))
@@ -105,7 +105,7 @@ func (m *RootModel) stampLine(text string) string {
 }
 
 // stampConnStatus replaces the visible status line on every connection
-// state change (UAT round 4: a stale "Connection closed" stuck on
+// state change(a stale "Connection closed" stuck on
 // screen after reconnecting). The newest line is what the strip shows,
 // so stamping a fresh truth retires the old one.
 func (m *RootModel) stampConnStatus(ev events.ConnectionEvent) {
@@ -149,9 +149,9 @@ func (m *RootModel) consoleLine() (string, bool) {
 // writer and internal/server's output at a server-tagged capture writer,
 // and returns the restore func (deferred by run). Server lines are
 // re-tagged as serverLineMsg so the router can keep them inside the §4
-// page's LOG pane instead of the global strip (UAT round 3).
+// page's LOG pane instead of the global strip.
 //
-// UAT round 5: the utils (STAN/RRN) and transactions (collection reload)
+// The utils (STAN/RRN) and transactions (collection reload)
 // system lines join the capture — their raw stderr writes smashed the
 // alt screen mid-frame (the RRN init line rendered through the §F pane
 // borders during a scenario run).

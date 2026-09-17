@@ -26,7 +26,7 @@ AnalyzeOutput result on stdout, -o writes the same JSON atomically, and
 -n/--dry-run prints the flow table and the plan without writing anything.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !analyzeWantsHeadless(cmd) {
-				// UAT-04: the cobra path never launches the survey
+				// The cobra path never launches the survey
 				// wizard (it printed ANSI prompt bytes on stdout and
 				// exited 1 on a piped stdin). Headless selection is
 				// mandatory; missing input is a usage error naming it.
@@ -43,7 +43,7 @@ AnalyzeOutput result on stdout, -o writes the same JSON atomically, and
 	cmd.Flags().Bool("scenario", false, "Analyze capture into scenario flow")
 	cmd.Flags().String("header", "", "Header format (ascii4, binary2, bcd2, binary4, NAPS, Visa)")
 
-	// PAR-307 headless flags.
+	// headless flags.
 	cmd.Flags().Bool("yes", false, "Non-interactive run: auto-pick the highest-message flow, never prompt")
 	cmd.Flags().Int("flow", 0, "Destination-port flow to analyze (must exist in the capture)")
 	cmd.Flags().String("mode", "tx", "Headless analysis mode: tx, routes, or scenario")
@@ -52,7 +52,7 @@ AnalyzeOutput result on stdout, -o writes the same JSON atomically, and
 	return cmd
 }
 
-// analyzeWantsHeadless reports whether the PAR-307 headless contract applies:
+// analyzeWantsHeadless reports whether the headless contract applies:
 // --yes given (the confirmation is a no-op because the path never prompts), or
 // an explicit headless selection via --mode/--flow.
 func analyzeWantsHeadless(cmd *cobra.Command) bool {
@@ -65,7 +65,7 @@ func analyzeWantsHeadless(cmd *cobra.Command) bool {
 	return f.Changed("mode") || f.Changed("flow")
 }
 
-// analyzeMissingSelectionMessage is the UAT-04 usage error for a cobra
+// analyzeMissingSelectionMessage is the usage error for a cobra
 // analyze without a headless selection. It names the missing input
 // (--yes); the survey wizard it replaced printed ANSI prompt bytes on
 // stdout and exited 1 ("EOF") on a piped stdin, and it only ever existed

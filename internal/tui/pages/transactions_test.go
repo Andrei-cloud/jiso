@@ -98,7 +98,7 @@ func TestTxIDAndSlot(t *testing.T) {
 	}
 }
 
-// TestTxEmptyStateText: no tx file loaded renders the wireframe line
+// TestTxEmptyStateText: no tx file loaded renders the line
 // (ascii dash) plus the always-present §B title row.
 func TestTxEmptyStateText(t *testing.T) {
 	t.Parallel()
@@ -118,7 +118,7 @@ func TestTxEmptyStateText(t *testing.T) {
 }
 
 // TestTxHeaderFileLabelAndSort: the header shows the file label with the
-// count, the filter slot (empty renders the caret, wireframe "filter:
+// count, the filter slot (empty renders the caret, "filter:
 // ▏"/ascii "|"), and the sort indicator (default name asc).
 func TestTxHeaderFileLabelAndSort(t *testing.T) {
 	t.Parallel()

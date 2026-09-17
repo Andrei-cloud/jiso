@@ -225,7 +225,7 @@ func TestJSONFlagOutputIsPureParseable(t *testing.T) {
 
 // TestDbStatsJSONNoSessionPrintsSummary asserts `db stats --json` without a
 // session prints the DB-level summary over the stored rows with exit 0
-// (PAR-305). It supersedes the M1-review-#1 usage error: that guard existed
+// It supersedes the former usage error: that guard existed
 // because the only candidate was EnsureSessionID's fresh UUID; a summary is
 // real data, and it still never carries a fabricated session record.
 func TestDbStatsJSONNoSessionPrintsSummary(t *testing.T) {
@@ -260,7 +260,7 @@ func TestDBStatsJSONUnknownSession(t *testing.T) {
 
 // TestDBStatsJSONPropagatesQueryErrors asserts a failing auxiliary query
 // fails the command under --json instead of silently dropping the
-// stress_tests/transactions sections with rc=0 (M1 review #17).
+// stress_tests/transactions sections with rc=0.
 func TestDBStatsJSONPropagatesQueryErrors(t *testing.T) {
 	dbPath := seedCLI102DB(t)
 

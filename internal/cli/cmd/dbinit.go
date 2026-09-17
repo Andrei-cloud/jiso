@@ -1,4 +1,4 @@
-// dbinit.go wires the session database into the cobra tree (UAT-01). The
+// dbinit.go wires the session database into the cobra tree. The
 // golden harness seeded its fixture DB directly, which masked the fact that
 // no shipped command ever called db.InitDB: --db recorded nothing and spammed
 // "database not initialized" per logged transaction. PersistentPreRunE calls
@@ -16,7 +16,7 @@ import (
 )
 
 // skipSessionDBInitAnnotation marks commands that must never initialize —
-// and therefore never create — the session database: the PAR-311 read-only
+// and therefore never create — the session database: the read-only
 // review commands (db stats, db tx, ctf list, ctf export) open with
 // db.OpenExisting and must keep exiting 3 naming a missing file instead of
 // leaving a fresh empty database behind, and the removed/stub commands

@@ -32,7 +32,7 @@ type RunScenarioCommand struct {
 	// Out routes the report through the v2 renderer when set (cobra path):
 	// under --json stdout carries the pure-JSON TestReport and the ANSI
 	// human report is suppressed; nil keeps the legacy REPL stdout
-	// behavior (M1 review #14).
+	// behavior.
 	Out *output.Renderer
 }
 

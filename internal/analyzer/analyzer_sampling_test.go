@@ -11,7 +11,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// analyzer_sampling_test.go pins the UAT round 6 unparsable-sample
+// analyzer_sampling_test.go pins the unparsable-sample
 // collector: the sampled extractor records WHERE framing breaks and
 // WHAT the analyzer choked on, bounded by the sample cap.
 
@@ -24,7 +24,7 @@ func frameBinary2(payload []byte) []byte {
 	return out
 }
 
-// TestExtractMessagesFromStreamSampled pins the UAT round 6 reviewer
+// TestExtractMessagesFromStreamSampled pins the reviewer
 // data path: a framed message that will not unpack yields a sample with
 // its stream offset, byte length, unpack reason, and head, while the
 // good messages still extract.
@@ -65,7 +65,7 @@ func TestExtractMessagesFromStreamSampled(t *testing.T) {
 	assert.NotEmpty(t, samples[0].Reason)
 	assert.Equal(t, bad, samples[0].Head, "head holds the whole short body")
 
-	// UAT round 7: the fields that unpacked BEFORE the failure are
+	// The fields that unpacked BEFORE the failure are
 	// described (MTI always parses first), and the sample names the byte
 	// where parsing stopped (past the MTI/bitmap, within the body).
 	require.NotEmpty(t, samples[0].Fields, "parsed-before-failure fields are described")
@@ -75,8 +75,8 @@ func TestExtractMessagesFromStreamSampled(t *testing.T) {
 	assert.LessOrEqual(t, samples[0].FailedAt, len(bad), "the stop offset is within the body")
 }
 
-// TestUnparsableCollectorCapsSamples pins the memory bound (UAT round
-// 6): the total counts every failure, the kept samples stop at the cap.
+// TestUnparsableCollectorCapsSamples pins the memory bound:
+// the total counts every failure, the kept samples stop at the cap.
 func TestUnparsableCollectorCapsSamples(t *testing.T) {
 	t.Parallel()
 

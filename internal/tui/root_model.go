@@ -58,11 +58,11 @@ type RootModel struct {
 	resizeWindow       time.Duration
 
 	// theme overrides the frame/palette theme when set; nil means
-	// theme.Default().
+	// theme.Default.
 	theme *theme.Theme
 
 	// debug is the lifecycle logger (nil = off); nil-safe hooks keep
-	// Update I/O-free. run() installs it; tests may too.
+	// Update I/O-free. run installs it; tests may too.
 	debug *debugLogger
 
 	// Dashboard: dash is the canonical page-1 instance (registry[0], a
@@ -126,7 +126,7 @@ type RootModel struct {
 	// lastSentTemplate is the most recent send's template; the
 	// one-keystroke dashboard send reuses it.
 	lastSentTemplate string
-	sendHistory      *pages.SendHistory       // send-history overlay page (UAT round 5)
+	sendHistory      *pages.SendHistory       // send-history overlay page
 	sends            []pages.SendHistoryEntry // bounded ring of completed sends
 
 	// console: bounded ring of NON-TUI system stderr lines (connection
@@ -268,11 +268,11 @@ type RootModel struct {
 	analyzeSelected       []app.FlowSelection
 	analyzeRecents        []string
 	analyzeFlowFilter     string
-	analyzeOutputPath     string // [o]-edited output file for generated items ("" = engine default, UAT round 5)
+	analyzeOutputPath     string // [o]-edited output file for generated items ("" = engine default)
 	analyzeFlows          []app.AnalyzeFlowView
 	analyzeParsed         int
 	analyzeUnparsable     int
-	analyzeUnparsableRows []pages.AnalyzeUnparsableRow // unparsable-message reviewer roster (UAT round 6)
+	analyzeUnparsableRows []pages.AnalyzeUnparsableRow // unparsable-message reviewer roster
 	analyzeUnparsableID   int                          // bumped per enum: re-arms the reviewer
 	analyzeSpecWait       bool
 	analyzeEnumWait       bool
@@ -283,7 +283,7 @@ type RootModel struct {
 	analyzeRunStart       time.Time
 	analyzeElapsed        string
 	analyzePreview        string
-	analyzeItemRows       []pages.AnalyzeItemRow // generated-item picker roster (UAT round 6)
+	analyzeItemRows       []pages.AnalyzeItemRow // generated-item picker roster
 	analyzeExcluded       []string               // picker-deselected item keys
 	analyzeItemsID        int                    // bumped per run attach: re-opens the picker
 	analyzeWriteLine      string

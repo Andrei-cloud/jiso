@@ -17,9 +17,9 @@ type analyzeFlowStat struct {
 	Msgs int `json:"msgs"`
 }
 
-// analyzeDryRunPlan is the machine-readable --dry-run preview of a headless
-// analyze: the flow table and what WOULD run, with nothing written
-// (M1 review #3; PAR-307).
+// analyzeDryRunPlan is the machine-readable --dry-run preview of a
+// headless analyze: the flow table and what WOULD run, with nothing
+// written.
 type analyzeDryRunPlan struct {
 	DryRun       bool              `json:"dry_run"`
 	Action       string            `json:"action"`
@@ -106,7 +106,7 @@ func printAnalyzeSummary(w io.Writer, out *app.AnalyzeOutput) {
 
 // writeJSONAtomicReport writes v as indented JSON via temp-file + rename, so
 // -o readers never observe a partial report (same pattern as
-// app.writeJSONAtomic, PAR-307).
+// app.writeJSONAtomic).
 func writeJSONAtomicReport(path string, v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

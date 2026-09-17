@@ -48,7 +48,7 @@ func fakeActions() []palette.Action {
 // gotoMsg is an identifiable router-level Msg for dispatch assertions.
 type gotoMsg string
 
-// onlineState is a fully-populated snapshot (wireframe §A sample).
+// onlineState is a fully-populated snapshot.
 // HasConnection stays false so the fake-actions connect row keeps its
 // top position (the dispatch tests press j once to reach "Send
 // transaction"); logGoldState adds the connected, live-server shape.

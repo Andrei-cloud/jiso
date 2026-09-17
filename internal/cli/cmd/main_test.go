@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 	// Stop the STAN persistence worker before removing the directory it writes
 	// into. GetCounter starts that worker on first use and JISO_STATE_DIR above
 	// points it inside dir; cmd/main.go defers the same call, but nothing here
-	// did, so the worker outlived m.Run() and re-created dir/state after the
+	// did, so the worker outlived m.Run and re-created dir/state after the
 	// cleanup below - which is how every run of this package left a temp
 	// directory behind.
 	utils.StopPersistWorker()

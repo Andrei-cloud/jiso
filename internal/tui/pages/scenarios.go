@@ -116,7 +116,7 @@ func newScenNav() scenNav {
 	return nav
 }
 
-// NewScenarios builds the page; a nil theme selects theme.Default().
+// NewScenarios builds the page; a nil theme selects theme.Default.
 func NewScenarios(th *theme.Theme) *Scenarios {
 	if th == nil {
 		th = theme.Default()

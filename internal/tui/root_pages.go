@@ -33,11 +33,11 @@ func (m *RootModel) newPages() {
 	m.settingsChanged = map[string]string{}
 }
 
-// registerPages fills the hotkey registry in PageIDs (wireframe) order, then
+// registerPages fills the hotkey registry in PageIDs order, then
 // appends the inspector and settings pages that claim no digit, and seeds the
 // navigation stack with the first page.
 func (m *RootModel) registerPages() {
-	// Hotkey slots first, in PageIDs (wireframe) order...
+	// Hotkey slots first, in PageIDs order...
 	for _, id := range PageIDs {
 		switch id {
 		case pages.DashboardPageID:

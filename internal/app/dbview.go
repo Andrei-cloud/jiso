@@ -1,9 +1,9 @@
-// dbview.go is the §I read-only session-DB façade (SCR-509). The TUI
+// dbview.go is the §I read-only session-DB façade. The TUI
 // never touches internal/db itself: root queries these *App methods off
 // the UI thread (tea.Cmd) and derives display strings from the returned
 // views with its injectable clock — the returned views carry stored
 // timestamps only, never relative times. Every path opens through
-// db.OpenExisting (PAR-311): a missing file is the typed ConfigError
+// db.OpenExisting: a missing file is the typed ConfigError
 // below (errors.Is db.ErrDBNotFound), never a created file and never a
 // crash; an unset --db path is ErrDBNotConfigured. Queries are read-only
 // (SELECTs plus the schema-ensure OpenExisting already does) and
@@ -69,11 +69,11 @@ func (a *App) openRead(ctx context.Context) (func(), error) {
 		return nil, err
 	}
 	a.dbReadMu.Lock()
-	// UAT-01: when the process already holds the write connection for this
+	// When the process already holds the write connection for this
 	// very file (the session-DB seam ran at startup, as in the TUI), reuse
 	// it instead of OpenExisting/Close churn, which would re-open a second
 	// handle per refresh and then closeRead the global out from under the
-	// async logger. PAR-311 semantics are unchanged for the standalone
+	// async logger. The semantics are unchanged for the standalone
 	// read path: no global conn for this path → OpenExisting as before,
 	// missing file → typed ErrDBNotFound, never a created file.
 	if db.IsInitialized() && db.CurrentPath() == a.cfg.GetDbPath() {

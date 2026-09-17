@@ -23,7 +23,7 @@ func newConnectCmd() *cobra.Command {
 	return connectCmd
 }
 
-// newConnectCheckCmd builds the PAR-303 scriptable health probe:
+// newConnectCheckCmd builds the scriptable health probe:
 //
 //	jiso connect check --host H --port P [--connect-timeout 2s] [--json]
 //

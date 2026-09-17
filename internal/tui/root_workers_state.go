@@ -28,7 +28,7 @@ func (m *RootModel) syncWorkers() {
 
 // workersState assembles the snapshot: live App views enrich the cache
 // first, then rows are ordered longest-runtime-first (the App's own
-// Workers() order) and turned into display strings.
+// Workers order) and turned into display strings.
 func (m *RootModel) workersState() pages.WorkersState {
 	m.enrichWorkerRows()
 	sep := m.workerSep()
@@ -194,7 +194,7 @@ func (m *RootModel) progressRow(r *workerRowState) (pages.ProgressRow, bool) {
 	return line, true
 }
 
-// expectedCount is the wireframe's expected-message denominator: the
+// expectedCount is the expected-message denominator: the
 // App's own expected-requests formula targetTps × (ramp + duration).
 func (p workerRunParams) expectedCount() int {
 	secs := int((p.ramp + p.duration).Seconds())
@@ -226,7 +226,7 @@ func (m *RootModel) sparkLabel(rows []*workerRowState) string {
 		m.workerSep() + "avg " + formatTps(sum/float64(len(m.workerRing)))
 }
 
-// netLine derives the wireframe's net strip from the App's networking
+// netLine derives the net strip from the App's networking
 // metrics: wire volume first, then reconnects, breaker trips and
 // retriable/permanent errors; "" when all zero. Reconnects is the
 // retry signal the app can observe.

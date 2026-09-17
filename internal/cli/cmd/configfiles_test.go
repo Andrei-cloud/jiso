@@ -209,7 +209,7 @@ const oneTxJSON = `[{"type":"transaction","name":"auth","description":"auth test
 // TestConfiguredSpecAndTxSurfacesErrors asserts the shared loader used by
 // inspect/analyze returns the cached validated parse, names the file on a
 // load error instead of swallowing it, and yields nil values for unset
-// paths (M1 review #24).
+// paths.
 func TestConfiguredSpecAndTxSurfacesErrors(t *testing.T) {
 	t.Parallel()
 

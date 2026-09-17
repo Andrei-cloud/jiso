@@ -1,6 +1,6 @@
-// serve_routes_live_test.go is the UAT-02 exec-probe: `jiso serve routes`
+// serve_routes_live_test.go is the exec-probe: `jiso serve routes`
 // must list the routes the RUNNING server actually matches against (the
-// route set persisted in the PAR-304 state file at start), not whatever
+// route set persisted in the state file at start), not whatever
 // spec/tx slots the querying process happens to carry. Before the fix the
 // command re-derived routes from its own config and printed "No mock routes
 // configured" while the server was actively matching tx-file routes.
@@ -29,7 +29,7 @@ const probeRoutesTxJSON = `[
 ]`
 
 // startRoutesProbeServer boots an in-process mock server WITH the probe
-// routes and publishes its PAR-304 side-channel into a dedicated state dir.
+// routes and publishes its side-channel into a dedicated state dir.
 // It returns the state dir (cases override $JISO_STATE_DIR with it) and the
 // bound port.
 func startRoutesProbeServer(t *testing.T) (stateDir, port string) {

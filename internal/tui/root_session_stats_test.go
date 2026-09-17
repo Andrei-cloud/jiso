@@ -1,4 +1,4 @@
-// root_session_stats_test.go proves the proposal-05 §3 P4 contract: the
+// root_session_stats_test.go proves the contract: the
 // §A SESSION card is fed by the async App.SessionStats leg — armed only
 // while the dashboard is current (steady ~2s refresh) or while a
 // send/worker completion dirtied the read (one off-page re-query), with

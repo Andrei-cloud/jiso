@@ -14,7 +14,7 @@ import (
 
 // runCmdProgramEquivalently executes cmd the way v2's command runner does:
 // a BatchMsg is unpacked and every sub-cmd runs in its own goroutine (the
-// pump blocks there until a stop fires). Since TUI-408 the arming Update
+// pump blocks there until a stop fires). Since the arming Update
 // returns a BatchMsg (bridge cmd + resize flush cmd), so tests unpack like
 // the program instead of assuming the returned cmd IS the pump.
 func runCmdProgramEquivalently(cmd tea.Cmd) {
@@ -121,7 +121,7 @@ func TestBridgeEventsForwardToTopPage(t *testing.T) {
 	src <- events.Logf{Level: "info", Msg: "hi"}
 	m.Update(nextBridgeMsg(t, col))
 
-	// SCR-501: pages receive pages.EventMsg (event + root-stamped time),
+	// Pages receive pages.EventMsg (event + root-stamped time),
 	// never the bridge wrapper — pages may not import the bridge package.
 	for _, msg := range seenOf(m) {
 		if em, ok := msg.(pages.EventMsg); ok {
@@ -171,7 +171,7 @@ func TestBridgeNilSourceIsNoop(t *testing.T) {
 	}
 
 	// The only cmd a nil-source resize Update may return is the resize
-	// flush (TUI-408 coalescing) — never a bridge pump.
+	// flush (coalescing) — never a bridge pump.
 	if cmd != nil {
 		if _, ok := cmd().(resizeFlushMsg); !ok {
 			t.Errorf("nil source armed something: %T", cmd)
@@ -186,7 +186,7 @@ func firstLines(s string, n int) string {
 
 // TestStatusStripCurrentTruth: every connection state change stamps a
 // fresh timestamped line, so a stale "Connection closed" can never
-// outlive the reconnect (UAT round 4: the strip lied across sessions).
+// outlive the reconnect(the strip lied across sessions).
 func TestStatusStripCurrentTruth(t *testing.T) {
 	t.Parallel()
 

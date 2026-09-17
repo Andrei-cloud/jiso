@@ -27,8 +27,8 @@ type globalKeyMap struct {
 	PaneFocus     key.Binding // Tab: forward a PaneFocusMsg
 	PaneFocusBack key.Binding // shift+Tab: same, Reverse
 	GracefulExit  key.Binding // ctrl+c: return tea.Quit (runtime-managed teardown)
-	Connect       key.Binding // c: open the §E connect dialog overlay (SCR-505)
-	Send          key.Binding // s: open the send wizard (proposal 04 §B)
+	Connect       key.Binding // c: open the §E connect dialog overlay
+	Send          key.Binding // s: open the send wizard
 
 	// MouseToggle is the F9 global mouse-mode toggle: flips
 	// RootModel.mouseEnabled to release/regain native click-drag text

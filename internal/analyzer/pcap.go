@@ -34,7 +34,7 @@ const (
 type TrafficDirection struct {
 	Label       string
 	TargetPort  uint16
-	PeerPort    uint16 // the other end of the conversation (UAT round 7: origin clarity)
+	PeerPort    uint16 // the other end of the conversation (origin clarity)
 	Mode        string // DirectionDst, DirectionSrc or DirectionAll
 	PacketCount int
 	ByteCount   int
@@ -61,14 +61,14 @@ func (a *StreamAnalyzer) ExtractMessagesFromFileWithDirection(filePath, headerTy
 // ExtractMessagesFromFileCounted is the counted variant of
 // ExtractMessagesFromFileWithDirection: the second result is the number
 // of framed messages that failed to unpack (the §J flow-table's
-// "N parsed, M unparsable" line, SCR-510). Framing and direction
+// "N parsed, M unparsable" line). Framing and direction
 // filtering are unchanged.
 func (a *StreamAnalyzer) ExtractMessagesFromFileCounted(filePath, headerType string, dir TrafficDirection) ([]*iso8583.Message, int, error) {
 	return a.ExtractMessagesFromFileSampled(filePath, headerType, dir, nil)
 }
 
 // ExtractMessagesFromFileSampled is the counted file extractor with an
-// optional failure-sample collector (UAT round 6 §J reviewer). For a
+// optional failure-sample collector (§J reviewer). For a
 // PCAP the sample offsets are positions in the concatenated TCP payload
 // stream; for a raw capture they are file offsets.
 func (a *StreamAnalyzer) ExtractMessagesFromFileSampled(filePath, headerType string, dir TrafficDirection, samples *UnparsableCollector) ([]*iso8583.Message, int, error) {

@@ -10,7 +10,7 @@ import (
 
 // TestRCBadgeMapping: no RC label source exists in internal/app or
 // internal/command (the CLI send describes codes verbatim), so §D maps
-// the two wireframe codes and renders every other code code-only.
+// the two codes and renders every other code code-only.
 func TestRCBadgeMapping(t *testing.T) {
 	t.Parallel()
 

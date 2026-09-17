@@ -141,7 +141,7 @@ func TestConnectJKTypeInTextButAdjustRadio(t *testing.T) {
 	t.Parallel()
 
 	d := connectDialog(t, connectTestState())
-	_, _ = d.Update(special(tea.KeyTab)) // ip (text): j must TYPE (SCR-502 lesson)
+	_, _ = d.Update(special(tea.KeyTab)) // ip (text): j must TYPE
 	_, _ = d.Update(pressKey('j', "j"))
 	if v := d.State().Fields[1].Value; !strings.HasSuffix(v, "j") {
 		t.Fatalf("j in text field %q: must type, not navigate", v)
@@ -369,10 +369,10 @@ func TestConnectHeaderIsVisaIdentification(t *testing.T) {
 	}
 }
 
-// TestConnectFooterHotKeys: UAT round 4 — the dialog footer's bracketed
+// TestConnectFooterHotKeys: the dialog footer's bracketed
 // key glyphs render in the HotKey style (bold + accent, matching the
 // frame footer's accented keys), the surrounding copy keeps the dialog's
-// dim base, and stripping preserves the wireframe text exactly.
+// dim base, and stripping preserves the text exactly.
 func TestConnectFooterHotKeys(t *testing.T) {
 	t.Parallel()
 

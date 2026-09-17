@@ -1,4 +1,4 @@
-// root_analyze_test.go proves the SCR-510 root contract with a fake
+// root_analyze_test.go proves the root contract with a fake
 // §J façade (no real pcap/engine above the seam): the wizard walks
 // capture ▸ spec ▸ header ▸ run; the capture commit validates the file
 // inline (a missing path stays on the step); entering the run step
@@ -105,7 +105,7 @@ func (f *fakeAnalyze) WriteAnalyze(_ context.Context, out *app.AnalyzeOutput) er
 	return nil
 }
 
-// fakeAnalyzeFixture is the wireframe §J enumeration: two dst flows
+// fakeAnalyzeFixture is the §J enumeration: two dst flows
 // (8080 dominant, 9999 small) each with the src response half.
 func fakeAnalyzeFixture() *fakeAnalyze {
 	f := &fakeAnalyze{
@@ -133,7 +133,7 @@ func fakeAnalyzeFixture() *fakeAnalyze {
 		},
 		runOut: &app.AnalyzeOutput{Mode: app.AnalyzeModeTx, OutputFile: "transactions/transaction.json"},
 	}
-	// The generated-item picker (UAT round 6) needs a realistic roster.
+	// The generated-item picker needs a realistic roster.
 	f.runOut.AttachGeneratedItems([]config.Item{
 		{Type: config.TypeTransaction, Name: "Captured Flow 0200_0", DatasetName: "dataset_0200_"},
 		{Type: config.TypeDataset, Name: "dataset_0200_"},
@@ -202,7 +202,7 @@ func (r *analyzeTestRoot) typeText(s string) {
 func (r *analyzeTestRoot) enter() { r.pump(tea.KeyPressMsg{Code: tea.KeyEnter}) }
 
 // closePicker dismisses the generated-item picker a run auto-presents
-// (UAT round 6) so run-step keys below it can be driven. Guarded: it
+// so run-step keys below it can be driven. Guarded: it
 // only pumps Esc when the run step actually claims the keyboard (the
 // picker or the filter), never backing out of a step.
 func (r *analyzeTestRoot) closePicker() {
@@ -272,8 +272,8 @@ func (r *analyzeTestRoot) mustStep(t *testing.T, want int) {
 }
 
 // on the navigate-mode capture step "?" reaches the §M overlay
-// (SCR-513's every-page contract); once a path is being typed, every
-// colliding key reaches the draft (SCR-502).
+// (every-page contract); once a path is being typed, every
+// colliding key reaches the draft.
 func TestAnalyzeHelpOpensOnFreshCaptureStep(t *testing.T) {
 	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
 	r.gotoAnalyze()
@@ -311,7 +311,7 @@ func TestAnalyzeWalksFlowAndEnumerates(t *testing.T) {
 		t.Fatalf("enumeration args = %q/%q, want the capture and the unset header (engine default)",
 			f.enumPaths[0], f.enumHeaders[0])
 	}
-	// UAT round 7: enumeration seeds the run set with the request (dst)
+	// Enumeration seeds the run set with the request (dst)
 	// directions; responses (src) wait for an explicit pick (Option A).
 	if got := fmt.Sprint(r.m.analyzeSelected); got != "[{8080 dst} {9999 dst}]" {
 		t.Fatalf("selection = %s, want the seeded [{8080 dst} {9999 dst}]", got)
@@ -490,7 +490,7 @@ func TestAnalyzeMissingCaptureStaysInline(t *testing.T) {
 	}
 }
 
-// TestAnalyzeItemPickerCouplesDatasetWrite pins UAT round 7 end to end:
+// TestAnalyzeItemPickerCouplesDatasetWrite pins end to end:
 // deselecting a transaction in the picker also deselects the dataset it draws
 // from, and backing out with Esc APPLIES the selection, so the write carries
 // only the included set (the unrelated mock route survives).
@@ -500,7 +500,7 @@ func TestAnalyzeItemPickerCouplesDatasetWrite(t *testing.T) {
 	r.enter() // run → items attach, the picker auto-opens (cursor at row 0)
 
 	r.pump(ch(' '))                              // deselect the transaction (row 0); its dataset follows
-	r.pump(tea.KeyPressMsg{Code: tea.KeyEscape}) // esc backs out — and applies (UAT round 7)
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEscape}) // esc backs out — and applies
 
 	for _, want := range []string{"transaction|Captured Flow 0200_0", "dataset|dataset_0200_"} {
 		if !slices.Contains(r.m.analyzeExcluded, want) {
@@ -567,10 +567,10 @@ func TestAnalyzeNoLegReportsMissingEngine(t *testing.T) {
 	r.mustStep(t, pages.StepRun)
 }
 
-// --- E5-FIX/B2 regression tests -------------------------------------
+// --- regression tests -------------------------------------
 
 // TestAnalyzeHeaderListMatchesEngineSet: the header list must be
-// exactly the set utils.SelectLength accepts (E5-FIX/B2: the old
+// exactly the set utils.SelectLength accepts (the old
 // hardcoded list offered "bit31"/"llvm", which the engine rejects),
 // with the current/effective framing first (the wizard radio idiom).
 func TestAnalyzeHeaderListMatchesEngineSet(t *testing.T) {
@@ -606,7 +606,7 @@ func TestAnalyzeHeaderListMatchesEngineSet(t *testing.T) {
 
 // TestAnalyzeEnumErrorNamesPath: an enumeration failure whose
 // ConfigError names the SPEC path must surface as the run-step note
-// (PAR-311: the typed error text, never a crash).
+// (the typed error text, never a crash).
 func TestAnalyzeEnumErrorNamesPath(t *testing.T) {
 	f := fakeAnalyzeFixture()
 	f.enumErr = &app.ConfigError{Path: "./spec.json", Err: fmt.Errorf("spec file unreadable")}
@@ -643,7 +643,7 @@ func TestAnalyzeDraftRendersWhileEditing(t *testing.T) {
 }
 
 // TestAnalyzeFlowSpaceToggle: space toggles the flow DIRECTION under the run
-// step's flow cursor INDEPENDENTLY (UAT round 7 — selecting a src response
+// step's flow cursor INDEPENDENTLY (selecting a src response
 // half no longer mirrors its dst half); a runs all/none; the engine receives
 // the included ∩ visible set, and an empty inclusion is a note, never a
 // fabricated run.
@@ -663,7 +663,7 @@ func TestAnalyzeFlowSpaceToggle(t *testing.T) {
 		t.Fatalf("after space selection = %s, want [{9999 dst}]", got)
 	}
 	r.enter()
-	r.closePicker() // the run re-presented the item picker (UAT round 6)
+	r.closePicker() // the run re-presented the item picker
 	if f.runN != 1 {
 		t.Fatalf("engine ran %d times, want 1", f.runN)
 	}
@@ -671,7 +671,7 @@ func TestAnalyzeFlowSpaceToggle(t *testing.T) {
 		t.Fatalf("run flows = %v, want the included [{9999 dst}]", flows)
 	}
 
-	// UAT round 7: j onto the src :8080 response half; space selects it
+	// J onto the src:8080 response half; space selects it
 	// ALONE (its dst half stays excluded) — directions are independent.
 	r.pump(ch('j')) // -> src :8080
 	r.pump(ch(' '))
@@ -724,7 +724,7 @@ func TestAnalyzeFlowSpaceToggle(t *testing.T) {
 	}
 }
 
-// TestAnalyzeScenarioTogglesPortUnit pins the UAT round 7 scenario unit: in
+// TestAnalyzeScenarioTogglesPortUnit pins the scenario unit: in
 // scenario mode a port is correlated as a whole, so space on either direction
 // toggles BOTH halves together (unlike the per-direction transactions goal).
 func TestAnalyzeScenarioTogglesPortUnit(t *testing.T) {

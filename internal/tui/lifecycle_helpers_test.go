@@ -16,7 +16,7 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// Run-level lifecycle harness (TUI-408). All tests drive the real
+// Run-level lifecycle harness. All tests drive the real
 // tea.Program.Run through the run seam with the injection idiom from
 // bubbletea's own tea_test.go (WithInput/WithOutput on in-memory buffers +
 // WithWindowSize), so no TTY is required and no custom signal handling
@@ -94,7 +94,7 @@ func (p panicPage) Hints() []KeyHint { return nil }
 
 // bridgeQuitPage quits only when a bus event reaches the page, making the
 // clean-quit path proof that the pump goroutine actually ran (and that its
-// program.Send delivery reached Update) before shutdown. SCR-501: pages see
+// program.Send delivery reached Update) before shutdown. Pages see
 // the event as pages.EventMsg (root stamps the clock; pages never receive
 // the bridge wrapper).
 type bridgeQuitPage struct{ sawBridge bool }

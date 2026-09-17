@@ -148,10 +148,10 @@ func (m *RootModel) analyzeRailRowHits() []widgets.RowHit {
 // the free revisit, forward replays the current step's Enter leg ONLY for the
 // immediately next step; larger gaps and the current step stay inert.
 //
-// Form regions use the narrow overlayOverForm gate: modalOpen() would make
+// Form regions use the narrow overlayOverForm gate: modalOpen would make
 // click-to-focus dead, since those modals are open by definition whenever
 // their regions are clickable. The page-owned §J rail keeps the full
-// modalOpen() gate, like handleSelectMsg.
+// modalOpen gate, like handleSelectMsg.
 func (m *RootModel) handleFocusMsg(msg focusMsg) (tea.Model, tea.Cmd) {
 	switch msg.region {
 	case regionConnectForm:

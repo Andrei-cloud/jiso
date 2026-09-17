@@ -42,7 +42,7 @@ func matrixProps(th *theme.Theme, width int) Props {
 	}
 }
 
-// TestFooterOverflowMarker: UAT round 5 — whatever the width pressure
+// TestFooterOverflowMarker: whatever the width pressure
 // hides must be COUNTED: the narrow footer carries a dim "~+N" tail (a
 // narrow terminal used to drop the right-most keys silently, stranding
 // the user). The surviving primaries stay; the hidden entry's text
@@ -92,8 +92,8 @@ func TestResponsiveMatrix(t *testing.T) {
 	}{
 		{"w120-full", 120, true, true, true, true},
 		{"w90-medium", 90, true, false, true, true},
-		// Narrow keeps the identity label + connection chip (UAT round 6
-		// QA), drops the informational chips and the non-primary hints.
+		// Narrow keeps the identity label + connection chip (QA),
+		// drops the informational chips and the non-primary hints.
 		{"w70-narrow", 70, true, false, true, false},
 		{"w60-narrow", 60, true, false, true, false},
 	}

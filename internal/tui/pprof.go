@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-// Loopback-only pprof side channel (TUI-409): $JISO_PROFILE truthy starts a
+// Loopback-only pprof side channel: $JISO_PROFILE truthy starts a
 // net/http/pprof server for the lifetime of the program; the bind host is
 // the constant below, never 0.0.0.0 and never configurable — only the port
 // is ($JISO_PROFILE_PORT, default 6065). Tests assert listener
-// addr.String() starts with "127.".
+// addr.String starts with "127.".
 
 const (
 	pprofHost     = "127.0.0.1"

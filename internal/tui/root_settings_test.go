@@ -1,4 +1,4 @@
-// root_settings_test.go proves the SCR-512 root contract with a fake
+// root_settings_test.go proves the root contract with a fake
 // façade (no real user config above the seam): entry onto §L loads
 // the snapshot off the UI thread; a committed field runs a one-key
 // ApplySettings (valid → snapshot refresh shows the live value,
@@ -101,7 +101,7 @@ func row(key, value, source string) app.SettingsRow {
 	return app.SettingsRow{Key: key, Value: value, Source: source, LiveSafe: key != app.SettingOutput}
 }
 
-// fakeSettingsFixture is the wireframe §L data in façade shapes.
+// fakeSettingsFixture is the §L data in façade shapes.
 func fakeSettingsFixture() *fakeSettings {
 	f := &fakeSettings{
 		path: "./user/config.yaml",
@@ -375,7 +375,7 @@ func TestSettingsNoAppEmptyState(t *testing.T) {
 	}
 }
 
-// --- E5-FIX/M3 regression tests --------------------------------------
+// --- regression tests --------------------------------------
 
 // TestSettingsStaleLoadClearsWaitAndReArms: a commit bumps the seq
 // while the entry snapshot load is in flight; the stale result must

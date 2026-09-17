@@ -37,7 +37,7 @@ func (d *ConnectDialog) View() string {
 	}
 
 	bw := max(min(connectBoxWidth, w-2), connectBoxMin)
-	// In lipgloss v2 Width() is the total box width (borders included),
+	// In lipgloss v2 Width is the total box width (borders included),
 	// so the content column is the box width minus the two border columns.
 	inner := bw - 2
 

@@ -66,8 +66,8 @@ func TestSearchPrefixBeatsFuzzyAcrossActions(t *testing.T) {
 	got := ids(m.Search("se", 0))
 
 	// "se" is a prefix of the keywords "send" (send-wizard and
-	// goto.transactions), "sends" (send-history, UAT round 5),
-	// "server", "sessions", and (SCR-512)
+	// goto.transactions), "sends" (send-history),
+	// "server", "sessions", and
 	// "settings"; all of them must precede any fuzzy-only hit, and
 	// registration order must break the tie (the proposal-04 wizard is
 	// registered before the page jumps, then transactions, server,
@@ -101,7 +101,7 @@ func TestSearchTieKeepsRegistrationOrder(t *testing.T) {
 	t.Parallel()
 
 	m := SeedMatcher()
-	got := ids(m.Search("go to", 0)) // prefix for all page jumps (8 wireframe hotkey slots + SCR-512 §L), none else
+	got := ids(m.Search("go to", 0)) // prefix for all page jumps (8 hotkey slots + §L), none else
 
 	if len(got) != 9 {
 		t.Fatalf("go to: got %d hits, want 9 (%v)", len(got), got)

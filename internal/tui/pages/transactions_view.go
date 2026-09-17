@@ -15,7 +15,7 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// titleTransactions is the §B section title (wireframe shows it uppercase;
+// titleTransactions is the §B section title (shows it uppercase;
 // it doubles as the slot's frame-visible title).
 const titleTransactions = "TRANSACTIONS"
 

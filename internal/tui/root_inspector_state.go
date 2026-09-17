@@ -27,7 +27,7 @@ import (
 )
 
 // autoPoolSize is how many preview variants root generates per auto
-// counter field (the wireframe's `r` re-roll pool).
+// counter field (the `r` re-roll pool).
 const autoPoolSize = 8
 
 // autoKeywords mirror transactions.isReservedAutoKeywordString (that
@@ -211,7 +211,7 @@ func isASCIILetter(b byte) bool {
 }
 
 // maskPAN keeps the first/last 4 digits and hides the middle with the
-// wireframe's • glyph (the page substitutes * under theme.ASCII).
+// • glyph (the page substitutes * under theme.ASCII).
 func maskPAN(v string) string {
 	if len(v) <= 8 {
 		return strings.Repeat("•", len(v))

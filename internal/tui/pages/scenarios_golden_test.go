@@ -1,7 +1,7 @@
-// scenarios_golden_test.go pins the §F page at the wireframe baseline
+// scenarios_golden_test.go pins the §F page at the baseline
 // 120x32 for the three canonical states (all-pass list+steps, live
 // running stream, failed step with validation diff) and both
-// glyph/colour modes (SCR-506; same harness as the dashboard goldens).
+// glyph/colour modes (; same harness as the dashboard goldens).
 package pages
 
 import (

@@ -10,10 +10,10 @@ import (
 	"jiso/internal/utils"
 )
 
-// TestInstallConsoleSinkCapturesCounterOutput pins UAT round 5: the
+// TestInstallConsoleSinkCapturesCounterOutput pins: the
 // utils (STAN/RRN) and transactions (collection reload) system lines
 // must arrive as consoleLineMsg instead of hitting raw stderr and
-// smashing the alt screen mid-frame, and restore() must put the
+// smashing the alt screen mid-frame, and restore must put the
 // package sinks back.
 func TestInstallConsoleSinkCapturesCounterOutput(t *testing.T) {
 	beforeUtils := utils.Output()

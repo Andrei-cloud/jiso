@@ -87,7 +87,7 @@ func TestSpecInitCommand(t *testing.T) {
 }
 
 // TestInitDryRunWritesNothing asserts spec init / tx init honor --dry-run:
-// the plan is printed and no file (or directory) is written (M1 review #3).
+// the plan is printed and no file (or directory) is written.
 func TestInitDryRunWritesNothing(t *testing.T) {
 	tests := []struct {
 		name  string

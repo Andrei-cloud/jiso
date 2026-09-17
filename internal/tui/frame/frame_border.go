@@ -8,7 +8,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// Border glyph sets. The rounded set is the wireframe's; the ASCII set
+// Border glyph sets. The rounded set is the design; the ASCII set
 // (th.ASCII) keeps the frame legible on terminals without Unicode.
 type borderGlyphs struct {
 	topLeft, topRight       string

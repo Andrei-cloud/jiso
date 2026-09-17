@@ -17,7 +17,7 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// TestAnalyzeRunOpensItemPickerAndWritesSelected UAT round 6: the run
+// TestAnalyzeRunOpensItemPickerAndWritesSelected: the run
 // re-presents the generated-item picker (no dry-run text), space+Enter
 // apply the selection, and w writes exactly the selected items.
 func TestAnalyzeRunOpensItemPickerAndWritesSelected(t *testing.T) {
@@ -56,7 +56,7 @@ func TestAnalyzeRunOpensItemPickerAndWritesSelected(t *testing.T) {
 	// selection (page-local toggles fold into root). Navigate to the
 	// standalone mock route (row 2) so the deselection is exactly one item —
 	// the transaction and its dataset couple (see
-	// TestAnalyzeItemPickerCouplesDatasetWrite, UAT round 7).
+	// TestAnalyzeItemPickerCouplesDatasetWrite).
 	r.pump(ch('j'))
 	r.pump(ch('j'))
 	r.pump(ch(' '))
@@ -94,7 +94,7 @@ func TestAnalyzePgUpDuringWriteWaitNoDoubleWrite(t *testing.T) {
 	f := r.fakeSrc(t)
 	r.walkToRun(t)
 	r.enter()
-	r.closePicker() // the run re-presented the item picker (UAT round 6) // the run
+	r.closePicker() // the run re-presented the item picker
 	r.pump(nil)
 	r.mustStep(t, pages.StepRun)
 
@@ -131,7 +131,7 @@ func TestAnalyzeWriteOverwriteConfirmFires(t *testing.T) {
 	r.m.analyzeStatFn = func(string) (os.FileInfo, error) { return nil, nil } // fake "exists"
 	r.walkToRun(t)
 	r.enter()
-	r.closePicker() // the run re-presented the item picker (UAT round 6)
+	r.closePicker() // the run re-presented the item picker
 	r.pump(nil)
 
 	r.pump(ch('w'))
@@ -224,7 +224,7 @@ func TestAnalyzeOutputOpensPicker(t *testing.T) {
 	}
 }
 
-// TestAnalyzeOutCommitThreadsAndGates: UAT round 5 — the [o] commit
+// TestAnalyzeOutCommitThreadsAndGates: the [o] commit
 // stores the output path, marks the run stale, REFUSES a write against
 // the stale plan, and the next Enter threads the path to the engine.
 func TestAnalyzeOutCommitThreadsAndGates(t *testing.T) {
@@ -232,7 +232,7 @@ func TestAnalyzeOutCommitThreadsAndGates(t *testing.T) {
 	f := r.fakeSrc(t)
 	r.walkToRun(t)
 	r.enter()
-	r.closePicker() // the run re-presented the item picker (UAT round 6) // fresh run: stale clears
+	r.closePicker() // the run re-presented the item picker; fresh run: stale clears
 
 	out := filepath.Join(t.TempDir(), "gen.json")
 	r.pump(pages.AnalyzeOutCommitMsg{Path: out})

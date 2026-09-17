@@ -127,7 +127,7 @@ func TestServer3ColRoutesRelative(t *testing.T) {
 	}
 }
 
-// TestRowsCarryNoBadges: UAT round 5 — quick-actions rows render plain
+// TestRowsCarryNoBadges: quick-actions rows render plain
 // titles: the "(3)"/"(c)"-style badges duplicated the footer legend and
 // advertised keys that do not act on the row (Enter runs the selected
 // row, the footer keys jump directly).
@@ -163,7 +163,7 @@ func oneLine(body string, i int) string {
 	return strings.TrimRight(body[start:i+end], " ")
 }
 
-// TestTitlesCarryNoBadges: UAT round 5 — card titles carry NO hotkey
+// TestTitlesCarryNoBadges: card titles carry NO hotkey
 // badge: the "(c)"/"(4)"-style suffix advertised keys whose action lives
 // on another screen, duplicating the footer legend and misleading the
 // operator into thinking the key acts on the tile.
@@ -196,7 +196,7 @@ func TestTitlesCarryNoBadges(t *testing.T) {
 	}
 }
 
-// TestLastSendCardBody: the LAST SEND card renders the wireframe lines
+// TestLastSendCardBody: the LAST SEND card renders the lines
 // from a stub card — time + tx, the MTI turn with the RC badge, the
 // elapsed/validation line, and the reopen affordance as body copy.
 func TestLastSendCardBody(t *testing.T) {
@@ -239,7 +239,7 @@ func TestLastSendFailureState(t *testing.T) {
 }
 
 // TestMockServerStoppedCard: the stopped MOCK SERVER card is the
-// wireframe's empty state teaching the 4 hotkey.
+// Empty state teaching the 4 hotkey.
 func TestMockServerStoppedCard(t *testing.T) {
 	t.Parallel()
 
@@ -270,7 +270,7 @@ func TestMockServerRunningCard(t *testing.T) {
 
 // TestServerLogTailCompaction: the SERVER LOG card compacts raw lines
 // with the §G renderer, keeps the newest at the bottom, and the narrow
-// stack caps the card at the wireframe's 4 body rows (dropping the
+// stack caps the card at the 4 body rows (dropping the
 // oldest).
 func TestServerLogTailCompaction(t *testing.T) {
 	t.Parallel()
@@ -369,7 +369,7 @@ func TestEnterEmptyRegistry(t *testing.T) {
 	}
 }
 
-// TestCIsNotPageLocal: UAT round 5 removed the page-local "c parks the
+// TestCIsNotPageLocal: the page-local "c parks the
 // cursor on the connect row" handler — the global c binding always
 // claims the key first (connect/disconnect), so the preselect was
 // production-dead. At the page, a plain 'c' now just reaches the list
@@ -435,7 +435,7 @@ func TestUnknownMsgsIgnored(t *testing.T) {
 	}
 }
 
-// TestEventMsgIgnored: the EVENT FEED pane is gone (proposal 05 §3) — a
+// TestEventMsgIgnored: the EVENT FEED pane is gone — a
 // stamped bus event is inert on the page (its content lives in the
 // CONNECTION card, the status strip and the SERVER LOG card).
 func TestEventMsgIgnored(t *testing.T) {
@@ -485,7 +485,7 @@ func TestShortDur(t *testing.T) {
 
 // TestDashboardLastSendRow: the "View last send" quick action renders
 // only after a send result exists (UAT), and "Stress summary" only
-// after a stress run completed (proposal 05 §3).
+// after a stress run completed.
 func TestDashboardLastSendRow(t *testing.T) {
 	t.Parallel()
 

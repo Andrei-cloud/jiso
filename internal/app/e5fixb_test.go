@@ -246,7 +246,7 @@ func TestAnalyzeLegsHonourContextCancel(t *testing.T) {
 }
 
 // ctfview: the CTF default filename and the record's processing date are
-// stamped from the caller's injected clock, not a time.Now() inside the
+// stamped from the caller's injected clock, not a time.Now inside the
 // façade.
 func TestCtfOutputPathUsesInjectedNow(t *testing.T) {
 	now := time.Date(2026, 9, 9, 12, 34, 56, 0, time.UTC)

@@ -160,7 +160,7 @@ func txFieldString(fields map[string]any, key string) string {
 
 // wizardMaskPAN keeps the first six and last four digits of a long PAN
 // ("411111~1111" under the ASCII set), passing short test PANs through (the
-// wireframe's masked column). It used to hardcode "…", which wrote a non-ASCII
+// Masked column). It used to hardcode "…", which wrote a non-ASCII
 // byte into ASCII mode -- nothing in the goldens exercised it, so nothing noticed.
 func wizardMaskPAN(th *theme.Theme, pan string) string {
 	r := []rune(pan)

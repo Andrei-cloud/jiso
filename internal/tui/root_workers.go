@@ -1,10 +1,10 @@
-// root_workers.go owns the §H worker truth (SCR-508). The page is a
+// root_workers.go owns the §H worker truth. The page is a
 // presentation-only consumer of WorkersState snapshots while root folds
 // the App worker manager's bus events into a row cache — the designed
 // consumer of WorkerStarted/WorkerProgress/WorkerStopped (the same
 // bridge.Msg path the forwarded pages.EventMsg uses, proven
 // tick-free by TestWorkerProgressUpdatesRowWithoutTick). The cache is the table's
-// truth: App Workers() snapshots enrich live rows, events flip terminal
+// truth: App Workers snapshots enrich live rows, events flip terminal
 // ones, and a `k`/`K` never writes status optimistically — the row flips
 // only when WorkerStopped arrives. The sparkline ring (last ~24 TPS
 // samples), the per-worker progress rows (ETA → elapsed morph), and the
@@ -35,7 +35,7 @@ import (
 const workerTickInterval = time.Second
 
 // workerRunParams remembers a stress run's form inputs so progress rows
-// can derive expected counts and ETAs (the wireframe's 7,940/19,200 +
+// can derive expected counts and ETAs (the 7,940/19,200 +
 // ETA 01:12); bgsend runs need none (their totals are unbounded).
 type workerRunParams struct {
 	names     []string
@@ -186,7 +186,7 @@ func (m *RootModel) applyStressTerminal(ev events.WorkerStopped, now time.Time) 
 		target = cfg.GetHost() + ":" + cfg.GetPort()
 	}
 	m.workersSummary = stressSummaryState(m.themeOrNil(), s, target)
-	// Proposal 05 §3: the LAST STRESS card stamps from this SAME
+	// The LAST STRESS card stamps from this SAME
 	// single summary fetch (never per tick); it gates the §A
 	// "Stress summary" reopen row.
 	m.lastStress = &pages.LastStressCard{
@@ -206,7 +206,7 @@ func (m *RootModel) applyStressTerminal(ev events.WorkerStopped, now time.Time) 
 // page carries no (or a different run's) summary does it re-read the
 // injectable accessor — the same leg the bus fold uses. The overlay
 // itself is the existing §H path (SetState identity / OpenSummary), so
-// Esc closes it exactly like the wireframe's.
+// Esc closes it exactly like the design.
 func (m *RootModel) viewLastStressSummary() (tea.Model, tea.Cmd) {
 	if m.lastStress == nil || m.lastStress.ID == "" {
 		m.pushToast("no stress run yet", widgets.ToastInfo)

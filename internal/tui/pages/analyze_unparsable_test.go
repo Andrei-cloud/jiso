@@ -1,4 +1,4 @@
-// analyze_unparsable_test.go pins the UAT round 6 unparsable-message
+// analyze_unparsable_test.go pins the unparsable-message
 // reviewer: the run step offers [u] review when samples exist, the
 // viewer opens on demand (never auto), walks samples with j/k, closes
 // with Esc, ignores [u] with no samples, and re-seats its cursor when a
@@ -118,7 +118,7 @@ func TestAnalyzeUnparsableCursorReseatsOnNewID(t *testing.T) {
 	}
 }
 
-// TestAnalyzeUnparsableDescribesParsedFields UAT round 7: the sample pane
+// TestAnalyzeUnparsableDescribesParsedFields: the sample pane
 // describes the fields that unpacked before the failure and names the byte
 // where the unparsed region begins.
 func TestAnalyzeUnparsableDescribesParsedFields(t *testing.T) {

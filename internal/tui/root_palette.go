@@ -19,7 +19,7 @@ func palettePanelHeight(height int) int {
 }
 
 // palettePanelWidth sizes the palette panel inside the content area: the
-// wireframe modal width target, clamped so the panel keeps a margin
+// Modal width target, clamped so the panel keeps a margin
 // inside the frame (the centered modal border wraps it).
 func palettePanelWidth(innerW int) int {
 	return max(min(60, innerW-8), 20)
@@ -79,7 +79,7 @@ func (m *RootModel) jumpToID(id string) {
 	}
 }
 
-// pushByID resolves a palette PushPageMsg (show help). SCR-513: the help
+// pushByID resolves a palette PushPageMsg (show help). The help
 // ID opens the §M overlay over the current page — the same behavior as
 // the "?" binding; there is no help page in the registry.
 func (m *RootModel) pushByID(id string) {

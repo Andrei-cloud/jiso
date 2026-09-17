@@ -69,7 +69,7 @@ func loadValidateConfigFiles(c *cfg.Config) error {
 // for the command about to run. PersistentPreRunE has already load-validated
 // both files and utils.CreateSpecFromFile caches the parsed spec by path, so
 // this reuses the cached parse instead of re-loading, and surfaces — never
-// swallows — any load error (M1 review #24). Unset paths yield nil values and
+// swallows — any load error. Unset paths yield nil values and
 // no error; commands decide whether nil is acceptable for their mode.
 func configuredSpecAndTx() (*iso8583.MessageSpec, *transactions.TransactionCollection, error) {
 	c := cfg.GetConfig()
@@ -106,7 +106,7 @@ type dryRunPlan struct {
 
 // previewFileWrite is the shared --dry-run handler for commands whose only
 // side effect is writing a generated file (spec/tx init, analyze): it prints
-// the plan — pure JSON under --json — and writes nothing (M1 review #3).
+// the plan — pure JSON under --json — and writes nothing.
 func previewFileWrite(out *output.Renderer, action, path string) error {
 	plan := &dryRunPlan{DryRun: true, Action: action, Path: path}
 

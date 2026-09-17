@@ -1,5 +1,5 @@
 // routesfile.go holds the routes-only mock-route loader shared by the
-// `serve start` --routes-file path and the TUI. It implements the PAR-309
+// `serve start` --routes-file path and the TUI. It implements the
 // precedence — routesFile > the tx-file's mock_routes > no routes — and
 // returns the app-package ConfigError for config-class failures naming
 // the path; frontends translate it into the exit-code taxonomy.

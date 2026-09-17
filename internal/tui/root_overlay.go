@@ -14,7 +14,7 @@ import (
 // The overlays are LAYERS over the unchanged page body, never
 // replacements for it (the page underneath keeps rendering).
 
-// modalBoxWidth is the wireframe dialog width target; narrow terminals
+// modalBoxWidth is the dialog width target; narrow terminals
 // clamp to w-8 so the box keeps a margin inside the content area.
 func modalBoxWidth(innerW int) int {
 	return max(min(60, innerW-8), 20)

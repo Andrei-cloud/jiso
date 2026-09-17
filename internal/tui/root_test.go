@@ -126,7 +126,7 @@ func (r *analyzeTestRoot) fakeSrc(t *testing.T) *fakeAnalyze {
 	return f
 }
 
-// TestPageRegistryShape pins the wireframe's hotkey contract: the 1..8
+// TestPageRegistryShape pins the hotkey contract: the 1..8
 // slots in footer order ("1 dash 2 tx 3 scenarios 4 server 5 workers
 // 6 sessions 7 analyze 8 ctf"), the short footer labels, every slot a
 // real page, and the palette jump list in sync with PageIDs.
@@ -217,7 +217,7 @@ func TestJumpFromDeepStackReplacesEverything(t *testing.T) {
 	wantStack(t, m, "server")
 }
 
-// SCR-513: "?" opens the §M overlay above the stack (the page stack is
+// "?" opens the §M overlay above the stack (the page stack is
 // never touched); "?" toggles it closed, Esc closes it, and while open
 // page keys are swallowed (q neither pops nor quits).
 func TestHelpOverlayOpenToggleClose(t *testing.T) {
@@ -294,7 +294,7 @@ func TestFastKeypressBurst(t *testing.T) {
 		{ch('1'), []string{"dashboard"}},
 		{ch('2'), []string{"transactions"}},
 		{ch('3'), []string{"scenarios"}},
-		// SCR-513: '?' opens the overlay (stack untouched) and q is
+		// '?' opens the overlay (stack untouched) and q is
 		// swallowed while it is open; esc closes it first (§N1).
 		{ch('?'), []string{"scenarios"}},
 		{ch('q'), []string{"scenarios"}},
@@ -481,7 +481,7 @@ func TestViewContract(t *testing.T) {
 	if !v.AltScreen {
 		t.Fatal("root view must own the alternate screen")
 	}
-	// Page 1 is the real §A dashboard (SCR-501): the proposal-05 §3 grid
+	// Page 1 is the real §A dashboard: the grid
 	// sections, not placeholders (the EVENT FEED pane is gone; the
 	// SERVER LOG card replaced it as the live-signal pane).
 	for _, want := range []string{"CONNECTION", "SESSION", "QUICK ACTIONS", "SERVER LOG"} {
@@ -491,7 +491,7 @@ func TestViewContract(t *testing.T) {
 	}
 
 	_, _ = m.Update(ch('3'))
-	// Slot 3 is the wireframe's §F scenarios page.
+	// Slot 3 is the §F scenarios page.
 	if !strings.Contains(m.View().Content, "SCENARIOS") {
 		t.Fatal("view must follow the page stack")
 	}

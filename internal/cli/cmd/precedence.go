@@ -49,7 +49,7 @@ func resolvePrecedence(cmd *cobra.Command, uc *userconfig.File) {
 	resolveBool(cmd, "json", "JISO_JSON", uc.JSON)
 	resolveBool(cmd, "quiet", "JISO_QUIET", uc.Quiet)
 	resolveBool(cmd, "unsecure", "JISO_UNSECURE", uc.Unsecure)
-	// SCR-512: the §L settings keys resolve through the same layers so
+	// The §L settings keys resolve through the same layers so
 	// a value persisted by the TUI settings screen is the default the
 	// next CLI invocation uses (Set marks the flag Changed, which the
 	// root.go cfg mapping gates on for the numeric flags).
@@ -115,7 +115,7 @@ func resolveString(cmd *cobra.Command, flag, env string, cf *string) resolved {
 // explicit --db-path is still the flag layer and must not be shadowed by
 // $JISO_DB or the config file. The reported value is the winning path and
 // layerFlag is claimed only for a non-empty one, so $JISO_DEBUG shows
-// `db = <path>` instead of an empty string (M1 review #7).
+// `db = <path>` instead of an empty string.
 func resolveDB(cmd *cobra.Command, cf *string) resolved {
 	if cmd.Flags().Changed("db") {
 		if v, _ := cmd.Flags().GetString("db"); v != "" {
@@ -180,7 +180,7 @@ func resolveBool(cmd *cobra.Command, flag, env string, cf *bool) resolved {
 	return r
 }
 
-// resolveInt resolves one int flag across the layers (SCR-512): an
+// resolveInt resolves one int flag across the layers: an
 // unparsable env value counts as unset; the env/config winner is written
 // into the flag (Set marks it Changed so the cfg mapping in root.go
 // consumes it). The reported value is the winning text.
@@ -214,7 +214,7 @@ func resolveInt(cmd *cobra.Command, flag, env string, cf *int) resolved {
 }
 
 // resolveDuration resolves one duration flag across the layers
-// (SCR-512): env and config values must parse as Go durations, an
+// Env and config values must parse as Go durations, an
 // unparsable one counts as unset; the winner is written into the flag.
 // debug-notice it; these keys are simply not noticed today, and splitting the
 // family into "returns" and "doesn't" halves would read as an accident.

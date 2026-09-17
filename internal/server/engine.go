@@ -183,7 +183,7 @@ func (s *Server) GetPort() string {
 }
 
 // BoundPort returns the TCP port the listener actually bound to, resolving
-// an ephemeral "0" start for in-process callers (PAR-301 golden harness).
+// an ephemeral "0" start for in-process callers (golden harness).
 func (s *Server) BoundPort() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -281,7 +281,7 @@ func (s *Server) leftBox(y, w, h int) string {
 	return s.sectionW(paneTitle(s.th, title, false), body, 0, y, w, h, false)
 }
 
-// statsBody renders the five wireframe lines; thousands separators via
+// statsBody renders the five lines; thousands separators via
 // formatCount, the match percent root-derived (dash when unknown).
 func (s *Server) statsBody() string {
 	st := s.state.Stats

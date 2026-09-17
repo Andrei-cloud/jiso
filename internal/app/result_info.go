@@ -14,7 +14,7 @@ import (
 // the transaction metadata from the repository's Info, the composed
 // sample message (packed hex + parsed field view), and spec metadata.
 //
-// PAR-302 parity contract: it is the SINGLE composition data model both
+// parity contract: it is the SINGLE composition data model both
 // `jiso inspect <tx>` (headless, --json renders this struct verbatim) and
 // the REPL `info` command (thin shim over NewInfoView /
 // NewInfoViewFromComposedMessage) are built from, so the two paths cannot

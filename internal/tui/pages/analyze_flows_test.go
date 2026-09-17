@@ -13,7 +13,7 @@ import (
 
 // TestAnalyzeFlowRowPeerPort: a flow row names the peer port on the other end
 // of the conversation, so the operator sees who originates from which port
-// (UAT round 7) — the request half "from" the peer, the response half "to" it.
+// — the request half "from" the peer, the response half "to" it.
 func TestAnalyzeFlowRowPeerPort(t *testing.T) {
 	t.Parallel()
 

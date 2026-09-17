@@ -95,7 +95,7 @@ func newConnectNav() connectNav {
 
 // NewConnectDialog builds a dialog over an empty form; the root pushes the
 // built form via SetState before the first View. A nil theme selects
-// theme.Default() (production); golden tests inject an explicit profile.
+// theme.Default (production); golden tests inject an explicit profile.
 func NewConnectDialog(th *theme.Theme) *ConnectDialog {
 	if th == nil {
 		th = theme.Default()

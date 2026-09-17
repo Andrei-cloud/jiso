@@ -1,8 +1,8 @@
-// server_golden_test.go pins the §G page at the wireframe baseline
+// server_golden_test.go pins the §G page at the baseline
 // 120x32 for the three canonical states — running stats, stopped
 // start-form hint, and the stop-confirm overlay composed over the
 // running body (the root's widgets.ConfirmDialog composition) — in
-// both glyph/colour modes (SCR-507; same harness as the §A/§F goldens).
+// both glyph/colour modes (; same harness as the §A/§F goldens).
 package pages
 
 import (
@@ -76,7 +76,7 @@ func TestServerGoldens(t *testing.T) {
 			page := NewServer(th)
 			page.SetState(serverRunningState())
 			_, _ = page.Update(windowSize(120, 32))
-			// The root's stop-confirm composition (SCR-507): the two-line
+			// The root's stop-confirm composition: the two-line
 			// dialog over the page body, pending by construction.
 			confirm := widgets.NewConfirmDialog(th,
 				"stop mock server :9999 with 3 live connection(s)?")
@@ -87,8 +87,8 @@ func TestServerGoldens(t *testing.T) {
 }
 
 // serverLogFixture is the raw root-stamped output lines (the shapes
-// internal/server writes) the SERVER LOG pane compacts for display
-// (proposal 05 §1).
+// internal/server writes) the SERVER LOG pane compacts for
+// display.
 func serverLogFixture() []string {
 	return []string{
 		"09:17:03 [SERVER] 🟢 Matched Route 'Echo' for MTI 0800 -> Responding 0810 (RC: 00)",

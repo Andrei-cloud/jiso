@@ -109,7 +109,7 @@ func (s *stressSender) ExecuteBackground(trxnName string, skipValidation bool, s
 // the service path (the TUI) with the same headless worker sender the
 // `jiso stress` command uses, so background-send and stress workers can
 // start. Without it every TUI worker start fails with "send command not
-// found or has wrong type" (UAT round 4).
+// found or has wrong type".
 func WireWorkerSender(a *app.App) {
 	// Resolve per start so a tx-file reload (§L apply) is picked up,
 	// mirroring the CLI's "current send command" resolver semantics.

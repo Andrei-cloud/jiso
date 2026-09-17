@@ -1,4 +1,4 @@
-// send_wizard_view.go renders the send wizard (proposal 04 §B): a SEND
+// send_wizard_view.go renders the send wizard: a SEND
 // title over the standard 60-col modal box, a step rail ("1 spec ▸ 2 file
 // ▸ 3 send", the current step emphasized), the step body (embedded connect
 // form / filtered list / template list + target line) and the right-aligned
@@ -59,8 +59,8 @@ func (w *SendWizard) rail(inner int) string {
 }
 
 // RailRowHits reports the rail's drawn step-label spans relative to the
-// wizard's own View origin (the FilePicker.RowHits doctrine, UAT round 8
-// Task 8.5 click-to-focus): one cell tall on the rail line — the title
+// wizard's own View origin (the FilePicker.RowHits doctrine,
+// One cell tall on the rail line — the title
 // line and the box's top border sit above it — clipped to the width rail
 // clips to (a label past the clip drew no ink and publishes no hit). The
 // root centers the composed View and translates these into the absolute

@@ -29,12 +29,12 @@ type StreamAnalyzer struct {
 }
 
 // UnparsableSample is one framed message whose Unpack failed, captured
-// for the §J reviewer (UAT round 6: the operator must see WHERE framing
+// for the §J reviewer (the operator must see WHERE framing
 // breaks and WHAT the analyzer choked on, not just a black-box count).
 // Offset and Length are positions in the byte stream being carved (for
 // a PCAP, the concatenated TCP payload stream).
 //
-// UAT round 7: a framed message usually unpacks PARTIALLY before it
+// A framed message usually unpacks PARTIALLY before it
 // fails — the library fills MTI, the bitmap, then present fields in
 // ascending order and stops at the first that will not decode. So the
 // sample also carries the fields that DID parse (Fields, describe form)
@@ -212,15 +212,15 @@ func (a *StreamAnalyzer) ExtractMessagesFromReader(r io.Reader, headerType strin
 // ExtractMessagesFromReaderCounted is the counted variant of
 // ExtractMessagesFromReader: the second result is the number of framed
 // messages whose Unpack failed (the §J wizard's "N parsed, M unparsable"
-// enumeration line, SCR-510). Framing behaviour is unchanged.
+// enumeration line). Framing behaviour is unchanged.
 func (a *StreamAnalyzer) ExtractMessagesFromReaderCounted(r io.Reader, headerType string) ([]*iso8583.Message, int, error) {
 	return a.ExtractMessagesFromReaderSampled(r, headerType, nil)
 }
 
 // ExtractMessagesFromReaderSampled is the reader core: it counts
 // framed-but-unpackable messages and, when a collector is given, keeps
-// capped samples (offset/length/reason/head) for the §J reviewer
-// (UAT round 6).
+// capped samples (offset/length/reason/head) for the §J
+// reviewer.
 func (a *StreamAnalyzer) ExtractMessagesFromReaderSampled(r io.Reader, headerType string, samples *UnparsableCollector) ([]*iso8583.Message, int, error) {
 	if headerType == "" {
 		headerType = "binary2"
@@ -283,13 +283,13 @@ func (a *StreamAnalyzer) ExtractMessagesFromStream(streamData []byte, headerType
 }
 
 // ExtractMessagesFromStreamCounted is the counted variant of
-// ExtractMessagesFromStream (SCR-510 §J enumeration).
+// ExtractMessagesFromStream (§J enumeration).
 func (a *StreamAnalyzer) ExtractMessagesFromStreamCounted(streamData []byte, headerType ...string) ([]*iso8583.Message, int, error) {
 	return a.ExtractMessagesFromStreamSampled(streamData, nil, headerType...)
 }
 
 // ExtractMessagesFromStreamSampled is the stream core the §J reviewer
-// uses (UAT round 6): it keeps capped failure samples in a collector
+// uses: it keeps capped failure samples in a collector
 // (nil collector = the counted behaviour).
 func (a *StreamAnalyzer) ExtractMessagesFromStreamSampled(streamData []byte, samples *UnparsableCollector, headerType ...string) ([]*iso8583.Message, int, error) {
 	hType := "binary2"

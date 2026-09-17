@@ -1,4 +1,4 @@
-// inspector_fixture_test.go: the §C test fixture (wireframe sample
+// inspector_fixture_test.go: the §C test fixture (sample
 // values) shared by the behaviour and golden tests.
 package pages
 
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// inspPurchase is the §C wireframe sample: MTI, masked PAN, plain
+// inspPurchase is the §C sample: MTI, masked PAN, plain
 // fields, TS/STAN auto rows with preview pools, a nested composite
 // (55 → 95 → 01), and a field above the bitmap extension bit.
 func inspPurchase() InspectorState {

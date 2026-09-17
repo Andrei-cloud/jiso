@@ -223,7 +223,7 @@ func parseExchange(ex *liveExchange) (*parsedExchange, error) {
 // (echo check). It writes the per-row notes and returns the correlation
 // verdict (both STANs present and equal). Field 0 (MTI legitimately
 // differs) and field 39 (the RC badge owns it) stay unannotated; field 38
-// gets the wireframe's "auth code" info note when nothing else claimed it.
+// gets the "auth code" info note when nothing else claimed it.
 func annotateCorrelation(ex *liveExchange, rows []pages.ExchangeRow) bool {
 	reqVals := fieldValueMap(ex.Request)
 	respVals := fieldValueMap(ex.Response)
@@ -297,7 +297,7 @@ func fieldString(msg *iso8583.Message, n int) string {
 
 // rcBadge maps a response code to the §D badge label. The CLI send path
 // describes RCs by code only — no label source exists in internal/app or
-// internal/command (verified by grep) — so §D maps the two wireframe
+// internal/command (verified by grep) — so §D maps the two
 // codes and renders every other code code-only: 00 → APPROVED (ok),
 // 96 → DECLINED (error), else no label and no ok/error emphasis.
 func rcBadge(rc string) (label string, ok bool) {

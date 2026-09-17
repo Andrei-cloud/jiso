@@ -26,7 +26,7 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// serverTickInterval is the §G stats refresh cadence (~1s, wireframe).
+// serverTickInterval is the §G stats refresh cadence (~1s).
 const serverTickInterval = time.Second
 
 // serverStatsTickMsg is one poll tick carrying its arming-generation seq;
@@ -297,7 +297,7 @@ func serveStatsCard(snap *app.ServerStats) pages.StatsCard {
 	}
 }
 
-// matchPct is the wireframe's one-decimal match ratio ("99.5%"); a zero
+// matchPct is the one-decimal match ratio ("99.5%"); a zero
 // served total is unknown, not 0.0% — the caller renders the dash.
 func matchPct(matched, served int64) string {
 	if served <= 0 {
@@ -349,7 +349,7 @@ func routeMatchCell(r config.MockRouteConfig) string {
 
 // routeLatencyCell is the LATENCY cell: the effective base delay
 // (delay_ms, else latency_ms — the engine's own fallback) with the
-// jitter suffix the wireframe shows ("100±25ms").
+// jitter suffix the design shows ("100±25ms").
 func routeLatencyCell(r config.MockRouteConfig) string {
 	base := routeBaseDelayMs(r)
 	if r.JitterMs > 0 {

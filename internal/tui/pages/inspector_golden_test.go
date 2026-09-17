@@ -7,7 +7,7 @@ import (
 )
 
 // TestInspectorGoldens pins the §C body (no frame chrome) at the
-// wireframe baseline 120x32 for the fields tree (composite expanded)
+// Baseline 120x32 for the fields tree (composite expanded)
 // and the packed hex pane, in both glyph/colour modes (same harness as
 // the dashboard/transactions goldens).
 func TestInspectorGoldens(t *testing.T) {

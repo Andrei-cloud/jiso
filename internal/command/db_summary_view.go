@@ -9,7 +9,7 @@ import (
 )
 
 // PrintDbSummary renders the DB-level summary of `jiso db stats` with no
-// session (PAR-305), ported from the REPL dbstats overview sections into a
+// session, ported from the REPL dbstats overview sections into a
 // headless table in the shared db_views.go style. The JSON surface is
 // app.DbDatabaseSummary; this is its human printer.
 func PrintDbSummary(w io.Writer, v *app.DbDatabaseSummary) {

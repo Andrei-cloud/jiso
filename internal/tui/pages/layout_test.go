@@ -145,7 +145,7 @@ func TestTwoColFitsEveryHeight(t *testing.T) {
 }
 
 // TestWideLeftColumnWidth: the wide grid pins the left column to 46
-// cells (wireframe), so the right column starts at column 48.
+// cells, so the right column starts at column 48.
 func TestWideLeftColumnWidth(t *testing.T) {
 	t.Parallel()
 

@@ -19,7 +19,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// ctfFixtureState is the wireframe §K snapshot in theme-appropriate
+// ctfFixtureState is the §K snapshot in theme-appropriate
 // glyphs (goldens and units share it).
 func ctfFixtureState(th *theme.Theme) CtfState {
 	sep := joinSep(th)
@@ -258,7 +258,7 @@ func TestCtfRefreshKey(t *testing.T) {
 	}
 }
 
-// TestCtfCursorMoveEmitsSelect UAT round 6: moving the list cursor
+// TestCtfCursorMoveEmitsSelect: moving the list cursor
 // onto a different session yields CtfSelectMsg (root recalculates the
 // SUMMARY for the row under the cursor); a move that stays on the same
 // row (clamped at the end) must not re-fire the dry leg.
@@ -285,7 +285,7 @@ func TestCtfCursorMoveEmitsSelect(t *testing.T) {
 	}
 }
 
-// TestCtfFormEditEmitsSelect UAT round 6: typing into the focused
+// TestCtfFormEditEmitsSelect: typing into the focused
 // field (the focus ring starts on CIB) re-runs the dry leg with the
 // edited values.
 func TestCtfFormEditEmitsSelect(t *testing.T) {
@@ -303,7 +303,7 @@ func TestCtfFormEditEmitsSelect(t *testing.T) {
 	}
 }
 
-// TestCtfPlaceholderNoFakeCaret UAT round 6: the unfocused BIN
+// TestCtfPlaceholderNoFakeCaret: the unfocused BIN
 // placeholder must not wear a caret — the borrowed caret made the
 // unfocused row look like the editable one.
 func TestCtfPlaceholderNoFakeCaret(t *testing.T) {
@@ -386,7 +386,7 @@ func TestCtfViewerWalkAndColumns(t *testing.T) {
 	}
 }
 
-// TestCtfNoDuplicateNoDBLine UAT round 6 QA: the CTF page repeats the
+// TestCtfNoDuplicateNoDBLine QA: the CTF page repeats the
 // sessions empty-state pattern, so the same rule applies — the full
 // "database not configured - pass --db…" sentence appears once (the root
 // note), never twice.

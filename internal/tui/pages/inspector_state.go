@@ -1,12 +1,12 @@
-// inspector_state.go holds the §C state contract (wireframe
-// .opencode/plans/02-tui-wireframes.md §C) and the page→router messages.
+// inspector_state.go holds the §C state contract and
+// the page→router messages.
 // Root builds InspectorState from internal/app (compose-without-send path,
 // the same InfoView builders `jiso inspect` uses) and pushes it via
-// SetState; the page never touches the app or the clock (SCR-501 pattern).
+// SetState; the page never touches the app or the clock (pattern).
 package pages
 
-// InspectorPageID is the router id of the message inspector (wireframe
-// §C). It is a drill-down entered from the §B transactions page (Enter on
+// InspectorPageID is the router id of the message inspector (§C).
+// It is a drill-down entered from the §B transactions page (Enter on
 // a row), not a 1..8 hotkey slot.
 const InspectorPageID = "inspector"
 
@@ -99,7 +99,7 @@ type InspectorState struct {
 	Views    ViewsState
 	Fields   []FieldRow
 	// DescribeText is the utils.Describe output of the composed message
-	// (UAT: the fields tab renders the Describe view); empty falls back
+	// (the fields tab renders the Describe view); empty falls back
 	// to the interpolated tree.
 	DescribeText []string
 	// PackedDump holds the standard hexdump lines (offset, 16 byte
@@ -113,8 +113,8 @@ type InspectorState struct {
 
 // TxComposeMsg asks the router to run the compose-with-dataset path for
 // the inspected transaction (§C bottom-right "Enter compose-with-dataset").
-// Root owns it (SCR-504 lands the real composition); today it is a logged
-// no-op, same as SCR-502's row messages were for SCR-503.
+// Root owns it (lands the real composition); today it is a logged
+// no-op, like the earlier row-message stubs.
 type TxComposeMsg struct {
 	ID string
 }

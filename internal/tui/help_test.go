@@ -240,7 +240,7 @@ func TestHelpOverlayModeChip(t *testing.T) {
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	_, _ = m.Update(ch('?'))
 
-	// The invented mode chip is gone (wireframe parity A4): the HELP box
+	// The invented mode chip is gone: the HELP box
 	// itself is the mode signal; the top rule keeps the app label.
 	v := m.View().Content
 	if !strings.Contains(v, "HELP") || !strings.Contains(v, "jiso") {

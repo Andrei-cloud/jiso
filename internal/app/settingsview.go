@@ -1,4 +1,4 @@
-// settingsview.go is the §L settings façade (SCR-512): CurrentSettings
+// settingsview.go is the §L settings façade: CurrentSettings
 // snapshots the live session config with per-key SOURCES resolved
 // through the CLI-104 layers. The CLI cannot be imported here, so the
 // flag layer is inferred: a value matching $JISO_* is "env", one
@@ -26,7 +26,7 @@ const (
 	SourceSession = "session"
 )
 
-// Settings keys (canonical, wireframe §L order is settingsKeyOrder).
+// Settings keys (canonical, §L order is settingsKeyOrder).
 const (
 	SettingReconnectAttempts   = "reconnect-attempts"
 	SettingConnectTimeout      = "connect-timeout"
@@ -84,7 +84,7 @@ type settingSpec struct {
 	liveSafe bool
 }
 
-// settingsKeyOrder is the §L wireframe row order.
+// settingsKeyOrder is the §L row order.
 var settingsKeyOrder = []string{
 	SettingReconnectAttempts, SettingConnectTimeout, SettingTotalConnectTimeout,
 	SettingResponseTimeout, SettingListenTimeout, SettingHex, SettingVisaStationID,
@@ -121,7 +121,7 @@ type SettingsRow struct {
 }
 
 // SettingsView is the §L snapshot: the user config file path (save
-// target, "~/.config/jiso"-style per XDG) and the rows in wireframe
+// target, "~/.config/jiso"-style per XDG) and the rows in
 // order. A malformed user config file degrades the config layer to
 // "no file" and reports the load error separately (root renders it as
 // the page Note; the session rows still render).
@@ -305,7 +305,7 @@ func userconfigValue(uc *userconfig.File, ucKey string) *string {
 	return p
 }
 
-// formatDuration renders "5s"/"10s"/"5m"/"1h30m0s"-style wireframe
+// formatDuration renders "5s"/"10s"/"5m"/"1h30m0s"-style
 // text (whole minutes win over seconds).
 func formatDuration(d time.Duration) string {
 	switch {

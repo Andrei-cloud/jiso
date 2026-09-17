@@ -1,8 +1,8 @@
-// settings_view.go renders the §L body (wireframe §L): the title line
+// settings_view.go renders the §L body: the title line
 // "SETTINGS (session config - edits apply live)" with the right-aligned
 // "[w] save to <path>" slot, the two-column key/value grid (label
 // column padded; markers ●/✓/✗ after the value; env/session
-// provenance as a muted tag so wireframe-default rows stay verbatim),
+// provenance as a muted tag so default rows stay verbatim),
 // and the stacked single-column fallback below frame.FullWidth. An
 // invalid committed value renders as inline red text under its row.
 // The save overlay replaces the grid while open (target path +
@@ -56,7 +56,7 @@ func (s *Settings) render(w, h int) string {
 	return clipBlockStyled(s.th, head+"\n"+s.gridStacked(w)+"\n"+footer, h, w)
 }
 
-// headerLine is the wireframe title row with the right-aligned save
+// headerLine is the title row with the right-aligned save
 // slot naming the XDG target.
 func (s *Settings) headerLine(w int) string {
 	dash := "\u2014"
@@ -84,7 +84,7 @@ func (s *Settings) noteLine(w int) string {
 	return clipCells(s.th.Status(theme.KindWarn, s.state.Note), w, clipTail(s.th))
 }
 
-// gridWide renders the two-column wireframe grid: rows snake
+// gridWide renders the two-column grid: rows snake
 // (0,1), (2,3), ... left cell then right cell, exactly the §L pairing.
 func (s *Settings) gridWide(w int) string {
 	valueCol := max((w-settingsLabelCol*2)/2, 12)
@@ -163,7 +163,7 @@ func (s *Settings) errorLines(left, right, w int) string {
 	return b.String()
 }
 
-// footerLines is the wireframe action line (or the last save result)
+// footerLines is the action line (or the last save result)
 // plus the live-apply scope line.
 func (s *Settings) footerLines(w int) string {
 	sep := s.th.Separator()
@@ -216,7 +216,7 @@ func settingsMarker(th *theme.Theme, marker string) string {
 
 // settingsSourceTag decorates non-obvious provenance (env overrides
 // and live session edits) as a muted tag; config/default rows stay
-// wireframe-verbatim.
+// verbatim.
 func settingsSourceTag(th *theme.Theme, source string) string {
 	if source != appSourceEnv && source != appSourceSession {
 		return ""

@@ -54,7 +54,7 @@ type Table struct {
 	sortAsc bool
 	empty   string
 	keys    navKeys
-	grid    bool // bordered wireframe grid (default true); false = flat
+	grid    bool // bordered grid (default true); false = flat
 	// focused is the pane-focus flag: an unfocused table renders its
 	// cursor row as plain text (no marker, no selection background) so a
 	// multi-pane page shows one obvious cursor.
@@ -86,7 +86,7 @@ func NewTable(th *theme.Theme, width int) *Table {
 // SetFocused reports pane focus to the table (see the focused field).
 func (m *Table) SetFocused(on bool) { m.focused = on }
 
-// SetGrid toggles the bordered wireframe grid (on by default); panes
+// SetGrid toggles the bordered grid (on by default); panes
 // that draw their own box border pass false so the inner list stays quiet.
 func (m *Table) SetGrid(on bool) { m.grid = on }
 
@@ -334,7 +334,7 @@ func (m *Table) resolvedWidths() []int {
 	return ws
 }
 
-// View renders the grid (wireframe tables) or the flat list (boxed
+// View renders the grid (tables) or the flat list (boxed
 // panes), clipped line-by-line so nothing ever overflows or wraps.
 func (m *Table) View() string {
 	if len(m.rows) == 0 {

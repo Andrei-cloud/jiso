@@ -1,9 +1,9 @@
-// ctf_state.go holds the §K state contract (wireframe §K) and the
+// ctf_state.go holds the §K state contract and the
 // page→router messages. Root owns the truth: it queries the app CTF
 // façade off the UI thread (tea.Cmd), derives every display string with
 // the injectable clock, and pushes CtfState via SetState — the page
 // never imports internal/app, never opens the database, and never reads
-// the clock (the SCR-501 data-flow contract). The page owns only
+// the clock (the data-flow contract). The page owns only
 // presentation state: list cursor + filter, the parameters form drafts
 // with page-local field focus, and the preview overlay's Esc ownership.
 package pages
@@ -21,7 +21,7 @@ const (
 	ctfPaneCount
 )
 
-// Form field indices (wireframe §K PARAMETERS order).
+// Form field indices.
 const (
 	FieldCIB = iota
 	FieldBin
@@ -49,7 +49,7 @@ type CtfSessionRow struct {
 }
 
 // CtfParams carries the four PARAMETERS form values as text (root
-// parses batch; blank CIB/batch get the PAR-308 defaults, blank BIN
+// parses batch; blank CIB/batch get the defaults, blank BIN
 // means "all").
 type CtfParams struct {
 	CIB     string
@@ -72,8 +72,8 @@ func (p CtfParams) Field(i int) string {
 	}
 }
 
-// CtfPreview is the record-viewer overlay content (UAT round 6
-// wireframe): headline lines (record count + totals, root-derived),
+// CtfPreview is the record-viewer overlay content:
+// headline lines (record count + totals, root-derived),
 // EVERY record string the write would emit, the resolved output path,
 // and the overwrite flag root stamped from its os.Stat leg (§N3 confirm
 // fronts the write).
@@ -86,7 +86,7 @@ type CtfPreview struct {
 
 // CtfState is the immutable §K snapshot root pushes into the page.
 // Params carries the committed/prefill form values (the page overlays
-// its uncommitted drafts); SummaryLine is the wireframe SUMMARY line
+// its uncommitted drafts); SummaryLine is the SUMMARY line
 // ("" renders the dashed placeholder); Preview is the last preview
 // result (nil = none yet); PreviewID re-arms the overlay on change;
 // WriteLine is the toast-style write result.
@@ -98,7 +98,7 @@ type CtfState struct {
 	Params      CtfParams
 	SummaryLine string
 	// SummaryWait marks the dry leg in flight: the SUMMARY line reads
-	// "… computing" until the result folds (UAT round 6 wireframe).
+	// "… computing" until the result folds.
 	SummaryWait bool
 	Preview     *CtfPreview
 	PreviewID   int
@@ -109,7 +109,7 @@ type CtfState struct {
 // CtfSelectMsg is the list cursor moving onto a different session, or a
 // form edit: root re-runs the DRY preview leg for the row under the
 // cursor and folds it into the SUMMARY line WITHOUT opening the overlay
-// (UAT round 6: the summary must follow the cursor, not the last Enter).
+// The summary must follow the cursor, not the last Enter.
 type CtfSelectMsg struct {
 	SessionID string
 	Params    CtfParams

@@ -148,7 +148,7 @@ func (m *RootModel) dashSessionCard() *pages.SessionCard {
 }
 
 // displayDbPath shortens an absolute db path under the user's home to
-// the wireframe's "~/..." form; anything else (including a missing home)
+// the "~/..." form; anything else (including a missing home)
 // stays verbatim.
 func displayDbPath(home, path string) string {
 	if home != "" && strings.HasPrefix(path, home) {

@@ -1,4 +1,4 @@
-// root_wizard.go owns the send-wizard legs (proposal 04 §B): the modal is
+// root_wizard.go owns the send-wizard legs: the modal is
 // a pages.SendWizard overlay (like m.dlg — the page stack is untouched);
 // the root builds its snapshots from the same sources every other screen
 // uses (config spec/tx paths, the tx file's transaction entries, the
@@ -51,7 +51,7 @@ func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 		st.TargetOK = true
 	} else {
 		// No live connection: the wizard opens with the connect step
-		// first (proposal 04 §B modification).
+		// first.
 		st.Steps = append([]string{pages.WizardStepConnect}, st.Steps...)
 		form := m.buildConnectForm()
 		applyConnectRules(&form)
@@ -64,7 +64,7 @@ func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 	m.pushWizardFileRecents()
 	w.SetState(st)
 	w.HomeCursor()
-	// UAT round 5: with a live connection, a loaded spec and a tx file
+	// With a live connection, a loaded spec and a tx file
 	// that carries templates, the wizard opens on the SEND step — the
 	// operator only re-walks spec/file when one of them is actually
 	// missing (Esc still steps back through the rail to change a pick).
@@ -116,7 +116,7 @@ func (m *RootModel) pushWizardFileRecents() {
 // updateWizardKey routes one key while the wizard owns the keyboard.
 func (m *RootModel) updateWizardKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// An empty file step is a dead end for Enter: nothing is listed to
-	// pick. Send the user straight into the browser instead (UAT: a tx
+	// pick. Send the user straight into the browser instead (a tx
 	// file that was never set could not be chosen).
 	if key.Matches(msg, wizardEnterKey) && m.wizard.CurrentStepID() == pages.WizardStepFile &&
 		len(m.wizard.State().FileItems) == 0 {
@@ -244,7 +244,7 @@ func (m *RootModel) handleWizardMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-// directSend is the one-keystroke send (UAT round 5): with a live
+// directSend is the one-keystroke send: with a live
 // connection and a loaded spec + tx file it starts the send without
 // walking the wizard at all — from the dashboard the operator stays put
 // and the LAST SEND tile carries the outcome; from any other page the §D
@@ -260,7 +260,7 @@ func (m *RootModel) directSend() (tea.Model, tea.Cmd) {
 	}
 	m.lastSentTemplate = name
 	if m.Current().ID() == pages.DashboardPageID {
-		// UAT round 5: the dashboard send keeps the operator on the
+		// The dashboard send keeps the operator on the
 		// dashboard; the LAST SEND tile carries the outcome.
 		return m, m.startSendDetached(name)
 	}
@@ -270,7 +270,7 @@ func (m *RootModel) directSend() (tea.Model, tea.Cmd) {
 
 // resolveSessionTemplate picks the one-keystroke send's template: the
 // last one sent this session when the loaded file still carries it, else
-// the file's first entry (UAT round 5). ok=false when no tx file is
+// the file's first entry. ok=false when no tx file is
 // loaded or it holds no transaction entries.
 func (m *RootModel) resolveSessionTemplate() (string, bool) {
 	if m.app == nil {
@@ -342,7 +342,7 @@ func (m *RootModel) wizardChooseFile(path string) (tea.Model, tea.Cmd) {
 	if len(tpls) == 0 {
 		// Not a tx file (a spec, a lock file, an empty pool): stay on
 		// the step with a line naming it instead of advancing into an
-		// empty send step (UAT: "no templates" dead end).
+		// empty send step ("no templates" dead end).
 		st := m.wizard.State()
 		st.Error = "no transactions in " + filepath.Base(abs) + " - pick a tx file"
 		m.wizard.SetState(st)

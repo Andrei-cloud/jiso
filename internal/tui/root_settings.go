@@ -1,4 +1,4 @@
-// root_settings.go owns the §L settings truth (SCR-512). The page is
+// root_settings.go owns the §L settings truth. The page is
 // presentation-only: root queries the App settings façade
 // (CurrentSettings/ApplySettings/SaveSettings — the same userconfig
 // loader the CLI-104 precedence layer reads) OFF the UI thread: every
@@ -82,7 +82,7 @@ func (m *RootModel) armSettings() tea.Cmd {
 	if m.settingsLoadWait || !m.settingsDirty {
 		return nil
 	}
-	// Arm the single-flight flag (E5-FIX/M3: the arm side used to write
+	// Arm the single-flight flag (the arm side used to write
 	// false, so nothing ever marked the load in flight — the stale
 	// wedge the reviewer flagged could not even be observed, and two
 	// dirtying events in one round-trip armed two concurrent loads).
@@ -100,7 +100,7 @@ func (m *RootModel) armSettings() tea.Cmd {
 // applySettingsLoaded folds a snapshot result: a malformed user config
 // file degrades to the Note line (rows still render), and the pending
 // save-overlay diff is rebuilt against the fresh file values. The wait
-// flag clears BEFORE the stale check (E5-FIX/M3, the
+// flag clears BEFORE the stale check (the
 // applySessionsDetail pattern): a commit or save bumps the seq while a
 // load is in flight, and a stale-return that kept settingsLoadWait true
 // permanently froze armSettings for the session.
@@ -134,7 +134,7 @@ func (m *RootModel) handleSettingsCommit(msg pages.SettingsCommitMsg) (tea.Model
 
 // commitSettingKey runs the shared one-key apply leg: this IS the §L
 // commit path, extracted so a file-picker selection on another page
-// (the §B tx-file target, E5-FIX/M6) commits through exactly the same
+// (the §B tx-file target) commits through exactly the same
 // validation/apply semantics instead of a parallel implementation.
 func (m *RootModel) commitSettingKey(key, value string) (tea.Model, tea.Cmd) {
 	src := m.settingsSource()
@@ -168,7 +168,7 @@ func (m *RootModel) applySettingsApplied(msg settingsAppliedMsg) (tea.Model, tea
 	// A tx-file picked from §B (not the §L settings grid): applyTxFileSetting
 	// already swapped the live collection on success; when it was rejected we
 	// must surface WHY on the transactions page instead of falling back to
-	// the empty state in silence (UAT round 7).
+	// the empty state in silence.
 	if m.txFilePickFromB {
 		m.txFilePickFromB = false
 		m.txFileLoadErr = msg.errs[app.SettingTxFile]
@@ -220,7 +220,7 @@ func (m *RootModel) handleSettingsSave() (tea.Model, tea.Cmd) {
 // handleSettingsSaveConfirm is w inside the overlay: persist exactly
 // the changed keys (SaveSettings re-validates and writes ONLY them;
 // one invalid key aborts the write and surfaces as the failure line).
-// An apply still in flight also blocks the save (E5-FIX/M3): its key
+// An apply still in flight also blocks the save: its key
 // has not landed in settingsChanged yet, and saving now would miss the
 // just-committed value.
 func (m *RootModel) handleSettingsSaveConfirm() (tea.Model, tea.Cmd) {
@@ -271,9 +271,9 @@ func (m *RootModel) applySettingsSaved(msg settingsSavedMsg) (tea.Model, tea.Cmd
 	m.settingsSavedOK = true
 	m.settingsChanged = map[string]string{}
 	m.settingsDirty = true
-	// TUI-406b: the save-success line also surfaces as a transient
-	// toast (bottom-right); the page's own footer line stays (SCR-512
-	// owns that UX). Timestamped with the injectable now; the root's
+	// The save-success line also surfaces as a transient
+	// toast (bottom-right); the page's own footer line stays (the
+	// page owns that UX). Timestamped with the injectable now; the root's
 	// prune tick expires it.
 	m.pushToast(m.settingsSavedLine, widgets.ToastSuccess)
 
@@ -281,8 +281,8 @@ func (m *RootModel) applySettingsSaved(msg settingsSavedMsg) (tea.Model, tea.Cmd
 }
 
 // handleSettingsSaveCancel is Esc inside the overlay: nothing is
-// written; the live edits stay session-only (the wireframe's
-// "Esc discards" of the save step).
+// written; the live edits stay session-only (the save step's
+// "Esc discards").
 func (m *RootModel) handleSettingsSaveCancel() (tea.Model, tea.Cmd) {
 	m.settingsSaveOpen = false
 
@@ -298,7 +298,7 @@ func (m *RootModel) handleSettingsRefresh() (tea.Model, tea.Cmd) {
 }
 
 // leaveSettings bumps the seq when navigation replaces/pushes away
-// from the §L page (the leave-side cancel of the SCR-507/509 pattern).
+// from the §L page (the leave-side cancel pattern).
 func (m *RootModel) leaveSettings() {
 	if m.Current() != nil && m.Current().ID() == pages.SettingsPageID {
 		m.settingsSeq++

@@ -1,8 +1,8 @@
 // root_stress_form_test.go pins the §H stress start leg driven through
-// the worker wizard (UAT round 4): [f] on the wizard's tx step opens
-// the file picker and the picker — not the wizard — owns j/k (UAT: the
+// the worker wizard: [f] on the wizard's tx step opens
+// the file picker and the picker — not the wizard — owns j/k (the
 // cursor was frozen because the form swallowed keys); the step-2 rows
-// prefill from the PAR-306 cobra flag defaults; bound violations are
+// prefill from the cobra flag defaults; bound violations are
 // caught by the wizard's Enter gate and never reach the start leg;
 // space toggles the multi-select; and the happy walk delivers the
 // cobra-default parameters to the injectable StressStart leg, closing

@@ -1,4 +1,4 @@
-// root_journey_test.go pins the proposal-05 §4 navigation contract:
+// root_journey_test.go pins the navigation contract:
 // esc unwinds every journey back to the dashboard — page pushes (§D,
 // §H, §J, §4) and the wizards (send wizard, worker wizards, connect
 // dialog, server form) — and esc on the dashboard remains a no-op.

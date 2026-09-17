@@ -33,7 +33,7 @@ func newServerStartCmd() *cobra.Command {
 		Use:   "start [port] [headerType]",
 		Short: "Start embedded ISO8583 mock server in direct mode",
 		Long:  serveStartLongHelp,
-		// PAR-309: serve start owns SIGINT/SIGTERM (clean stop, exit 0);
+		// Serve start owns SIGINT/SIGTERM (clean stop, exit 0);
 		// the fail-fast 128+signal watcher must not race it.
 		Annotations: map[string]string{skipGlobalSignalWatcherAnnotation: annotationSet},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,7 +104,7 @@ func resolveServeStartArgs(args []string, port, headerType string) (outPort, out
 	return port, headerType, nil
 }
 
-// newServerStatsCmd builds the PAR-304 out-of-process stats query:
+// newServerStatsCmd builds the out-of-process stats query:
 //
 //	jiso serve stats [port] [--json]
 //
@@ -235,8 +235,8 @@ func printServeStatsCounts(w io.Writer, title string, counts map[string]int64) {
 	}
 }
 
-// newServerRoutesCmd builds the UAT-02-fixed `serve routes [port]`: the
-// route set of the RUNNING server, read from the PAR-304 state file where
+// newServerRoutesCmd builds the `serve routes [port]`: the
+// route set of the RUNNING server, read from the state file where
 // the server persists it at start — the same set it matches incoming
 // messages against. It never re-derives routes from the querying
 // process's own spec/tx slots (the old behavior printed "No mock routes
@@ -301,7 +301,7 @@ func executeServeRoutes(cmd *cobra.Command, args []string) error {
 
 	routes := state.Routes
 	if routes == nil {
-		// State file written by a pre-UAT-02 server: the persisted route
+		// State file written by a legacy server: the persisted route
 		// set is unavailable, so fall back to the route names the stats
 		// snapshot proves were matched (post-traffic, names only) — never
 		// to the querying process's local config.

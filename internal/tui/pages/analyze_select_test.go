@@ -7,7 +7,7 @@ import (
 )
 
 // analyze_select_test.go pins the §J wizard cursor semantics that root's
-// per-Update SetState re-push must never clobber (UAT round 6).
+// per-Update SetState re-push must never clobber.
 
 func TestAnalyzeCursorSurvivesResync(t *testing.T) {
 	t.Parallel()

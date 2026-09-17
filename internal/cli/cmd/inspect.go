@@ -12,7 +12,7 @@ import (
 )
 
 // newInspectCmd builds `jiso inspect <tx-name>`: the headless replacement for
-// the REPL `info` command (PAR-302).
+// the REPL `info` command.
 //
 // Parity contract with REPL info — both render the SAME composition, built
 // through the shared app.InfoView builders (internal/app/result_info.go):
@@ -24,7 +24,7 @@ import (
 //
 // The only intentional difference is presentation policy: info is
 // interactive (survey picker, notices on stderr), inspect is headless
-// (UAT-04: the name is ALWAYS required — a missing one is a usage error
+// (the name is ALWAYS required — a missing one is a usage error
 // exit 2, never a survey prompt, under --json stdout stays empty; notices
 // via output.Noticef so --quiet/--json keep stdout pure). Data is
 // identical by construction: both sides build the view with
@@ -42,7 +42,7 @@ func executeInspect(cmd *cobra.Command, args []string) error {
 	out := output.New(cmd)
 
 	// Cached, load-validated spec/collection from PersistentPreRunE; load
-	// errors surface instead of being swallowed (M1 review #24).
+	// errors surface instead of being swallowed.
 	_, tc, err := configuredSpecAndTx()
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func executeInspect(cmd *cobra.Command, args []string) error {
 	}
 
 	if name == "" {
-		// UAT-04: the v2 cobra path never prompts (E1 golden rule). The
+		// The v2 cobra path never prompts (E1 golden rule). The
 		// survey picker stays in the REPL command layer (the wizard path
 		// here emitted ANSI prompt bytes on stdout and died with a
 		// runtime-1 "EOF" when piped); a missing name is a plain usage

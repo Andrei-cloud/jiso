@@ -8,7 +8,7 @@ import (
 	"jiso/internal/config"
 )
 
-// TestAnalyzeItemRowsPreviewNumericOrder UAT round 6: the generated-item
+// TestAnalyzeItemRowsPreviewNumericOrder: the generated-item
 // picker's per-item preview must render ISO8583 fields in numeric ascending
 // order (0,2,11) — exactly what the file will contain — not Go's default
 // map key order (0,11,2).

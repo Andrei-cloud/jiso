@@ -85,11 +85,11 @@ func TestStubCommandsKeepStdoutEmpty(t *testing.T) {
 	isolateConfig(t)
 	f := writeCLI102Fixtures(t)
 
-	// tui left the stub set in TUI-401; stress left it in PAR-306. The
-	// shape this test pins (usage failure keeps stdout empty, the message
-	// goes to stderr) now applies to the implemented stress command's
-	// missing --tx path; the no-TTY guard is pinned by
-	// TestTUIRequiresTerminalExit2 and the golden harness.
+	// The shape this test pins (usage failure keeps stdout empty, the
+	// message goes to stderr) now applies to the implemented stress
+	// command's missing --tx path; the tui suite's own no-TTY guard
+	// is pinned by TestTUIRequiresTerminalExit2 and the golden
+	// harness.
 	tests := [][]string{
 		{"stress", "--spec", f.specPath, "--file", f.txPath},
 		{"stress", "--spec", f.specPath, "--file", f.txPath, "--json"},

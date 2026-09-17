@@ -1,4 +1,4 @@
-// connect_options.go is the SCR-505 extension: a per-attempt connect entry
+// connect_options.go is the extension: a per-attempt connect entry
 // point for the §E dialog. App.Connect/ConnectWith keep their historical
 // behaviour (configured target/header, matcher untouched); ConnectWithOptions
 // additionally accepts caller target, listener mode + bind port, visa

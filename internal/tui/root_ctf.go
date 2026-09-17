@@ -1,7 +1,7 @@
-// root_ctf.go owns the §K CTF export truth (SCR-511). The page is
+// root_ctf.go owns the §K CTF export truth. The page is
 // presentation-only: root queries the App CTF façade (ListCtfSessions/
 // PreviewExport/WriteExport — the same db.OpenExisting + base2 path the
-// CLI `ctf` shims drive, PAR-311) OFF the UI thread: every leg runs in
+// CLI `ctf` shims drive) OFF the UI thread: every leg runs in
 // a tea.Cmd and reports back as a seq-tokened msg, so Update never
 // blocks and never touches the filesystem. Generate runs the dry
 // preview (nothing written) plus an os.Stat leg for the §N3 overwrite
@@ -121,7 +121,7 @@ func (m *RootModel) armCtf() tea.Cmd {
 // applyCtfList folds a list result: typed errors become the
 // empty-state Note (the list clears, nothing is fabricated); a
 // selection that left the list falls to the newest session. The wait
-// flag clears BEFORE the stale check (E5-FIX/M3, the
+// flag clears BEFORE the stale check (the
 // applySessionsDetail pattern): handleCtfGenerate bumps the seq while a
 // list load is in flight, and a stale-return that kept ctfListWait true
 // permanently froze armCtf for the session.
@@ -171,8 +171,8 @@ func (m *RootModel) handleCtfRefresh() (tea.Model, tea.Cmd) {
 
 // handleCtfGenerate is Enter: open the record viewer. A summary the
 // cursor-following dry leg already computed for exactly this
-// session+params is REUSED without a second query (UAT round 6
-// wireframe); otherwise Enter runs the dry preview leg (PreviewExport
+// session+params is REUSED without a second query;
+// otherwise Enter runs the dry preview leg (PreviewExport
 // writes nothing) plus the overwrite stat, and the overlay opens when
 // the result arrives.
 func (m *RootModel) handleCtfGenerate(msg pages.CtfGenerateMsg) (tea.Model, tea.Cmd) {
@@ -220,7 +220,7 @@ func (m *RootModel) handleCtfGenerate(msg pages.CtfGenerateMsg) (tea.Model, tea.
 	}
 }
 
-// handleCtfSelect is the cursor-following dry leg (UAT round 6): the
+// handleCtfSelect is the cursor-following dry leg: the
 // list cursor moved onto a different session, or a form edit changed
 // the batch — root re-runs the dry preview for the row under the
 // cursor and folds it into the SUMMARY line WITHOUT opening the
@@ -259,7 +259,7 @@ func (m *RootModel) handleCtfSelect(msg pages.CtfSelectMsg) (tea.Model, tea.Cmd)
 
 // ctfLegBatch validates the form's batch root-side and returns its
 // engine-int meaning. An explicitly given batch must be positive
-// (E5-FIX/M3): "0"/"-5" were once accepted and forwarded to the façade;
+// "0"/"-5" were once accepted and forwarded to the façade;
 // the empty field keeps its engine-default meaning.
 func (m *RootModel) ctfLegBatch(params pages.CtfParams) (int, bool) {
 	batch, err := strconv.Atoi(strings.TrimSpace(params.Batch))
@@ -281,7 +281,7 @@ func (m *RootModel) ctfLegBatch(params pages.CtfParams) (int, bool) {
 // SUMMARY line + viewer source); an error lands as the Note (no viewer,
 // nothing written, no fabricated records). Only the OPEN leg (Enter)
 // arms the record viewer — the cursor-following select leg folds the
-// SUMMARY line and stops there (UAT round 6 wireframe).
+// SUMMARY line and stops there.
 func (m *RootModel) applyCtfPreview(msg ctfPreviewLoadedMsg) (tea.Model, tea.Cmd) {
 	m.ctfPreviewWait = false
 	if msg.seq != m.ctfSeq || m.Current().ID() != pages.CtfPageID {
@@ -350,7 +350,7 @@ func (m *RootModel) applyCtfWriteStat(msg ctfWriteStatMsg) (tea.Model, tea.Cmd) 
 	return m.armCtfWrite(msg.id, msg.params)
 }
 
-// armCtfWrite launches the write leg (the PAR-308 -o path) with the
+// armCtfWrite launches the write leg (the -o path) with the
 // snapshotted arguments; a missing directory surfaces as the write
 // error text, never a created tree.
 func (m *RootModel) armCtfWrite(id string, params pages.CtfParams) (tea.Model, tea.Cmd) {
@@ -396,7 +396,7 @@ func (m *RootModel) applyCtfWrite(msg ctfWriteLoadedMsg) (tea.Model, tea.Cmd) {
 // applyCtfConfirmed / applyCtfCancelled drive the §N3 overwrite
 // confirm (default No writes nothing). The write runs with the stored
 // m.ctfParams — never a path recovered from the question text
-// (E5-FIX/M3: an OutPath ending "?" lost its suffix to the old
+// (an OutPath ending "?" lost its suffix to the old
 // TrimPrefix/TrimSuffix round-trip).
 func (m *RootModel) applyCtfConfirmed() (tea.Model, tea.Cmd) {
 	m.ctfConfirm = nil
@@ -412,7 +412,7 @@ func (m *RootModel) applyCtfCancelled() (tea.Model, tea.Cmd) {
 }
 
 // leaveCtf bumps the seq when navigation replaces/pushes away from
-// the §K page (the leave-side cancel of the SCR-507/509 pattern).
+// the §K page (the leave-side cancel pattern).
 func (m *RootModel) leaveCtf() {
 	if m.Current().ID() == pages.CtfPageID {
 		m.ctfSeq++
@@ -421,7 +421,7 @@ func (m *RootModel) leaveCtf() {
 }
 
 // ctfErrorText renders a façade error as §K empty-state/inline text:
-// the two typed DB states name their next action (wireframe), a
+// the two typed DB states name their next action, a
 // config-class error already names its session id (never fabricated
 // records), anything else stays verbatim.
 func ctfErrorText(err error) string {

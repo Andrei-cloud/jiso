@@ -15,7 +15,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// PAR-304 serve side-channel. The serve path (cobra `jiso serve start` and
+// serve side-channel. The serve path (cobra `jiso serve start` and
 // the REPL `serve`) publishes two files in the jiso state dir so a separate
 // process can query a RUNNING server:
 //
@@ -49,7 +49,7 @@ const (
 // start: the display fields of a configured mock route (name, match
 // fields, response MTI, latency) — exactly what `jiso serve routes` lists,
 // so the command reports the set the RUNNING server matches against
-// (UAT-02) instead of re-deriving routes from the querying process's own
+// instead of re-deriving routes from the querying process's own
 // spec/tx config slots. Response templates are deliberately excluded: the
 // state file stays a small identity file.
 type ServeRoute struct {
@@ -67,7 +67,7 @@ type ServeRoute struct {
 // while the channel is the snapshot file (reserved for a future admin
 // endpoint). Routes is always an array in files written by this build
 // (empty when the server has none); a nil Routes decodes only from a
-// pre-UAT-02 state file, whose reader falls back to the stats snapshot's
+// legacy state file, whose reader falls back to the stats snapshot's
 // route counts.
 type ServeState struct {
 	PID       int          `json:"pid"`
@@ -101,7 +101,7 @@ func serveRoutesFromConfig(routes []config.MockRouteConfig) []ServeRoute {
 
 // ServeStateDir returns the directory holding serve state files:
 // $JISO_STATE_DIR when non-empty, else <XDG state home>/jiso (no mkdir;
-// PAR-304 goldens pin ~/.local/state as the home fallback). The STAN
+// goldens pin ~/.local/state as the home fallback). The STAN
 // counter's persistence dir (utils.StateDir) resolves identically so
 // both state files always share one directory.
 func ServeStateDir() (string, error) {
@@ -320,7 +320,7 @@ func readJSONFile(path string, v any) error {
 }
 
 // WriteJSONAtomic exposes the side-channel's atomic write pattern (temp
-// file in the target directory + rename) to PAR-309's `serve start --report`
+// file in the target directory + rename) to the `serve start --report`
 // final-stats dump, so the report reader can never observe a partial file.
 func WriteJSONAtomic(path string, v any) error {
 	return writeJSONAtomic(path, v)
@@ -379,13 +379,13 @@ func writeJSONAtomic(path string, v any) error {
 }
 
 // StateDir (added at E3-M1 merge) resolves the *general* jiso state dir for
-// artifacts like the TUI debug log (TUI-409): JISO_STATE_DIR → XDG_STATE_HOME
-// /jiso → os.UserConfigDir()/jiso, created 0700 on first use. It intentionally
+// artifacts like the TUI debug log: JISO_STATE_DIR → XDG_STATE_HOME
+// /jiso → os.UserConfigDir/jiso, created 0700 on first use. It intentionally
 // differs from ServeStateDir above: the serve *reader* must stay side-effect
-// free (never MkdirAll) and PAR-304 pinned the home fallback to
+// free (never MkdirAll) and it pinned the home fallback to
 // ~/.local/state for goldens; this creator prefers the platform config dir on
-// macOS. Divergence documented in kanban E3-M1; unify only behind an explicit
-// ticket that re-pins the PAR-304 goldens.
+// macOS. Divergence is documented; unify only behind an explicit
+// ticket that re-pins the goldens.
 func StateDir() (string, error) {
 	if v := os.Getenv("JISO_STATE_DIR"); v != "" {
 		return ensureStateDir(v)

@@ -467,7 +467,7 @@ func TestWorkerWizardSetStateKeepsSelection(t *testing.T) {
 	_, _ = wz.Update(ch('j'))
 	_, _ = wz.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}) // tx-03
 
-	// A refresh dropping tx-03 keeps tx-01 (UAT: the [f] pick keeps
+	// A refresh dropping tx-03 keeps tx-01 (the [f] pick keeps
 	// selections whose names still exist).
 	wz.SetState(WorkerWizardState{TxItems: []WizardItem{
 		{Label: "tx-01", Path: "tx-01"}, {Label: "tx-05", Path: "tx-05"},

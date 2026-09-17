@@ -1,4 +1,4 @@
-// root_disconnect_test.go proves the TUI-514 root contract (closes
+// root_disconnect_test.go proves the root contract (closes
 // REGRESSION-1): the palette action and the §A "D" quick key both land on
 // handleDisconnect; with a live connection and no workers/serve the leg
 // runs App.Disconnect exactly ONCE with no confirm and the card flips via
@@ -48,7 +48,7 @@ func newDisconnectTestRoot(t *testing.T) *disconnectTestRoot {
 
 		return nil
 	}
-	// UAT round 5: the §A dashboard now arms the mock-server stats tick
+	// The §A dashboard now arms the mock-server stats tick
 	// while the server runs (the dashboard renders the snapshot). Record
 	// the arming instead of scheduling a real tea.Tick — the serveTestRoot
 	// convention; this chain follower feeds one message at a time and
@@ -237,7 +237,7 @@ func TestDisconnectConfirmsWhileServeEngineRunning(t *testing.T) {
 
 	r := newDisconnectTestRoot(t)
 	r.connect()
-	r.m.serverStartAt = r.clock // the §G running truth serverRunning() reads
+	r.m.serverStartAt = r.clock // the §G running truth serverRunning reads
 	r.m.serverPort = "8080"
 
 	r.key(ch('D'))
@@ -369,7 +369,7 @@ func TestPaletteListsDisconnectCommand(t *testing.T) {
 	}
 
 	// While a connection is live the §A quick-actions list toggles: the
-	// Connect row is replaced by Disconnect on top (proposal 04); Enter
+	// Connect row is replaced by Disconnect on top; Enter
 	// on it dispatches the very same Msg the palette action carries.
 	r := newDisconnectTestRoot(t)
 	r.connect()

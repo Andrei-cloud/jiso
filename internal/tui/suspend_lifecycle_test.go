@@ -6,8 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Suspend (TUI-408, design §lifecycle non-negotiable 4): v2.0.9 owns the
-// whole SIGTSTP dance natively — tea.Suspend()/SuspendMsg (tea.go:571-582)
+// Suspend: v2.0.9 owns the
+// whole SIGTSTP dance natively — tea.Suspend/SuspendMsg (tea.go:571-582)
 // is consumed by the event loop (tea.go:779-782) which calls
 // (*Program).suspend (tty.go:12-21): releaseTerminal(true) →
 // suspendProcess (tty_unix.go:39-47) sends SIGTSTP to the process group and
@@ -22,7 +22,7 @@ import (
 // NOT hand-roll kill(-SIGTSTP) — that would also fight v2's own
 // suspend bookkeeping. Reported gap: with ctrl+z unbound, in-app suspend
 // is unreachable until a future ticket opts in by returning a cmd yielding
-// tea.Suspend() (the mechanism below already works unchanged).
+// tea.Suspend (the mechanism below already works unchanged).
 func TestSuspendIsV2NativeAndCtrlZStaysUnbound(t *testing.T) {
 	t.Parallel()
 
@@ -37,7 +37,7 @@ func TestSuspendIsV2NativeAndCtrlZStaysUnbound(t *testing.T) {
 	}
 
 	// The v2 msg path stays intact through the router: if a later ticket
-	// binds ctrl+z to tea.Suspend(), or a ResumeMsg arrives after a shell
+	// binds ctrl+z to tea.Suspend, or a ResumeMsg arrives after a shell
 	// kill -SIGCONT cycle, the root forwards rather than swallows.
 	for _, msg := range []tea.Msg{tea.Suspend(), tea.ResumeMsg{}} {
 		_, cmd := m.Update(msg)

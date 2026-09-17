@@ -1,10 +1,10 @@
-// ctfview.go is the §K CTF-export façade (SCR-511). It reuses exactly
-// the PAR-308 headless path — db.OpenExisting reads, the db.GetVisaSessions
+// ctfview.go is the §K CTF-export façade. It reuses exactly
+// the headless path — db.OpenExisting reads, the db.GetVisaSessions
 // eligibility filter `ctf list` uses, db.GetApprovedVisaTransactions, and
 // base2.GenerateCTF — no record generation is re-implemented here. The
 // TUI drives these methods off the UI thread (tea.Cmd); the CLI keeps
 // its own cmd/ctf.go entry. PreviewExport is the dry path (dryRun=true,
-// nothing touched); WriteExport is the PAR-308 -o write (os.WriteFile of
+// nothing touched); WriteExport is the -o write (os.WriteFile of
 // the cleaned path — a missing directory surfaces as the write error,
 // never a silently created tree). §N3 overwrite confirmation is a
 // frontend concern; the summary reports Overwrote when the target
@@ -41,7 +41,7 @@ type CtfSessionView struct {
 }
 
 // CtfExportSummary is the machine-readable §K result (the ctfExportSummary
-// shape PAR-308 emits, plus the first/last record preview strings the
+// shape emits, plus the first/last record preview strings the
 // overlay shows). DryRun=true + Written=false carry the dry contract.
 type CtfExportSummary struct {
 	SessionID            string `json:"session_id"`
@@ -63,7 +63,7 @@ type CtfExportSummary struct {
 	LastRecord           string `json:"last_record,omitempty"`
 
 	// RecordLines carries every record string the write emits — the §K
-	// record viewer shows all of them (UAT round 6 wireframe). It is
+	// record viewer shows all of them. It is
 	// deliberately NOT part of the JSON: the CLI ctf export --json
 	// wire shape stays byte-stable with the first/last pair only.
 	// (Records already names the COUNT in that wire shape.)
@@ -104,9 +104,9 @@ func (a *App) ListCtfSessions(ctx context.Context) ([]CtfSessionView, error) {
 // generateCTF is the shared leg behind PreviewExport and WriteExport:
 // open read-only, resolve the session (unknown → ConfigError naming the
 // id), load approved txs (none → ConfigError naming the id), apply the
-// PAR-308 defaults, and run base2.GenerateCTF. The caller supplies now so
+// defaults, and run base2.GenerateCTF. The caller supplies now so
 // the record's GenerationTime (and the derived processing date) is stamped
-// from a single deterministic clock read rather than a time.Now() buried in
+// from a single deterministic clock read rather than a time.Now buried in
 // the façade. Nothing is written here.
 func (a *App) generateCTF(ctx context.Context, sessionID, cib, binFilter string, batch int, now time.Time) (*base2.CTFResult, int, error) {
 	sessionID = strings.TrimSpace(sessionID)
@@ -164,7 +164,7 @@ func (a *App) generateCTF(ctx context.Context, sessionID, cib, binFilter string,
 }
 
 // summaryFromResult builds the view over one generated result (the
-// PAR-308 summaryFromCTF shape) with the first/last record previews.
+// summaryFromCTF shape) with the first/last record previews.
 func summaryFromResult(sessionID, outputPath string, result *base2.CTFResult, approved int, dryRun, written bool) *CtfExportSummary {
 	s := &CtfExportSummary{
 		SessionID:            sessionID,
@@ -194,7 +194,7 @@ func summaryFromResult(sessionID, outputPath string, result *base2.CTFResult, ap
 	return s
 }
 
-// PreviewExport is the dry path (PAR-308 --dry-run): the same summary a
+// PreviewExport is the dry path (--dry-run): the same summary a
 // write would produce — tx count, totals, first/last record strings —
 // with nothing written. A missing session or an empty eligible set is a
 // typed ConfigError naming the id.
@@ -208,8 +208,8 @@ func (a *App) PreviewExport(ctx context.Context, sessionID, cib, binFilter strin
 	return summaryFromResult(sessionID, ctfOutputPath("", now), result, approved, true, false), nil
 }
 
-// WriteExport is the PAR-308 -o path: generate, then os.WriteFile the
-// cleaned output path (0644). A blank outPath gets the PAR-308 default
+// WriteExport is the -o path: generate, then os.WriteFile the
+// cleaned output path (0644). A blank outPath gets the default
 // name; a write into a missing directory fails with the OS error naming
 // the path — no directory tree is created. Overwrote reports the target
 // existed before (the frontend asks §N3 confirm before calling).
@@ -235,9 +235,9 @@ func (a *App) WriteExport(ctx context.Context, sessionID, cib, binFilter string,
 }
 
 // ctfOutputPath resolves the write target: an explicit path wins; a
-// blank one becomes the PAR-308 default name, stamped from the caller's now
+// blank one becomes the default name, stamped from the caller's now
 // (the same clock read that produced the records) rather than a fresh
-// time.Now() inside the path builder.
+// time.Now inside the path builder.
 func ctfOutputPath(outPath string, now time.Time) string {
 	if strings.TrimSpace(outPath) != "" {
 		return outPath

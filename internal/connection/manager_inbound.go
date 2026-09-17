@@ -82,7 +82,7 @@ func (m *Manager) handleInboundMessage(message *iso8583.Message) {
 		return
 	}
 
-	// If this is a response to a synchronous Send() call, iso8583-connection matches it internally.
+	// If this is a response to a synchronous Send call, iso8583-connection matches it internally.
 	// We don't want to log unsolicited warning or trigger mock route matchers for response messages.
 	if isResponse {
 		return

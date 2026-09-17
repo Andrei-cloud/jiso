@@ -1,7 +1,7 @@
 // lastconn.go remembers the last SUCCESSFUL connect's details in the
 // jiso state dir (same dir + env as the serve side-channel), so the
 // connect form and the send wizard's connect step prefill the values
-// the user last connected with (UAT: "make connection details as last
+// the user last connected with ("make connection details as last
 // used"). Explicit flag/env/config-file values still win; this only
 // fills what the configuration leaves unset.
 package app

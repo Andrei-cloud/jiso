@@ -1,4 +1,4 @@
-// root_server_test.go covers the §G root contract (SCR-507): the tick
+// root_server_test.go covers the §G root contract: the tick
 // lifecycle (armed only while the page is current AND the server runs;
 // stale in-flight ticks ignored via the seq token), the frozen stats
 // snapshot after stop, and the stop paths (direct at 0 live conns,
@@ -224,7 +224,7 @@ func TestRootServerTickArmedOnlyActiveAndRunning(t *testing.T) {
 		t.Fatalf("tick arming on active+running = %d, want 1", n)
 	}
 	// Leaving to a page that renders NO server snapshot disarms; a
-	// stale in-flight tick is ignored (UAT round 5: the §A dashboard is
+	// stale in-flight tick is ignored(the §A dashboard is
 	// a snapshot consumer too, so the leave case must use §B here).
 	before := r.m.serverTickSeq
 	r.key('2')
@@ -240,7 +240,7 @@ func TestRootServerTickArmedOnlyActiveAndRunning(t *testing.T) {
 	}
 }
 
-// TestRootServerTickArmedOnDashboard: UAT round 5 — the §A dashboard's
+// TestRootServerTickArmedOnDashboard: the §A dashboard's
 // MOCK SERVER card renders the live snapshot (conns included), so the
 // poll must stay armed while the operator sits on the dashboard: moving
 // §G -> §A must not disarm, and the fold must refresh the snapshot the
@@ -399,7 +399,7 @@ func TestRootServerStateDerivation(t *testing.T) {
 	}
 }
 
-// --- E5-FIX/M4 regression tests --------------------------------------
+// --- regression tests --------------------------------------
 
 // TestRootServerStopConfirmReSnapshots: after re-entering §G the tick
 // snapshot can be stale (0 conns while conns are live); `s` must

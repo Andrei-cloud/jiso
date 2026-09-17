@@ -2,7 +2,7 @@
 // dataset a step reads and how {{data.x}} / {{card.x}} / {{context.x}}
 // variables resolve against the step's randomly picked row. It lives
 // apart from scenario_runner_step.go (the execution leg) so each file
-// keeps one concern (UAT round 5 line-budget split).
+// keeps one concern (line-budget split).
 package transactions
 
 import (

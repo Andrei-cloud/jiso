@@ -7,10 +7,10 @@ import (
 )
 
 // DbDatabaseSummary is the single JSON-serializable shape behind `db stats`
-// with no session (PAR-305): a DB-level summary computed from the stored
+// with no session: a DB-level summary computed from the stored
 // session rows plus the database file on disk. It is derived data over real
 // rows only — an empty database yields zero counts and absent timestamps,
-// never a fabricated session (E1-FIX #1).
+// never a fabricated session.
 //
 // FirstSessionStart is the earliest session start_time; LastSessionActive is
 // the latest session last_active_time (start_time as fallback). Both are

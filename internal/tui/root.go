@@ -10,7 +10,7 @@ import (
 )
 
 // NewRootModel wires the page registry — the 1..8 hotkey slots in
-// wireframe order, then the non-hotkey pages (§C inspector, §D send
+// Order, then the non-hotkey pages (§C inspector, §D send
 // exchange, §L settings). Boot lands on the dashboard. Application may
 // be nil in tests; the list pages refresh via their sync* every Update.
 func NewRootModel(application *app.App) *RootModel {
@@ -33,7 +33,7 @@ func NewRootModel(application *app.App) *RootModel {
 // App returns the internal/app façade this frontend drives.
 func (m *RootModel) App() *app.App { return m.app }
 
-// setDebug installs the lifecycle logger (nil disables). run() calls it
+// setDebug installs the lifecycle logger (nil disables). run calls it
 // once per session from $JISO_DEBUG; unit tests inject a manual logger.
 func (m *RootModel) setDebug(d *debugLogger) { m.debug = d }
 

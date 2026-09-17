@@ -1,4 +1,4 @@
-// root_send.go owns the §D live operation (SCR-504): the page stays a
+// root_send.go owns the §D live operation: the page stays a
 // presentation-only consumer of SendState snapshots while root walks the
 // Connect ▸ Send ▸ Receive ▸ Parse ▸ Validate stages in a goroutine and
 // feeds every transition back as a root-internal SendStageMsg through the
@@ -229,7 +229,7 @@ func (m *RootModel) walkSend(
 	emit(SendStageMsg{Stage: 3, OK: true, parsed: parsed})
 
 	// Validate: the same app.ValidateMessage gate the CLI send path runs,
-	// surfaced as the explicit final stage the wireframe shows.
+	// surfaced as the explicit final stage the design shows.
 	verr := app.ValidateMessage(ex.Request)
 	emit(SendStageMsg{Stage: 4, OK: verr == nil, Err: verr})
 }
@@ -268,7 +268,7 @@ func (m *RootModel) applySendStage(msg SendStageMsg) (tea.Model, tea.Cmd) {
 		r.end = m.now()
 		st.Elapsed = r.end.Sub(r.start)
 		m.lastSend = st
-		// The §A LAST SEND card's time column (proposal 05 §3): the
+		// The §A LAST SEND card's time column: the
 		// injectable-clock completion stamp, frozen with the run.
 		m.lastSendAt = r.end
 		m.pushSendHistory(*st, r.end)
@@ -277,7 +277,7 @@ func (m *RootModel) applySendStage(msg SendStageMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// sendHistoryMax bounds the session send-history ring (UAT round 5).
+// sendHistoryMax bounds the session send-history ring.
 const sendHistoryMax = 50
 
 // pushSendHistory appends the completed run to the bounded ring (oldest
@@ -289,7 +289,7 @@ func (m *RootModel) pushSendHistory(st pages.SendState, at time.Time) {
 	}
 }
 
-// openSendHistory pushes the send-history overlay (UAT round 5); an
+// openSendHistory pushes the send-history overlay; an
 // empty ring toasts instead of opening a page with nothing to show.
 func (m *RootModel) openSendHistory() (tea.Model, tea.Cmd) {
 	if len(m.sends) == 0 {
@@ -309,7 +309,7 @@ func (m *RootModel) openSendHistory() (tea.Model, tea.Cmd) {
 }
 
 // sendHistoryDetail freezes §D on a picked history entry (the §D h
-// toggle is the detail ↔ hex view, UAT round 5).
+// toggle is the detail ↔ hex view).
 func (m *RootModel) sendHistoryDetail(msg pages.SendHistoryPickMsg) (tea.Model, tea.Cmd) {
 	if msg.Index < 0 || msg.Index >= len(m.sends) {
 		return m, nil

@@ -174,7 +174,7 @@ func TestScenariosFailedStepDiffLine(t *testing.T) {
 	}
 }
 
-// TestScenariosErrorStrip: UAT round 5 — a long engine error must be
+// TestScenariosErrorStrip: a long engine error must be
 // readable in the dedicated strip under the title (word-wrapped, at
 // most two lines), not only as the clipped sub-line; and a passing run
 // shows no strip at all.

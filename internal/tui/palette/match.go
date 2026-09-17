@@ -101,7 +101,7 @@ func NewMatcher(r *Registry) *Matcher { return &Matcher{registry: r} }
 // the column does not move while the operator types.
 func (m *Matcher) All() []Action { return m.registry.Actions() }
 
-// SeedMatcher is the convenience constructor over Seed()'s registry.
+// SeedMatcher is the convenience constructor over Seed's registry.
 func SeedMatcher() *Matcher { return NewMatcher(Seed()) }
 
 // Search returns actions matching q, best score first; ties keep

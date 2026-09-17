@@ -48,7 +48,7 @@ type ValidationError struct {
 }
 
 // StepProgress is one per-step progress event emitted by RunScenario
-// when the runner has an Observe hook installed (SCR-506: the TUI
+// when the runner has an Observe hook installed (the TUI
 // scenarios page streams live step state). Started=true fires before the
 // step runs; Started=false fires right after it returns, carrying the
 // finished StepResult and the session values this step newly wrote via

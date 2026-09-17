@@ -36,7 +36,7 @@ import (
 )
 
 // DefaultLengthType is the exported view of the fallback header (the §1
-// header chip shows the EFFECTIVE header, UAT).
+// header chip shows the EFFECTIVE header).
 const DefaultLengthType = defaultLengthType
 
 // defaultLengthType is the length header used by Connect when the
@@ -54,7 +54,7 @@ type App struct {
 	networkStats *metrics.NetworkingStats
 	events       *events.Bus
 
-	// dbReadMu serialises the §I read-only session-DB queries (SCR-509):
+	// dbReadMu serialises the §I read-only session-DB queries:
 	// the db package keeps one process-wide connection, so the TUI's
 	// off-UI-thread reads must never interleave with each other.
 	dbReadMu sync.Mutex
@@ -79,14 +79,14 @@ type App struct {
 
 	svcKnobsMu sync.Mutex
 
-	// Mock-server facade state (SCR-507, TUI §G). serveMu guards the
+	// Mock-server facade state (TUI §G). serveMu guards the
 	// embedded engine and its route set; it is never held across the
 	// engine's accept loop (Start returns once the listener is up).
 	serveMu     sync.Mutex
 	srv         *server.Server
 	serveRoutes []config.MockRouteConfig
 
-	// Settings facade state (SCR-512, TUI §L). settingsMu guards
+	// Settings facade state (TUI §L). settingsMu guards
 	// settingsOverrides, the session-only values for §L keys the
 	// session config cannot hold (output); live-safe keys mutate
 	// config.Config directly under its own lock.
@@ -96,7 +96,7 @@ type App struct {
 
 // New validates cfg and wires the service, TLS configuration, and
 // transaction repository. A nil cfg falls back to the shared
-// config.GetConfig() singleton. Error texts match the legacy REPL
+// config.GetConfig singleton. Error texts match the legacy REPL
 // initialization path so shims can return them verbatim.
 func New(cfg *config.Config) (*App, error) {
 	if cfg == nil {

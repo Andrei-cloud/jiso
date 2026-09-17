@@ -326,7 +326,7 @@ func scenArrow(th *theme.Theme) string {
 
 // plainDecor degrades the decorative separators root builds into state
 // strings (· → — ±) to ASCII equivalents, so ascii-mode goldens stay 7-bit
-// while root keeps emitting the wireframe glyphs.
+// while root keeps emitting the glyphs.
 func plainDecor(th *theme.Theme, s string) string {
 	if !th.ASCII {
 		return s

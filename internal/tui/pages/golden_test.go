@@ -38,8 +38,8 @@ func checkGolden(t *testing.T, name, got string) {
 }
 
 // goldens pin the dashboard body (no frame chrome) for the canonical
-// states and both glyph/colour modes: the 120x32 wireframe baseline
-// (empty / online) and the proposal-05 §3 grid at the three responsive
+// states and both glyph/colour modes: the 120x32 baseline
+// (empty / online) and the grid at the three responsive
 // bands (150x44 wide two-column, 110x36 medium, 80x32 narrow stack).
 func TestDashboardGoldens(t *testing.T) {
 	t.Parallel()

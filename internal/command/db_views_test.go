@@ -12,8 +12,8 @@ import (
 
 // TestSessionOverviewPrintRestoresDroppedSections asserts the shared
 // renderer keeps the stress-test "Tested Templates" and "Response Codes"
-// sections the duplicated cobra copy had dropped (M1 review #23), and emits
-// the single shared v2 hint stream (M1 review #16).
+// sections the duplicated cobra copy had dropped, and emits
+// the single shared v2 hint stream.
 func TestSessionOverviewPrintRestoresDroppedSections(t *testing.T) {
 	t.Parallel()
 

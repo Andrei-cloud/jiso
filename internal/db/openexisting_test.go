@@ -13,7 +13,7 @@ import (
 
 // TestOpenExistingMissing asserts a missing --db path yields ErrDBNotFound
 // (wrapping the os.Stat result) naming the path, and that no database file
-// is created as a side effect (PAR-311).
+// is created as a side effect.
 func TestOpenExistingMissing(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "nope.db")
 
@@ -55,7 +55,7 @@ func TestOpenExistingValid(t *testing.T) {
 
 // TestOpenExistingTableless asserts an existing but table-less database keeps
 // the current InitDB-equivalent behavior: it opens and reports as empty
-// instead of erroring (PAR-311 requirement 2).
+// instead of erroring.
 func TestOpenExistingTableless(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "empty.db")
 
@@ -73,7 +73,7 @@ func TestOpenExistingTableless(t *testing.T) {
 
 // TestOpenExistingGarbage asserts an existing file that is not a SQLite
 // database fails with an open-class error naming the database problem — not
-// ErrDBNotFound, since the file does exist (PAR-311).
+// ErrDBNotFound, since the file does exist.
 func TestOpenExistingGarbage(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "garbage.db")
 

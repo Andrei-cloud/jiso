@@ -12,7 +12,7 @@ import "time"
 const ServerPageID = "server"
 
 // StatsCard is the left STATS box; root derives MatchPct ("" renders the
-// dash, never a fake 0.0% for unknown). Fallback = catch-all RC-12 path,
+// dash, never a fake 0.0% for unknown). Fallback = catch-all path,
 // Dropped = drop_connection hits, LiveConns = open clients (confirm-on-stop).
 type StatsCard struct {
 	Served    int

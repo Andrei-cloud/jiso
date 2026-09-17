@@ -11,7 +11,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// Fixture topology (PAR-307): two server ports carrying ASCII4-framed ISO8583
+// Fixture topology: two server ports carrying ASCII4-framed ISO8583
 // over TCP — 8080 with three request/response exchanges and 9999 with one.
 // `analyze --yes` must therefore pick 8080 (highest message count), and
 // scenario mode must correlate three pairs on it.

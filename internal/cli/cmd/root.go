@@ -83,7 +83,7 @@ func NewRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-// offendingFilePath returns the file a config validation error names (PAR-300),
+// offendingFilePath returns the file a config validation error names:
 // or "" when the failure is about a value and no file can be named.
 // persistentPreRun is the root PersistentPreRunE: it starts the signal watcher,
 // resolves flag/config precedence onto the global config, and validates the
@@ -118,13 +118,13 @@ func persistentPreRun(cmd *cobra.Command) error {
 			return &ExitConfigError{Path: ucPath, Err: err}
 		}
 
-		// UAT-01: the TUI runs independently of the spec/tx files but
+		// The TUI runs independently of the spec/tx files but
 		// still owns session-DB writes, so the seam applies here too.
 		return ensureSessionDB(cmd, c)
 	}
 
 	if err := c.Validate(); err != nil {
-		// PAR-300: name the file the validation error is actually
+		// the file the validation error is actually
 		// about; the user config path is unrelated here (it was
 		// already named by its own load error above).
 		return &ExitConfigError{Path: offendingFilePath(err), Err: err}
@@ -138,12 +138,12 @@ func persistentPreRun(cmd *cobra.Command) error {
 }
 
 // applyPersistentFlags maps the resolved persistent flags onto the config, using
-// non-empty-value checks for the file/target flags and Changed() for the timeouts.
+// non-empty-value checks for the file/target flags and Changed for the timeouts.
 // It returns a config-class error when the TLS config path fails to load.
 func applyPersistentFlags(cmd *cobra.Command, c *cfg.Config) error {
 	// Accepted debt (M1 review #6, deferred by orchestrator): these
 	// mappings use non-empty-value checks while the timeouts below use
-	// Changed(); safe only while every resolved persistent flag keeps
+	// Changed; safe only while every resolved persistent flag keeps
 	// an empty default.
 	if spec, _ := cmd.Flags().GetString("spec"); spec != "" {
 		c.SetSpec(spec)
@@ -232,7 +232,7 @@ func printUsageHint(cmd *cobra.Command) {
 }
 
 // skipGlobalSignalWatcherAnnotation marks commands that own their SIGINT/
-// SIGTERM handling end-to-end (PAR-309 `serve start`): the fail-fast
+// SIGTERM handling end-to-end (`serve start`): the fail-fast
 // 128+signal watcher would kill them before their clean shutdown, so they
 // opt out and define their own exit contract (serve start: exit 0).
 const skipGlobalSignalWatcherAnnotation = "jiso/skip-global-signal-watcher"
@@ -266,7 +266,7 @@ func globalSignalWatchSkipped(cmd *cobra.Command) bool {
 // command: on signal it prints a one-line notice to stderr and exits with the
 // 128+signal code (SIGINT -> 130), without a stack trace.
 //
-// Accepted debt (M1 review #5, partially addressed by PAR-309): the watcher
+// Accepted debt (partially addressed): the watcher
 // still skips RunE defers via os.Exit; commands that need a clean shutdown
 // (serve start) opt out through skipGlobalSignalWatcherAnnotation and own
 // their exit code, so the race is gone for them.
@@ -292,7 +292,7 @@ func ExecuteContext(ctx context.Context) error {
 
 	err := rootCmd.ExecuteContext(ctx)
 
-	// UAT-01: drain the async session-DB logger before the process exits —
+	// Drain the async session-DB logger before the process exits —
 	// on the error path too, so rows recorded by a failing scenario or
 	// stress run still land. A no-op when no --db was ever configured.
 	db.FlushTransactions()

@@ -1,4 +1,4 @@
-// serverroutes.go holds PAR-309's `serve start` foreground-run path: the
+// serverroutes.go holds the `serve start` foreground-run path: the
 // --routes-file resolution (delegated to app.ResolveRoutes, exit-code
 // mapping kept here) and executeServerStart wiring it into
 // command.ServerCommand.RunDirectServer.
@@ -17,7 +17,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// serveStartLongHelp is the `serve start` Long help, pinning the PAR-309
+// serveStartLongHelp is the `serve start` Long help, pinning the
 // contract: routes precedence, the graceful-stop exit code, and --json
 // stdout purity during the run.
 const serveStartLongHelp = `Start the embedded ISO8583 mock server in the foreground and block until
@@ -54,7 +54,7 @@ func serveRoutesError(err error) error {
 	return err
 }
 
-// executeServerStart resolves routes with the PAR-309 precedence BEFORE
+// executeServerStart resolves routes with the precedence BEFORE
 // binding (a broken --routes-file fails with exit 3 without ever opening
 // the listening socket), then runs the foreground server.
 func executeServerStart(cmd *cobra.Command, port, headerType string) error {

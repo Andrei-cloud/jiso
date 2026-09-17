@@ -1,4 +1,4 @@
-// send_wizard_golden_test.go pins the proposal-04 §B wizard at the
+// send_wizard_golden_test.go pins the wizard at the
 // baseline 120x32 for its canonical steps (connect form, spec list,
 // filtered file list, template list) in both glyph/colour modes.
 package pages

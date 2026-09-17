@@ -1,5 +1,5 @@
 // Package frame renders the jiso TUI's outer screen frame around a page
-// body (wireframe WF-01 "Global chrome"):
+// body ("Global chrome"):
 //
 //	┌─ jiso v2.0.0 ── target 10.0.0.5:8080 ✓ ─ spec visa.json ─ tx pool.json (12) ─┐
 //	│  < page content >                                                              │
@@ -70,7 +70,7 @@ func LevelFor(width int) Level {
 	}
 }
 
-// KeyHint is one footer entry: a key and what it does here. Page.Hints()
+// KeyHint is one footer entry: a key and what it does here. Page.Hints
 // returns the context-sensitive half; the router appends the global
 // bindings. Primary marks the keys that survive the narrow footer.
 //
@@ -93,7 +93,7 @@ type Segment struct {
 }
 
 // Props is everything Render needs for one frame. Zero values fall back:
-// Theme→theme.Default(), Width/Height→80×24, App→"jiso".
+// Theme→theme.Default, Width/Height→80×24, App→"jiso".
 type Props struct {
 	Theme   *theme.Theme
 	Width   int

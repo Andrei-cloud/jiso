@@ -50,7 +50,7 @@ func (m *RootModel) installMouse(out *tea.View, hm hitMap) {
 			return nil // releases and motion replay nothing
 		}
 		if mm.Button != tea.MouseLeft {
-			return nil // middle/right clicks replay no key hit (Task 8.2b policy)
+			return nil // middle/right clicks replay no key hit
 		}
 
 		return act.cmd()

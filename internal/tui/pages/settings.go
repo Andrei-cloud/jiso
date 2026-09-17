@@ -1,5 +1,5 @@
-// settings.go is the §L settings page (SCR-512): a two-column
-// key/value grid of the live session config (wireframe §L) with a
+// settings.go is the §L settings page: a two-column
+// key/value grid of the live session config with a
 // page-local edit mode — Enter opens the focused field as a text
 // input, Enter commits, Esc reverts the field — and the [w] save
 // confirm overlay rendered from root-derived state. It is a reference
@@ -75,7 +75,7 @@ func newSettingsNav() settingsNav {
 	return nav
 }
 
-// NewSettings builds the page. A nil theme selects theme.Default()
+// NewSettings builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewSettings(th *theme.Theme) *Settings {
 	if th == nil {
@@ -241,7 +241,7 @@ func (s *Settings) updateEdit(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 }
 
 // moveCursor clamps the row cursor (j/k/down/up walk the §L rows in
-// wireframe order; on the two-column grid this snakes row-pair by
+// order; on the two-column grid this snakes row-pair by
 // row-pair left, right, next pair).
 func (s *Settings) moveCursor(delta int) {
 	n := len(s.state.Rows)

@@ -8,7 +8,7 @@ import (
 )
 
 // FallbackRouteName is the routeStats key the engine records for requests
-// that matched no configured route (the catch-all RC-12 fallback path in
+// that matched no configured route (the catch-all fallback path in
 // handleConn). Consumers (app.Stats, the TUI §G stats card) derive
 // matched-vs-fallback from this single name.
 const FallbackRouteName = "Catch-all Fallback"
@@ -25,8 +25,8 @@ type Stats struct {
 	lastTime    time.Time
 	instantTps  float64
 	peakInstTps float64
-	dropped     int64 // atomic: drop_connection route hits (SCR-507)
-	requestErrs int64 // atomic: request unpack failures (SCR-507)
+	dropped     int64 // atomic: drop_connection route hits
+	requestErrs int64 // atomic: request unpack failures
 }
 
 // NewStats starts the clock at construction: the rates are measured from here, so

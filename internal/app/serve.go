@@ -1,7 +1,7 @@
 // serve.go is the App-level façade over the embedded mock server. It
 // resolves spec/routes/header exactly like the cobra `serve start` shim:
 // spec from the given path with a silent fallback to the default spec,
-// routes via ResolveRoutes (PAR-309 precedence), TLS from the config's
+// routes via ResolveRoutes (precedence), TLS from the config's
 // enabled TLS block. The TUI never imports internal/command, so this
 // in-process accessor is its serve path; ServeSnapshot reads the live
 // engine tracker directly, never a snapshot file.
@@ -67,7 +67,7 @@ func (e *serveBindError) Is(target error) bool { return target == ErrServeBind }
 // ServeStart starts the embedded mock server in-process. Empty port /
 // header fall back to the CLI defaults (9999 / binary2); specPath loads
 // with the CLI's silent default-spec fallback; routes resolve through
-// ResolveRoutes (PAR-309): a tx-file load failure yields zero routes
+// ResolveRoutes: a tx-file load failure yields zero routes
 // silently, while an explicit routesFile that cannot be read or parsed
 // returns a *ConfigError naming the path BEFORE any listener opens. A
 // running server is an error, never a restart.

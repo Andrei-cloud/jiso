@@ -1,4 +1,4 @@
-// connect_golden_test.go pins the §E dialog body at the wireframe baseline
+// connect_golden_test.go pins the §E dialog body at the baseline
 // 120x32 for the three canonical states (editable form, in-flight progress
 // line, final-failure line) and both glyph/colour modes — the
 // dashboard/send golden idiom.
@@ -60,7 +60,7 @@ func TestConnectGoldens(t *testing.T) {
 	}
 }
 
-// The header picker overlay gets its own goldens (proposal 04 §A.3): the
+// The header picker overlay gets its own goldens: the
 // collapsed row, the open list, and the filtered list.
 func TestConnectPickerGoldens(t *testing.T) {
 	t.Parallel()

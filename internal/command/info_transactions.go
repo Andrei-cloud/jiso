@@ -8,7 +8,7 @@ import (
 
 // FormatFieldsForInfo renders the declared fields map the way REPL info has
 // always rendered its "Message:" section: one field per line, keys sorted
-// numerically, strings quoted. Shared with `jiso inspect` (PAR-302) so both
+// numerically, strings quoted. Shared with `jiso inspect` so both
 // paths present the same composition.
 func FormatFieldsForInfo(fields map[string]any) string {
 	// Get keys and sort them numerically

@@ -49,7 +49,7 @@ func (in *Inspector) visibleRows() []visRow {
 }
 
 // rowCount is the fields-view row count: the Describe lines when root
-// provided them (UAT: the fields tab is the Describe output), else the
+// provided them (the fields tab is the Describe output), else the
 // flattened tree rows.
 func (in *Inspector) rowCount() int {
 	if n := len(in.state.DescribeText); n > 0 {
@@ -108,7 +108,7 @@ func (in *Inspector) toggleAtCursor(expand bool) {
 
 // enterAtCursor is Enter's dispatch: expand/collapse a composite, else
 // yield the compose message for the inspected transaction (root treats
-// it as a logged no-op until SCR-504; nil when nothing is inspected).
+// it as a logged no-op; nil when nothing is inspected).
 func (in *Inspector) enterAtCursor() tea.Cmd {
 	if vr, ok := in.rowAt(in.cursor); ok && vr.composite {
 		in.toggleAtCursor(!vr.expanded)

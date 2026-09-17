@@ -1,6 +1,6 @@
-// sessions_test.go covers the §I page contract (SCR-509): the empty
+// sessions_test.go covers the §I page contract: the empty
 // states name the next action (no DB / no sessions / filter miss), the
-// wireframe columns and cells render, pane focus cycles across
+// Columns and cells render, pane focus cycles across
 // SESSIONS ↔ TX HISTORY (the §C PaneFocusMsg scheme), Enter dispatches
 // select/review by pane, [t]/[r] yield their messages, the review
 // overlay owns Esc first, the narrow fallback drills into stats +
@@ -19,7 +19,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// sessionsFixtureState is the wireframe §I snapshot. The ShortID column is
+// sessionsFixtureState is the §I snapshot. The ShortID column is
 // derived through the theme rather than typed out, because the typed version was
 // wrong twice over: "77b2..c9" and "31a0..f4" are 8-rune ids, which the root prints
 // in full, and the ".." spelling is not an elision any profile emits. Deriving it
@@ -336,7 +336,7 @@ func TestSessionsReviewOverlayOpenAndEsc(t *testing.T) {
 	}
 }
 
-// TestSessionsReviewScroll: UAT round 5 — a review taller than the
+// TestSessionsReviewScroll: a review taller than the
 // window used to be silently unreachable (the render flattened
 // everything to h lines with no scroll state). j/k scroll one line,
 // pgup/pgdn page, the offset clamps at both ends, and the geometry
@@ -513,7 +513,7 @@ func TestSessionsHints(t *testing.T) {
 	}
 }
 
-// TestSessionsNoDuplicateNoDBLine UAT round 6 QA: when root stamps the
+// TestSessionsNoDuplicateNoDBLine QA: when root stamps the
 // "database not configured…" note AND the page has no database, the full
 // next-action sentence must show ONCE (the note), not twice (note + the
 // page's own empty-hint line repeating it verbatim).

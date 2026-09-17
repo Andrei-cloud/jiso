@@ -14,7 +14,7 @@ import (
 // Esc closes first), and is NOT a page in PageIDs.
 
 const (
-	helpBoxMaxWidth  = 60 // §M wireframe modal box width
+	helpBoxMaxWidth  = 60 // §M modal box width
 	helpBoxMinWidth  = 40 // below the terminal's width the frame clips
 	helpCompactInner = 36 // narrower content switches to compact lines
 )
@@ -183,7 +183,7 @@ func (h *helpOverlay) titleLine(box, rule lipgloss.Style, dash string, boxW int,
 
 	title := dash + " " + h.th.Accent.Render("HELP") + " "
 	// The styled title's plain width counted in CELLS: the box glyph is
-	// multi-byte, so len() would miscount the unicode rule's fill.
+	// multi-byte, so len would miscount the unicode rule's fill.
 	titleW := lipgloss.Width(dash + " HELP ")
 
 	// The plain and styled forms are the same width here, so one counter covers

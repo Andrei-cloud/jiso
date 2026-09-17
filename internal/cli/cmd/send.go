@@ -16,7 +16,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// newSendCmd builds the PAR-301 one-shot headless send:
+// newSendCmd builds the one-shot headless send:
 // connect → send → describe → disconnect, no TTY, no readline, no prompts.
 //
 // --wait semantics follow the REPL: the interactive `send` command blocks

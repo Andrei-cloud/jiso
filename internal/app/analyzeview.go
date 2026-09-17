@@ -1,12 +1,12 @@
-// analyzeview.go is the §J analyze-wizard façade (SCR-510). The TUI
+// analyzeview.go is the §J analyze-wizard façade. The TUI
 // never touches internal/analyzer or internal/command itself: root runs
 // these *App methods off the UI thread (tea.Cmd) and renders the
 // returned views. The engine orchestration is the shared
-// RunAnalyzeEngine/EnumeratePCAPFlows extraction (PAR-307's code, now in
+// RunAnalyzeEngine/EnumeratePCAPFlows extraction (the code, now in
 // this package), so the wizard and the headless command agree on every
 // count, pick rule, and error class. Missing pcap/spec come back as
-// typed *ConfigError naming the path (PAR-311 class: the TUI surfaces
-// them as inline field text; nothing is ever created here). The write
+// typed *ConfigError naming the path (the typed class: the TUI
+// surfaces them as inline field text; nothing is ever created here). The write
 // leg is config.SaveItems — the one generated-items writer, identical
 // bytes to the CLI/REPL persistence path.
 package app
@@ -35,8 +35,8 @@ const analyzeCtxCheckEvery = 100
 // AnalyzeEnumeration is one §J step-⑤ enumeration: directional flow
 // rows (dst requests first, then their src response rows), the parsed
 // message total, and the count of framed messages that failed to unpack
-// (the wireframe's "412 msgs parsed, 3 unparsable"). Samples holds the
-// capped failure samples behind the unparsable count (UAT round 6 §J
+// (the "412 msgs parsed, 3 unparsable"). Samples holds the
+// capped failure samples behind the unparsable count (§J
 // reviewer); Unparsable is the TRUE total, Samples at most
 // analyzer.MaxUnparsableSamples ("showing first 50 of 96").
 type AnalyzeEnumeration struct {
@@ -47,7 +47,7 @@ type AnalyzeEnumeration struct {
 }
 
 // AnalyzeRunOptions are the §J run parameters: goal radio (Mode), masking
-// radio (Unsecure = raw), the selected flows (Flows; empty = the PAR-307
+// radio (Unsecure = raw), the selected flows (Flows; empty = the
 // highest-count auto-pick), and the file paths.
 type AnalyzeRunOptions struct {
 	PcapPath     string
@@ -152,7 +152,7 @@ func (a *App) EnumerateFlows(ctx context.Context, pcapPath, headerType, specPath
 		}
 	}
 
-	// UAT round 5: src-only ports (captures taken on the server side,
+	// Src-only ports (captures taken on the server side,
 	// where the requests arrive as src) are units too — enumerate them
 	// so the run step can select them.
 	if err := appendSrcOnlyFlows(ctx, out, streamAnalyzer, pcapPath, headerType, dst, srcByPort); err != nil {
@@ -179,7 +179,7 @@ func mergeFlowExtraction(out *AnalyzeEnumeration, e flowExtraction) {
 }
 
 // appendSrcOnlyFlows enumerates the src flows with no dst counterpart
-// (server-side captures, UAT round 5). A src-only port that will not
+// (server-side captures). A src-only port that will not
 // extract stays hidden rather than failing the enumeration.
 func appendSrcOnlyFlows(ctx context.Context, out *AnalyzeEnumeration, streamAnalyzer *analyzer.StreamAnalyzer,
 	pcapPath, headerType string, dst []analyzer.TrafficDirection, srcByPort map[int]analyzer.TrafficDirection,
@@ -284,7 +284,7 @@ func enumerateFlowView(streamAnalyzer *analyzer.StreamAnalyzer, pcapPath, header
 // WriteAnalyze consume them; nothing is written here). Multiple ports
 // merge deterministically in ascending-port order; the headline
 // TargetPort is the selected flow with the most messages (ties the
-// lowest port — the PAR-307 pick rule).
+// lowest port — the pick rule).
 func (a *App) RunAnalyze(ctx context.Context, opts AnalyzeRunOptions) (*AnalyzeOutput, error) {
 	if err := checkCtx(ctx); err != nil {
 		return nil, err
@@ -342,7 +342,7 @@ func (a *App) RunAnalyze(ctx context.Context, opts AnalyzeRunOptions) (*AnalyzeO
 // capture analyzed with, say, the visa spec is validated against whatever spec
 // the session happens to hold when the file is later opened, so a tool-written
 // extract is rejected on the transactions screen for fields that are correct
-// for its own spec (UAT round 7: the file the tool wrote would not load).
+// for its own spec (the file the tool wrote would not load).
 // An empty specPath means the engine default spec was used — there is nothing
 // portable to record, so items keep resolving to the session spec.
 func stampGeneratedSpec(items []config.Item, specPath string) {
@@ -378,13 +378,13 @@ func mergeAnalyzeOutputs(into, extra *AnalyzeOutput) {
 }
 
 // WriteAnalyze persists the SELECTED items (the §J item picker's
-// outcome, UAT round 6) through the shared generated-items writer
+// outcome) through the shared generated-items writer
 // (config.SaveItems). An output without items (never produced by
 // RunAnalyze) or an empty selection is an error, never a silent empty
 // write. ctx is checked before touching the disk: an aborted or left
 // wizard cancels its write leg, and a cancelled leg never starts a
-// second SaveItems on a file a previous leg may still be rewriting
-// (E5-FIX/B2).
+// second SaveItems on a file a previous leg may still be
+// rewriting.
 func (a *App) WriteAnalyze(ctx context.Context, out *AnalyzeOutput) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("analyze write cancelled: %w", err)
@@ -407,7 +407,7 @@ func (a *App) WriteAnalyze(ctx context.Context, out *AnalyzeOutput) error {
 }
 
 // pickHeadlineFlow chooses the §J headline direction: the flow with the most
-// messages, ties broken by the lowest target port (the PAR-307 pick rule).
+// messages, ties broken by the lowest target port (the pick rule).
 func pickHeadlineFlow(selected []analyzer.TrafficDirection) analyzer.TrafficDirection {
 	best := selected[0]
 	for _, d := range selected[1:] {

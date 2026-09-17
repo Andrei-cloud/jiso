@@ -1,4 +1,4 @@
-// root_workers_test.go proves the SCR-508 root contract: the table is
+// root_workers_test.go proves the root contract: the table is
 // driven ONLY by bridge bus events (start/progress/stopped fold into
 // rows with no snapshot poll and no tick), `k` is never optimistic (the
 // row flips terminal when WorkerStopped arrives, not when the stop Cmd

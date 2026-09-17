@@ -286,7 +286,7 @@ func (m *RootModel) applySessionsReview(msg sessionsReviewLoadedMsg) (tea.Model,
 }
 
 // sessionsErrorText renders a façade error as §I empty-state text: the
-// two typed DB states name their next action (wireframe), anything else
+// two typed DB states name their next action, anything else
 // stays verbatim.
 func sessionsErrorText(err error) string {
 	switch {

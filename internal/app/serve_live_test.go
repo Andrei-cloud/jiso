@@ -1,6 +1,6 @@
 // serve_live_test.go exercises the in-process serve façade (serve.go)
 // against the REAL engine: ephemeral boot (Start("0") + BoundPort, the
-// PAR-301 harness pattern), a framed client exchange, and the
+// harness pattern), a framed client exchange, and the
 // ServeSnapshot/ServeStop claims in the façade docs.
 package app
 

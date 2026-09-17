@@ -1,4 +1,4 @@
-// save.go is the §L settings persistence leg (SCR-512): Save merges
+// save.go is the §L settings persistence leg: Save merges
 // ONLY the changed keys into the user config file, in the same YAML
 // format Load reads. The existing file is first decoded into a generic
 // mapping so untouched keys (including ones this File struct does not

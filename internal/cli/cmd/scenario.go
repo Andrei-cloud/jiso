@@ -137,7 +137,7 @@ func validateScenarioDefined(tc *transactions.TransactionCollection, scenarioNam
 		return nil
 	}
 
-	// UAT-03 fast-fail (before ANY connect attempt): an unknown scenario
+	// fast-fail (before ANY connect attempt): an unknown scenario
 	// is a config-class error naming the scenario and the file that
 	// should define it (cf. analyze --flow-unknown → exit 3), and an
 	// unset target is the usual usage error (send's

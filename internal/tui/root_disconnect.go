@@ -1,4 +1,4 @@
-// root_disconnect.go owns the TUI-514 disconnect operation (closes
+// root_disconnect.go owns the disconnect operation (closes
 // REGRESSION-1: the TUI could not drop a live connection without quitting
 // or reconnecting — REPL `disconnect` parity). The palette action and the
 // §A "D" quick key both emit palette.DisconnectMsg and land on
@@ -156,7 +156,7 @@ func (m *RootModel) applyDisconnectCancelled() (tea.Model, tea.Cmd) {
 }
 
 // leaveDisconnect retires the disconnect leg on navigation (the
-// leave-side cancel of the SCR-507/508 pattern, unconditional because
+// leave-side cancel pattern, unconditional because
 // the leg is connection-level, not §A-owned): the seq bump turns an
 // in-flight leg stale, and the wait flag plus any pending confirm clear
 // with it — a stale result arriving after the leave is dropped by

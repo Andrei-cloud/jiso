@@ -20,7 +20,7 @@ var jisoEnvVars = []string{
 	"JISO_SPEC", "JISO_FILE", "JISO_DB", "JISO_HOST", "JISO_PORT",
 	"JISO_HEADER", "JISO_TLS_CONFIG", "JISO_VISA_STATION_ID",
 	"JISO_JSON", "JISO_QUIET", "JISO_DEBUG", "JISO_UNSECURE", "JISO_CONFIG",
-	// SCR-512 §L settings keys.
+	// §L settings keys.
 	"JISO_RECONNECT_ATTEMPTS", "JISO_CONNECT_TIMEOUT", "JISO_TOTAL_CONNECT_TIMEOUT",
 	"JISO_RESPONSE_TIMEOUT", "JISO_LISTEN_TIMEOUT", "JISO_HEX",
 }
@@ -340,7 +340,7 @@ func TestPrecedenceBindsRemainingEnvVars(t *testing.T) {
 
 // TestResolveDBReportsWinningPath asserts the debug resolution names the
 // winning database path — including the --db-path alias value — instead of
-// an empty string from the flag layer (M1 review #7).
+// an empty string from the flag layer.
 func TestResolveDBReportsWinningPath(t *testing.T) {
 	newCmd := func() *cobra.Command {
 		c := &cobra.Command{Use: "x"}

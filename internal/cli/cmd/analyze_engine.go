@@ -19,7 +19,7 @@ type headlessAnalyzeResult struct {
 }
 
 // runHeadlessAnalyze delegates to the shared engine orchestration in
-// internal/app (app.RunAnalyzeEngine, SCR-510 extraction — the §J TUI
+// internal/app (app.RunAnalyzeEngine, extraction — the §J TUI
 // wizard drives the same entry points) and maps the typed config-class
 // errors into this command's exit taxonomy.
 func runHeadlessAnalyze(

@@ -270,7 +270,7 @@ func TestHitActionCmdNamedKeys(t *testing.T) {
 	cases := []struct {
 		key  string
 		want tea.KeyPressMsg
-		str  string // KeyPressMsg.String(), what key.Matches compares
+		str  string // KeyPressMsg.String, what key.Matches compares
 	}{
 		{"j", ch('j'), "j"},
 		{"enter", special(tea.KeyEnter), "enter"},

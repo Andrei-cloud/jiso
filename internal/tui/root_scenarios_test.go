@@ -423,7 +423,7 @@ func TestRootScenarioExportWriteError(t *testing.T) {
 func TestRootScenarioPopConsistentWithOtherPages(t *testing.T) {
 	m := NewRootModel(newScenarioApp(t))
 
-	// Depth 1: Esc unwinds home to the dashboard (proposal 05 §4; the
+	// Depth 1: Esc unwinds home to the dashboard (the
 	// stack never empties).
 	_, _ = m.Update(palette.GoToPageMsg{ID: "scenarios"})
 	_, _ = m.Update(pages.ScenarioPopMsg{})
@@ -452,7 +452,7 @@ func TestFormatScenarioSummaryShapes(t *testing.T) {
 	}
 }
 
-// --- E5-FIX/M6 regression tests --------------------------------------
+// --- regression tests --------------------------------------
 
 // feedScenarioCmds delivers a Cmd's message and keeps following the
 // resulting chain (confirm decision → write leg → export result).

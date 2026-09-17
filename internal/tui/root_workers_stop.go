@@ -1,8 +1,8 @@
-// root_workers_stop.go owns the §H stop paths (SCR-508). `k` stops the
+// root_workers_stop.go owns the §H stop paths. `k` stops the
 // selected worker through the App manager (WorkerStop — the same entry
 // the CLI shim drives); a terminal row is a no-op with a status line and
 // NO App call. `K` stop-all asks the §N3 confirm while any worker is
-// active (default No — the SCR-507 ConfirmDialog pattern); quitting with
+// active (default No — the ConfirmDialog pattern); quitting with
 // active workers reuses the same confirm (confirmQuit marks it). Stops
 // run as tea.Cmds (WorkerStop may block up to the App's stop timeout);
 // the table flip is event-driven — nothing writes a terminal status

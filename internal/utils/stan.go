@@ -219,7 +219,7 @@ func GetCounter() Counter {
 			if data.StanValue != 0 {
 				// The init line only carries information when the
 				// persisted value is non-zero (noise otherwise; the
-				// line goes through the package sink, UAT round 5).
+				// line goes through the package sink).
 				outputf("STAN counter initialized with persisted value: %d\n", data.StanValue)
 			}
 		}
@@ -305,7 +305,7 @@ func StopPersistWorker() {
 	// close (not send) so the signal is level-triggered: a non-blocking
 	// send races the worker's startup and is silently dropped when the
 	// worker goroutine has not reached its select yet, losing quit
-	// forever (UAT round 3: STAN never flushed on fast exits).
+	// forever(STAN never flushed on fast exits).
 	quitOnce.Do(func() { close(quitChan) })
 
 	if persistDone != nil {

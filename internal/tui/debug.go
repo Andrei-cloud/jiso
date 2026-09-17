@@ -13,7 +13,7 @@ import (
 	app "jiso/internal/app"
 )
 
-// Env knobs (TUI-409). Read here, at the TUI edge, mirroring the CLI-104
+// Env knobs. Read here, at the TUI edge, mirroring the CLI
 // spellings; internal/tui must not import internal/cli (imports_guard).
 const (
 	debugEnv       = "JISO_DEBUG"
@@ -58,7 +58,7 @@ func newDebugLogger() *debugLogger {
 
 	// LogToFileWith, not LogToFile: identical open semantics (O_APPEND,
 	// 0600, prefix normalisation) but redirected into a private
-	// *log.Logger instead of log.Default() — a single debug session must
+	// *log.Logger instead of log.Default — a single debug session must
 	// not rewire the process-global logger out from under every other
 	// log.Printf caller in the binary.
 	l := log.New(io.Discard, "", log.LstdFlags)

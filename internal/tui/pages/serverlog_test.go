@@ -65,7 +65,7 @@ func TestCompactServerLogAscii(t *testing.T) {
 
 // TestServerLogScrollWindow pins the §4 log scroll keys: newest at the
 // bottom by default, k scrolls toward older lines, G/end resumes
-// following (proposal 05 §1).
+// following.
 func TestServerLogScrollWindow(t *testing.T) {
 	t.Parallel()
 

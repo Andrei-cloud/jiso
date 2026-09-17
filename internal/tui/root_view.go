@@ -11,7 +11,7 @@ import (
 )
 
 // View implements tea.Model: the current page body with the overlays
-// layered over it (wireframe: modals render centered over the page,
+// layered over it (modals render centered over the page,
 // toasts bottom-right), composed into the outer frame, always on the
 // alternate screen.
 func (m *RootModel) View() tea.View {
@@ -19,7 +19,7 @@ func (m *RootModel) View() tea.View {
 	inner := m.innerWS()
 
 	// Modal overlays, lowest to highest precedence. Each renders its own
-	// box (dialogs self-size to the wireframe width; the palette, help
+	// box (dialogs self-size to the width; the palette, help
 	// box, and picker are wrapped in a modal border here) and is centered
 	// over the unchanged page body.
 	boxed := func(v string) string {
@@ -32,7 +32,7 @@ func (m *RootModel) View() tea.View {
 	}
 	if m.dlg != nil {
 		// The §E connect dialog (and its server/workers form reuses)
-		// self-sizes to the wireframe box; centered over the page.
+		// self-sizes to the box; centered over the page.
 		content = overlayCenter(content, m.dlg.View(), inner.Width, inner.Height)
 	}
 	if m.wizard != nil {

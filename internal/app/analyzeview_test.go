@@ -1,10 +1,10 @@
-// analyzeview_test.go covers the §J wizard façade (SCR-510) against the
-// copied PAR-307 fixture: enumeration finds the 8080 flow with counts,
+// analyzeview_test.go covers the §J wizard façade against the
+// copied fixture: enumeration finds the 8080 flow with counts,
 // MTI histograms, and signon markers; runs produce AnalyzeOutput with
 // generated item names and attached items; the item picker's selection
 // (SetExcluded) lands in the file via WriteAnalyze through the shared
 // merge writer; missing pcap/spec come back as typed ConfigError naming
-// the path and never create files (PAR-311 class).
+// the path and never create files (class).
 package app
 
 import (
@@ -289,7 +289,7 @@ func runGeneratedMTIs(out *AnalyzeOutput) map[string]bool {
 	return mtis
 }
 
-// TestAnalyzeViewRunBothDirectionsAnalyzeEach pins UAT round 7: selecting
+// TestAnalyzeViewRunBothDirectionsAnalyzeEach pins: selecting
 // BOTH directions of a port analyses the requests AND the responses (the
 // fixture's dst is 0200, its src is 0210) and merges them — the transactions
 // goal no longer collapses a port to its dst half.
@@ -312,7 +312,7 @@ func TestAnalyzeViewRunBothDirectionsAnalyzeEach(t *testing.T) {
 	}
 }
 
-// TestAnalyzeViewRunSrcOnlyAnalyzesResponses pins UAT round 7: selecting ONLY
+// TestAnalyzeViewRunSrcOnlyAnalyzesResponses pins: selecting ONLY
 // the response (src) direction writes ONLY the response templates (0210) —
 // the request (0200) half is not analysed. This is the "only the selected
 // direction is written" contract.
@@ -338,7 +338,7 @@ func TestAnalyzeViewRunSrcOnlyAnalyzesResponses(t *testing.T) {
 	}
 }
 
-// TestAnalyzeViewSelectedItemsWrite pins the UAT round 6 contract: the
+// TestAnalyzeViewSelectedItemsWrite pins the contract: the
 // picker's deselection (SetExcluded) lands in the file — WriteAnalyze
 // persists exactly the selected items, the deselected item is absent,
 // and an all-deselected output is an error, never a silent empty write.
@@ -442,7 +442,7 @@ func TestAnalyzeViewWriteAnalyzeWritesAndMergesOnce(t *testing.T) {
 	}
 }
 
-// TestAnalyzeViewGeneratedTransactionsCarryTheirSpec (UAT round 7, fix 2): a
+// TestAnalyzeViewGeneratedTransactionsCarryTheirSpec: a
 // capture analyzed with a named spec stamps that spec onto every generated
 // transaction (config.Item.Spec) so the file self-describes. Datasets resolve
 // through their transaction and carry none, and the engine default spec (empty
@@ -494,7 +494,7 @@ func TestAnalyzeViewGeneratedTransactionsCarryTheirSpec(t *testing.T) {
 	}
 }
 
-// TestAnalyzeViewWrittenFileSelfDescribesItsSpec (UAT round 7, fix 2): the spec
+// TestAnalyzeViewWrittenFileSelfDescribesItsSpec: the spec
 // a transaction was analyzed with must survive config.SaveItems' serializable
 // form and make the file load against the RIGHT spec. Before this the writer
 // dropped the field, so a visa capture opened while the session held another
@@ -575,7 +575,7 @@ func TestAnalyzeDefaultsHeaderFallback(t *testing.T) {
 	}
 }
 
-// TestMergeFlowExtractionCapsSamples pins the UAT round 6 memory bound:
+// TestMergeFlowExtractionCapsSamples pins the memory bound:
 // Unparsable is the true total across directions, Samples keeps at most
 // analyzer.MaxUnparsableSamples so a pathological capture cannot make
 // the wizard hold thousands.

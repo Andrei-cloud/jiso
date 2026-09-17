@@ -1,6 +1,6 @@
-// root_workers_fmt.go holds the §H display-string helpers (SCR-508):
+// root_workers_fmt.go holds the §H display-string helpers:
 // thousands-separated counts, TPS/latency cells, and the MM:SS clock the
-// ETA → elapsed morph renders (the wireframe's "ETA 01:12" / "elapsed
+// ETA → elapsed morph renders (the "ETA 01:12" / "elapsed
 // 00:48" form — minutes may exceed 60, hours never shown).
 package tui
 

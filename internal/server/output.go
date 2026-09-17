@@ -1,4 +1,4 @@
-// output.go is the package's single system-output sink (UAT round 3):
+// output.go is the package's single system-output sink:
 // the mock server's per-message route-match notices used to write
 // straight to os.Stderr, which interleaved with the TUI's partial frame
 // repaints and smeared "[SERVER]" fragments across unrelated pages

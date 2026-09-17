@@ -164,7 +164,7 @@ func (c *Config) SetVisaStationID(stationID string) {
 // MissingFileError names a referenced config file (spec, transaction,
 // database parent directory, or TLS config) that failed an existence check.
 // Frontends extract Path to name the offending file in exit-3 messages
-// (PAR-300) instead of guessing from unrelated config paths.
+// instead of guessing from unrelated config paths.
 type MissingFileError struct {
 	// Kind is the human descriptor prefix, e.g. "spec file".
 	Kind string

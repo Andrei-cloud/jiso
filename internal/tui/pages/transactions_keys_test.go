@@ -9,7 +9,7 @@ import (
 )
 
 // TestTxEnterYieldsDetailMsg: Enter on the selected row yields exactly
-// TxDetailMsg{ID} (root owns the §C transition; SCR-503).
+// TxDetailMsg{ID} (root owns the §C transition).
 func TestTxEnterYieldsDetailMsg(t *testing.T) {
 	t.Parallel()
 
@@ -26,7 +26,7 @@ func TestTxEnterYieldsDetailMsg(t *testing.T) {
 }
 
 // TestTxSendYieldsSendMsg: s yields TxSendMsg{ID} for the selected row
-// (root owns the §D flow; SCR-504).
+// (root owns the §D flow).
 func TestTxSendYieldsSendMsg(t *testing.T) {
 	t.Parallel()
 

@@ -85,7 +85,7 @@ func TestRunScenarioObserverOrder(t *testing.T) {
 	assert.False(t, report.Success)
 }
 
-// TestRunScenarioObserverNilUnaffected: no hook = the pre-SCR-506 path
+// TestRunScenarioObserverNilUnaffected: no hook = the legacy path
 // (the CLI contract): no panic, same report shape.
 func TestRunScenarioObserverNilUnaffected(t *testing.T) {
 	t.Parallel()

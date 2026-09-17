@@ -81,7 +81,7 @@ func newWorkersNav() workersNav {
 	return nav
 }
 
-// NewWorkers builds the page. A nil theme selects theme.Default()
+// NewWorkers builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewWorkers(th *theme.Theme) *Workers {
 	if th == nil {

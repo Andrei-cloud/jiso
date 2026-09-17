@@ -26,14 +26,14 @@ type ServerStats struct {
 	RouteCounts       map[string]int64 `json:"route_counts,omitempty"`
 	MTICounts         map[string]int64 `json:"mti_counts,omitempty"`
 	ResponseCodes     map[string]int64 `json:"response_codes,omitempty"`
-	// SCR-507 (TUI §G stats card): matched-vs-fallback split and the two
+	// (TUI §G stats card): matched-vs-fallback split and the two
 	// non-serving outcomes, derived from the tracker so the page never
 	// re-derives them. Matched excludes server.FallbackRouteName from the
 	// served total; omitempty keeps them out of JSON that predates them.
 	Matched       int64 `json:"matched,omitempty"`
 	Dropped       int64 `json:"dropped,omitempty"`
 	RequestErrors int64 `json:"request_errors,omitempty"`
-	// SnapshotAt is when this view was captured; only the PAR-304
+	// SnapshotAt is when this view was captured; only the
 	// side-channel snapshot file sets it (in-process callers leave it
 	// nil, and omitempty keeps it out of their JSON).
 	SnapshotAt *time.Time `json:"snapshot_at,omitempty"`

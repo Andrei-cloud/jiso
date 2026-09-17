@@ -10,7 +10,7 @@ import (
 
 // registerFooterHits adds one ABSOLUTE key hit per VISIBLE footer entry: the
 // key replays through updateKey, so it reaches the modal that owns the
-// keyboard (no modalOpen() swallow here). Entries the packing dropped have no
+// keyboard (no modalOpen swallow here). Entries the packing dropped have no
 // rect, and ctrl/alt chords are unspellable by synthKeyPress — those cells
 // stay click-inert, never a wrong press.
 func (m *RootModel) registerFooterHits(hm *hitMap) {

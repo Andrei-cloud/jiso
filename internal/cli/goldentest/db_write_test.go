@@ -1,4 +1,4 @@
-// db_write_test.go pins the UAT-01 write path with dedicated exec tests (NOT
+// db_write_test.go pins the write path with dedicated exec tests (NOT
 // golden files): the golden fixture DB is seeded directly with db.InitDB in
 // the harness process, which masked the fact that no shipped cobra command
 // ever initialized the session database, so `--db` was a silent no-op that

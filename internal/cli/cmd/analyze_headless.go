@@ -19,7 +19,7 @@ import (
 	"jiso/internal/utils"
 )
 
-// Headless analyze modes (PAR-307): tx generates transaction templates and
+// Headless analyze modes: tx generates transaction templates and
 // datasets, routes generates mock-server routes, scenario scaffolds a test
 // scenario. They map to the engine's three analyze goals.
 const (
@@ -29,10 +29,10 @@ const (
 )
 
 // headlessScenarioName is the scenario scaffold name used when no prompt can
-// ask for one (the wizard's own default, PAR-307).
+// ask for one (the wizard's own default).
 const headlessScenarioName = app.AnalyzeDefaultScenarioName
 
-// runAnalyzeHeadless is the PAR-307 non-interactive analyze path. It composes
+// runAnalyzeHeadless is the non-interactive analyze path. It composes
 // the internal/analyzer engine directly — never AnalyzeCommand, whose
 // wizard flows (promptAnalyze/runAnalysis/runScenarioAnalysis) carry survey
 // prompts — so this path can never block on a terminal.
@@ -199,10 +199,10 @@ func headlessAnalyzeHeader(cmd *cobra.Command) string {
 
 // headlessFlows enumerates the capture's flows (port -> message count
 // per direction). An empty enumeration is an exit-3 config error naming
-// the pcap: the command never fabricate a flow (E1-FIX #1 lesson). The
-// enumeration itself is the shared app.EnumeratePCAPFlows (SCR-510
-// extraction, driven by the §J TUI wizard too); the listing collapses to
-// analysis units (UAT round 5: the raw direction rows double-listed
+// the pcap: the command never fabricates a flow. The
+// enumeration itself is the shared app.EnumeratePCAPFlows
+// extraction, driven by the §J TUI wizard too; the listing collapses to
+// analysis units (the raw direction rows double-listed
 // every port once dst and once src).
 func headlessFlows(pcapPath string) ([]analyzer.TrafficDirection, error) {
 	flows, err := app.EnumeratePCAPFlows(pcapPath)
@@ -215,7 +215,7 @@ func headlessFlows(pcapPath string) ([]analyzer.TrafficDirection, error) {
 
 // headlessFlowUnits collapses direction rows to one unit per port: dst
 // preferred (the request half is the template source), src-only ports
-// kept so server-side captures stay selectable (UAT round 5).
+// kept so server-side captures stay selectable.
 func headlessFlowUnits(flows []analyzer.TrafficDirection) []analyzer.TrafficDirection {
 	units := make([]analyzer.TrafficDirection, 0, len(flows))
 	index := make(map[int]int, len(flows))

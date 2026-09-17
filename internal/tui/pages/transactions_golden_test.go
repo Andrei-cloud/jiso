@@ -7,7 +7,7 @@ import (
 )
 
 // TestTransactionsGoldens pins the §B body (no frame chrome) at the
-// wireframe baseline 120x32 for the two canonical states and both
+// Baseline 120x32 for the two canonical states and both
 // glyph/colour modes (same harness as the dashboard goldens).
 func TestTransactionsGoldens(t *testing.T) {
 	t.Parallel()

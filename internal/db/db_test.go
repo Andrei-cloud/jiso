@@ -20,7 +20,7 @@ import (
 )
 
 // TestGetSessionByIDNotFound asserts an unknown session ID yields
-// ErrSessionNotFound instead of a fabricated zero-value record (M1 review #1).
+// ErrSessionNotFound instead of a fabricated zero-value record.
 func TestGetSessionByIDNotFound(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "notfound.db")
 

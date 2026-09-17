@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// TestPagesForbiddenImports enforces the SCR-501 data-flow fence: pages
+// TestPagesForbiddenImports enforces the data-flow fence: pages
 // consume only theme/widgets/frame/palette/events plus bubbletea/lipgloss
 // and stdlib. They must never import internal/app (root owns the App),
 // internal/cli, internal/command, cobra, or internal/tui itself (the parent

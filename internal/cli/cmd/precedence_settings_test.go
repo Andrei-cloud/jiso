@@ -1,4 +1,4 @@
-// precedence_settings_test.go pins the SCR-512 extension of CLI-104 to
+// precedence_settings_test.go pins the precedence extension to
 // the §L settings keys: a value persisted by the TUI settings screen
 // resolves through $JISO_* > user config > default into the persistent
 // flag (marked Changed) and thus into the shared cfg the App consumes,

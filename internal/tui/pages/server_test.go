@@ -1,4 +1,4 @@
-// server_test.go covers the §G page contract (SCR-507): the wire-compat
+// server_test.go covers the §G page contract: the wire-compat
 // id, the symbol+word status header, stats-card formatting (thousands
 // separators, match percent), the routes table + detail overlay, the
 // start-form hint, the responsive split, and the page→router messages.
@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// serverRoutes is the wireframe §G route set (three rows; the third
+// serverRoutes is the §G route set (three rows; the third
 // drops connections).
 func serverRoutes() []RouteRow {
 	return []RouteRow{
@@ -45,7 +45,7 @@ func serverRoutes() []RouteRow {
 	}
 }
 
-// serverRunningState is the wireframe §G running snapshot (1,204 served
+// serverRunningState is the §G running snapshot (1,204 served
 // of which 1,198 matched = 99.5%, 4 fallback, 2 dropped, 2 req errors,
 // 3 live conns, uptime 00:42:11).
 func serverRunningState() ServerState {
@@ -111,7 +111,7 @@ func TestServerStatsCardFormatting(t *testing.T) {
 	t.Parallel()
 
 	body := collapsedBody(t, serverPage(t, serverRunningState(), 120, 32))
-	// Proposal 05 §1 compact card: percent and drop_conn are their own
+	// Compact card: percent and drop_conn are their own
 	// indented continuation lines.
 	for _, want := range []string{"served 1,204", "matched 1,198", "99.5%", "fallback 4", "drop_conn 2", "req err 2", "live conns 3"} {
 		if !strings.Contains(body, want) {

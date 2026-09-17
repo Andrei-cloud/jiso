@@ -1,4 +1,4 @@
-// send_history.go is the send-history overlay (UAT round 5): the
+// send_history.go is the send-history overlay: the
 // dashboard used to keep exactly ONE frozen send (LAST SEND); the UAT
 // asked for the scrollable history of previously sent transactions
 // with detail and hex view modes. This page lists the session's
@@ -52,7 +52,7 @@ type SendHistory struct {
 
 	// sections records the geom.Rect of every widgets.Section this
 	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
+	// content-relative origin (the hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
 }
@@ -87,7 +87,7 @@ func newSendHistoryNav() sendHistoryNav {
 	return nav
 }
 
-// NewSendHistory builds the page. A nil theme selects theme.Default().
+// NewSendHistory builds the page. A nil theme selects theme.Default.
 func NewSendHistory(th *theme.Theme) *SendHistory {
 	if th == nil {
 		th = theme.Default()

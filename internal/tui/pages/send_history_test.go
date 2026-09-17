@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// TestSendHistoryListKeys: UAT round 5 — the send-history overlay lists
+// TestSendHistoryListKeys: the send-history overlay lists
 // the session's completed sends, Enter yields the pick, Esc pops; the
 // newest entry is homed at the bottom.
 func TestSendHistoryListKeys(t *testing.T) {

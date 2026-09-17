@@ -129,7 +129,7 @@ func (m *RootModel) popPage() {
 }
 
 // PageIDs are the registered page slots in jump-key order: hotkey N
-// selects PageIDs[N-1], exactly the wireframe's global-chrome footer
+// selects PageIDs[N-1], exactly the global-chrome footer
 // legend. Drill-downs and the palette-only settings page live after the
 // eight slots and claim no digit.
 var PageIDs = []string{

@@ -17,7 +17,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// Layer-2 golden program harness (TUI-407).
+// Layer-2 golden program harness.
 //
 // FINDING: charm.land/bubbletea/x/teatest (and /v2/x/teatest) vanity paths
 // exist but resolve to NO published version ("missing go.mod at revision"
@@ -27,7 +27,7 @@ import (
 // idiom from bubbletea's own tea_test.go (WithInput/WithOutput/
 // WithWindowSize/WithColorProfile), pinned size (v2 pushes
 // tea.WindowSizeMsg at boot before any input — verified empirically),
-// a pinned colorless theme via setTheme (theme.Default() is a process
+// a pinned colorless theme via setTheme (theme.Default is a process
 // sync.Once, so t.Setenv alone is not enough), and ALWAYS a
 // context.WithTimeout so a hung program surfaces as ErrProgramKilled
 // instead of hanging CI.
@@ -47,7 +47,7 @@ var progUpdate = flag.Bool("update", false, "update golden files")
 const progTimeout = 5 * time.Second
 
 // clockRe matches the hard-status clock slot (frameProps formats
-// time.Now() as 15:04:05); goldens pin "HH:MM:SS" instead.
+// time.Now as 15:04:05); goldens pin "HH:MM:SS" instead.
 var clockRe = regexp.MustCompile(`\d{2}:\d{2}:\d{2}`)
 
 // progResult is what one full program session yields.
@@ -79,7 +79,7 @@ func newProgSession(t *testing.T, width, height int) *progSession {
 	t.Helper()
 
 	// Belt-and-braces profile pin (the real determinism is setTheme below;
-	// this also covers any theme.Default() use outside the frame seam).
+	// this also covers any theme.Default use outside the frame seam).
 	t.Setenv("JISO_ASCII", "1")
 	t.Setenv("NO_COLOR", "1")
 	// Hermetic state dir: the last-connection prefill (and the STAN

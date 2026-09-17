@@ -11,7 +11,7 @@ import (
 // arrows always, vim aliases (j/k) where no text field owns input,
 // pgup/pgdn, home/end (design contract: hybrid modeless + vim aliases).
 // Bindings are verified against bubbletea v2.0.9 key names: KeyPressMsg
-// .String() yields "up"/"down"/"pgup"/"pgdown"/"home"/"end".
+// .String yields "up"/"down"/"pgup"/"pgdown"/"home"/"end".
 type navKeys struct {
 	Up       key.Binding
 	Down     key.Binding

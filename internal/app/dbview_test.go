@@ -1,9 +1,9 @@
-// dbview_test.go covers the §I read façade (SCR-509) against a fixture
-// DB built in-test with the db package into t.TempDir(): session list
+// dbview_test.go covers the §I read façade against a fixture
+// DB built in-test with the db package into t.TempDir: session list
 // order + limit, stats math (RC distribution, avg latency), tx history
 // fields (MTI, newest-first, limit), review reconstruction (hex present,
 // response section), the typed errors (unset path, missing file), and
-// the PAR-311 no-file-left-behind contract. Timestamps are pinned with
+// the no-file-left-behind contract. Timestamps are pinned with
 // direct UPDATEs so order/relative-time assertions are deterministic
 // regardless of wall-clock insert times. Tests here mutate the shared
 // config singleton and must not run in parallel.

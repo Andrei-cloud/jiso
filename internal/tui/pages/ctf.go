@@ -1,7 +1,7 @@
-// ctf.go is the §K CTF export page (SCR-511): a two-pane screen —
+// ctf.go is the §K CTF export page: a two-pane screen —
 // SESSIONS (Visa tx-eligible sessions with approved counts, a `/`
 // client-side filter) and PARAMETERS (four label+input rows: CIB,
-// filter card BIN, batch number, output path) — with the wireframe
+// filter card BIN, batch number, output path) — with the
 // SUMMARY line and a preview overlay (first/last record + counts, Esc
 // closes, w writes). It is a reference type kept canonical in the
 // router registry, so filter/cursor/form state survives page jumps.
@@ -48,8 +48,8 @@ type Ctf struct {
 	// pushed Preview re-arms the overlay, Esc closes it (the §I review
 	// pattern — the overlay owns Esc first). The record viewer keeps a
 	// record cursor, its vertical window offset, and the horizontal
-	// column-window offset (records are wider than the terminal; UAT
-	// round 6 wireframe).
+	// column-window offset (records are wider than the terminal
+	// width).
 	previewOpen    bool
 	previewShownID int
 	recCursor      int
@@ -61,7 +61,7 @@ type Ctf struct {
 
 	// sections records the geom.Rect of every widgets.Section this
 	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
+	// content-relative origin (the hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
 
@@ -126,7 +126,7 @@ func newCtfNav() ctfNav {
 	return nav
 }
 
-// NewCtf builds the page. A nil theme selects theme.Default()
+// NewCtf builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewCtf(th *theme.Theme) *Ctf {
 	if th == nil {
@@ -411,7 +411,7 @@ func (c *Ctf) updateFilter(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	return c, nil
 }
 
-// selectCmd yields the cursor-following dry leg (UAT round 6): the
+// selectCmd yields the cursor-following dry leg: the
 // summary under the cursor must recalculate, so a cursor move onto a
 // different session — or a form edit — asks root for a fresh dry
 // preview of the row under the cursor with the committed params.

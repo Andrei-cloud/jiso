@@ -95,7 +95,7 @@ func newServerNav() serverNav {
 	return nav
 }
 
-// NewServer builds the page; a nil theme selects theme.Default().
+// NewServer builds the page; a nil theme selects theme.Default.
 func NewServer(th *theme.Theme) *Server {
 	if th == nil {
 		th = theme.Default()

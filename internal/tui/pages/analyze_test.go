@@ -14,7 +14,7 @@ import (
 	"jiso/internal/tui/frame"
 )
 
-// analyzeFixtureState is the wireframe §J data (fixed display strings:
+// analyzeFixtureState is the §J data (fixed display strings:
 // no clock, no real paths).
 func analyzeFixtureState() AnalyzeState {
 	st := AnalyzeState{
@@ -241,7 +241,7 @@ func TestAnalyzeRunInlineRowsAndKeys(t *testing.T) {
 	}
 }
 
-// TestAnalyzeOutputEditor: UAT round 5 — [o] on the run step opens the
+// TestAnalyzeOutputEditor: [o] on the run step opens the
 // output-path editor (seeded with the effective path), typing edits it,
 // Enter commits AnalyzeOutCommitMsg, Esc cancels without a message; the
 // effective path renders on the run step's output row.
@@ -486,7 +486,7 @@ func ch(c rune) tea.KeyPressMsg { return press(c) }
 // TestAnalyzeFlowCursor: the run step's flow rows are selectable — j/k move
 // the cursor over every visible direction row, space toggles the row under
 // the cursor and names its (port, direction), a runs all/none, and the view
-// distinguishes included (●) from excluded (○) with a ▸ cursor (UAT round 7:
+// distinguishes included (●) from excluded (○) with a ▸ cursor:
 // each direction row is its own unit).
 func TestAnalyzeFlowCursor(t *testing.T) {
 	t.Parallel()

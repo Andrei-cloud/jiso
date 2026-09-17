@@ -167,7 +167,7 @@ func (m *RootModel) applyAnalyzeRun(msg analyzeRunLoadedMsg) (tea.Model, tea.Cmd
 	}
 	m.analyzeOutput = msg.out
 	m.analyzeExcluded = nil
-	m.analyzeItemsID++ // re-arms (opens) the generated-item picker (UAT round 6)
+	m.analyzeItemsID++ // re-arms (opens) the generated-item picker
 	m.analyzeItemRows = analyzeItemRows(msg.out)
 	m.analyzePreview = analyzeRunSummary(msg.out)
 	m.analyzeStatus = pages.AnalyzeStatusDone

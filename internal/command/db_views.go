@@ -11,7 +11,7 @@ import (
 
 // This file holds the ONE human-readable renderer per database review view,
 // shared by the cobra `jiso db stats ...` commands and the REPL `dbstats`
-// command (M1 review #23). Both surfaces must keep working; new views go in
+// command. Both surfaces must keep working; new views go in
 // here, not into a per-surface copy.
 
 // SessionOverview is the shared data+render shape for a session review:
@@ -258,7 +258,7 @@ func derefStringPtr(s *string) string {
 }
 
 // PrintVisaSessionsList renders the Visa-session eligibility table shared by
-// `jiso ctf list` and the REPL `ctf list` (M1 review #23).
+// `jiso ctf list` and the REPL `ctf list`.
 func PrintVisaSessionsList(w io.Writer, sessions []*db.SessionRecord) {
 	if len(sessions) == 0 {
 		_, _ = fmt.Fprintln(w, "No recorded sessions with Visa transactions found.")

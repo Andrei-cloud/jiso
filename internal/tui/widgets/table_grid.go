@@ -8,7 +8,7 @@ import (
 	"jiso/internal/tui/geom"
 )
 
-// This file holds the wireframe grid renderer for Table; the shared
+// This file holds the grid renderer for Table; the shared
 // plumbing (column definitions, clamping, width resolution, the flat
 // renderer, the fit clamp) stays in table.go.
 
@@ -69,7 +69,7 @@ func (m *Table) gridRow(g gridGlyphs, cells []string) string {
 	return b.String()
 }
 
-// renderGrid draws the wireframe grid: top rule, header row, mid rule,
+// renderGrid draws the grid: top rule, header row, mid rule,
 // data rows, bottom rule (chrome rows cost a fixed 4 lines). Cells
 // truncate and never wrap; the sort caret is NOT rendered here. Only the
 // rowWindow slice is drawn once a height is set.

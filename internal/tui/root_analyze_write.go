@@ -87,7 +87,7 @@ func (m *RootModel) armAnalyzeWrite(out *app.AnalyzeOutput, outPath string) (tea
 	m.analyzeWriteWait = true
 	m.analyzeSeq++
 	seq := m.analyzeSeq
-	count := len(out.SelectedItems()) // UAT round 6: exactly the picked set lands in the file
+	count := len(out.SelectedItems()) // Exactly the picked set lands in the file
 
 	return m, func() tea.Msg {
 		return analyzeWriteLoadedMsg{seq: seq, path: outPath, count: count, err: src.WriteAnalyze(ctx, out)}

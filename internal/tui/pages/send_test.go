@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// sendTestRows are the wireframe §D panes: PAN/STAN echo, field 38
+// sendTestRows are the §D panes: PAN/STAN echo, field 38
 // response-only, RC 00 approves. Hex columns are the true value encodings
 // (the `h` toggle is pure display over identical rows).
 func sendTestRows() (req, resp []ExchangeRow) {
@@ -30,7 +30,7 @@ func sendTestRows() (req, resp []ExchangeRow) {
 	return req, resp
 }
 
-// sendApprovedState is the completed §D snapshot (wireframe sample).
+// sendApprovedState is the completed §D snapshot.
 func sendApprovedState() SendState {
 	req, resp := sendTestRows()
 
@@ -75,7 +75,7 @@ func sendBody(t *testing.T, s *Send) string {
 }
 
 // TestSendPanesSideBySideWide: at 120 the request/response pane titles
-// share a line (wireframe layout).
+// share a line.
 func TestSendPanesSideBySideWide(t *testing.T) {
 	t.Parallel()
 
@@ -252,7 +252,7 @@ func TestSendStageIndicator(t *testing.T) {
 }
 
 // TestSendInFlightWaiting: while the op runs the response pane header
-// carries the wireframe waiting line with live elapsed and budget.
+// carries the waiting line with live elapsed and budget.
 func TestSendInFlightWaiting(t *testing.T) {
 	t.Parallel()
 
@@ -349,7 +349,7 @@ func TestSendEscYieldsPop(t *testing.T) {
 	}
 }
 
-// TestSendFormatElapsed: the timer formats like the wireframe ("3.2ms",
+// TestSendFormatElapsed: the timer formats like the design ("3.2ms",
 // "2.1s", budget "5s").
 func TestSendFormatElapsed(t *testing.T) {
 	t.Parallel()

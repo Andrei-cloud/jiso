@@ -1,4 +1,4 @@
-// connmu_test.go is the E5-FIX-B B7 regression: the process-global dbConn is
+// connmu_test.go is the regression: the process-global dbConn is
 // not concurrency-safe on its own. connMu must serialise every read and write
 // leg against it, Close must never free the handle mid-statement, and
 // OpenExisting must leave dbConn untouched when the table-ensure fails. Run

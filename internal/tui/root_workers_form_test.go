@@ -1,7 +1,7 @@
 // root_workers_form_test.go pins the §H worker wizard's root legs
-// (SCR-508, UAT round 4): the wizard opens only on the workers page
+// The wizard opens only on the workers page
 // (b/t), prefills from the SAME sources the legacy paths use (bgsend =
-// REPL survey defaults + repository ListNames; stress = PAR-306 cobra
+// REPL survey defaults + repository ListNames; stress = cobra
 // flag defaults), starts through the injectable App leg as a Cmd,
 // keeps the wizard open (with the error line) on failure, validates
 // bounds before the leg runs, and the bgsend step is a single-select
@@ -226,7 +226,7 @@ func TestWorkerWizardHelpEscape(t *testing.T) {
 // TestWorkerWizardTxFilePickRefreshes: the [f] pick commits through
 // the §L ApplySettings seam, the wizard candidates refresh from the
 // reloaded repository, the selection survives by name, and the wizard
-// stays on step 1 (UAT round 4).
+// stays on step 1.
 func TestWorkerWizardTxFilePickRefreshes(t *testing.T) {
 	r := newFormTestRoot(t)
 	dir := t.TempDir()

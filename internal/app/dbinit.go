@@ -1,4 +1,4 @@
-// dbinit.go owns the session-database wiring seam (UAT-01). Before it, the
+// dbinit.go owns the session-database wiring seam. Before it, the
 // only production caller of db.InitDB/db.InitAsyncLogger was the pre-v2
 // service initialization path (CLI.InitService), so the cobra command tree
 // — send, scenario run, stress, the TUI — logged through

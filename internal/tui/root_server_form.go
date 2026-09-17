@@ -21,7 +21,7 @@ import (
 	"jiso/internal/tui/widgets"
 )
 
-// Field keys of the §G start form, in render order (wireframe: "port ·
+// Field keys of the §G start form, in render order ("port ·
 // header · spec · routes file").
 const (
 	serverFieldPort     = "port"

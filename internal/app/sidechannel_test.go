@@ -12,7 +12,7 @@ import (
 
 // TestStateDirOverrideOrder pins the hermetic-test contract: JISO_STATE_DIR
 // wins verbatim, then XDG_STATE_HOME/jiso, and the directory is created 0700
-// so the TUI debug log (TUI-409) can open its file without a second mkdir.
+// so the TUI debug log can open its file without a second mkdir.
 func TestStateDirOverrideOrder(t *testing.T) {
 	t.Run("JISO_STATE_DIR wins verbatim", func(t *testing.T) {
 		want := filepath.Join(t.TempDir(), "hermetic")

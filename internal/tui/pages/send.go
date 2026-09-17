@@ -1,4 +1,4 @@
-// send.go is the §D live exchange view (wireframe §D): presentation only.
+// send.go is the §D live exchange view: presentation only.
 // It renders the request/response panes, the segmented stage indicator,
 // the root-stamped elapsed/budget timer, the timeout banner, and the RC
 // badge. The live operation itself (stage machine, timeout, validation,
@@ -28,7 +28,7 @@ type Send struct {
 
 	// sections records the geom.Rect of every widgets.Section this
 	// page drew during the last render, in draw order and with a
-	// content-relative origin (Phase 8's hit-map finalises the
+	// content-relative origin (the hit-map finalises the
 	// absolute offsets into the frame chrome).
 	sections []geom.Rect
 }
@@ -59,7 +59,7 @@ func newSendNav() sendNav {
 	return nav
 }
 
-// NewSend builds the page. A nil theme selects theme.Default()
+// NewSend builds the page. A nil theme selects theme.Default
 // (production); golden tests inject an explicit NewWith profile.
 func NewSend(th *theme.Theme) *Send {
 	if th == nil {

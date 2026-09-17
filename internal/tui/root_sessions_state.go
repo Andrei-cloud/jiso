@@ -59,7 +59,7 @@ func (m *RootModel) shortSessionID(id string) string {
 	return m.themeOrNil().ShortID(id)
 }
 
-// sessionsStatsLines renders the wireframe's five stats lines.
+// sessionsStatsLines renders the five stats lines.
 func sessionsStatsLines(st *app.DbSessionStats) []pages.SummaryKV {
 	lines := []pages.SummaryKV{
 		{Label: "total", Value: countCell(st.TotalTransactions)},
@@ -72,7 +72,7 @@ func sessionsStatsLines(st *app.DbSessionStats) []pages.SummaryKV {
 	return lines
 }
 
-// okPercent is the wireframe's "98.7%" success share (dash when the
+// okPercent is the "98.7%" success share (dash when the
 // total is unknown/zero).
 func okPercent(st *app.DbSessionStats) string {
 	if st.TotalTransactions <= 0 {
@@ -99,7 +99,7 @@ func rcDistCell(codes map[string]int) string {
 }
 
 // txHistoryRow derives one TX HISTORY display row. The canonical
-// status token is ok/fail, with the wireframe's "timeout" for a failed
+// status token is ok/fail, with the "timeout" for a failed
 // row that never received a response (no RC stored); the latency cell
 // stays empty (the page dashes it).
 func (m *RootModel) txHistoryRow(tx app.DbTransactionView) pages.TxHistoryRow {

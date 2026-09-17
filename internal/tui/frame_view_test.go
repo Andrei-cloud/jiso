@@ -8,7 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Frame integration through RootModel.View(): the TUI-403 four-section
+// Frame integration through RootModel.View: the four-section
 // chrome must track resizes and page changes with no stale layout.
 
 // mustRoot names the model Update returned: the compiler only sees
@@ -41,8 +41,8 @@ func TestResizeDuringRunNoStaleLayout(t *testing.T) {
 		// Settle the resize coalescer: the trailing flush relayouts the
 		// stack with the latest size (the program runs it ~32 ms later;
 		// a mid-burst View legitimately still holds the previous
-		// layout — the frame would clip the newest rows of the proposal
-		// 05 §3 priority stack, so the assertions need the settled
+		// layout — the frame would clip the newest rows of the
+		// priority stack, so the assertions need the settled
 		// layout).
 		queue := flattenMsgs(cmd)
 		for i := 0; i < 8 && len(queue) > 0; i++ {
@@ -100,7 +100,7 @@ func TestFooterHintsFollowCurrentPage(t *testing.T) {
 		t.Fatalf("dashboard page footer wrong:\n%s", v)
 	}
 
-	// SCR-513: '?' opens the §M overlay (mode chip "help", HELP box);
+	// '?' opens the §M overlay (mode chip "help", HELP box);
 	// esc closes it and the page footer returns.
 	_, _ = m.Update(ch('?'))
 	if v := m.View().Content; !strings.Contains(v, "HELP") || !strings.Contains(v, "context: Dashboard page") {

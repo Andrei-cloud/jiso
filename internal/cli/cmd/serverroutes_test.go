@@ -104,7 +104,7 @@ func TestResolveServeRoutesPrecedence(t *testing.T) {
 			routes, repo, err := app.ResolveRoutes(tt.routesFile, tt.txPath, spec)
 
 			if tt.wantExitErr {
-				err = serveRoutesError(err) // CLI exit-code mapping (PAR-309)
+				err = serveRoutesError(err) // CLI exit-code mapping
 				require.Error(t, err)
 				assert.Equal(t, ExitConfig, ExitCodeForError(err), "malformed routes file must map to exit 3")
 				assert.Contains(t, err.Error(), tt.wantPathIn, "error must name the routes file path")
@@ -124,7 +124,7 @@ func TestResolveServeRoutesPrecedence(t *testing.T) {
 	}
 }
 
-// TestResolveServeRoutesTxFailureStaysSilent pins the pre-PAR-309 fallback:
+// TestResolveServeRoutesTxFailureStaysSilent pins the legacy fallback:
 // an unloadable tx file contributes zero routes and never errors.
 func TestResolveServeRoutesTxFailureStaysSilent(t *testing.T) {
 	t.Parallel()
@@ -137,7 +137,7 @@ func TestResolveServeRoutesTxFailureStaysSilent(t *testing.T) {
 	assert.Nil(t, repo)
 }
 
-// TestServeStartSkipsGlobalSignalWatcher pins the PAR-309 annotation wiring:
+// TestServeStartSkipsGlobalSignalWatcher pins the annotation wiring:
 // `serve start` owns SIGINT/SIGTERM (clean stop, exit 0), so the fail-fast
 // 128+signal watcher must skip it while every other command keeps it.
 func TestServeStartSkipsGlobalSignalWatcher(t *testing.T) {

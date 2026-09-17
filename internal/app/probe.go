@@ -11,7 +11,7 @@ import (
 )
 
 // TargetProbe is the JSON-serializable result of a reachability probe
-// (PAR-303 `jiso connect check`). It carries no printer state and nothing
+// (`jiso connect check`). It carries no printer state and nothing
 // in this file writes to stdout/stderr; rendering is the command's job.
 //
 // Error is the empty string on success; LatencyMs is the whole probe cost

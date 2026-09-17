@@ -1,4 +1,4 @@
-// root_analyze_unparsable_test.go pins the UAT round 6/7 reviewer data
+// root_analyze_unparsable_test.go pins the reviewer data
 // path on the root side: the enumeration fold stores the collected
 // samples as a reviewer roster (and bumps its id). The hexdump/describe
 // rendering itself lives in the pages package.

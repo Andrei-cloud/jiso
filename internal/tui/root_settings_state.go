@@ -1,6 +1,6 @@
 // root_settings_state.go derives the §L SettingsState snapshot (the
-// SCR-501 data-flow contract): the page receives display data only —
-// wireframe labels, on/off spellings for the hex toggle, the ✓/✗
+// data-flow contract): the page receives display data only —
+// Labels, on/off spellings for the hex toggle, the ✓/✗
 // existence marker, per-field validation errors, and the save-overlay
 // diff — all resolved here from the cached app.SettingsView.
 // syncSettings runs in the Update wrapper, so every folded message is
@@ -14,7 +14,7 @@ import (
 	"jiso/internal/tui/pages"
 )
 
-// settingsLabels are the §L wireframe row labels in grid order.
+// settingsLabels are the §L row labels in grid order.
 var settingsLabels = map[string]string{
 	app.SettingReconnectAttempts:   "reconnect-attempts",
 	app.SettingConnectTimeout:      "connect-timeout",

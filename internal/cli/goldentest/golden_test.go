@@ -18,7 +18,7 @@
 // subprocess mid-run is flaky in CI, and the contract is already pinned by
 // the exec-probe TestSIGINTExits130 in internal/cli/cmd/exit_test.go.
 //
-// TUI-401 note: the former stub-tui-exit-2 case pinned `jiso tui` exiting 2
+// Note: the former stub-tui-exit-2 case pinned `jiso tui` exiting 2
 // as a not-implemented stub. The TUI now exists, and exec-ing the real
 // program needs a PTY, which this harness never provides — so the case was
 // re-pinned (honestly, via GOLDEN_UPDATE against the real binary) as
@@ -56,7 +56,7 @@ const (
 	caseTimeout    = 30 * time.Second
 	fixtureSession = "golden-session-0001"
 	// fixtureVisaSession is a Visa-headered session (matches ctf list's
-	// Visa filter) with one approved transaction, for PAR-308 ctf goldens.
+	// Visa filter) with one approved transaction, for ctf goldens.
 	fixtureVisaSession = "golden-visa-session-0002"
 )
 
@@ -80,7 +80,7 @@ var volatileLine = regexp.MustCompile(`\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2}|\d{1,
 //   - "exact": stdout equals the entries joined by "\n" (+ trailing "\n")
 //   - "prefix": stdout starts with entry[0]; remaining entries are substrings
 //   - "json_keys": stdout parses as a JSON object holding every entry as key
-//   - "json_array": stdout parses as a pure JSON array (PAR-308 list
+//   - "json_array": stdout parses as a pure JSON array (list
 //     purity); entries are then checked as substrings of stdout
 //   - "empty": stdout must be empty (ExpectStdout must then be empty)
 type goldenCase struct {
@@ -95,31 +95,31 @@ type goldenCase struct {
 	ExpectExit     int      `json:"expect_exit"`
 
 	// JSONFields pins individual values of the stdout JSON object
-	// (PAR-303): stdout must parse as an object and each named key's raw
+	// Stdout must parse as an object and each named key's raw
 	// JSON must equal the pinned literal (compact-compared). Values with
 	// volatile content (ephemeral ports, platform error text) must not be
 	// pinned; GOLDEN_UPDATE never generates this field.
 	JSONFields map[string]string `json:"expect_json_fields,omitempty"`
 
-	// ExpectJSONFieldsGT (PAR-306) pins lower bounds on numeric stdout
+	// ExpectJSONFieldsGT pins lower bounds on numeric stdout
 	// JSON fields: each named key must parse as a number strictly greater
 	// than the bound. Used for live stress runs whose exact counts vary
 	// but must be > 0; GOLDEN_UPDATE never generates this field.
 	ExpectJSONFieldsGT map[string]float64 `json:"expect_json_fields_gt,omitempty"`
 
 	ForbidStdoutSubstrings []string `json:"forbid_stdout_substrings,omitempty"`
-	// ForbidStderrSubstrings pins what stderr must NOT contain (PAR-300);
+	// ForbidStderrSubstrings pins what stderr must NOT contain;
 	// entries support the $WORK placeholder like the file assertions.
 	ForbidStderrSubstrings []string `json:"forbid_stderr_substrings,omitempty"`
 	FilesMustExist         []string `json:"files_must_exist,omitempty"`
 	FilesMustNotExist      []string `json:"files_must_not_exist,omitempty"`
 
-	// ExpectFileHeads (PAR-308) asserts each resolved path's content starts
+	// ExpectFileHeads asserts each resolved path's content starts
 	// with the pinned prefix (CTF record structure and similar magic). Keys
 	// support the $WORK placeholder like the file assertions.
 	ExpectFileHeads map[string]string `json:"expect_file_heads,omitempty"`
 
-	// SetupFiles (PAR-304) materialises files under the case's work dir
+	// SetupFiles materialises files under the case's work dir
 	// BEFORE the binary runs (e.g. a stale serve state file with a dead
 	// PID). Keys are paths relative to $WORK (or absolute); values are the
 	// file contents. Both support $WORK, $LIVE_PORT, and $DEAD_PID.
@@ -136,8 +136,8 @@ var (
 
 // Placeholders substituted everywhere a case can name them (args, env
 // values, setup_files, stderr/json assertions, file assertions):
-//   - $LIVE_PORT — port of the in-process mock server (PAR-301 live sends)
-//   - $DEAD_PID  — a PID confirmed dead (PAR-304 stale-state cases)
+//   - $LIVE_PORT — port of the in-process mock server (live sends)
+//   - $DEAD_PID  — a PID confirmed dead (stale-state cases)
 //   - $WORK      — the case's isolated CWD
 //
 // Cases referencing $LIVE_PORT skip when the live server could not start.
@@ -153,7 +153,7 @@ var (
 	livePort      string
 
 	// sideChannelDir is the shared $JISO_STATE_DIR the in-process live
-	// server publishes its PAR-304 state/snapshot files into; caseEnv hands
+	// server publishes its state/snapshot files into; caseEnv hands
 	// it to every case, so `serve stats $LIVE_PORT` works out of the box.
 	sideChannelDir string
 	liveStatsStop  func() error
@@ -176,7 +176,7 @@ func reapDeadPID() {
 // startLiveServer boots the in-repo mock engine on an ephemeral port with
 // the fixture spec and the ascii4 header (the client's App.Connect
 // default), so live-success sends need no external server. It also
-// publishes the PAR-304 side-channel files (state + 1 s stats snapshot)
+// publishes the side-channel files (state + 1 s stats snapshot)
 // into sideChannelDir so `serve stats` goldens have a RUNNING server.
 func startLiveServer(specPath string) error {
 	spec, err := utils.CreateSpecFromFile(specPath)
@@ -372,7 +372,7 @@ func writeFixtures() (string, error) {
 		return "", fmt.Errorf("build fixture db: %w", err)
 	}
 
-	// PAR-307: analyze goldens run against a real tiny pcap (two server
+	// Analyze goldens run against a real tiny pcap (two server
 	// ports, generated from spec.json so the framing always matches).
 	if err := buildAnalyzePCAP(filepath.Join(dir, "analyze.pcap"), filepath.Join(dir, "spec.json")); err != nil {
 		_ = os.RemoveAll(dir)
@@ -386,9 +386,9 @@ func writeFixtures() (string, error) {
 // buildFixtureDB uses the repo's own db package so the schema can never
 // drift from what the CLI queries: one plain session plus one approved
 // Visa-style transaction (enough for `db stats <id> --json`,
-// `ctf export --dry-run`, and the PAR-305 `db tx` reconstructed view), and
+// `ctf export --dry-run`, and the `db tx` reconstructed view), and
 // one Visa-headered session with one approved transaction (enough for
-// `ctf list` and a real `ctf export`, PAR-308). The stored request/response
+// `ctf list` and a real `ctf export`). The stored request/response
 // JSON uses MessageToJSONWithSpec's canonical {mti, fields} shape so
 // db.Reconstruct packs and describes a real message (fields the fixture
 // spec lacks are skipped, as in production).
@@ -741,7 +741,7 @@ func checkCase(c *goldenCase, work, stdout, stderr string, code int) []string {
 }
 
 // checkFileHeads asserts each expect_file_heads prefix against the file's
-// first bytes (PAR-308: a written CTF file must start with its record
+// first bytes (a written CTF file must start with its record
 // structure, not just exist).
 func checkFileHeads(c *goldenCase, work string) []string {
 	if len(c.ExpectFileHeads) == 0 {
@@ -777,8 +777,8 @@ func checkFileHeads(c *goldenCase, work string) []string {
 }
 
 // checkJSONFields asserts the pinned expect_json_fields literals against
-// the stdout JSON object (PAR-303). Literals support $LIVE_PORT and
-// $DEAD_PID so ephemeral-but-known values can still be pinned (PAR-304).
+// the stdout JSON object. Literals support $LIVE_PORT and
+// $DEAD_PID so ephemeral-but-known values can still be pinned.
 func checkJSONFields(c *goldenCase, stdout, work string) []string {
 	if len(c.JSONFields) == 0 {
 		return nil
@@ -829,7 +829,7 @@ func checkJSONFields(c *goldenCase, stdout, work string) []string {
 }
 
 // checkJSONFieldsGT asserts the numeric lower bounds of
-// expect_json_fields_gt against the stdout JSON object (PAR-306: live
+// expect_json_fields_gt against the stdout JSON object (live
 // stress counts must be > 0 without pinning volatile exact values).
 func checkJSONFieldsGT(c *goldenCase, stdout string) []string {
 	if len(c.ExpectJSONFieldsGT) == 0 {

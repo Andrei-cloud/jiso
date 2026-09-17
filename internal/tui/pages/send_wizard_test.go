@@ -1,4 +1,4 @@
-// send_wizard_test.go pins the wizard's input routing (proposal 04 §B):
+// send_wizard_test.go pins the wizard's input routing:
 // step shapes (four offline, three online), the embedded connect form's
 // Enter/Esc messages, list filtering with the path override, step back
 // semantics and the template pick. Rendering is pinned separately by the

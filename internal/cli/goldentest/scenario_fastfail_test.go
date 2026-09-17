@@ -1,4 +1,4 @@
-// scenario_fastfail_test.go is the UAT-03 exec-probe: `jiso scenario run`
+// scenario_fastfail_test.go is the exec-probe: `jiso scenario run`
 // must validate the scenario name and the target BEFORE any connect
 // attempt. The UAT repro (`scenario run NoSuchScenario` with no target)
 // dialed ":0" through ~7 s of backoff and exited 1; per the exit-code
@@ -41,7 +41,7 @@ func fastFailProbeExit(t *testing.T, args ...string) (stdout, stderr string, cod
 	return stdout, stderr, code, elapsed
 }
 
-// TestScenarioRunUnknownNameFastFailsExit3 pins the UAT-03 repro: unknown
+// TestScenarioRunUnknownNameFastFailsExit3 pins the repro: unknown
 // scenario + unset target exits 3 naming the scenario (cf. analyze
 // --flow-unknown → 3), in under a second, stdout empty.
 func TestScenarioRunUnknownNameFastFailsExit3(t *testing.T) {

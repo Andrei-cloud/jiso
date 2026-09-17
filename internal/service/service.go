@@ -24,7 +24,7 @@ import (
 type Service struct {
 	Address string
 	// Connection is a legacy mirror of the manager's active connection.
-	// All writes go through setConnection; read it with GetConnection().
+	// All writes go through setConnection; read it with GetConnection.
 	Connection   *moovconnection.Connection
 	connMu       sync.Mutex
 	MessageSpec  *iso8583.MessageSpec

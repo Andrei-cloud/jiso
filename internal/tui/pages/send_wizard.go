@@ -1,5 +1,5 @@
-// send_wizard.go holds the send-wizard modal (proposal
-// .opencode/plans/04-connect-send-modal-proposals.md §B): ONE centered
+// send_wizard.go holds the send-wizard modal: ONE
+// centered
 // modal that walks spec ▸ tx file ▸ template, prefixed with a connect step
 // when no connection is live ("send selected with connection settings
 // undefined opens connection settings first"). Step 0 embeds the §E form
@@ -102,7 +102,7 @@ type SendWizard struct {
 }
 
 // NewSendWizard builds the modal over an empty state; the root pushes the
-// first snapshot before the first View. A nil theme selects theme.Default().
+// first snapshot before the first View. A nil theme selects theme.Default.
 func NewSendWizard(th *theme.Theme) *SendWizard {
 	if th == nil {
 		th = theme.Default()
@@ -126,8 +126,8 @@ func (w *SendWizard) Step() int { return w.step }
 // CurrentStepID reports the id at the cursor ("spec", "file", "send").
 func (w *SendWizard) CurrentStepID() string { return w.currentStep() }
 
-// Editing reports the two-mode flag of the wizard (UAT round 8 / D3,
-// Task 5.2): the list steps (spec/file/send) are in EDIT mode while a
+// Editing reports the two-mode flag of the wizard:
+// the list steps (spec/file/send) are in EDIT mode while a
 // filter draft is in progress, and the connect step delegates to the
 // embedded dialog. The [f] browse gate reads this predicate — navigate
 // mode sends f to the root-owned file picker, edit mode types f
@@ -166,7 +166,7 @@ func (w *SendWizard) OnConnected(target string) {
 	w.resetStepInput()
 }
 
-// HomeOnSend parks the wizard on the send step (UAT round 5: with spec
+// HomeOnSend parks the wizard on the send step (with spec
 // and tx file already loaded, re-walking spec/file on every send is
 // friction — the wizard opens where the decision actually is; Esc
 // still steps back through the rail to change either pick). Reports
@@ -235,11 +235,11 @@ func (w *SendWizard) updateKey(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
 	case !w.Editing() && key.Matches(msg, wizardKeyBrowse):
 		// [f] in NAVIGATE mode opens the root-owned file picker; once
 		// typing has entered edit mode every printable — f included —
-		// goes into the filter (the two-mode contract, Task 5.2).
+		// goes into the filter (the two-mode contract).
 		return w, emitMsg(WizardBrowseMsg{IsSpec: w.currentStep() == WizardStepSpec})
 	default:
 		// j/k/arrows navigate only on an empty filter; once the user
-		// types, every printable rune (j and k included — the SCR-502
+		// types, every printable rune (j and k included — the
 		// live-filter lesson) goes into the filter.
 		w.filterList(msg)
 	}
@@ -338,9 +338,9 @@ func (w *SendWizard) resetStepInput() {
 // item rather than the alphabetically-first one).
 func (w *SendWizard) HomeCursor() { w.resetStepInput() }
 
-// BackToStep lands on an EARLIER rail step for a rail click (UAT round 8
-// Task 8.5): backward revisits are free exactly like the wizard's own Esc
-// walk, and the arrival clears the step-local input (the back() +
+// BackToStep lands on an EARLIER rail step for a rail click:
+// Backward revisits are free exactly like the wizard's own Esc
+// walk, and the arrival clears the step-local input (the back +
 // resetStepInput contract). A forward or current index changes nothing —
 // forward transitions are the step's Enter leg, run through root's
 // validation gates, and a rail click must not bypass them.
@@ -380,7 +380,7 @@ func (w *SendWizard) filterList(msg tea.KeyPressMsg) {
 }
 
 // looksLikePath reports whether the filter should be treated as a typed
-// path instead of a list filter (proposal 04 §B.2: "typing a path in the
+// path instead of a list filter ("typing a path in the
 // bottom input overrides the list").
 func looksLikePath(s string) bool {
 	s = strings.TrimSpace(s)

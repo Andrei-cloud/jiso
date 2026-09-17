@@ -1,5 +1,5 @@
 // worker_wizard_golden_test.go pins the §H worker wizard body
-// (truecolor + ascii, UAT round 4): the stress tx step with its 5-row
+// (truecolor + ascii): the stress tx step with its 5-row
 // scroll window (checked boxes, the "N selected" line, and the
 // below/above markers), the empty state, the scrolled window, the
 // rate step (focused row + inline bounds error), the run step (ready,

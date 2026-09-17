@@ -1,4 +1,4 @@
-// root_wire_senders_test.go is the B6 regression: run() installs
+// root_wire_senders_test.go is the B6 regression: run installs
 // program.Send on EVERY live-operation seam through wireSenders. The
 // scenario leg was once left unwired, so walkScenario's emits went
 // nowhere, §F wedged at "running" forever, and the single-flight gate

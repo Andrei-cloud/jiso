@@ -1,10 +1,10 @@
-// serve_sigterm_test.go pins PAR-309's graceful-stop contract with a
+// serve_sigterm_test.go pins the graceful-stop contract with a
 // dedicated exec test (NOT a golden file): the golden harness deliberately
 // never signals its subprocess (see the harness header on SIGINT flakiness),
 // so the JSON-purity-on-clean-stop shape is pinned here as well.
 //
 // Contract pinned: `serve start 0 --json --report <path>` under
-// $JISO_STATE_DIR blocks, publishes the PAR-304 side-channel files, and on
+// $JISO_STATE_DIR blocks, publishes the side-channel files, and on
 // SIGTERM stops cleanly — exit 0, state/snapshot files removed, final
 // ServerStats JSON in the report AND as the only stdout document.
 package goldentest
@@ -124,7 +124,7 @@ func waitForStateFile(t *testing.T, stateDir string, cmd *exec.Cmd, stderr *byte
 }
 
 // assertStateFilesRemoved pins that the clean stop (StopServer -> side-
-// channel stop, PAR-304) removed both files, so `serve stats` immediately
+// channel stop) removed both files, so `serve stats` immediately
 // reports no running server.
 func assertStateFilesRemoved(t *testing.T, statePath, statsPath string) {
 	t.Helper()

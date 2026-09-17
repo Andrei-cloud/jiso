@@ -12,7 +12,7 @@ import (
 	"jiso/internal/tui/theme"
 )
 
-// SetEventSource installs the bus channel (App.Events().Subscribe()) as the
+// SetEventSource installs the bus channel (App.Events.Subscribe) as the
 // event source. The bridge is not started here — the next Update arms it as
 // a tea.Cmd, keeping this call I/O-free and Update-pure-testable. Passing
 // nil disarms a pending source.
@@ -60,7 +60,7 @@ func (m *RootModel) stopBridge() {
 // live) and (dis)arms the uptime clock, and every event is forwarded to the
 // top page as a pages.EventMsg stamped with the root's injectable clock —
 // screens never import internal/tui/bridge and never read the clock
-// themselves (SCR-501 data-flow contract).
+// themselves (data-flow contract).
 func (m *RootModel) updateBridgeMsg(msg bridge.Msg) (tea.Model, tea.Cmd) {
 	now := m.now()
 	// The snapshot must reflect this event even when the event itself is
@@ -75,11 +75,11 @@ func (m *RootModel) updateBridgeMsg(msg bridge.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.connSince = nil
 		}
-		// UAT round 4: the strip must always show the CURRENT truth;
+		// The strip must always show the CURRENT truth;
 		// every state change stamps a fresh line over any stale one.
 		m.stampConnStatus(ev)
 	}
-	// SCR-508: the worker events' designed consumer is root, not the
+	// The worker events' designed consumer is root, not the
 	// page — the row cache folds them in here (before the top page ever
 	// sees the forwarded EventMsg), so the §H table updates on the bus
 	// alone, with no tick and no polling, whichever page is current.
@@ -90,10 +90,10 @@ func (m *RootModel) updateBridgeMsg(msg bridge.Msg) (tea.Model, tea.Cmd) {
 		m.onWorkerProgress(ev, now)
 	case events.WorkerStopped:
 		m.onWorkerStopped(ev, now)
-		// SCR-509: every bgsend completion lands in the session DB —
+		// Every bgsend completion lands in the session DB —
 		// mark the §I cache dirty (the query itself only ever runs
-		// while the page is current, off the UI thread). Proposal 05
-		// §3: the §A SESSION card's async read is dirtied the same way.
+		// while the page is current, off the UI thread).
+		// The §A SESSION card's async read is dirtied the same way.
 		m.sessionsDirty = true
 		m.sessionStatsDirty = true
 	}

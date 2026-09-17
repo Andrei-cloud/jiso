@@ -59,7 +59,7 @@ type AnalyzeHeaderItem struct {
 // response half. Selected is the PENDING inclusion in the next run's set.
 type AnalyzeFlowRow struct {
 	Port       int
-	PeerPort   int    // the other end of the conversation (UAT round 7: origin clarity)
+	PeerPort   int    // the other end of the conversation(origin clarity)
 	Direction  string // "dst" | "src"
 	Msgs       int
 	MTIs       string // "0200(180) 0800(25)"
@@ -218,7 +218,7 @@ type AnalyzeItemRow struct {
 	Key      string
 	Name     string
 	Kind     string
-	Group    string // shared by a transaction and its dataset, so they toggle together (UAT round 7)
+	Group    string // shared by a transaction and its dataset, so they toggle together
 	Included bool
 	Preview  string
 }

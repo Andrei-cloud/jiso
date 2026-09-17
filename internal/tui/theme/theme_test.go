@@ -15,7 +15,7 @@ import (
 
 var update = flag.Bool("update", false, "update golden files")
 
-// TestHotKeyStyle: the body-copy hotkey affordance (UAT round 4) must
+// TestHotKeyStyle: the body-copy hotkey affordance must
 // carry the bold attribute together with the accent foreground under
 // colour profiles — bold is a text attribute, so even the 16-colour
 // profile keeps it — while the colourless ASCII profile keeps its
@@ -199,7 +199,7 @@ func TestNoColorKeepsUnicodeGlyphs(t *testing.T) {
 }
 
 func TestJISOAsciiGlyphFallback(t *testing.T) {
-	// The JISO_ASCII env policy itself is pinned in the New() tests; the
+	// The JISO_ASCII env policy itself is pinned in the New tests; the
 	// glyph behavior is pinned here on the pure constructor (NewWith
 	// reads no env, so tests build themes concurrently).
 	th := NewWith(colorprofile.TrueColor, true)

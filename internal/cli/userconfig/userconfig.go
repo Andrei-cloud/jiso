@@ -23,7 +23,7 @@ const dirName = "jiso"
 // names; a nil field means the key is absent from the file, so a higher
 // layer (flag or env) is not shadowed by a zero value. The timeout keys
 // are duration strings (Go spellings: "5s", "5m"); reconnect_attempts is
-// an int and hex a bool (SCR-512 §L settings persistence).
+// an int and hex a bool (§L settings persistence).
 type File struct {
 	Spec                *string `yaml:"spec"`
 	File                *string `yaml:"file"`
@@ -46,7 +46,7 @@ type File struct {
 }
 
 // Path resolves the user config location: $JISO_CONFIG when set (a leading
-// ~ is expanded), otherwise <os.UserConfigDir()>/jiso/config.yaml.
+// ~ is expanded), otherwise <os.UserConfigDir>/jiso/config.yaml.
 func Path() (string, error) {
 	if p := strings.TrimSpace(os.Getenv(EnvConfigVar)); p != "" {
 		return expandHome(p), nil
