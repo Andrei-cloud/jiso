@@ -290,8 +290,8 @@ focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
 
 | Keys | Action |
 |---|---|
-| `enter` | Run the selected scenario (steps stream live; failed steps show the validation diff) |
-| `enter` | On a STEPS-pane row: preview the step's request/response message overlay |
+| `enter` | Run the selected scenario (spec prompt first when a step lacks a spec; steps stream live, failed steps show the validation diff) |
+| `enter` | On a STEPS-pane row: preview the step's request/response message overlay (asks for a spec when the step would fall back to the engine default) |
 | `j` / `k` | Move the STEPS-pane cursor (STEPS focused) / scroll the message preview (overlay open) |
 | `tab` / `shift+tab` | Switch focus between the SCENARIOS list and the STEPS pane |
 | `e` | Export the JSON report (§N3 overwrite confirm when the path exists) |

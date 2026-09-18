@@ -170,6 +170,14 @@ type RootModel struct {
 	scenarioStatusLine string
 	scenarioDetail     scenarioDetailState
 
+	// Scenario spec gate: a run or a step preview that would
+	// resolve through the engine default waits on the shared spec browse.
+	// Esc drops the pending work — the run with a one-line notice, the
+	// preview with its honest line.
+	pendingScenarioRun       string
+	pendingScenarioPreviewID string
+	pendingScenarioPreviewAt int
+
 	// Scenario export single-flight: scenarioWriteWait marks an in-flight
 	// `e` leg; scenarioConfirm is the §N3 overwrite confirm (default No);
 	// scenarioExportPending carries the confirmed path.

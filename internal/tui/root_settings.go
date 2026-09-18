@@ -35,6 +35,10 @@ type settingsSource interface {
 	SaveSettings(ctx context.Context, patch map[string]string) (string, error)
 }
 
+// errNoAppSession is the honest note when a settings leg has no façade
+// behind it (no app and no injected fake).
+const errNoAppSession = "settings unavailable: no app session"
+
 // settingsSource resolves the injectable leg (nil = the App façade;
 // nil App = no leg, the page keeps its empty state).
 func (m *RootModel) settingsSource() settingsSource {
@@ -140,7 +144,7 @@ func (m *RootModel) handleSettingsCommit(msg pages.SettingsCommitMsg) (tea.Model
 func (m *RootModel) commitSettingKey(key, value string) (tea.Model, tea.Cmd) {
 	src := m.settingsSource()
 	if src == nil {
-		m.settingsNote = "settings unavailable: no app session"
+		m.settingsNote = errNoAppSession
 
 		return m, nil
 	}

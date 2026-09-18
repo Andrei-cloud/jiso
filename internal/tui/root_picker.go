@@ -76,13 +76,21 @@ func (m *RootModel) closeFilePicker() {
 // cancelFilePicker handles the picker's own cancel: dropping a
 // spec-for-file browse abandons the pending tx file with it — nothing
 // half-applied — and leaves one visible line saying so; `f` re-arms.
+// Dropping a scenario spec browse abandons the gated run with a notice;
+// a gated preview needs none, its honest line already says the cause.
 func (m *RootModel) cancelFilePicker() {
 	target := m.filePickTarget
 	pending := m.pendingTxFile
 	m.pendingTxFile = ""
+	runID := m.pendingScenarioRun
+	m.pendingScenarioRun = ""
+	m.pendingScenarioPreviewID, m.pendingScenarioPreviewAt = "", 0
 	m.closeFilePicker()
-	if target == settingsSpecForFileTarget && pending != "" {
+	switch {
+	case target == settingsSpecForFileTarget && pending != "":
 		m.pushToast("transaction file not loaded - pick a specification file first (f again)", widgets.ToastInfo)
+	case target == scenarioSpecTarget && runID != "":
+		m.pushToast("scenario not run - pick a specification file first", widgets.ToastInfo)
 	}
 }
 
@@ -106,6 +114,10 @@ func extPredicate(exts []string) func(string) bool {
 // settingsSpecForFileTarget routes the chained browse a specless tx-file
 // pick opens: the picked spec and the pending file land in one patch.
 const settingsSpecForFileTarget = "settings:spec-for-file"
+
+// scenarioSpecTarget routes the chained browse a gated scenario run or
+// step preview opens: the picked spec lands first, then the waiting work.
+const scenarioSpecTarget = "scenario:runspec"
 
 // applyFilePicked routes a selection to the target's commit seam; settings
 // targets reuse commitSettingKey so validation stays in one place.
@@ -131,6 +143,8 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		return m.pickServerFormField(serverFieldRoutes, msg.Path)
 	case settingsSpecForFileTarget:
 		return m.applySpecForFilePick(msg.Path)
+	case scenarioSpecTarget:
+		return m.applyScenarioSpecPick(msg.Path)
 	case analyzePickTarget:
 		// The §J capture step: the pick commits through the same
 		// capture-choose leg Enter uses (validate + advance).
@@ -187,7 +201,7 @@ func (m *RootModel) applySpecForFilePick(specPath string) (tea.Model, tea.Cmd) {
 	}
 	src := m.settingsSource()
 	if src == nil {
-		m.settingsNote = "settings unavailable: no app session"
+		m.settingsNote = errNoAppSession
 
 		return m, nil
 	}

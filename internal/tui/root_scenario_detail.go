@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -53,12 +54,32 @@ type scenarioStepDetailLoadedMsg struct {
 // handleScenarioStepDetail arms one load: ignored while one is in flight,
 // preview cleared first (this tick's push; the payload arrives later via
 // the loaded msg), seq bumped, then the load runs off the UI thread.
-// Everything the goroutine reads (reports, collection, spec) is snapshotted here.
+// Everything the goroutine reads (reports, collection, spec) is snapshotted
+// here. A step that would compose against the engine default is gated
+// instead: the honest line lands, the load never runs.
 func (m *RootModel) handleScenarioStepDetail(msg pages.ScenarioStepDetailMsg) (tea.Model, tea.Cmd) {
 	if m.scenarioDetail.wait {
 		m.debug.logf("scenario step detail id=%s step=%d ignored in-flight", msg.ScenarioID, msg.StepIndex)
 
 		return m, nil
+	}
+	// Preview gate: with no explicit spec, a step that would fall
+	// back to the embedded default must not compose against it. The
+	// overlay shows an honest line (its identity arms like any payload)
+	// and the spec browse opens once per preview opening — the page asks
+	// on Enter, never on cursor moves.
+	if fallback := m.scenarioSpecFallback(msg.ScenarioID); slices.Contains(fallback, msg.StepIndex) {
+		m.scenarioDetail.preview = &pages.ScenarioStepPreview{
+			StepIndex:  msg.StepIndex,
+			ScenarioID: msg.ScenarioID,
+			Note:       "no specification selected",
+		}
+		m.pendingScenarioPreviewID, m.pendingScenarioPreviewAt = msg.ScenarioID, msg.StepIndex
+		if m.filePick != nil {
+			return m, nil // this opening's browse is already up
+		}
+
+		return m.openFilePicker(m.scenarioSpecBrowse())
 	}
 	m.scenarioDetail.wait = true
 	m.scenarioDetail.preview = nil

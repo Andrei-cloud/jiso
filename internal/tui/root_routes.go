@@ -174,6 +174,9 @@ func (m *RootModel) routeScenarioMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case scenarioStepDetailLoadedMsg:
 		return m.applyScenarioStepDetail(msg)
 
+	case scenarioSpecAppliedMsg:
+		return m.applyScenarioSpecApplied(msg)
+
 	case pages.ScenarioPopMsg:
 		// Esc on the §F page (same pop rule as the inspector and the
 		// §D exchange view: at depth 1 the stack never empties).

@@ -9,7 +9,10 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -58,9 +61,10 @@ type scenarioRun struct {
 // program; tests inject a collector and re-enter Update by hand.
 func (m *RootModel) SetScenarioSender(send bridge.Sender) { m.scenarioSender = send }
 
-// startScenarioRun launches (or ignores) a live run for scenario id:
-// ignored without an app or while one is in flight (single live op). It
-// arms the goroutine and returns no cmd; the page never ticks.
+// startScenarioRun launches (or gates/ignores) a live run for scenario id:
+// ignored without an app or while one is in flight (single live op); gated
+// onto the shared spec browse when a step would resolve through the engine
+// default. It arms the goroutine and returns no cmd; the page never ticks.
 func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 	if m.app == nil || id == "" {
 		m.debug.logf("scenario run id=%s (no app wired)", id)
@@ -71,6 +75,15 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 		m.debug.logf("scenario run id=%s ignored in-flight", id)
 
 		return m, nil
+	}
+	// Spec gate: a run that would resolve any step through the
+	// compiled-in default spec waits for the operator to choose one — the
+	// scenario parks in the picker and never starts on the default.
+	if len(m.scenarioSpecFallback(id)) > 0 {
+		m.pendingScenarioRun = id
+		m.debug.logf("scenario run id=%s gated on the spec browse", id)
+
+		return m.openFilePicker(m.scenarioSpecBrowse())
 	}
 
 	m.scenarioRun = &scenarioRun{id: id, steps: m.declaredSteps(id)}
@@ -257,4 +270,102 @@ func formatScenarioDuration(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%dm", int64(d.Minutes()))
 	}
+}
+
+// scenarioSpecFallback reports the 1-based steps a scenario run or preview
+// would resolve through the engine default spec: none when an explicit
+// spec is set (the fallback is then the user's own choice), none when the
+// collection is unreachable or unknown. Empty means no prompt is owed.
+func (m *RootModel) scenarioSpecFallback(id string) []int {
+	if cfg := m.configOrNil(); cfg == nil || cfg.GetSpec() != "" {
+		return nil
+	}
+	tc := m.scenarioCollection()
+	if tc == nil {
+		return nil
+	}
+	steps, err := tc.ScenarioFallbackSteps(id)
+	if err != nil {
+		return nil
+	}
+
+	return steps
+}
+
+// scenarioSpecBrowse builds the chained spec browse for a gated scenario
+// op: rooted at "/" and starting in the current spec's dir if one is set
+// (the gate itself runs with none), offering the spec extensions.
+func (m *RootModel) scenarioSpecBrowse() OpenFilePickerMsg {
+	start := "/"
+	if cfg := m.configOrNil(); cfg != nil && cfg.GetSpec() != "" {
+		start = filepath.Dir(cfg.GetSpec())
+	}
+
+	return OpenFilePickerMsg{
+		Target:    scenarioSpecTarget,
+		Root:      "/",
+		RootLabel: filepath.Join(start, string(filepath.Separator)),
+		Start:     start,
+		Exts:      settingsPickExts(app.SettingSpec),
+	}
+}
+
+// scenarioSpecAppliedMsg is the chained spec apply's result: errs carries
+// the per-field validation, runID and prevID/prevAt name the scenario work
+// that waited on the spec (zero = none).
+type scenarioSpecAppliedMsg struct {
+	errs   map[string]string
+	runID  string
+	prevID string
+	prevAt int
+}
+
+// applyScenarioSpecPick commits a spec chosen under a gated scenario
+// browse through the same one-key ApplySettings leg every commit shares,
+// with the waiting scenario attached to the result so its fold resumes
+// exactly that work.
+func (m *RootModel) applyScenarioSpecPick(specPath string) (tea.Model, tea.Cmd) {
+	runID := m.pendingScenarioRun
+	prevID, prevAt := m.pendingScenarioPreviewID, m.pendingScenarioPreviewAt
+	m.pendingScenarioRun, m.pendingScenarioPreviewID, m.pendingScenarioPreviewAt = "", "", 0
+	src := m.settingsSource()
+	if src == nil {
+		m.settingsNote = errNoAppSession
+
+		return m, nil
+	}
+	delete(m.settingsErrs, app.SettingSpec)
+	m.settingsNote = ""
+
+	return m, func() tea.Msg {
+		return scenarioSpecAppliedMsg{
+			errs:   src.ApplySettings(context.Background(), map[string]string{app.SettingSpec: specPath}),
+			runID:  runID,
+			prevID: prevID,
+			prevAt: prevAt,
+		}
+	}
+}
+
+// applyScenarioSpecApplied folds the chained spec result: a spec that
+// failed to load opens the same error screen §L raises and the scenario
+// stays unrun/unpreviewed; an accepted spec resumes exactly the work that
+// waited — the run starts on the chosen spec, the preview re-arms and
+// composes against it.
+func (m *RootModel) applyScenarioSpecApplied(msg scenarioSpecAppliedMsg) (tea.Model, tea.Cmd) {
+	if e, bad := msg.errs[app.SettingSpec]; bad {
+		m.openErrorModal("cannot load specification file", errors.New(e))
+
+		return m, nil
+	}
+	if msg.runID != "" {
+		return m.startScenarioRun(msg.runID)
+	}
+	if msg.prevID != "" && msg.prevAt > 0 {
+		return m.handleScenarioStepDetail(pages.ScenarioStepDetailMsg{
+			ScenarioID: msg.prevID, StepIndex: msg.prevAt,
+		})
+	}
+
+	return m, nil
 }
