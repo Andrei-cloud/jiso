@@ -42,7 +42,7 @@ type RootModel struct {
 
 	// errModal is the root-owned error screen (a modal box above the page
 	// stack, never a page in PageIDs); nil means closed. While open it
-	// owns the keyboard above the picker and §M: enter/esc close, j/k and
+	// owns the keyboard above every overlay: enter/esc close, j/k and
 	// pgup/pgdown scroll, everything else is swallowed so the page below
 	// stays frozen.
 	errModal *errorModal

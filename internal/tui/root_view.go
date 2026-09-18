@@ -58,8 +58,9 @@ func (m *RootModel) View() tea.View {
 	}
 	if m.errModal != nil {
 		// The error screen reuses the centered modal box, drawn over the
-		// frozen page and the other overlays but under the confirms,
-		// which own the keyboard above it.
+		// frozen page and every input overlay in the confirm band; it
+		// owns the keyboard first (see updateKey) so its hint line never
+		// advertises keys an invisible overlay would steal.
 		content = overlayCenter(content, m.errModal.View(inner.Width, inner.Height), inner.Width, inner.Height)
 	}
 	for _, c := range []*widgets.ConfirmDialog{
