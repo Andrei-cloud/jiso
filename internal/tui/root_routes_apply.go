@@ -127,7 +127,7 @@ func (m *RootModel) routeFilePickerMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case widgets.FilePickerCanceledMsg:
 		// Esc inside the picker: the widget emits its own cancel; the
 		// page underneath keeps its state.
-		m.closeFilePicker()
+		m.cancelFilePicker()
 
 		return m, nil
 

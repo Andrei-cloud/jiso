@@ -73,6 +73,19 @@ func (m *RootModel) closeFilePicker() {
 	m.filePick, m.filePickTarget = nil, ""
 }
 
+// cancelFilePicker handles the picker's own cancel: dropping a
+// spec-for-file browse abandons the pending tx file with it — nothing
+// half-applied — and leaves one visible line saying so; `f` re-arms.
+func (m *RootModel) cancelFilePicker() {
+	target := m.filePickTarget
+	pending := m.pendingTxFile
+	m.pendingTxFile = ""
+	m.closeFilePicker()
+	if target == settingsSpecForFileTarget && pending != "" {
+		m.pushToast("transaction file not loaded - pick a specification file first (f again)", widgets.ToastInfo)
+	}
+}
+
 // extPredicate builds the picker's extension filter (nil = any file).
 func extPredicate(exts []string) func(string) bool {
 	if len(exts) == 0 {
@@ -89,6 +102,10 @@ func extPredicate(exts []string) func(string) bool {
 		return false
 	}
 }
+
+// settingsSpecForFileTarget routes the chained browse a specless tx-file
+// pick opens: the picked spec and the pending file land in one patch.
+const settingsSpecForFileTarget = "settings:spec-for-file"
 
 // applyFilePicked routes a selection to the target's commit seam; settings
 // targets reuse commitSettingKey so validation stays in one place.
@@ -112,6 +129,8 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		return m.pickServerFormField(serverFieldSpecPath, msg.Path)
 	case serverPickRoutesTarget:
 		return m.pickServerFormField(serverFieldRoutes, msg.Path)
+	case settingsSpecForFileTarget:
+		return m.applySpecForFilePick(msg.Path)
 	case analyzePickTarget:
 		// The §J capture step: the pick commits through the same
 		// capture-choose leg Enter uses (validate + advance).
@@ -125,9 +144,60 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		// the [s] folder pick names a directory, which
 		// applyAnalyzeOutputPick resolves to a usable file path.
 		return m.applyAnalyzeOutputPick(msg.Path)
+	case app.SettingTxFile:
+		return m.gateTxFilePick(msg.Path)
 	}
 
 	return m.commitSettingKey(target, msg.Path)
+}
+
+// gateTxFilePick applies a picked tx file unless that would silently bind
+// specless entries to the engine default: an empty GetSpec is the
+// "default in use" signal, and a file with specless entries then waits on
+// a chained spec browse rooted at the file's dir. A count failure applies
+// as today — no new failure mode; the load error surfaces on its own leg.
+func (m *RootModel) gateTxFilePick(path string) (tea.Model, tea.Cmd) {
+	explicit := false
+	if cfg := m.configOrNil(); cfg != nil {
+		explicit = cfg.GetSpec() != ""
+	}
+	if !explicit {
+		if n, err := app.CountTransactionsWithoutSpec(path); err == nil && n > 0 {
+			m.pendingTxFile = path
+			start := analyzePickStart(path)
+
+			return m.openFilePicker(OpenFilePickerMsg{
+				Target: settingsSpecForFileTarget, Root: "/", RootLabel: start + string(filepath.Separator),
+				Start: start, Exts: settingsPickExts(app.SettingSpec),
+			})
+		}
+	}
+
+	return m.commitSettingKey(app.SettingTxFile, path)
+}
+
+// applySpecForFilePick commits the chained spec pick: BOTH the spec and
+// the pending tx file travel in one patch so the file is built against
+// the spec chosen now (ApplySettings resolves spec before file).
+func (m *RootModel) applySpecForFilePick(specPath string) (tea.Model, tea.Cmd) {
+	file := m.pendingTxFile
+	m.pendingTxFile = ""
+	if file == "" {
+		return m, nil // nothing waits beneath this browse
+	}
+	src := m.settingsSource()
+	if src == nil {
+		m.settingsNote = "settings unavailable: no app session"
+
+		return m, nil
+	}
+	for _, key := range []string{app.SettingSpec, app.SettingTxFile} {
+		delete(m.settingsErrs, key)
+	}
+	m.settingsNote = ""
+	m.settingsSavedLine = ""
+
+	return m.commitSettingPatch(src, map[string]string{app.SettingSpec: specPath, app.SettingTxFile: file})
 }
 
 // txPickExts is the §B tx-file picker's extension filter (the tx file is JSON).

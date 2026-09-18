@@ -196,7 +196,7 @@ read never runs on the UI thread.
 |---|---|
 | `enter` | Open detail (Message Inspector) |
 | `s` | Open the send exchange for the selected tx |
-| `f` | Pick a tx file (file picker) |
+| `f` | Pick a tx file (file picker; entries with no declared spec ask for a specification file first when none is set) |
 | `/` | Live filter (claims the keyboard; `esc` exits the filter first) |
 | `o` | Cycle sort column |
 | `esc` | Back |
@@ -325,7 +325,7 @@ mainframe-style position ruler above the records marks the visible column range
 | `enter` | Edit the selected field |
 | `w` | Save to the user config (confirm overlay) |
 | `r` | Reload the config |
-| `f` | Pick a file (file picker) |
+| `f` | Pick a file (file picker; the tx-file row shares §B's spec prompt) |
 | `esc` | Discard edits / back |
 
 ### help — Help page

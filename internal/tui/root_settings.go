@@ -147,7 +147,13 @@ func (m *RootModel) commitSettingKey(key, value string) (tea.Model, tea.Cmd) {
 	delete(m.settingsErrs, key)
 	m.settingsNote = ""
 	m.settingsSavedLine = ""
-	patch := map[string]string{key: value}
+
+	return m.commitSettingPatch(src, map[string]string{key: value})
+}
+
+// commitSettingPatch arms the async ApplySettings leg shared by every
+// commit shape; multi-key ordering belongs to the App side.
+func (m *RootModel) commitSettingPatch(src settingsSource, patch map[string]string) (tea.Model, tea.Cmd) {
 	m.settingsApplyWait = true
 	m.settingsSeq++
 	seq := m.settingsSeq

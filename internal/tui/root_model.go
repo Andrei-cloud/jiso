@@ -335,12 +335,15 @@ type RootModel struct {
 	// settingsSrc (nil = the App façade); settingsSeq is the load token.
 	// filePick is the shared FilePicker modal (nil = closed; Esc = its
 	// cancel); production roots it at "/" so every pick can climb back.
-	// toast is the Toast stack (armToastTick/toastTickf).
+	// pendingTxFile holds a specless tx-file pick that waits on the
+	// chained spec-for-file browse (Esc drops it, a spec pick applies
+	// both). toast is the Toast stack (armToastTick/toastTickf).
 	filePick        *widgets.FilePicker
 	filePickTarget  string
 	filePickRootFn  func(key, value string) (root, label string)
 	txFilePickFromB bool
 	txFileLoadErr   string
+	pendingTxFile   string
 	toast           *widgets.Toast
 	toastTTL        time.Duration
 	toastTickWait   bool

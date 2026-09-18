@@ -99,7 +99,8 @@ func mtiFromFields(fieldsJSON string) string {
 // root pushes §D and launches the stage goroutine; a send while one is
 // in flight is ignored (no queue, no retry). f on §B (TxPickFileMsg)
 // opens the shared file picker, and a selection commits the tx-file
-// path through the same settings commit path §L uses. The compose-
+// path through the same settings commit path §L uses — a file whose
+// entries declare no spec chains into a spec browse first. The compose-
 // with-dataset run stays a logged no-op.
 func (m *RootModel) handleTxMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
