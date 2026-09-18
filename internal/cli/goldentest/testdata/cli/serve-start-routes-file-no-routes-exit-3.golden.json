@@ -1,0 +1,20 @@
+{
+  "args": [
+    "serve",
+    "start",
+    "--routes-file",
+    "combined.json",
+    "19999"
+  ],
+  "setup_files": {
+    "combined.json": "[\n  {\"type\": \"transaction\", \"name\": \"Echo\", \"fields\": {\"0\": \"0800\"}},\n  {\"type\": \"dataset\", \"name\": \"card_pool\", \"data\": [{\"2\": \"4111111111111111\"}]}\n]\n"
+  },
+  "expect_stdout_mode": "empty",
+  "expect_stderr_contains": [
+    "none are mock routes",
+    "Echo:transaction",
+    "card_pool:dataset",
+    "combined.json"
+  ],
+  "expect_exit": 3
+}

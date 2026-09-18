@@ -16,29 +16,29 @@ import (
 )
 
 // serverRoutes is the §G route set (three rows; the third
-// drops connections).
+// drops connections). Match is the summary the root emits — name plus the
+// matched MTI (/DE3), or "any" — while Detail still carries every pair.
 func serverRoutes() []RouteRow {
 	return []RouteRow{
 		{
-			ID: "0200/proc", Match: "0200/proc 11=000000", Resp: "0210", Hits: 812, Latency: "100±25ms",
+			ID: "0200/proc", Match: "0200/proc 0200/000000", Resp: "0210", Hits: 812, Latency: "100±25ms",
 			Detail: RouteDetail{
 				Name: "0200/proc", Description: "purchase auth",
-				MatchLines: []string{"11=000000"}, RequiredLines: []string{"3", "11"},
+				MatchLines: []string{"0=0200", "11=000000", "3=000000"}, RequiredLines: []string{"3", "11"},
 				EchoLines: []string{"11"}, RespMTI: "0210",
 				RespLines: []string{"39=00"}, Latency: "100ms ±25ms",
 			},
 		},
 		{
-			ID: "0800/nmc", Match: "0800/nmc 70=0301", Resp: "0810", Hits: 380, Latency: "0ms",
+			ID: "0800/nmc", Match: "0800/nmc any", Resp: "0810", Hits: 380, Latency: "0ms",
 			Detail: RouteDetail{
-				Name: "0800/nmc", MatchLines: []string{"70=0301"},
-				RespMTI: "0810", Latency: "0ms",
+				Name: "0800/nmc", RespMTI: "0810", Latency: "0ms",
 			},
 		},
 		{
-			ID: "0200/proc-mc", Match: "0200/proc-mc 11=000000", Resp: "0210", Hits: 6, Latency: "50ms",
+			ID: "0200/proc-mc", Match: "0200/proc-mc 0200", Resp: "0210", Hits: 6, Latency: "50ms",
 			Detail: RouteDetail{
-				Name: "0200/proc-mc", RespMTI: "0210",
+				Name: "0200/proc-mc", MatchLines: []string{"0=0200"}, RespMTI: "0210",
 				Latency: "50ms", DropConnection: true,
 			},
 		},

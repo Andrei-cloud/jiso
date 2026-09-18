@@ -2,7 +2,8 @@
 // §E connect-dialog machinery wholesale (pages.ConnectDialog with
 // Title/EnterLabel set) and root prefills it from the SAME sources the
 // cobra `serve start` shim reads — port/header are that shim's flag
-// defaults, spec and routes file are the config's paths. Enter starts
+// defaults, spec is the config's path, and the routes row takes only an
+// explicit pick or the last start. Enter starts
 // the server through the app's in-process serve façade; a failure keeps
 // the modal open with the error line, success closes and flips the truth.
 package tui
@@ -99,7 +100,7 @@ func (m *RootModel) openServerForm() (tea.Model, tea.Cmd) {
 
 // buildServerForm assembles the §G snapshot with no fabricated defaults:
 // every field prefills from the last SUCCESSFUL start (state-dir memory),
-// the config fills spec/routes when memory leaves them unset, everything
+// the config fills the spec when memory leaves it unset, everything
 // else stays empty. A header radio with nothing remembered renders
 // unselected; Enter then falls back to the shim defaults at start.
 func (m *RootModel) buildServerForm() pages.ConnectFormState {
@@ -166,9 +167,12 @@ func (m *RootModel) rememberLastServer(msg serverStartResultMsg) {
 	}
 }
 
-// serverPrefill resolves one field's initial value: last start wins;
-// the config fills spec/routes only; port/header are never fabricated
-// (see buildServerForm for the contract).
+// serverPrefill resolves one field's initial value: last start wins; the
+// config fills the spec only; port/header are never fabricated (see
+// buildServerForm for the contract). The routes row is never cfg.GetFile():
+// that is the combined transactions/config file, whose transactions and
+// datasets are not routes, and the config has no routes-file key of its own
+// — an explicit pick or the last start is its only source.
 func serverPrefill(sp serverFormRow, cfg *config.Config, last *app.LastServerStart) string {
 	if last != nil {
 		switch sp.key {
@@ -191,16 +195,9 @@ func serverPrefill(sp serverFormRow, cfg *config.Config, last *app.LastServerSta
 		}
 	}
 
-	if cfg != nil {
-		switch sp.key {
-		case serverFieldSpecPath:
-			if v := strings.TrimSpace(cfg.GetSpec()); v != "" {
-				return v
-			}
-		case serverFieldRoutes:
-			if v := strings.TrimSpace(cfg.GetFile()); v != "" {
-				return v
-			}
+	if cfg != nil && sp.key == serverFieldSpecPath {
+		if v := strings.TrimSpace(cfg.GetSpec()); v != "" {
+			return v
 		}
 	}
 

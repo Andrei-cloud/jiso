@@ -225,7 +225,9 @@ read never runs on the UI thread.
 ### server — Mock Server
 
 Three columns while the server emits output: the compact STATS card, the
-ROUTES table (MATCH/RESP/HITS; latency lives in the route detail), and
+ROUTES table (MATCH/RESP/HITS; MATCH summarizes the route as its name plus
+the MTI it matches and the processing code, or `any` for the catch-all, and
+the full match pairs live in the route detail; latency lives there too), and
 the SERVER LOG as the big right pane — root-timestamped, compacted
 (`09:17:03 🟢 Echo · 0800→0810 · RC 00`), newest at the bottom.
 
@@ -414,7 +416,9 @@ into a row enters edit mode, where `f` types literally and `esc` leaves
 the row before a later `esc` cancels the form. The form carries no
 fabricated defaults: the fields prefill from
 the last successful start (remembered in the state dir), the config fills
-the spec and routes rows until a start has ever run, and an unselected
+the spec row until a start has ever run — the routes row takes only an
+explicit pick or a typed path, because the configured transactions/config
+file is not a routes file — and an unselected
 header radio falls back to `binary2` only when `enter` starts the server.
 The pick lands in that row and the other fields keep their edits.
 

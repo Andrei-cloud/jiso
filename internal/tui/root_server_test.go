@@ -9,16 +9,20 @@ package tui
 import (
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 
 	app "jiso/internal/app"
 	"jiso/internal/config"
 	"jiso/internal/tui/pages"
+	"jiso/internal/tui/theme"
 )
 
 // serveTestRoot wires a real app with all four serve legs faked plus a
@@ -54,16 +58,19 @@ func serveFixtureStats() *app.ServerStats {
 	}
 }
 
+// serveFixtureRoutes carries the three row shapes the §G table renders: an
+// MTI+DE3 match, a catch-all, and an MTI-only match.
 func serveFixtureRoutes() []config.MockRouteConfig {
 	return []config.MockRouteConfig{
 		{
-			Name: "0200/proc", Description: "purchase auth", MatchFields: map[string]any{"11": "000000"},
+			Name: "0200/proc", Description: "purchase auth",
+			MatchFields:    map[string]any{"0": "0200", "3": "000000"},
 			RequiredFields: []string{"11"}, EchoFields: []int{11}, ResponseMTI: "0210",
 			ResponseFields: map[string]any{"0": "0210"}, DelayMs: 100, JitterMs: 25,
 		},
 		{Name: "0800/nmc", ResponseMTI: "0810", LatencyMs: 0},
 		{
-			Name: "0200/proc-mc", Description: "drops connection", MatchFields: map[string]any{"11": "000000"},
+			Name: "0200/proc-mc", Description: "drops connection", MatchFields: map[string]any{"0": "0200"},
 			ResponseMTI: "0210", DropConnection: true, DelayMs: 50,
 		},
 	}
@@ -387,15 +394,102 @@ func TestRootServerStateDerivation(t *testing.T) {
 	if got := matchPct(1198, 1204); got != "99.5%" {
 		t.Errorf("matchPct(1198,1204) = %q, want 99.5%%", got)
 	}
+	// The MATCH cell is a summary: name + matched MTI (+ DE3 when the route
+	// narrows one), "any" when the route matches everything.
+	th := helpGoldenTheme(colorprofile.TrueColor)
 	routes := serveFixtureRoutes()
-	if got := routeMatchCell(routes[1]); got != "0800/nmc any" {
+	if got := routeMatchCell(th, routes[0]); got != "0200/proc 0200/000000" {
+		t.Errorf("MTI+DE3 match cell = %q, want \"0200/proc 0200/000000\"", got)
+	}
+	if got := routeMatchCell(th, routes[1]); got != "0800/nmc any" {
 		t.Errorf("catch-all match cell = %q", got)
+	}
+	if got := routeMatchCell(th, routes[2]); got != "0200/proc-mc 0200" {
+		t.Errorf("MTI-only match cell = %q, want \"0200/proc-mc 0200\"", got)
 	}
 	if got := routeLatencyCell(routes[0]); !strings.Contains(got, "100") || !strings.Contains(got, "25ms") {
 		t.Errorf("jitter latency cell = %q, want 100±25ms", got)
 	}
 	if got := routeBaseDelayMs(config.MockRouteConfig{LatencyMs: 30}); got != 30 {
 		t.Errorf("latency_ms alias fallback = %d, want 30", got)
+	}
+}
+
+// TestRouteMatchCellNeverDumpsPayload: a row cell carries no match pairs.
+// Only the MTI and DE3 scalars summarize a route; a long value is clipped
+// with the theme's own ellipsis and a nested payload is no summary at all,
+// leaving the bare name (the pairs live in the detail).
+func TestRouteMatchCellNeverDumpsPayload(t *testing.T) {
+	th := helpGoldenTheme(colorprofile.TrueColor)
+
+	cell := routeMatchCell(th, config.MockRouteConfig{
+		Name: "Purchase Authorization Approval",
+		MatchFields: map[string]any{
+			"0": "0200", "3": "000000", "55": map[string]any{"9F26": "040A"},
+		},
+	})
+	if cell != "Purchase Authorization Approval 0200/000000" {
+		t.Errorf("match cell = %q, want the MTI/DE3 summary only", cell)
+	}
+
+	long := routeMatchCell(th, config.MockRouteConfig{
+		Name:        "bulk",
+		MatchFields: map[string]any{"0": strings.Repeat("0", 40)},
+	})
+	if !strings.HasPrefix(long, "bulk ") {
+		t.Errorf("long-value cell = %q, want the name kept", long)
+	}
+	if !strings.HasSuffix(long, theme.GlyphEllipsis) {
+		t.Errorf("long-value cell = %q, want it clipped with the theme ellipsis", long)
+	}
+	if lipgloss.Width(long) > len("bulk ")+routeCellValueCells {
+		t.Errorf("long-value cell = %q (%d cells), want the value capped at %d",
+			long, lipgloss.Width(long), routeCellValueCells)
+	}
+
+	if got := routeMatchCell(th, config.MockRouteConfig{
+		Name: "odd", MatchFields: map[string]any{"0": map[string]any{"9F26": "040A"}},
+	}); got != "odd" {
+		t.Errorf("composite MTI criterion = %q, want the bare name", got)
+	}
+
+	ascii := routeMatchCell(theme.NewWith(colorprofile.ASCII, true), serveFixtureRoutes()[1])
+	if ascii != "0800/nmc any" {
+		t.Errorf("ascii catch-all cell = %q, want it 7-bit and unchanged", ascii)
+	}
+}
+
+// TestSortedFieldPairsCapsValues: detail lines keep every pair but cap what
+// a value can occupy — a long string takes the theme's ellipsis (its ASCII
+// profile included), a map or slice is counted, never dumped.
+func TestSortedFieldPairsCapsValues(t *testing.T) {
+	fields := map[string]any{
+		"11": "000000",
+		"39": strings.Repeat("x", 30),
+		"55": map[string]any{"9F26": "040A", "9F27": "00"},
+		"70": []any{"one"},
+	}
+
+	uni := sortedFieldPairs(helpGoldenTheme(colorprofile.TrueColor), fields)
+	wantUni := []string{
+		"11=000000",
+		"39=" + strings.Repeat("x", routeCellValueCells-1) + theme.GlyphEllipsis,
+		"55=2 values",
+		"70=1 value",
+	}
+	if !slices.Equal(uni, wantUni) {
+		t.Errorf("unicode pairs = %q, want %q", uni, wantUni)
+	}
+
+	ascii := sortedFieldPairs(theme.NewWith(colorprofile.ASCII, true), fields)
+	wantASCII := []string{
+		"11=000000",
+		"39=" + strings.Repeat("x", routeCellValueCells-1) + theme.ASCIIEllipsis,
+		"55=2 values",
+		"70=1 value",
+	}
+	if !slices.Equal(ascii, wantASCII) {
+		t.Errorf("ascii pairs = %q, want %q", ascii, wantASCII)
 	}
 }
 

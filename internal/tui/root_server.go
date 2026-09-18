@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -321,30 +320,61 @@ func (m *RootModel) serverRouteRows() []pages.RouteRow {
 	}
 
 	rows := make([]pages.RouteRow, 0, len(routes))
+	th := m.themeOrNil()
 	for _, r := range routes {
 		rows = append(rows, pages.RouteRow{
 			ID:      r.Name,
-			Match:   routeMatchCell(r),
+			Match:   routeMatchCell(th, r),
 			Resp:    r.ResponseMTI,
 			Hits:    counts[r.Name],
 			Latency: routeLatencyCell(r),
-			Detail:  routeDetail(r),
+			Detail:  routeDetail(th, r),
 		})
 	}
 
 	return rows
 }
 
-// routeMatchCell is the compact MATCH cell: route name plus its sorted
-// "field=value" pairs ("0200/proc 11=000000"), or "any" when the route
+// routeCellValueCells caps one rendered value in a §G route cell: longer
+// strings take the theme's ellipsis and the full value belongs in the
+// detail, which is where the whole pair lives.
+const routeCellValueCells = 24
+
+// routeMatchCell is the compact MATCH cell: the route name plus the MTI it
+// matches, with the processing code when the route narrows to one
+// ("Purchase Auth 0200/000000"), or the bare name plus "any" when the route
 // declares no match fields (the catch-all — `serve routes` says ANY).
-func routeMatchCell(r config.MockRouteConfig) string {
-	pairs := sortedFieldPairs(r.MatchFields)
-	if len(pairs) == 0 {
+// Match pairs never render here: a row summarises, the detail reveals.
+func routeMatchCell(th *theme.Theme, r config.MockRouteConfig) string {
+	mti, hasMTI := routeScalar(th, r.MatchFields["0"])
+	de3, hasDE3 := routeScalar(th, r.MatchFields["3"])
+
+	switch {
+	case len(r.MatchFields) == 0:
 		return r.Name + " any"
+	case hasMTI && hasDE3:
+		return r.Name + " " + mti + "/" + de3
+	case hasMTI:
+		return r.Name + " " + mti
+	default:
+		// Matches on other fields only: the name is all a row can say about
+		// it, and it never claims the catch-all "any".
+		return r.Name
+	}
+}
+
+// routeScalar reads one match criterion for the row summary. Only a scalar
+// summarises a route — a nested payload is no summary, so the caller falls
+// back to the route name and the pair stays in the detail.
+func routeScalar(th *theme.Theme, v any) (string, bool) {
+	switch val := v.(type) {
+	case string:
+		return th.Truncate(val, routeCellValueCells), true
+	case float64, int, bool:
+		return fmt.Sprintf("%v", val), true
 	}
 
-	return r.Name + " " + strings.Join(pairs, " ")
+	return "", false
 }
 
 // routeLatencyCell is the LATENCY cell: the effective base delay
@@ -362,14 +392,14 @@ func routeLatencyCell(r config.MockRouteConfig) string {
 // routeDetail builds the Enter-on-route detail view from the route
 // config (internal/config MockRouteConfig — the tx file mock_routes
 // schema): match/required/echo/response fields, latency, drop flag.
-func routeDetail(r config.MockRouteConfig) pages.RouteDetail {
+func routeDetail(th *theme.Theme, r config.MockRouteConfig) pages.RouteDetail {
 	d := pages.RouteDetail{
 		Name:           r.Name,
 		Description:    r.Description,
-		MatchLines:     sortedFieldPairs(r.MatchFields),
+		MatchLines:     sortedFieldPairs(th, r.MatchFields),
 		RequiredLines:  append([]string(nil), r.RequiredFields...),
 		RespMTI:        r.ResponseMTI,
-		RespLines:      sortedFieldPairs(r.ResponseFields),
+		RespLines:      sortedFieldPairs(th, r.ResponseFields),
 		Latency:        routeLatencyDetail(r),
 		DropConnection: r.DropConnection,
 	}
@@ -402,8 +432,9 @@ func routeBaseDelayMs(r config.MockRouteConfig) int {
 }
 
 // sortedFieldPairs renders a match/response field map deterministically
-// ("11=000000" per entry, keys ascending).
-func sortedFieldPairs(fields map[string]any) []string {
+// ("11=000000" per entry, keys ascending), capping each value: the full
+// value is the detail's job, a %v dump of a nested map is not readable.
+func sortedFieldPairs(th *theme.Theme, fields map[string]any) []string {
 	if len(fields) == 0 {
 		return nil
 	}
@@ -415,8 +446,34 @@ func sortedFieldPairs(fields map[string]any) []string {
 
 	pairs := make([]string, 0, len(keys))
 	for _, k := range keys {
-		pairs = append(pairs, fmt.Sprintf("%s=%v", k, fields[k]))
+		pairs = append(pairs, k+"="+fieldValue(th, fields[k]))
 	}
 
 	return pairs
+}
+
+// fieldValue renders one field-map value for display: a long string is
+// clipped with the theme's ellipsis (ASCII profile included), and a map or
+// slice is counted rather than dumped.
+func fieldValue(th *theme.Theme, v any) string {
+	switch val := v.(type) {
+	case string:
+		return th.Truncate(val, routeCellValueCells)
+	case map[string]any:
+		return compositeCount(len(val))
+	case []any:
+		return compositeCount(len(val))
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// compositeCount names the size of a nested value that a cell cannot show
+// in full ("2 values", "1 value").
+func compositeCount(n int) string {
+	if n == 1 {
+		return "1 value"
+	}
+
+	return strconv.Itoa(n) + " values"
 }

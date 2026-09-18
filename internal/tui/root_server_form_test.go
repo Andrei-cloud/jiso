@@ -1,13 +1,16 @@
 // root_server_form_test.go covers the §G start-form root contract
 // "c" opens the form ONLY on the §G page (the global connect
 // dialog keeps every other page), prefill comes from the cobra shim's
-// sources (9999/binary2 flag defaults + config spec/routes paths), a
+// sources (9999/binary2 flag defaults + the config's spec path, while the
+// routes row takes only an explicit pick or the last start), a
 // failed start keeps the modal open with the error and never auto-retry,
 // Esc closes, and the edited field values are what reach the serve leg.
 package tui
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -44,12 +47,15 @@ func TestRootServerFormPrefillFromShimSources(t *testing.T) {
 		t.Errorf("form identity = %q/%q, want SERVER/start", st.Title, st.EnterLabel)
 	}
 	// No fabricated defaults. A never-started form carries
-	// the config's spec/routes and nothing else; port/header stay empty
+	// the config's spec and nothing else; port/header stay empty
 	// (the header radio renders unselected) and the shim defaults apply
-	// only at Enter.
+	// only at Enter. The routes row is deliberately NOT the config's
+	// combined transactions/config file — that file's transactions and
+	// datasets are not routes — so it starts blank until the operator
+	// picks or types a routes file.
 	want := map[string]string{
 		"port": "", "header": "",
-		"spec": "../../specs/spec.json", "routes": r.tx,
+		"spec": "../../specs/spec.json", "routes": "",
 	}
 	for k, w := range want {
 		if got := serverFormValue(&st, k); got != w {
@@ -430,6 +436,92 @@ func TestRootServerFormStartFailureOpensModal(t *testing.T) {
 	}
 	if st := r.m.serverDlg.State(); st.Error == "" {
 		t.Error("the form keeps its inline error line")
+	}
+
+	_, _ = r.m.Update(special(tea.KeyEsc))
+	if r.m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if r.m.serverDlg == nil {
+		t.Fatal("esc must close the screen only: the retry form stays open")
+	}
+}
+
+// The routes row prefills from an explicit setting the operator chose:
+// the last successful start's routes file. The combined config file never
+// lands there, so reopening a form after a routes-file start shows that
+// file and nothing else does.
+func TestServerFormRoutesPrefillIsExplicitOnly(t *testing.T) {
+	r := newServeTestRoot(t)
+	_, _ = r.m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	r.key('4')
+	r.key('c')
+	st := r.m.serverDlg.State()
+	if got := serverFormValue(&st, serverFieldRoutes); got != "" {
+		t.Fatalf("routes prefill = %q, want empty (the config file is not a routes file)", got)
+	}
+
+	const picked = "/tmp/routes-only.json"
+	st.Field(serverFieldRoutes).Value = picked
+	r.m.serverDlg.SetState(st)
+	_, cmd := r.m.Update(special(tea.KeyEnter))
+	r.run(cmd)
+	if !r.m.serverRunning() {
+		t.Fatal("fake start did not flip the running truth")
+	}
+
+	r.key('c')
+	after := r.m.serverDlg.State()
+	if got := serverFormValue(&after, serverFieldRoutes); got != picked {
+		t.Errorf("reopened routes = %q, want the remembered %q", got, picked)
+	}
+	if got := serverFormValue(&after, serverFieldSpecPath); got != "../../specs/spec.json" {
+		t.Errorf("reopened spec = %q, want the remembered spec, not the routes path", got)
+	}
+}
+
+// serveNoRoutesCfg is a saved config file with transactions and datasets
+// and no mock route among them — the §1 file the loader must refuse.
+const serveNoRoutesCfg = `[
+  {"type": "transaction", "name": "Echo", "fields": {"0": "0800"}},
+  {"type": "dataset", "name": "card_pool", "data": [{"2": "4111111111111111"}]}
+]`
+
+// A routes file the loader refuses fails the start on the REAL serve leg
+// (no listener is ever opened), the modal names the file and the entries it
+// skipped, and the form stays open underneath as the retry surface.
+func TestRootServerStartRefusedRoutesFileOpensNamedModal(t *testing.T) {
+	r := newServeTestRoot(t)
+	r.m.serveStartFn = nil // the app's own ServeStart: ResolveRoutes runs for real
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(cfgPath, []byte(serveNoRoutesCfg), 0o600); err != nil {
+		t.Fatalf("write routes file: %v", err)
+	}
+
+	_, _ = r.m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	r.key('4')
+	r.key('c')
+	st := r.m.serverDlg.State()
+	st.Field(serverFieldRoutes).Value = cfgPath
+	r.m.serverDlg.SetState(st)
+
+	_, cmd := r.m.Update(special(tea.KeyEnter))
+	r.run(cmd)
+
+	if r.m.serverRunning() {
+		t.Fatal("a refused routes file must not start the server")
+	}
+	if r.m.errModal == nil {
+		t.Fatal("a refused routes file must open the error screen")
+	}
+	mustShow(t, r.m.View().Content,
+		"cannot start mock server", "none are mock routes", "Echo:transaction", "card_pool:dataset")
+	if r.m.serverDlg == nil {
+		t.Fatal("the start form must stay open underneath (retry context)")
+	}
+	if st := r.m.serverDlg.State(); !strings.Contains(st.Error, cfgPath) {
+		t.Errorf("form error line = %q, want it to name %s", st.Error, cfgPath)
 	}
 
 	_, _ = r.m.Update(special(tea.KeyEsc))

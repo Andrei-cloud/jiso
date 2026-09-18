@@ -24,10 +24,12 @@ const serveStartLongHelp = `Start the embedded ISO8583 mock server in the foregr
 SIGINT/SIGTERM stops it.
 
 Mock routes precedence: --routes-file > the --file tx file's mock_routes
-entries > no routes. --routes-file must be a JSON array of mock route
-objects (the same shape as the tx file's mock_route entries; a missing or
-malformed file fails with exit 3 naming the path, per the config-error
-taxonomy).
+entries > no routes. --routes-file is a JSON array and only its route-shaped
+entries load — typed mock_route, or untyped with match_fields or
+response_mti — so a file that also carries transactions, datasets or
+scenarios contributes its routes and nothing else. A missing, malformed, or
+route-less file fails with exit 3 naming the path (a route-less one names its
+skipped entries too), per the config-error taxonomy.
 
 Graceful stop: on SIGINT/SIGTERM the server stops cleanly and the PAR-304
 state/snapshot files in the jiso state dir are removed; with --report <path>

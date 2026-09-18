@@ -36,6 +36,21 @@ const txFileWithRoute = `[
   {"type": "mock_route", "name": "tx-echo", "match_fields": {"0": "0800"}, "response_mti": "0810"}
 ]`
 
+// combinedCfgFile is a saved config file (the §J write shape). As a
+// --routes-file it must contribute its route and nothing else; with the
+// route removed it contributes nothing at all, which is an error.
+const combinedCfgFile = `[
+  {"type": "transaction", "name": "Echo", "fields": {"0": "0800"}},
+  {"type": "dataset", "name": "card_pool", "data": [{"2": "4111111111111111"}]},
+  {"type": "scenario", "name": "Purchase", "steps": []},
+  {"type": "mock_route", "name": "cfg-echo", "match_fields": {"0": "0800"}, "response_mti": "0810"}
+]`
+
+const combinedCfgFileNoRoutes = `[
+  {"type": "transaction", "name": "Echo", "fields": {"0": "0800"}},
+  {"type": "dataset", "name": "card_pool", "data": [{"2": "4111111111111111"}]}
+]`
+
 func TestResolveServeRoutesPrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -44,6 +59,8 @@ func TestResolveServeRoutesPrecedence(t *testing.T) {
 	routesFile := writeRoutesFixture(t, "routes.json", routesFileTwo)
 	txFile := writeRoutesFixture(t, "tx.json", txFileWithRoute)
 	emptyRoutesFile := writeRoutesFixture(t, "empty-routes.json", "[]")
+	combinedFile := writeRoutesFixture(t, "combined.json", combinedCfgFile)
+	noRouteCfgFile := writeRoutesFixture(t, "no-routes.json", combinedCfgFileNoRoutes)
 	malformedFile := writeRoutesFixture(t, "bad-routes.json", `{"name": "not-an-array"}`)
 	namelessFile := writeRoutesFixture(t, "nameless-routes.json", `[{"response_mti": "0810"}]`)
 	missingFile := filepath.Join(t.TempDir(), "nope.json")
@@ -74,6 +91,17 @@ func TestResolveServeRoutesPrecedence(t *testing.T) {
 			routesFile: emptyRoutesFile,
 			txPath:     txFile,
 			wantNames:  []string{},
+		},
+		{
+			name:       "combined config file contributes only its route",
+			routesFile: combinedFile,
+			wantNames:  []string{"cfg-echo"},
+		},
+		{
+			name:        "config file carrying no route entry is exit 3",
+			routesFile:  noRouteCfgFile,
+			wantExitErr: true,
+			wantPathIn:  noRouteCfgFile,
 		},
 		{
 			name:      "no source yields no routes",
@@ -168,10 +196,10 @@ func TestServeStartSkipsGlobalSignalWatcher(t *testing.T) {
 	assert.False(t, globalSignalWatchSkipped(root))
 }
 
-// TestServeStartLongHelpParsesAsJSONFlagShape sanity-checks that a
-// tx-file-shaped routes array (with "type" keys) parses cleanly through
-// the explicit loader.
-func TestServeStartRoutesFileAcceptsTxShape(t *testing.T) {
+// TestLoadRoutesFileTxShapeLoadsRoutesOnly pins the F1 filter on the CLI
+// path: a tx-file-shaped routes array loads its mock_route entry and skips
+// the transaction entry, which used to arrive as an empty "route".
+func TestLoadRoutesFileTxShapeLoadsRoutesOnly(t *testing.T) {
 	t.Parallel()
 
 	path := writeRoutesFixture(t, "tx-shaped.json", txFileWithRoute)
@@ -179,9 +207,6 @@ func TestServeStartRoutesFileAcceptsTxShape(t *testing.T) {
 	routes, err := app.LoadRoutesFile(path)
 	require.NoError(t, err)
 
-	// Both entries parse (the transaction entry keeps its name and simply
-	// carries no match fields); the loader's job is shape, not semantics.
-	require.Len(t, routes, 2)
-	assert.Equal(t, "Echo", routes[0].Name)
-	assert.Equal(t, "tx-echo", routes[1].Name)
+	require.Len(t, routes, 1)
+	assert.Equal(t, "tx-echo", routes[0].Name)
 }
