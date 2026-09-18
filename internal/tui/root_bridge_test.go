@@ -184,33 +184,26 @@ func firstLines(s string, n int) string {
 	return strings.Join(strings.SplitN(s, "\n", n+1)[:min(n, strings.Count(s, "\n")+1)], "\n")
 }
 
-// TestStatusStripCurrentTruth: every connection state change stamps a
-// fresh timestamped line, so a stale "Connection closed" can never
-// outlive the reconnect(the strip lied across sessions).
-func TestStatusStripCurrentTruth(t *testing.T) {
+// TestConnectionChipCurrentTruth: every connection state change refreshes
+// the top-rule chip — after the bottom strip's removal it is the only
+// persistent status indicator, and a stale "Connection closed" can never
+// outlive the reconnect.
+func TestConnectionChipCurrentTruth(t *testing.T) {
 	t.Parallel()
 
 	m, src, col := armCollector(t)
 	defer m.stopBridge()
-	m.now = func() time.Time {
-		return time.Date(2026, 9, 11, 9, 22, 3, 0, time.UTC)
-	}
 
 	src <- events.ConnectionEvent{State: events.StateDisconnected, Detail: "127.0.0.1:9999"}
 	m.Update(nextBridgeMsg(t, col))
-	line, _ := m.consoleLine()
-	if !strings.Contains(line, "disconnected") || !strings.HasPrefix(line, "09:22:03 ") {
-		t.Fatalf("strip after disconnect = %q, want the timestamped truth", line)
+	if got := m.frameProps("body").Conn; got.Text != "offline" {
+		t.Fatalf("chip after disconnect = %q, want the offline truth", got.Text)
 	}
 
-	m.now = func() time.Time {
-		return time.Date(2026, 9, 11, 9, 25, 41, 0, time.UTC)
-	}
 	src <- events.ConnectionEvent{State: events.StateConnected, Detail: "127.0.0.1:9999"}
 	m.Update(nextBridgeMsg(t, col))
-	line, _ = m.consoleLine()
-	if !strings.HasPrefix(line, "09:25:41 ") || !strings.Contains(line, "connected") {
-		t.Fatalf("strip after reconnect = %q, want the fresh connected line", line)
+	if got := m.frameProps("body").Conn; got.Text != "connected" {
+		t.Fatalf("chip after reconnect = %q, want the connected truth", got.Text)
 	}
 }
 

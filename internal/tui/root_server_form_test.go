@@ -385,9 +385,8 @@ func TestServerFormEscLeavesFieldBeforeScreen(t *testing.T) {
 }
 
 // TestServerLogStaysOnServerPage: mock-server lines render ONLY inside
-// the §4 page's LOG pane — never the global console strip, never the
-// dashboard or any other screen("[SERVER]" fragments
-// smeared across §D).
+// the §4 page's LOG pane — never the dashboard or any other screen
+// ("[SERVER]" fragments smeared across §D).
 func TestServerLogStaysOnServerPage(t *testing.T) {
 	r := newServeTestRoot(t)
 	r.upd(tea.WindowSizeMsg{Width: 120, Height: 32})
@@ -397,9 +396,6 @@ func TestServerLogStaysOnServerPage(t *testing.T) {
 
 	if len(r.m.serverLog) != 1 {
 		t.Fatalf("serverLog = %d lines, want 1", len(r.m.serverLog))
-	}
-	if len(r.m.console) != 0 {
-		t.Fatalf("console strip must not carry server lines, got %v", r.m.console)
 	}
 
 	r.key('4')

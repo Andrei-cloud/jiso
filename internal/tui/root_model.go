@@ -137,12 +137,8 @@ type RootModel struct {
 	sendHistory      *pages.SendHistory       // send-history overlay page
 	sends            []pages.SendHistoryEntry // bounded ring of completed sends
 
-	// console: bounded ring of NON-TUI system stderr lines (connection
-	// manager) shown in the bottom strip; raw writes corrupted the frame.
-	console []string
-
-	// serverLog is a bounded ring of mock-server output; unlike console
-	// it renders only on the §G server page's LOG pane, never elsewhere.
+	// serverLog is the §4 server page's bounded ring of mock-server
+	// output; it renders only on that page's LOG pane, never elsewhere.
 	serverLog []string
 
 	// lastConn is the state-dir remembered last-successful connect,

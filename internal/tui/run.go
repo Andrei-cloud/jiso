@@ -89,7 +89,7 @@ func run(ctx context.Context, model *RootModel, opts ...tea.ProgramOption) error
 	// those lines in the scrollback beats a mid-send write inside the
 	// alt screen — the RRN init line used to smash the §F pane borders
 	// on the first scenario step that auto-filled field 37 .
-	// They must NOT be touched after installConsoleSink: its writer
+	// They must NOT be touched after installServerLogSink: its writer
 	// forwards synchronously through program.Send, which blocks until
 	// Run is consuming.
 	utils.GetCounter()
@@ -102,14 +102,14 @@ func run(ctx context.Context, model *RootModel, opts ...tea.ProgramOption) error
 	// program.Send; tests replace the seams via the Set*Sender setters.
 	wireSenders(model, program.Send)
 
-	// Internal/connection's system output (unsafe read errors,
-	// reconnect chatter, route notices) used to corrupt the alt screen
-	// via raw stderr writes; it is captured into the bottom console
-	// strip for the session and restored on exit. It extends
-	// the capture to the utils counters' worker warnings and the
-	// transactions collection loader.
-	restoreConsole := installConsoleSink(program.Send)
-	defer restoreConsole()
+	// Internal/server's mock-server output is captured into the §4
+	// page's LOG ring for the session and restored on exit — raw
+	// stderr writes used to corrupt the alt screen mid-frame. Other
+	// system output (internal/connection, utils, transactions) is not
+	// captured: an alt-screen TUI must not surface stdout noise, so
+	// those lines fall to the terminal's scrollback instead.
+	restoreServerLog := installServerLogSink(program.Send)
+	defer restoreServerLog()
 
 	if application := model.App(); application != nil {
 		if bus := application.Events(); bus != nil {

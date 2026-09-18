@@ -78,9 +78,6 @@ func (m *RootModel) updateBridgeMsg(msg bridge.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.connSince = nil
 		}
-		// The strip must always show the CURRENT truth;
-		// every state change stamps a fresh line over any stale one.
-		m.stampConnStatus(ev)
 	}
 	// The worker events' designed consumer is root, not the
 	// page — the row cache folds them in here (before the top page ever

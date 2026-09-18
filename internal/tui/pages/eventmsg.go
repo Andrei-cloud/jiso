@@ -1,7 +1,7 @@
 // eventmsg.go carries the page-side event envelope. The §A EVENT FEED
 // pane is gone (its connect/disconnect content lives in
-// the CONNECTION card, the timestamped status strip and the live SERVER
-// LOG card), so the Feed ring and its severity taxonomy are gone with
+// the CONNECTION card and the live SERVER LOG card), so the Feed ring
+// and its severity taxonomy are gone with
 // it; the EventMsg envelope stays the root→page delivery contract (root
 // stamps Time with its injectable clock at delivery, so pages never call
 // time.Now and goldens stay fake-clock-deterministic). Pages that do not

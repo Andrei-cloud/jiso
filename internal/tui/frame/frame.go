@@ -108,20 +108,7 @@ type Props struct {
 	TxCount int
 	Workers int // chip "N workers" when > 0
 	Hints   []KeyHint
-	// Console is the bottom console strip: the newest NON-TUI system
-	// output line. ConsoleErr styles it as an error; empty renders no
-	// strip line (stderr writes corrupted the frame; such lines now land
-	// here instead).
-	Console    string
-	ConsoleErr bool
-	Content    string // page body; truncated/padded into the content area
-}
-
-// clipTailCells trims a styled line to n visible cells, marking the cut with
-// the theme's own ellipsis so it degrades under the ASCII glyph set, and
-// preserving the leading SGR colour of the line. n <= 0 renders nothing.
-func clipTailCells(th *theme.Theme, line string, n int) string {
-	return th.Truncate(line, n)
+	Content string // page body; truncated/padded into the content area
 }
 
 // b2i is 1 when b, else 0 (frame-local, no bool arithmetic elsewhere).
@@ -172,31 +159,11 @@ func Render(p Props) string {
 	if bottomShown {
 		bottom = []string{ruleLine(th, bottomLeft(th), bottomRight(th), width)}
 	}
-	consoleLine := ""
-	if p.Console != "" && footerShown {
-		label := "status" + th.Separator()
-
-		if p.ConsoleErr {
-			consoleLine = th.Status(theme.KindError, label+p.Console)
-		} else {
-			consoleLine = th.Dim.Render(label + p.Console)
-		}
-		// Chrome floor: the strip claims a line only while the content
-		// floor survives alongside it; under height pressure it YIELDS
-		// rather than push the frame taller than the window (which would
-		// strand the footer below where FooterOrigin says it is).
-		if height-len(top)-len(mid)-len(footer)-len(bottom)-1 < MinContentHeight {
-			consoleLine = ""
-		}
-	}
-	contentH := max(height-len(top)-len(mid)-len(footer)-len(bottom)-b2i(consoleLine != ""), MinContentHeight)
+	contentH := max(height-len(top)-len(mid)-len(footer)-len(bottom), MinContentHeight)
 
 	lines := make([]string, 0, height)
 	lines = append(lines, top...)
 	lines = append(lines, wrapRows(th, fitContent(p.Content, inner, contentH), width)...)
-	if consoleLine != "" {
-		lines = append(lines, wrapRow(th, clipTailCells(th, consoleLine, inner), width)...)
-	}
 	lines = append(lines, mid...)
 	lines = append(lines, footer...)
 	lines = append(lines, bottom...)

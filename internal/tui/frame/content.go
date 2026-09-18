@@ -77,9 +77,8 @@ func ContentOrigin(width, height int) (x, y int) {
 // FooterOrigin reports the absolute terminal cell where the footer strip's
 // content starts — the chromeParts twin of ContentOrigin, so the footer
 // hit-map and the drawn frame never disagree mid-shrink. X is
-// borderInset/2; Y is height-2 whenever the strip is drawn (the console
-// strip never moves it: it yields under height pressure rather than
-// composing taller). ok=false when no footer row is drawn at all.
+// borderInset/2; Y is height-2 whenever the strip is drawn. ok=false when
+// no footer row is drawn at all.
 func FooterOrigin(width, height int) (x, y int, ok bool) {
 	if width <= 0 {
 		width = FallbackWidth

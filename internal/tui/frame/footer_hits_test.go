@@ -17,8 +17,7 @@ func footerHintProps(width, height int) Props {
 }
 
 // FooterOrigin must be the absolute row/col Render actually draws the footer
-// strip at, and !ok exactly when no footer row is drawn — swept without and
-// WITH the console strip, which yields at the chrome floor.
+// strip at, and !ok exactly when no footer row is drawn.
 func TestFooterOriginMatchesRender(t *testing.T) {
 	t.Parallel()
 
@@ -35,33 +34,28 @@ func TestFooterOriginMatchesRender(t *testing.T) {
 				t.Errorf("%dx%d: FooterOrigin x=%d, want %d", width, height, x, borderInset/2)
 			}
 
-			for _, console := range []string{"", "clogline"} {
-				p := footerHintProps(width, height)
-				p.Console = console
-				out := strings.Split(Render(p), "\n")
+			p := footerHintProps(width, height)
+			out := strings.Split(Render(p), "\n")
 
-				// Render never composes taller than the window.
-				if width >= MinWidth && len(out) > height {
-					t.Errorf("%dx%d console=%q: Render composed %d lines, over the %d-row window",
-						width, height, console, len(out), height)
-				}
+			// Render never composes taller than the window.
+			if width >= MinWidth && len(out) > height {
+				t.Errorf("%dx%d: Render composed %d lines, over the %d-row window",
+					width, height, len(out), height)
+			}
 
-				// The line carrying the footer hint sits at exactly y.
-				first := -1
-				for i, l := range out {
-					if strings.Contains(l, "zzquit") {
-						first = i
-						break
-					}
+			// The line carrying the footer hint sits at exactly y.
+			first := -1
+			for i, l := range out {
+				if strings.Contains(l, "zzquit") {
+					first = i
+					break
 				}
-				if ok != (first >= 0) {
-					t.Errorf("%dx%d console=%q: footer drawn=%v, FooterOrigin ok=%v",
-						width, height, console, first >= 0, ok)
-				}
-				if ok && first != y {
-					t.Errorf("%dx%d console=%q: footer drawn at line %d, FooterOrigin y=%d",
-						width, height, console, first, y)
-				}
+			}
+			if ok != (first >= 0) {
+				t.Errorf("%dx%d: footer drawn=%v, FooterOrigin ok=%v", width, height, first >= 0, ok)
+			}
+			if ok && first != y {
+				t.Errorf("%dx%d: footer drawn at line %d, FooterOrigin y=%d", width, height, first, y)
 			}
 		}
 	}

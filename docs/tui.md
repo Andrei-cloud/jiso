@@ -46,12 +46,6 @@ $ jiso tui
 - Modals (connect, forms, file picker, confirm, palette, help, error) render
   over the current page; while open they own the keyboard, so typing `q` or a
   digit into a field never quits or jumps pages. `ctrl+c` stays global.
-- Status strip (bottom rule): the newest **client-connection** line,
-  receipt-timestamped and replaced on every connection-state change
-  (`09:22:03 ✓ connected 127.0.0.1:9999` → `09:22:41 · disconnected`) —
-  the strip is always the current truth, never an older event.
-  Mock-server output never enters it; it stays in the §G and §A
-  SERVER LOG panes.
 
 ## Page map
 
@@ -422,8 +416,7 @@ The pick lands in that row and the other fields keep their edits.
 
 The mock server's own output (route-match and error notices) renders ONLY
 in the §G page's LOG pane, below the stats card — it never appears on
-other pages or in the bottom console strip, which carries client-side
-connection lines only.
+other pages.
 
 §N3 confirms are for destructive or overwriting actions only, and the
 default answer is always **No**:

@@ -39,11 +39,6 @@ func (m *RootModel) frameProps(content string) frame.Props {
 	if m.conn != nil {
 		props.Conn = connSegment(*m.conn)
 	}
-	// The newest system output line renders in the bottom console
-	// strip instead of corrupting the frame.
-	if line, isErr := m.consoleLine(); line != "" {
-		props.Console, props.ConsoleErr = line, isErr
-	}
 
 	return props
 }

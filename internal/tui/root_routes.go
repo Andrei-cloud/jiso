@@ -91,20 +91,13 @@ func (m *RootModel) routeSendConsoleMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sendElapsedMsg:
 		return m.tickSendElapsed(msg)
 
-	case consoleLineMsg:
-		// System output from the connection manager: stamped into the
-		// bottom console strip, never stderr.
-		m.appendConsoleLine(msg.text)
-
-		return m, nil
-
 	case serverLineMsg:
 		// Mock-server output stays inside the server page's own LOG
-		// ring, never the global strip; lines are receipt-timestamped
-		// so the log reads as a timeline.
+		// ring; lines are receipt-timestamped so the log reads as a
+		// timeline.
 		m.serverLog = append(m.serverLog, m.stampLine(msg.text))
-		if len(m.serverLog) > consoleRingMax {
-			m.serverLog = m.serverLog[len(m.serverLog)-consoleRingMax:]
+		if len(m.serverLog) > serverLogRingMax {
+			m.serverLog = m.serverLog[len(m.serverLog)-serverLogRingMax:]
 		}
 
 		return m, nil
