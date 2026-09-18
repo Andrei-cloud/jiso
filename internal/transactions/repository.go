@@ -11,7 +11,9 @@ type Repository interface {
 	// ListNames returns all available transaction names
 	ListNames() []string
 
-	// Info returns transaction details by name
+	// Info returns transaction details by name: description, fields JSON,
+	// the declared spec path, and the resolved dataset with its row count
+	// (-1 when a named dataset is missing)
 	Info(name string) (TransactionInfo, error)
 
 	// Compose creates a new ISO8583 message from transaction template

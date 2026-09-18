@@ -1,6 +1,6 @@
 PCAP ANALYZE  1 capture > 2 spec > 3 header > 4 run
 ITEMS  2 of 2 included
-space toggle | a all/none | enter apply | esc close
+space toggle | a all/none | tab preview | enter apply | esc close
     NAME                          KIND         PREVIEW  tall (transaction)  3-25/100
 > x tall                          transaction  line-02                              
   x wide                          mock_route   line-03                              

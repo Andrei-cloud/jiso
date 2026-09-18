@@ -340,15 +340,46 @@ func (tc *TransactionCollection) ListNames() []string {
 
 // TransactionInfo is one transaction's detail as the Info accessor and the
 // Repository interface report it: its name, description, and fields rendered
-// as indented JSON.
+// as indented JSON, plus the per-entry spec and dataset the transactions
+// table shows. Spec is the path the entry declared ("" when it declared
+// none — the fallback spec is never reported as declared); Dataset names the
+// entry's own rows "inline" or the referenced dataset, with DatasetRows as
+// its row count (0 for an existing empty dataset, -1 for a reference with no
+// dataset behind it).
 type TransactionInfo struct {
 	Name        string
 	Description string
 	FieldsJSON  string
+	Spec        string
+	Dataset     string
+	DatasetRows int
 }
 
-// Info returns the named transaction's name, description, and fields as
-// indented JSON, or an error when the collection has no such transaction.
+// inlineDataset is the Dataset label for a transaction carrying its own
+// dataset rows instead of naming a shared one.
+const inlineDataset = "inline"
+
+// datasetFor resolves the display dataset of one transaction. Inline rows
+// win: they apply on every compose. A dangling dataset_name reports -1 rows
+// — the caller renders the name without a count rather than panic or invent
+// one.
+func (tc *TransactionCollection) datasetFor(t *Transaction) (string, int) {
+	if len(t.Dataset) > 0 {
+		return inlineDataset, len(t.Dataset)
+	}
+	if t.DatasetName == "" {
+		return "", 0
+	}
+	if d, ok := tc.datasets[t.DatasetName]; ok {
+		return t.DatasetName, len(d.Data)
+	}
+
+	return t.DatasetName, -1
+}
+
+// Info returns the named transaction's name, description, fields as
+// indented JSON, declared spec, and resolved dataset, or an error when the
+// collection has no such transaction.
 func (tc *TransactionCollection) Info(name string) (TransactionInfo, error) {
 	t, err := tc.findTransaction(name)
 	if err != nil {
@@ -360,7 +391,16 @@ func (tc *TransactionCollection) Info(name string) (TransactionInfo, error) {
 		return TransactionInfo{}, err
 	}
 
-	return TransactionInfo{Name: t.Name, Description: t.Description, FieldsJSON: string(fieldsJSON)}, nil
+	dataset, rows := tc.datasetFor(t)
+
+	return TransactionInfo{
+		Name:        t.Name,
+		Description: t.Description,
+		FieldsJSON:  string(fieldsJSON),
+		Spec:        t.Spec,
+		Dataset:     dataset,
+		DatasetRows: rows,
+	}, nil
 }
 
 // ListFormatted returns the transactions as "name  description" lines padded to

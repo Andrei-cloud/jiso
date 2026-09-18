@@ -3,7 +3,10 @@
 // via SetState; the page never touches the app or the clock.
 package pages
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // TransactionsPageID is the router slot name of the transactions page:
 // hotkey 2, footer label "tx". The §D send exchange is a drill-down
@@ -12,7 +15,9 @@ const TransactionsPageID = "transactions"
 
 // TxRow is one table row as pre-derived display strings. Empty fields
 // render as the dash (unknown ≠ zero); ID is the stable row identity that
-// survives filter and sort recomposition.
+// survives filter and sort recomposition. Root pre-derives Dataset with
+// DatasetCell ("name (N)", or the bare name of a missing dataset) and Spec
+// as the declared spec path's base name ("" when none was declared).
 type TxRow struct {
 	ID          string
 	Name        string
@@ -20,6 +25,21 @@ type TxRow struct {
 	Description string
 	Dataset     string
 	Spec        string
+}
+
+// DatasetCell renders the DATASET display string: "name (N)" for a resolved
+// dataset (N rows, size readable in the cell), the plain name while rows is
+// negative (the referenced dataset is missing — a count there would lie),
+// and "" for none, which dashIf renders as the unknown dash.
+func DatasetCell(name string, rows int) string {
+	switch {
+	case name == "":
+		return ""
+	case rows < 0:
+		return name
+	default:
+		return name + " (" + strconv.Itoa(rows) + ")"
+	}
 }
 
 // TransactionsState is the immutable snapshot root pushes into the tx

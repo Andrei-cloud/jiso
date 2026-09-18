@@ -22,8 +22,8 @@ func (m *RootModel) syncTransactions() {
 
 // transactionsState derives the §B snapshot from the app's loaded tx
 // file: base name, row count, and one row per transaction (name, MTI
-// parsed from field 0 of the template, description). Dataset and Spec
-// stay empty — the Repository does not expose them per transaction yet.
+// parsed from field 0 of the template, description, and the DATASET/SPEC
+// cells pre-derived from the repository's per-transaction info).
 func (m *RootModel) transactionsState() pages.TransactionsState {
 	if m.app == nil {
 		return pages.TransactionsState{}
@@ -50,10 +50,23 @@ func (m *RootModel) transactionsState() pages.TransactionsState {
 			Name:        txName,
 			MTI:         mtiFromFields(fieldsJSON),
 			Description: desc,
+			Dataset:     pages.DatasetCell(info.Dataset, info.DatasetRows),
+			Spec:        specCell(info.Spec),
 		})
 	}
 
 	return st
+}
+
+// specCell is the SPEC display: the base name of the entry's declared spec
+// path. The fallback spec is never shown as if the entry had declared one,
+// so "" stays "" and the page renders the dash.
+func specCell(declared string) string {
+	if declared == "" {
+		return ""
+	}
+
+	return filepath.Base(declared)
 }
 
 // mtiFromFields extracts the message-type indicator from the transaction

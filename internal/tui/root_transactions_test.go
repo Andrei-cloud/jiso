@@ -19,14 +19,35 @@ const txFixtureJSON = `[
  {"type":"transaction","name":"Sign On","description":"Network Management: Sign On","fields":{"0":"0800","70":1}}
 ]`
 
+// txSpecDatasetFixtureJSON covers the §B DATASET/SPEC cell sources: a
+// declared spec, three inline rows, a referenced pool with three rows, a
+// dangling reference, and a bare entry (no declared spec despite the
+// global one being set — the cell must stay honest).
+const txSpecDatasetFixtureJSON = `[
+ {"type":"transaction","name":"Echo","description":"Network Management: Echo","spec":"specs/flex.json","fields":{"0":"0800"}},
+ {"type":"transaction","name":"Purchase","description":"Purchase authorization","dataset":[{"2":"4000000000000002"},{"2":"4000000000000003"},{"2":"4000000000000004"}],"fields":{"0":"0200"}},
+ {"type":"transaction","name":"Reversal","description":"Reversal of purchase","dataset_name":"card_pool","fields":{"0":"0420"}},
+ {"type":"transaction","name":"Sign On","description":"Network Management: Sign On","dataset_name":"missing_pool","fields":{"0":"0800","70":1}},
+ {"type":"transaction","name":"Bare","description":"Nothing declared","fields":{"0":"0800"}},
+ {"type":"dataset","name":"card_pool","data":[{"2":"1111222233334444"},{"2":"1111222233335555"},{"2":"1111222233336666"}]}
+]`
+
 // newTxFileApp builds a real app whose tx file holds the fixture (the
 // lifecycle_helpers_test.go singleton idiom; never run in parallel).
 func newTxFileApp(t *testing.T) *app.App {
 	t.Helper()
 
+	return newTxApp(t, txFixtureJSON)
+}
+
+// newTxApp builds a real app over the given tx-file JSON (hermetic state
+// dir; never run in parallel).
+func newTxApp(t *testing.T, txJSON string) *app.App {
+	t.Helper()
+
 	t.Setenv("JISO_STATE_DIR", t.TempDir()) // last-connection writes stay hermetic
 	txFile := t.TempDir() + "/pool.json"
-	if err := os.WriteFile(txFile, []byte(txFixtureJSON), 0o600); err != nil {
+	if err := os.WriteFile(txFile, []byte(txJSON), 0o600); err != nil {
 		t.Fatalf("write tx file: %v", err)
 	}
 
@@ -89,6 +110,38 @@ func TestRootTxStateFromApp(t *testing.T) {
 	for _, want := range []string{"pool.json (2)", "0200", "Purchase authorization", "0800"} {
 		if !strings.Contains(content, want) {
 			t.Errorf("frame lacks %q:\n%s", want, content)
+		}
+	}
+}
+
+// TestRootTxSpecDatasetCells: the snapshot builder pre-derives the DATASET
+// and SPEC cells — basename of the declared spec (never the global
+// fallback), "inline (N)" for inline rows, "name (N)" for a hit, bare
+// "name" for a dangling reference, "" (dash) for nothing declared.
+func TestRootTxSpecDatasetCells(t *testing.T) {
+	m := NewRootModel(newTxApp(t, txSpecDatasetFixtureJSON))
+
+	want := map[string][2]string{ // name → {dataset cell, spec cell}
+		"Echo":     {"", "flex.json"},
+		"Purchase": {"inline (3)", ""},
+		"Reversal": {"card_pool (3)", ""},
+		"Sign On":  {"missing_pool", ""},
+		"Bare":     {"", ""},
+	}
+	rows := m.transactionsState().Rows
+	if len(rows) != len(want) {
+		t.Fatalf("rows = %d, want %d", len(rows), len(want))
+	}
+	for _, r := range rows {
+		w, ok := want[r.Name]
+		if !ok {
+			t.Fatalf("unexpected row %q", r.Name)
+		}
+		if r.Dataset != w[0] {
+			t.Errorf("%s: Dataset cell = %q, want %q", r.Name, r.Dataset, w[0])
+		}
+		if r.Spec != w[1] {
+			t.Errorf("%s: Spec cell = %q, want %q", r.Name, r.Spec, w[1])
 		}
 	}
 }

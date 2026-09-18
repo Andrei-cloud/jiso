@@ -121,6 +121,52 @@ func TestLoadRealTransactionJSON(t *testing.T) {
 	assert.Equal(t, 1, len(tc.GetMockRoutes()))
 }
 
+// TestInfoSpecAndDataset pins the per-transaction spec/dataset exposure the
+// §B table renders: declared spec paths verbatim (the fallback spec is never
+// reported as declared), inline rows as "inline", a referenced dataset with
+// its row count, and a missing reference as the name with rows -1 — the
+// table shows the name without a count instead of panicking or lying.
+func TestInfoSpecAndDataset(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	txFile := filepath.Join(tmpDir, "transactions.json")
+	sampleJSON := `[
+		{"type":"transaction","name":"declared","description":"spec key","spec":"a/flex.json","fields":{"0":"0800"}},
+		{"type":"transaction","name":"legacy","description":"spec_file key","spec_file":"b/mastercard.json","fields":{"0":"0800"}},
+		{"type":"transaction","name":"inline","description":"inline rows","dataset":[{"2":"1111222233334444"},{"2":"1111222233335555"}],"fields":{"0":"0200"}},
+		{"type":"transaction","name":"hit","description":"named dataset","dataset_name":"pool","fields":{"0":"0200"}},
+		{"type":"transaction","name":"miss","description":"missing dataset","dataset_name":"gone","fields":{"0":"0200"}},
+		{"type":"transaction","name":"both","description":"inline wins","dataset":[{"2":"1111222233336666"}],"dataset_name":"pool","fields":{"0":"0200"}},
+		{"type":"transaction","name":"bare","description":"neither","fields":{"0":"0200"}},
+		{"type":"dataset","name":"pool","data":[{"2":"4000000000000002"},{"2":"4000000000000003"},{"2":"4000000000000004"}]}
+	]`
+	require.NoError(t, os.WriteFile(txFile, []byte(sampleJSON), 0o644))
+
+	tc, err := NewTransactionCollection(txFile, iso8583.Spec87)
+	require.NoError(t, err)
+
+	cases := []struct {
+		name, spec, dataset string
+		rows                int
+	}{
+		{"declared", "a/flex.json", "", 0},
+		{"legacy", "b/mastercard.json", "", 0},
+		{"inline", "", "inline", 2},
+		{"hit", "", "pool", 3},
+		{"miss", "", "gone", -1},
+		{"both", "", "inline", 1},
+		{"bare", "", "", 0},
+	}
+	for _, c := range cases {
+		info, err := tc.Info(c.name)
+		require.NoError(t, err)
+		assert.Equal(t, c.spec, info.Spec, "%s: declared spec", c.name)
+		assert.Equal(t, c.dataset, info.Dataset, "%s: dataset", c.name)
+		assert.Equal(t, c.rows, info.DatasetRows, "%s: dataset rows", c.name)
+	}
+}
+
 func TestTransactionCollectionSuite(t *testing.T) {
 	t.Parallel()
 

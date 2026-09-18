@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"jiso/internal/tui/widgets"
 )
 
 // TestTxPageInterface proves *Transactions implements Page without the
@@ -140,6 +142,74 @@ func TestTxDashesForEmptyFields(t *testing.T) {
 	for _, line := range strings.Split(body, "\n") {
 		if strings.Contains(line, "Sign On") && !strings.Contains(line, "-") {
 			t.Errorf("Sign On row must dash its unknown fields:\n%s", body)
+		}
+	}
+}
+
+// DatasetCell renders the DATASET display string (D-10G): a resolved dataset
+// shows "name (N)" with its row count, a referenced-but-missing one shows the
+// bare name (inventing a count would lie), and "" is left for dashIf.
+func TestDatasetCell(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		name string
+		rows int
+		want string
+	}{
+		{"pool", 3, "pool (3)"},
+		{"inline", 2, "inline (2)"},
+		{"gone", -1, "gone"},
+		{"", 0, ""},
+	} {
+		if got := DatasetCell(c.name, c.rows); got != c.want {
+			t.Errorf("DatasetCell(%q, %d) = %q, want %q", c.name, c.rows, got, c.want)
+		}
+	}
+}
+
+// TestTxDatasetSpecCells: DATASET/SPEC cells render the strings root
+// pre-derived verbatim — "pool (3)", "inline (2)", a bare "gone" (missing
+// dataset, no count) — and empty cells render the dash. Columns are widened
+// past the shipped widths here so no cell truncates at the asserted strings.
+func TestTxDatasetSpecCells(t *testing.T) {
+	t.Parallel()
+
+	p := NewTransactions(asciiTheme(t))
+	p.table.SetColumns([]widgets.Column{
+		{Title: "NAME", Width: 10},
+		{Title: "MTI", Width: 6},
+		{Title: "DESCRIPTION", Width: 22, Flex: true},
+		{Title: "DATASET", Width: 12},
+		{Title: "SPEC", Width: 12},
+	})
+	p.SetState(TransactionsState{FileName: "pool.json", TxCount: 3, Rows: []TxRow{
+		{ID: "alpha", Name: "Alpha", MTI: "0200", Description: "declared both", Dataset: "pool (3)", Spec: "flex.json"},
+		{ID: "bravo", Name: "Bravo", MTI: "0200", Description: "inline rows", Dataset: "inline (2)"},
+		{ID: "charlie", Name: "Charlie", MTI: "0400", Description: "no dataset", Dataset: "gone"},
+	}})
+	_, _ = p.Update(windowSize(120, 32))
+	body := txBody(t, p)
+
+	for _, want := range []string{"pool (3)", "inline (2)", "gone", "flex.json"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("cells lack %q:\n%s", want, body)
+		}
+	}
+	for _, line := range strings.Split(body, "\n") {
+		if !strings.Contains(line, "Bravo") {
+			continue
+		}
+		if !strings.Contains(line, "inline (2)") || strings.Contains(line, "flex.json") {
+			t.Errorf("Bravo row must show its dataset and dash its spec:\n%s", line)
+		}
+	}
+	for _, line := range strings.Split(body, "\n") {
+		if !strings.Contains(line, "Charlie") {
+			continue
+		}
+		if strings.Contains(line, "flex.json") {
+			t.Errorf("Charlie row must dash its spec:\n%s", line)
 		}
 	}
 }
