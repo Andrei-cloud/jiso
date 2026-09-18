@@ -276,7 +276,7 @@ func (w *Workers) summaryBody(wt int) string {
 		b.WriteString(w.summaryBox("PER TRANSACTION", w.txLines(s.TxRows, wt-4), wt) + "\n")
 	}
 
-	b.WriteString(w.th.Deemphasized.Render("esc close"))
+	b.WriteString(hintSpans(w.th, w.th.Deemphasized, "esc", "close"))
 
 	return b.String()
 }

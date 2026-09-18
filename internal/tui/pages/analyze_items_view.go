@@ -45,10 +45,10 @@ func (a *Analyze) itemsOverlay(w, h int) string {
 			included++
 		}
 	}
-	sep := a.th.Separator()
 	head := titleLine(a.th, "ITEMS  "+strconv.Itoa(included)+" of "+strconv.Itoa(len(a.state.Items))+
 		" included") + "\n" +
-		a.th.Dim.Render("space toggle"+sep+"a all/none"+sep+"enter apply"+sep+"esc close")
+		hintSpans(a.th, a.th.Dim,
+			"space", "toggle", "a", "all/none", "enter", "apply", "esc", "close")
 
 	bodyH := itemsPaneH(h)
 	var body string

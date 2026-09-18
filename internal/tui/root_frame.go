@@ -47,12 +47,34 @@ func (m *RootModel) frameProps(content string) frame.Props {
 // page legend, always-visible trio, then the current page's context keys.
 // frameProps renders and buildHitMap packs exactly this list, so the
 // cells the user sees and the cells that fire actions can never drift.
+//
+// One hotkey surface per state: a pending confirm swaps its badged
+// decision keys into the strip (the box only asks); the form dialogs,
+// wizards, and picker list their keys in-body, and the §M box documents
+// every key — while any of them is open the strip keeps only the global
+// group, never the frozen page's keys.
 func (m *RootModel) footerHints() []frame.KeyHint {
 	hints := globalFooterHints(&m.keys)
 	if m.errModal != nil {
 		// While the error screen is open it owns the strip: the global
 		// legend plus the screen's own keys, page hints suppressed.
 		return append(hints, m.errModal.footerHints()...)
+	}
+	if c := m.pendingConfirm(); c != nil {
+		// The confirm's question is the box; the decision keys are the
+		// footer's — badged by the frame's Theme.Key path.
+		for _, dk := range c.DecisionKeys() {
+			hints = append(hints, frame.KeyHint{Key: dk.Key, Desc: dk.Desc, Primary: true})
+		}
+
+		return hints
+	}
+	if m.dlg != nil || m.wizard != nil || m.serverDlg != nil ||
+		m.workerWiz != nil || m.filePick != nil || m.help != nil {
+		// These overlays carry their own badged hint line in-body (the
+		// §M box is the keymap itself): the global legend alone keeps
+		// the strip honest without duplicating their keys.
+		return hints
 	}
 
 	return append(hints, m.Current().Hints()...)

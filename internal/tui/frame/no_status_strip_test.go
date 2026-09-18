@@ -1,4 +1,4 @@
-// no_status_strip_test.go pins the frame's D-10C shape: the bottom
+// no_status_strip_test.go pins the frame's post-§6 shape: the bottom
 // console strip is gone. No rendered line may carry the strip's
 // "status" label, and ContentSize must report exactly the drawn
 // content band (while the strip lived it claimed a row ContentSize

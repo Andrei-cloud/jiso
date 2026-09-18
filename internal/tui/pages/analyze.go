@@ -322,23 +322,9 @@ func (a *Analyze) SetState(state AnalyzeState) {
 }
 
 // Hints is the §J context keymap; wizard transitions stay primary in the
-// narrow footer.
+// narrow footer. While an inline overlay is open it lists its own keys
+// in-body (badged), so Hints drops every entry that would repeat one.
 func (a *Analyze) Hints() []frame.KeyHint {
-	if a.unparsableOpen { // the hexdump viewer's keys replace the step hints
-		return []frame.KeyHint{
-			{Key: "j/k", Desc: "sample"},
-			{Key: theme.KeyEsc, Desc: "close", Primary: true},
-		}
-	}
-	if a.itemsOpen { // the picker overlay's keys replace the step hints
-		return []frame.KeyHint{
-			{Key: "space", Desc: "include", Primary: true},
-			{Key: "a", Desc: "all/none"},
-			{Key: theme.KeyTab, Desc: hintPreview},
-			{Key: theme.KeyEnter, Desc: "apply", Primary: true},
-			{Key: theme.KeyEsc, Desc: "close", Primary: true},
-		}
-	}
 	switch a.state.Step {
 	case StepCapture:
 		return []frame.KeyHint{
@@ -356,18 +342,25 @@ func (a *Analyze) Hints() []frame.KeyHint {
 			{Key: theme.KeyEnter, Desc: "next", Primary: true},
 			{Key: theme.KeyEsc, Desc: "back", Primary: true},
 		}
-	default:
-		return []frame.KeyHint{
-			{Key: theme.KeyEnter, Desc: "run", Primary: true},
-			{Key: theme.KeyNavJK, Desc: "flow"},
-			{Key: "space", Desc: "include"},
-			{Key: "/", Desc: "flow filter"},
-			{Key: "o", Desc: "output file"},
-			{Key: "x", Desc: "items"},
-			{Key: "w", Desc: "write"},
-			{Key: theme.KeyEsc, Desc: "back", Primary: true},
-		}
 	}
+	run := []frame.KeyHint{
+		{Key: theme.KeyEnter, Desc: "run", Primary: true},
+		{Key: theme.KeyNavJK, Desc: "flow"},
+		{Key: "space", Desc: "include"},
+		{Key: "/", Desc: "flow filter"},
+		{Key: "o", Desc: "output file"},
+		{Key: "x", Desc: "items"},
+		{Key: "w", Desc: "write"},
+		{Key: theme.KeyEsc, Desc: "back", Primary: true},
+	}
+	if a.itemsOpen { // the picker lists space/a/enter/esc in-body
+		return hintsMinus(run, theme.KeyEnter, "space", theme.KeyEsc)
+	}
+	if a.unparsableOpen { // the viewer lists j/k/esc in-body
+		return hintsMinus(run, theme.KeyNavJK, theme.KeyEsc)
+	}
+
+	return run
 }
 
 // pick returns the ascii form under theme.ASCII, the truecolor form otherwise.

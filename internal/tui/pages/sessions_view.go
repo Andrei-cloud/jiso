@@ -271,8 +271,7 @@ func (s *Sessions) reviewBody() string {
 	if r.Response != nil {
 		b.WriteString(s.reviewMessage("RESPONSE", r.Response))
 	}
-	sep := s.th.Separator()
-	b.WriteString(s.th.Deemphasized.Render("j" + sep + "k scroll" + sep + "esc close"))
+	b.WriteString(hintSpans(s.th, s.th.Deemphasized, "j", "", "k", "scroll", "esc", "close"))
 
 	return b.String()
 }

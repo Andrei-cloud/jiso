@@ -3,8 +3,8 @@
 // used to write straight to os.Stderr, which corrupted the TUI's
 // alternate screen mid-frame — a scenario run rendered the RRN init line
 // through its own pane borders. The sink defaults to os.Stderr
-// (CLI/REPL parity) and is swappable via SetOutput — the TUI installs a
-// capture writer that routes every line into its console strip.
+// (CLI/REPL parity) and is swappable via SetOutput; the TUI no longer
+// captures it — system lines land in the terminal's scrollback.
 package utils
 
 import (

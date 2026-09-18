@@ -444,9 +444,10 @@ func (c *Ctf) updateListNav(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 // Hints is the §K context keymap; generate/pane/write are primary so
 // the narrow footer keeps them (the router appends the global
-// bindings).
+// bindings). While the records viewer is open its in-body line badges
+// w/esc, so the strip drops those two entries only.
 func (c *Ctf) Hints() []frame.KeyHint {
-	return []frame.KeyHint{
+	hints := []frame.KeyHint{
 		{Key: theme.KeyEnter, Desc: "generate", Primary: true},
 		{Key: theme.KeyTab, Desc: "pane/field", Primary: true},
 		{Key: "w", Desc: "write", Primary: true},
@@ -454,4 +455,9 @@ func (c *Ctf) Hints() []frame.KeyHint {
 		{Key: "r", Desc: "reload"},
 		{Key: theme.KeyEsc, Desc: "close/back", Primary: true},
 	}
+	if c.previewOpen {
+		return hintsMinus(hints, "w", theme.KeyEsc)
+	}
+
+	return hints
 }

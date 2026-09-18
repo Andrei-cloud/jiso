@@ -109,9 +109,8 @@ func (s *Scenarios) stepPreviewMessage(title string, m *TxReviewMessage) string 
 	return b.String()
 }
 
-// previewHintLine closes the overlay body with the scroll hint.
+// previewHintLine closes the overlay body with the scroll hint, its key
+// tokens badged like the footer's (the overlay's single hotkey surface).
 func (s *Scenarios) previewHintLine() string {
-	sep := s.th.Separator()
-
-	return s.th.Deemphasized.Render("j" + sep + "k scroll" + sep + "esc close")
+	return hintSpans(s.th, s.th.Deemphasized, "j", "", "k", "scroll", "esc", "close")
 }

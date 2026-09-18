@@ -341,8 +341,10 @@ func (d *ConnectDialog) pickerBox(inner int) string {
 	if len(lines) == 0 {
 		lines = append(lines, d.th.Deemphasized.Render(clipCells("no match", boxInner, clipTail(d.th))))
 	}
-	lines = append(lines, d.th.Deemphasized.Render(
-		clipCells("j/k move  enter pick  esc back", boxInner, clipTail(d.th))))
+	lines = append(lines, clipCells(
+		d.th.Key("j/k")+d.th.Deemphasized.Render(" move  ")+
+			d.th.Key("enter")+d.th.Deemphasized.Render(" pick  ")+
+			d.th.Key("esc")+d.th.Deemphasized.Render(" back"), boxInner, clipTail(d.th)))
 
 	head := titleLine(d.th, title)
 

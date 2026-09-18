@@ -5,7 +5,6 @@ package tui
 
 import (
 	"jiso/internal/tui/frame"
-	"jiso/internal/tui/widgets"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -56,12 +55,9 @@ func (m *RootModel) View() tea.View {
 		// The file picker is centered exactly like the modals.
 		content = overlayCenter(content, boxed(m.filePick.View()), inner.Width, inner.Height)
 	}
-	for _, c := range []*widgets.ConfirmDialog{
-		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
-		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
-	} {
-		// §N3 confirms: the two-line question renders in a centered
-		// modal box over the unchanged page.
+	for _, c := range m.confirms() {
+		// §N3 confirms: the question renders in a centered modal box over
+		// the unchanged page; the decision keys ride the footer strip.
 		if c != nil && c.Pending() {
 			content = overlayCenter(content, boxed(c.View()), inner.Width, inner.Height)
 		}

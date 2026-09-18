@@ -1,6 +1,6 @@
 [38;2;68;147;248mPCAP ANALYZE[m  [2;38;2;141;150;160m1 capture[m ▸ [2;38;2;141;150;160m2 spec[m ▸ [2;38;2;141;150;160m3 header[m ▸ [38;2;68;147;248m4 run[m
 [38;2;68;147;248mITEMS  2 of 2 included[m
-[2;38;2;141;150;160mspace toggle · a all/none · enter apply · esc close[m
+[1;38;2;68;147;248mspace[m[2;38;2;141;150;160m toggle[m[2;38;2;141;150;160m · [m[1;38;2;68;147;248ma[m[2;38;2;141;150;160m all/none[m[2;38;2;141;150;160m · [m[1;38;2;68;147;248menter[m[2;38;2;141;150;160m apply[m[2;38;2;141;150;160m · [m[1;38;2;68;147;248mesc[m[2;38;2;141;150;160m close[m
 [38;2;141;150;160m    NAME                          KIND        [m [38;2;68;147;248mPREVIEW  tall (transaction)  3-25/100[m
 [38;2;68;147;248m▸ ✓ tall                          transaction [m line-02                              
   ✓ wide                          mock_route   line-03                              

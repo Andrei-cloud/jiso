@@ -395,9 +395,11 @@ func (s *Scenarios) stepViewport() int {
 }
 
 // Hints is the page context keymap; the narrow footer keeps run/export/tab
-// primary (the router appends the global bindings). Esc pops (no-op at depth 1).
+// primary (the router appends the global bindings). Esc pops (no-op at
+// depth 1). While the step-preview overlay is open its in-body line
+// badges j/k/esc, so the strip drops those two entries only.
 func (s *Scenarios) Hints() []frame.KeyHint {
-	return []frame.KeyHint{
+	hints := []frame.KeyHint{
 		{Key: theme.KeyEnter, Desc: "run", Primary: true},
 		{Key: "e", Desc: "export report", Primary: true},
 		{Key: theme.KeyTab, Desc: "pane", Primary: true},
@@ -405,4 +407,9 @@ func (s *Scenarios) Hints() []frame.KeyHint {
 		{Key: theme.KeyNavJK, Desc: "nav"},
 		{Key: theme.KeyEsc, Desc: "back"},
 	}
+	if s.stepPreviewOpen {
+		return hintsMinus(hints, theme.KeyNavJK, theme.KeyEsc)
+	}
+
+	return hints
 }

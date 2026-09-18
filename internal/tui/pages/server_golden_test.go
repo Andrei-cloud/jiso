@@ -76,8 +76,9 @@ func TestServerGoldens(t *testing.T) {
 			page := NewServer(th)
 			page.SetState(serverRunningState())
 			_, _ = page.Update(windowSize(120, 32))
-			// The root's stop-confirm composition: the two-line
-			// dialog over the page body, pending by construction.
+			// The root's stop-confirm composition: the question line over
+			// the page body, pending by construction (the decision keys
+			// live in the root's footer strip, outside this render).
 			confirm := widgets.NewConfirmDialog(th,
 				"stop mock server :9999 with 3 live connection(s)?")
 			checkGolden(t, "server_confirm_"+p.name,

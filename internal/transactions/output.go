@@ -3,8 +3,8 @@
 // os.Stderr, which corrupts the TUI's alternate screen mid-frame —
 // changing the transaction file mid-session reloads the collection and
 // could print through the open frame. The sink defaults to os.Stderr
-// (CLI/REPL parity) and is swappable via SetOutput — the TUI installs a
-// capture writer that routes every line into its console strip.
+// (CLI/REPL parity) and is swappable via SetOutput; the TUI no longer
+// captures it — system lines land in the terminal's scrollback.
 package transactions
 
 import (

@@ -32,10 +32,9 @@ func (a *Analyze) unparsableWindow() (listW, rows int) {
 // unparsableOverlay composes the viewer body for the content area.
 func (a *Analyze) unparsableOverlay(w, h int) string {
 	total := len(a.state.UnparsableRows)
-	sep := a.th.Separator()
 	head := titleLine(a.th, "UNPARSABLE MESSAGES  showing first "+strconv.Itoa(total)+
 		" of "+strconv.Itoa(a.state.Unparsable)) + "\n" +
-		a.th.Dim.Render("j/k sample"+sep+"esc close")
+		hintSpans(a.th, a.th.Dim, "j/k", "sample", "esc", "close")
 
 	// Same pane budget as the generated-item picker: render clips the
 	// overlay to h-2 lines and the two-line head consumes two, so the

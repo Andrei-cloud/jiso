@@ -437,8 +437,10 @@ func (s *Sessions) syncTxID() {
 
 // Hints is the §I context keymap; select/review/refresh are primary so
 // the narrow footer keeps them (the router appends the global bindings).
+// While the review overlay is open it lists its keys in-body (badged),
+// so the strip drops its esc entry and nothing else.
 func (s *Sessions) Hints() []frame.KeyHint {
-	return []frame.KeyHint{
+	hints := []frame.KeyHint{
 		{Key: theme.KeyEnter, Desc: "open", Primary: true},
 		{Key: "t", Desc: "review tx", Primary: true},
 		{Key: theme.KeyTab, Desc: "pane", Primary: true},
@@ -446,6 +448,11 @@ func (s *Sessions) Hints() []frame.KeyHint {
 		{Key: "r", Desc: "reload"},
 		{Key: theme.KeyEsc, Desc: "back"},
 	}
+	if s.reviewOpen {
+		return hintsMinus(hints, theme.KeyEsc)
+	}
+
+	return hints
 }
 
 // txStatusCell maps a canonical tx status token to its symbol+word cell

@@ -38,8 +38,12 @@ $ jiso tui
 
 - Header: `jiso <version> | <mode>` left, connection status right
   (`online` / `● ONLINE`), plus the spec / db / srv strip.
-- Footer: context hints generated from the current page's keymap, followed by
-  the global hints (palette, help, quit). Never hardcoded per page.
+- Footer: the global legend (page jumps, then palette / help / quit) followed
+  by context hints generated from the current page's keymap. Never hardcoded
+  per page. One hotkey surface per state: while a keyboard-owning overlay
+  lists its keys in-body (dialogs, forms, wizards, file picker, inline
+  viewers) or documents every key in its box (help), the strip keeps the
+  global legend only — and a pending confirm swaps its decision keys into it.
 - Key glyphs in body text (empty-state hints, wizard footers, inline toggle
   notes) render bold-accent, matching the footer's accented keys, so an
   inline affordance reads as a hotkey at a glance.
@@ -427,7 +431,10 @@ default answer is always **No**:
 | `n`, `esc`, `enter` | Cancel — the default |
 
 Everything else is swallowed while a confirm is pending (page jumps
-included). Confirms fire on: quit with active workers, stop all workers,
+included). While one is pending the box only asks its question: the
+decision keys (`y confirm`, `n cancel`, `esc cancel`) badge the footer
+strip next to the global legend, and the page's own context hints stay
+dropped until the answer lands. Confirms fire on: quit with active workers, stop all workers,
 disconnect while workers or the mock server run, mock-server stop with live
 connections, analyze abort over an in-flight step, analyze / scenario-export
 / CTF overwrite of an existing path, and settings save.

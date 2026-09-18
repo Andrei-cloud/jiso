@@ -116,35 +116,48 @@ func TestConfirmNonKeyMsgsIgnored(t *testing.T) {
 	}
 }
 
-func TestConfirmViewHasQuestionAndHints(t *testing.T) {
+// The box only asks: the decision keys ride the owner's hotkey strip
+// (badged by the frame), so the dialog's own render carries the question
+// and no key hint line.
+func TestConfirmViewRendersQuestionOnly(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name string
 		th   func(*testing.T) *theme.Theme
-		sep  string
 	}{
-		{"tc", tcTheme, "·"},
-		{"ascii", asciiTheme, "|"},
+		{"tc", tcTheme},
+		{"ascii", asciiTheme},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			m := NewConfirmDialog(tc.th(t), "Drop the session database?")
 			m.Open()
 			ls := lines(m.View())
-			if len(ls) != 2 {
-				t.Fatalf("view is %d lines, want 2:\n%s", len(ls), m.View())
+			if len(ls) != 1 {
+				t.Fatalf("view is %d lines, want the question alone:\n%s", len(ls), m.View())
 			}
 			if ls[0] != "Drop the session database?" && strip(ls[0]) != "Drop the session database?" {
 				t.Errorf("question line %q", strip(ls[0]))
 			}
-			hint := strip(ls[1])
-			for _, want := range []string{"y confirm", "n", "esc cancel", "default: no", tc.sep} {
-				if !strings.Contains(hint, want) {
-					t.Errorf("hint %q lacks %q", hint, want)
+			for _, gone := range []string{"confirm", "cancel", "default"} {
+				if strings.Contains(strip(m.View()), gone) {
+					t.Errorf("render still carries the old hint word %q:\n%s", gone, m.View())
 				}
 			}
 		})
+	}
+}
+
+// DecisionKeys reports the decision key/help pairs the owner badged into
+// its hotkey strip, derived from the bindings Update acts on.
+func TestConfirmDecisionKeys(t *testing.T) {
+	t.Parallel()
+
+	m := NewConfirmDialog(asciiTheme(t), "Stop all workers?")
+	want := []DecisionKey{{Key: "y", Desc: "confirm"}, {Key: "n", Desc: "cancel"}, {Key: "esc", Desc: "cancel"}}
+	if got := m.DecisionKeys(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("DecisionKeys() = %+v, want %+v", got, want)
 	}
 }
 

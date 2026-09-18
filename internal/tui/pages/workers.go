@@ -247,8 +247,10 @@ func (w *Workers) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 
 // Hints is the §H context keymap; the four worker actions are primary so
 // the narrow footer keeps them (the router appends the global bindings).
+// While the summary overlay is open its in-body "esc close" line is the
+// single hotkey surface, so the strip drops its esc entry.
 func (w *Workers) Hints() []frame.KeyHint {
-	return []frame.KeyHint{
+	hints := []frame.KeyHint{
 		{Key: "b", Desc: "bgsend", Primary: true},
 		{Key: "t", Desc: "stress", Primary: true},
 		{Key: "k", Desc: "stop sel", Primary: true},
@@ -256,4 +258,9 @@ func (w *Workers) Hints() []frame.KeyHint {
 		{Key: "j/up", Desc: "nav"},
 		{Key: theme.KeyEsc, Desc: "back"},
 	}
+	if w.summaryOpen {
+		return hintsMinus(hints, theme.KeyEsc)
+	}
+
+	return hints
 }

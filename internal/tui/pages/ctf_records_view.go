@@ -184,20 +184,24 @@ func (c *Ctf) ctfRecStatus() string {
 	return clipCells(c.th.Dim.Render(line), c.recordBoxWidth(), clipTail(c.th))
 }
 
-// ctfRecWriteLine is the write/close line under the box; the §N3
-// overwrite warning keeps its warn styling (root stamped the flag).
+// ctfRecWriteLine is the write/close line under the box; the key glyphs
+// carry the Theme.Key badge (the overlay's single hotkey surface), the
+// §N3 overwrite warning keeps its warn styling (root stamped the flag).
 func (c *Ctf) ctfRecWriteLine() string {
 	p := c.state.Preview
-	line := "w write" + joinSep(c.th) + pickGlyph(c.th, "\u2192", "->") +
-		" " + dashIf(c.th, p.OutPath) +
-		" (" + strconv.Itoa(len(p.Records)) + " records)" + joinSep(c.th) + "esc close"
 	if p.Overwrite {
-		line = "target exists - w overwrites " + dashIf(c.th, p.OutPath) + joinSep(c.th) + "esc closes first"
+		warn := func(s string) string { return c.th.Status(theme.KindWarn, s) }
 
-		return clipCells(c.th.Status(theme.KindWarn, line), c.recordBoxWidth(), clipTail(c.th))
+		return clipCells(warn("target exists - ")+c.th.Key("w")+
+			warn(" overwrites "+dashIf(c.th, p.OutPath)+joinSep(c.th))+
+			c.th.Key("esc")+warn(" closes first"), c.recordBoxWidth(), clipTail(c.th))
 	}
+	base := c.th.Deemphasized.Render
 
-	return clipCells(c.th.Deemphasized.Render(line), c.recordBoxWidth(), clipTail(c.th))
+	return clipCells(c.th.Key("w")+base(" write"+joinSep(c.th))+
+		base(pickGlyph(c.th, "\u2192", "->")+" "+dashIf(c.th, p.OutPath)+
+			" ("+strconv.Itoa(len(p.Records))+" records)"+joinSep(c.th))+
+		c.th.Key("esc")+base(" close"), c.recordBoxWidth(), clipTail(c.th))
 }
 
 // recordBoxWidth is the content width the overlay lines clip to.

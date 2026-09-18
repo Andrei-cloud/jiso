@@ -42,14 +42,16 @@ type ConfirmDialog struct {
 	yes, no, cancel, defNo key.Binding
 }
 
-// NewConfirmDialog builds a pending dialog for question.
+// NewConfirmDialog builds a pending dialog for question. The help texts
+// on the decision bindings are the DecisionKeys report — the owner
+// badges them into its hotkey strip (one surface per state).
 func NewConfirmDialog(th *theme.Theme, question string) *ConfirmDialog {
 	return &ConfirmDialog{
 		theme:    th,
 		question: question,
-		yes:      key.NewBinding(key.WithKeys("y", "Y")),
-		no:       key.NewBinding(key.WithKeys("n", "N")),
-		cancel:   key.NewBinding(key.WithKeys(theme.KeyEsc)),
+		yes:      key.NewBinding(key.WithKeys("y", "Y"), key.WithHelp("y", "confirm")),
+		no:       key.NewBinding(key.WithKeys("n", "N"), key.WithHelp("n", "cancel")),
+		cancel:   key.NewBinding(key.WithKeys(theme.KeyEsc), key.WithHelp(theme.KeyEsc, "cancel")),
 		defNo:    key.NewBinding(key.WithKeys(theme.KeyEnter)),
 	}
 }
@@ -95,19 +97,27 @@ func (m *ConfirmDialog) Update(msg tea.Msg) (*ConfirmDialog, tea.Cmd) {
 	}
 }
 
-// View renders the overlay block (question + y/n hint, two lines). The
-// page centers/frames it over its content; after a decision it renders
-// empty.
+// DecisionKey is one decision key with its help text, for the owner's
+// hotkey strip (widgets keeps frame's hint type behind its import fence).
+type DecisionKey struct{ Key, Desc string }
+
+// DecisionKeys reports the decision keys (y confirm, n cancel, esc
+// cancel) derived from the bindings Update acts on; the owner styles
+// them. Enter still cancels but is not advertised — n/esc carry the
+// default-No answer.
+func (m *ConfirmDialog) DecisionKeys() []DecisionKey {
+	yes, no, cancel := m.yes.Help(), m.no.Help(), m.cancel.Help()
+
+	return []DecisionKey{{yes.Key, yes.Desc}, {no.Key, no.Desc}, {cancel.Key, cancel.Desc}}
+}
+
+// View renders the overlay block: the question alone. The decision keys
+// ride the owner's hotkey strip badged (one hotkey surface per state);
+// after a decision it renders empty.
 func (m *ConfirmDialog) View() string {
 	if m.state != phaseOpen {
 		return ""
 	}
-	sep := "·"
-	if m.theme.ASCII {
-		sep = "|"
-	}
-	hint := "y confirm " + sep + " n" + sep + "esc cancel " + sep + " default: no"
 
-	return m.theme.TextPrimary.Render(m.question) + "\n" +
-		m.theme.Dim.Render(hint)
+	return m.theme.TextPrimary.Render(m.question)
 }

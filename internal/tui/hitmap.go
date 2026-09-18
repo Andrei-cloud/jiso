@@ -369,20 +369,30 @@ func (m *RootModel) modalOpen() bool {
 	return m.confirmPending()
 }
 
+// confirms lists the seven §N3 dialogs the overlay stack may draw.
+func (m *RootModel) confirms() []*widgets.ConfirmDialog {
+	return []*widgets.ConfirmDialog{
+		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
+		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
+	}
+}
+
+// pendingConfirm returns the pending §N3 confirm (nil when none).
+func (m *RootModel) pendingConfirm() *widgets.ConfirmDialog {
+	for _, c := range m.confirms() {
+		if c != nil && c.Pending() {
+			return c
+		}
+	}
+
+	return nil
+}
+
 // confirmPending reports a pending §N3 confirm, which the overlay stack draws
 // last — over even the file picker, whose click rows stop publishing while
 // one is up.
 func (m *RootModel) confirmPending() bool {
-	for _, c := range []*widgets.ConfirmDialog{
-		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
-		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
-	} {
-		if c != nil && c.Pending() {
-			return true
-		}
-	}
-
-	return false
+	return m.pendingConfirm() != nil
 }
 
 // handleSelectMsg resolves a selectMsg to a drawn row and moves the cursor

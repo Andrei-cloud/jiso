@@ -1,5 +1,4 @@
 stop mock server :9999 with 3 live connection(s)?
-y confirm | n|esc cancel | default: no
 MOCK SERVER  * running :9999 (binary2)  uptime 00:42:11
 STATS                                  ROUTES                                                                       
 +------------------------------------+ +---------------------------------------------------------------------------+
