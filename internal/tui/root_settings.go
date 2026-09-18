@@ -179,12 +179,20 @@ func (m *RootModel) applySettingsApplied(msg settingsAppliedMsg) (tea.Model, tea
 	if m.txFilePickFromB {
 		m.txFilePickFromB = false
 		m.txFileLoadErr = msg.errs[app.SettingTxFile]
-		if m.txFileLoadErr == "" {
-			m.debug.logf("tx file loaded from §B: %s", msg.patch[app.SettingTxFile])
-		} else {
+		if m.txFileLoadErr != "" {
 			// An explicit load the user just asked for failed: the modal
 			// makes the whole reason readable over §B's empty state.
 			m.openErrorModal("cannot load transaction file", errors.New(m.txFileLoadErr))
+		} else if e, bad := msg.errs[app.SettingSpec]; bad {
+			// A chained spec pick whose SPEC failed to load: the apply loop
+			// is per-field, so the tx file landed against the previous live
+			// spec — the modal names the rejected spec (§L's shape). The
+			// inline line stays empty on purpose: the loaded file keeps its
+			// table under the true spec chip, where a load-error body would
+			// claim nothing loaded.
+			m.openErrorModal("cannot load specification file", errors.New(e))
+		} else {
+			m.debug.logf("tx file loaded from §B: %s", msg.patch[app.SettingTxFile])
 		}
 
 		return m, nil
