@@ -131,11 +131,11 @@ func TestPageModalsSuppressPageHintsInFooter(t *testing.T) {
 	}
 }
 
-// TestConfirmPendingFooterSwapsInDecisionKeys: the pending confirm's old
+// TestConfirmPendingFooterSwapInDecisionKeys: the pending confirm's old
 // dim body line is gone from the box; its decision keys sit in the strip,
 // badged through the frame's Theme.Key path, as legend-only entries;
 // cancel restores the page hints.
-func TestConfirmPendingFooterSwapsInDecisionKeys(t *testing.T) {
+func TestConfirmPendingFooterSwapInDecisionKeys(t *testing.T) {
 	m := footerRootT(t)
 	pageHints := m.Current().Hints()
 	m.workersConfirm = widgets.NewConfirmDialog(m.themeOrNil(), "stop all workers?")

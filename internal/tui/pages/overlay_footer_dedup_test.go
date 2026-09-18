@@ -34,6 +34,8 @@ func hintsEqual(a, b []frame.KeyHint) bool {
 // dedupCase drives one page-owned overlay: opened() pushes the overlay
 // state and reports the hints while it is open plus a reader of the hints
 // after the overlay closes; clean() is the same page without the overlay.
+// bodyKeys are the keys the footer must NOT carry while open — listed by
+// the in-body line or hijacked by the overlay's own cursor.
 type dedupCase struct {
 	name     string
 	bodyKeys []string
@@ -50,7 +52,7 @@ func TestPageOverlayHintsDedupWhileOpen(t *testing.T) {
 	cases := []dedupCase{
 		{
 			name:     "analyze items",
-			bodyKeys: []string{"space", "a", "enter", theme.KeyEsc},
+			bodyKeys: []string{"space", "a", "enter", theme.KeyEsc, theme.KeyNavJK},
 			opened: func(t *testing.T) ([]frame.KeyHint, func() []frame.KeyHint) {
 				a := analyzePage(t, analyzeTallItemsState(6), 120, 32)
 				if !a.itemsOpen {

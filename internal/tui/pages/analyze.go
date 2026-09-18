@@ -353,8 +353,9 @@ func (a *Analyze) Hints() []frame.KeyHint {
 		{Key: "w", Desc: "write"},
 		{Key: theme.KeyEsc, Desc: "back", Primary: true},
 	}
-	if a.itemsOpen { // the picker lists space/a/enter/esc in-body
-		return hintsMinus(run, theme.KeyEnter, "space", theme.KeyEsc)
+	if a.itemsOpen { // the picker lists space/a/enter/esc in-body and
+		// drives its roster cursor on j/k, so "flow" would mislabel them
+		return hintsMinus(run, theme.KeyEnter, "space", theme.KeyEsc, theme.KeyNavJK)
 	}
 	if a.unparsableOpen { // the viewer lists j/k/esc in-body
 		return hintsMinus(run, theme.KeyNavJK, theme.KeyEsc)
