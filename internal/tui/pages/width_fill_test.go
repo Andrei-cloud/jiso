@@ -140,6 +140,13 @@ func TestSectionedPagesFillContentWidth(t *testing.T) {
 
 			return p.View().Content
 		}},
+		{"transactions", func(t *testing.T, th *theme.Theme, w, h int) string {
+			p := NewTransactions(th)
+			p.SetState(populatedState())
+			_, _ = p.Update(windowSize(w, h))
+
+			return p.View().Content
+		}},
 	}
 
 	for _, v := range views {

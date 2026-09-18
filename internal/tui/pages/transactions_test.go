@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-
-	"jiso/internal/tui/widgets"
 )
 
 // TestTxPageInterface proves *Transactions implements Page without the
@@ -158,6 +156,7 @@ func TestDatasetCell(t *testing.T) {
 		want string
 	}{
 		{"pool", 3, "pool (3)"},
+		{"pool", 0, "pool (0)"}, // a named dataset with no rows still names itself
 		{"inline", 2, "inline (2)"},
 		{"gone", -1, "gone"},
 		{"", 0, ""},
@@ -170,19 +169,12 @@ func TestDatasetCell(t *testing.T) {
 
 // TestTxDatasetSpecCells: DATASET/SPEC cells render the strings root
 // pre-derived verbatim — "pool (3)", "inline (2)", a bare "gone" (missing
-// dataset, no count) — and empty cells render the dash. Columns are widened
-// past the shipped widths here so no cell truncates at the asserted strings.
+// dataset, no count) — at the shipped relative widths, and an empty cell
+// renders the dash in its own column (never another cell's text).
 func TestTxDatasetSpecCells(t *testing.T) {
 	t.Parallel()
 
 	p := NewTransactions(asciiTheme(t))
-	p.table.SetColumns([]widgets.Column{
-		{Title: "NAME", Width: 10},
-		{Title: "MTI", Width: 6},
-		{Title: "DESCRIPTION", Width: 22, Flex: true},
-		{Title: "DATASET", Width: 12},
-		{Title: "SPEC", Width: 12},
-	})
 	p.SetState(TransactionsState{FileName: "pool.json", TxCount: 3, Rows: []TxRow{
 		{ID: "alpha", Name: "Alpha", MTI: "0200", Description: "declared both", Dataset: "pool (3)", Spec: "flex.json"},
 		{ID: "bravo", Name: "Bravo", MTI: "0200", Description: "inline rows", Dataset: "inline (2)"},
@@ -210,6 +202,20 @@ func TestTxDatasetSpecCells(t *testing.T) {
 		}
 		if strings.Contains(line, "flex.json") {
 			t.Errorf("Charlie row must dash its spec:\n%s", line)
+		}
+	}
+	// Positive dash-glyph position check (ASCII profile): the dash must
+	// sit in the SPEC column itself — the row's last data field — not
+	// merely be the absence of another cell's text.
+	for _, name := range []string{"Bravo", "Charlie"} {
+		for _, line := range strings.Split(body, "\n") {
+			if !strings.Contains(line, name) {
+				continue
+			}
+			cells := strings.Split(line, "|")
+			if cell := strings.TrimSpace(cells[len(cells)-2]); cell != "-" {
+				t.Errorf("%s row must dash its own SPEC cell, found %q:\n%s", name, cell, line)
+			}
 		}
 	}
 }

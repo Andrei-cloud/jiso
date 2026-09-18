@@ -31,20 +31,79 @@ const (
 	ASCIICursor = "|"
 )
 
-// txMinTableWidth is the Table's floor width before the first size msg.
+// txMinTableWidth is the Table's starting width before the first size
+// msg; every render re-sizes it to the content width.
 const txMinTableWidth = 40
 
-// txColumns are the §B column widths (NAME · MTI · DESCRIPTION · DATASET ·
-// SPEC). DESCRIPTION is the flex column: it gives first on narrow terminals
-// and cells truncate, never wrap.
-func txColumns() []widgets.Column {
-	return []widgets.Column{
-		{Title: "NAME", Width: 16},
-		{Title: "MTI", Width: 6},
-		{Title: "DESCRIPTION", Width: 34, Flex: true},
-		{Title: "DATASET", Width: 9},
-		{Title: "SPEC", Width: 8},
+// txCol describes one §B column: its title, its minimum readable cell
+// width, and its share of the leftover space. MTI carries no weight —
+// its four-rune indicator always fits.
+type txCol struct {
+	title  string
+	min    int
+	weight int
+}
+
+// txCols are the §B columns (NAME · MTI · DESCRIPTION · DATASET · SPEC).
+// DESCRIPTION is heaviest: its weight and its absorption of the
+// rounding remainder mirror how §F and §G give the spare cells to the
+// main pane.
+var txCols = [...]txCol{
+	{"NAME", 10, 3},
+	{"MTI", 4, 0},
+	{"DESCRIPTION", 12, 5},
+	{"DATASET", 8, 2},
+	{"SPEC", 8, 2},
+}
+
+// txWeightSum is the total distribution weight of txCols.
+const txWeightSum = 3 + 5 + 2 + 2
+
+// txDescCol is the DESCRIPTION column: the heaviest weight and the
+// absorber of the rounding remainder, as §F and §G hand spare cells to
+// the main pane.
+const txDescCol = 2
+
+// txWidths resolves the five cell widths for a content width: every
+// column keeps its minimum, and the leftover past the minima and the
+// grid chrome is split by weight with the rounding remainder landing on
+// DESCRIPTION. Below what the minima plus chrome need, every column
+// stays at its minimum (the page then clips rows at the content edge,
+// never shaving a column a second time).
+func txWidths(w int) []int {
+	ws := make([]int, len(txCols))
+	minSum := 0
+	for i, c := range txCols {
+		ws[i] = c.min
+		minSum += c.min
 	}
+	spare := w - minSum - widgets.GridChrome(len(txCols))
+	if spare <= 0 {
+		return ws
+	}
+	given := 0
+	for i, c := range txCols {
+		give := spare * c.weight / txWeightSum
+		ws[i] += give
+		given += give
+	}
+	ws[txDescCol] += spare - given
+
+	return ws
+}
+
+// txColumns lays the §B column definitions out for a content width (see
+// txWidths). DESCRIPTION keeps the flex mark: it is the column the grid's
+// own fit rule would shrink first, matching its weight lead.
+func txColumns(w int) []widgets.Column {
+	ws := txWidths(w)
+	cols := make([]widgets.Column, len(txCols))
+	for i, c := range txCols {
+		cols[i] = widgets.Column{Title: c.title, Width: ws[i]}
+	}
+	cols[txDescCol].Flex = true
+
+	return cols
 }
 
 // View renders the §B body for the frame's content area.
@@ -72,7 +131,12 @@ func (t *Transactions) render(w, h int) string {
 	if t.state.FileName == "" && len(t.state.Rows) == 0 {
 		return clipBlockStyled(t.th, t.titleRow(w)+"\n"+t.emptyStateBody(), h, w)
 	}
-	t.table.SetWidth(w)
+	t.table.SetColumns(txColumns(w))
+	// Columns never shrink below the relative widths just resolved: at or
+	// above the natural minimum layout the table fills w exactly; below
+	// it the table draws at that natural width and the block clip below
+	// truncates the rows at the content edge, never wraps them.
+	t.table.SetWidth(max(w, t.table.TotalWidth()))
 	t.table.SetHeight(max(h-1-tableGridChrome, 1))
 	body := t.table.View()
 	// Publish the DRAWN table box for the wheel hit map: measured from the

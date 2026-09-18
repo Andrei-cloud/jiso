@@ -446,3 +446,56 @@ func TestTableScrollByClampsToWindow(t *testing.T) {
 		}
 	}
 }
+
+// TotalWidth is the width the current columns ask for: every requested
+// cell width (never below 1) plus the mode's chrome. A caller that must
+// not shrink columns below what they were given sizes the table by at
+// least this.
+func TestTableTotalWidth(t *testing.T) {
+	t.Parallel()
+
+	m := NewTable(asciiTheme(t), 40)
+	m.SetColumns([]Column{
+		{Title: "NAME", Width: 10},
+		{Title: "MTI", Width: 4},
+		{Title: "DESCRIPTION", Width: 12, Flex: true},
+		{Title: "DATASET", Width: 8},
+		{Title: "SPEC", Width: 8},
+	})
+	if got := m.TotalWidth(); got != 60 {
+		t.Errorf("grid total = %d, want 60 (42 cells + 18 chrome)", got)
+	}
+
+	m.SetGrid(false)
+	if got := m.TotalWidth(); got != 48 {
+		t.Errorf("flat total = %d, want 48 (42 cells + 2 selector + 4 separators)", got)
+	}
+
+	m.SetGrid(true)
+	m.SetColumns([]Column{{Width: 0}, {Width: 5}})
+	if got := m.TotalWidth(); got != 1+5+GridChrome(2) {
+		t.Errorf("total = %d, want %d (a zero width counts as 1)", got, 1+5+GridChrome(2))
+	}
+}
+
+// GridChrome is the bordered grid's non-cell width cost: the left border
+// + one border column per field + per-cell padding + the selector inside
+// the first field. resolvedWidths budgets exactly this, so the two can
+// never drift.
+func TestGridChrome(t *testing.T) {
+	t.Parallel()
+
+	if got := GridChrome(5); got != 18 {
+		t.Errorf("GridChrome(5) = %d, want 18", got)
+	}
+
+	m := NewTable(asciiTheme(t), 40)
+	m.SetColumns([]Column{{Width: 10, Flex: true}, {Width: 4}})
+	m.SetRows([]Row{{"a", "b"}})
+	for _, l := range lines(m.View()) {
+		if w := ansi.StringWidth(l); w != 10+4+GridChrome(2) {
+			t.Fatalf("drawn line %d cells, want the natural %d: %q",
+				w, 10+4+GridChrome(2), strip(l))
+		}
+	}
+}

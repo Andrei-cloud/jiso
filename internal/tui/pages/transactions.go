@@ -108,7 +108,7 @@ func NewTransactions(th *theme.Theme) *Transactions {
 		th = theme.Default()
 	}
 	t := &Transactions{th: th, nav: newTxNav(), table: widgets.NewTable(th, txMinTableWidth)}
-	t.table.SetColumns(txColumns())
+	t.table.SetColumns(txColumns(txMinTableWidth))
 
 	return t
 }

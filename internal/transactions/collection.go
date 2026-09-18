@@ -359,10 +359,10 @@ type TransactionInfo struct {
 // dataset rows instead of naming a shared one.
 const inlineDataset = "inline"
 
-// datasetFor resolves the display dataset of one transaction. Inline rows
-// win: they apply on every compose. A dangling dataset_name reports -1 rows
-// — the caller renders the name without a count rather than panic or invent
-// one.
+// datasetFor resolves the display dataset of one transaction. Inline
+// rows are applied on every compose, so they label the entry. A dangling
+// dataset_name reports -1 rows — the caller renders the name without a
+// count rather than panic or invent one.
 func (tc *TransactionCollection) datasetFor(t *Transaction) (string, int) {
 	if len(t.Dataset) > 0 {
 		return inlineDataset, len(t.Dataset)

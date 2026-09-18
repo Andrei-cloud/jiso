@@ -1,12 +1,12 @@
 TRANSACTIONS  pool.json (4)  filter: |  sort: name ^
-+--------------------+--------+------------------------------------+-----------+----------+
-| NAME               | MTI    | DESCRIPTION                        | DATASET   | SPEC     |
-+--------------------+--------+------------------------------------+-----------+----------+
-|> Echo MC           | 0800   | Echo test                          | -         | masterc~ |
-|  Purchase          | 0200   | Purchase authorization             | card_pool | (global) |
-|  Reversal          | 0420   | Reversal of purchase               | card_pool | (global) |
-|  Sign On           | 0800   | Network management sign on         | -         | -        |
-+--------------------+--------+------------------------------------+-----------+----------+
++----------------------------+------+--------------------------------------+-------------------+-------------------+
+| NAME                       | MTI  | DESCRIPTION                          | DATASET           | SPEC              |
++----------------------------+------+--------------------------------------+-------------------+-------------------+
+|> Echo MC                   | 0800 | Echo test                            | -                 | mastercard        |
+|  Purchase                  | 0200 | Purchase authorization               | card_pool         | (global)          |
+|  Reversal                  | 0420 | Reversal of purchase                 | card_pool         | (global)          |
+|  Sign On                   | 0800 | Network management sign on           | -                 | -                 |
++----------------------------+------+--------------------------------------+-------------------+-------------------+
 
 
 

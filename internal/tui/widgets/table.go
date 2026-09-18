@@ -298,6 +298,33 @@ func (m *Table) rowsPerPageHint() int {
 	return 10
 }
 
+// GridChrome is the bordered grid's non-cell width cost: for fields
+// columns, the left border + one border column per field + per-cell
+// padding + the selector inside the first field. resolvedWidths budgets
+// exactly this, so a page laying columns out against a minimum can rely
+// on the same number.
+func GridChrome(fields int) int { return 3 + 3*fields }
+
+// TotalWidth reports the width the current columns ask for: every
+// requested cell width (never below 1) plus the current mode's chrome.
+// A caller that must not shrink columns below what they were given sizes
+// the table by at least this.
+func (m *Table) TotalWidth() int {
+	total := 2 + len(m.cols) - 1 // selector cells + separators
+	if m.grid {
+		total = GridChrome(len(m.cols))
+	}
+	for _, c := range m.cols {
+		if c.Width < 1 {
+			total++
+		} else {
+			total += c.Width
+		}
+	}
+
+	return total
+}
+
 // resolvedWidths applies the flex rule: flex columns give first (right
 // to left, floor 4), then the rest of the deficit from every column
 // right to left. The grid's border budget is counted in grid mode.
@@ -305,9 +332,7 @@ func (m *Table) resolvedWidths() []int {
 	ws := make([]int, len(m.cols))
 	total := 2 + len(m.cols) - 1 // selector cells + separators
 	if m.grid {
-		// left border + one border column per field + per-cell padding
-		// + the selector inside the first field.
-		total = 3 + 3*len(m.cols)
+		total = GridChrome(len(m.cols))
 	}
 	for i, c := range m.cols {
 		if c.Width < 1 {
