@@ -21,10 +21,12 @@ func (m *RootModel) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
-	// The error screen draws over every overlay, so it owns the keyboard
-	// over them all: enter/esc close the screen only (the overlay below
-	// keeps its state and receives keys again), j/k and pgup/pgdown
-	// scroll the body, and every other key is swallowed so the page
+	// The error screen is the topmost overlay — View draws it last and
+	// this leg is the first check, so it owns the keyboard over every
+	// other overlay (only toasts compose above it, and they own no
+	// keys): enter/esc close the screen only (the overlay below keeps
+	// its state and receives keys again), j/k and pgup/pgdown scroll
+	// the body, and every other key is swallowed so the page
 	// (page jumps included) stays frozen.
 	if m.errModal != nil {
 		if m.errModal.UpdateKey(msg) {

@@ -40,11 +40,11 @@ type RootModel struct {
 	// keyboard: `?` toggles, Esc closes first, everything else is swallowed.
 	help *helpOverlay
 
-	// errModal is the root-owned error screen (a modal box above the page
-	// stack, never a page in PageIDs); nil means closed. While open it
-	// owns the keyboard above every overlay: enter/esc close, j/k and
-	// pgup/pgdown scroll, everything else is swallowed so the page below
-	// stays frozen.
+	// errModal is the root-owned error screen (the topmost overlay above
+	// the page stack — only toasts compose above it — never a page in
+	// PageIDs); nil means closed. While open it owns the keyboard over
+	// every overlay: enter/esc close, j/k and pgup/pgdown scroll,
+	// everything else is swallowed so the page below stays frozen.
 	errModal *errorModal
 
 	// Event bridge: eventSrc is installed by SetEventSource and armed as

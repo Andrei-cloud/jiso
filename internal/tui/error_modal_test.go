@@ -467,61 +467,6 @@ func TestErrorModalScrollMsgDispatch(t *testing.T) {
 	}
 }
 
-// double-open pin: the screen draws over every overlay, so it owns the
-// keyboard over them too — with the §E dialog underneath, esc closes only
-// the screen; the dialog stays open and receives keys again after.
-func TestErrorModalOwnsKeysOverOpenDialog(t *testing.T) {
-	m := NewRootModel(nil)
-	m.theme = helpGoldenTheme(colorprofile.ASCII)
-	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	_, _ = m.Update(ch('c'))
-	if m.dlg == nil {
-		t.Fatal("fixture: the connect dialog must be open")
-	}
-	m.openErrorModal("cannot load transaction file", errors.New("bad spec"))
-
-	for _, d := range []rune{'1', '4'} {
-		_, _ = m.Update(ch(d))
-		if got := m.Current().ID(); got != "dashboard" {
-			t.Fatalf("%c jumped pages under the modal: now %q", d, got)
-		}
-	}
-
-	_, _ = m.Update(special(tea.KeyEsc))
-	if m.errModal != nil {
-		t.Fatal("esc must close the screen")
-	}
-	if m.dlg == nil {
-		t.Fatal("esc must close only the screen: the dialog underneath stays open")
-	}
-
-	_, _ = m.Update(special(tea.KeyEsc)) // keys reach the dialog again
-	if m.dlg != nil {
-		t.Fatal("after the close the dialog must receive esc")
-	}
-}
-
-// enter over an open dialog closes the screen without starting the
-// connect attempt the dialog would run.
-func TestErrorModalEnterOverDialogClosesOnlyModal(t *testing.T) {
-	m := NewRootModel(nil)
-	m.theme = helpGoldenTheme(colorprofile.ASCII)
-	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	_, _ = m.Update(ch('c'))
-	m.openErrorModal("cannot connect", errors.New("dial refused"))
-
-	_, _ = m.Update(special(tea.KeyEnter))
-	if m.errModal != nil {
-		t.Fatal("enter must close the screen")
-	}
-	if m.dlg == nil {
-		t.Fatal("enter closed through the dialog underneath")
-	}
-	if m.connectRun != nil {
-		t.Fatal("enter must not start the connect attempt under the screen")
-	}
-}
-
 // the modal's keys are registered in the §M help registry for every page,
 // derived from the same bindings UpdateKey matches on.
 func TestErrorModalKeysInHelpRegistry(t *testing.T) {

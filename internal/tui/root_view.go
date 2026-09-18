@@ -56,13 +56,6 @@ func (m *RootModel) View() tea.View {
 		// The file picker is centered exactly like the modals.
 		content = overlayCenter(content, boxed(m.filePick.View()), inner.Width, inner.Height)
 	}
-	if m.errModal != nil {
-		// The error screen reuses the centered modal box, drawn over the
-		// frozen page and every input overlay in the confirm band; it
-		// owns the keyboard first (see updateKey) so its hint line never
-		// advertises keys an invisible overlay would steal.
-		content = overlayCenter(content, m.errModal.View(inner.Width, inner.Height), inner.Width, inner.Height)
-	}
 	for _, c := range []*widgets.ConfirmDialog{
 		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
 		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
@@ -72,6 +65,14 @@ func (m *RootModel) View() tea.View {
 		if c != nil && c.Pending() {
 			content = overlayCenter(content, boxed(c.View()), inner.Width, inner.Height)
 		}
+	}
+	if m.errModal != nil {
+		// The error screen is the topmost overlay (drawn last before the
+		// toasts), so drawn z-order equals keyboard z-order: updateKey
+		// hands it keys first and its hint line never lies. A pending
+		// confirm below stays live — hidden while the screen is up,
+		// revealed and armed again once it closes.
+		content = overlayCenter(content, m.errModal.View(inner.Width, inner.Height), inner.Width, inner.Height)
 	}
 
 	out := tea.NewView(frame.Render(m.frameProps(m.overlayToasts(content))))
