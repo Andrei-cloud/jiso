@@ -14,6 +14,7 @@ package tui
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -56,6 +57,10 @@ func (m *RootModel) exportScenarioReport() (tea.Model, tea.Cmd) {
 	if report == nil {
 		m.scenarioStatusLine = "no report yet"
 		m.debug.logf("scenario export (no report)")
+		// An explicit `e` that could do nothing: the honest screen says
+		// what the key needs, instead of a status line nobody re-reads.
+		m.openErrorModal("no scenario report to export",
+			errors.New("run a scenario first: e exports the report of the last completed run"))
 
 		return m, nil
 	}
@@ -153,6 +158,7 @@ func (m *RootModel) applyScenarioExported(msg scenarioExportedMsg) (tea.Model, t
 	m.scenarioWriteWait = false
 	if msg.err != nil {
 		m.scenarioStatusLine = "report failed: " + msg.err.Error()
+		m.openErrorModal("cannot export scenario report", msg.err)
 	} else {
 		m.scenarioStatusLine = "report → " + msg.path
 	}

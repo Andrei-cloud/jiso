@@ -6,6 +6,7 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -225,5 +226,46 @@ func TestRootScenarioStepDetailErrorFoldsNote(t *testing.T) {
 	}
 	if strings.Contains(m.View().Content, "REQUEST HEX") {
 		t.Errorf("the error preview must not fake message sections:\n%s", m.View().Content)
+	}
+}
+
+// a preview load that fails (the §8 pack failure) opens the error screen
+// with the FULL error body — the overlay would otherwise show an
+// error-only body — while the inline step-detail note stays for
+// re-reading after esc closes the screen.
+func TestRootScenarioStepDetailErrorOpensModal(t *testing.T) {
+	m := NewRootModel(newScenarioApp(t))
+	_, _ = m.Update(palette.GoToPageMsg{ID: "scenarios"})
+
+	_, cmd := m.Update(pages.ScenarioStepDetailMsg{StepIndex: 3, ScenarioID: "E2E Purchase and Reversal"})
+	if cmd == nil {
+		t.Fatal("the detail arm must fire the load")
+	}
+	// The §8 screenshot error, folded through the real leg identity.
+	packErr := `template "Reversal Template" does not pack with the loaded spec: failed to pack field 14 (Expiration Date): failed to encode length: field length: 11 should be 4`
+	_, _ = m.Update(scenarioStepDetailLoadedMsg{
+		seq: m.scenarioDetail.seq, scenarioID: "E2E Purchase and Reversal", stepIndex: 3,
+		err: errors.New(packErr),
+	})
+
+	if m.errModal == nil {
+		t.Fatal("an error-only preview must open the error screen")
+	}
+	mustShow(t, m.View().Content, "cannot preview step message")
+	// The whole error must be readable in the screen: word runs survive.
+	if got, want := strings.Join(strings.Fields(strings.Join(m.errModal.Lines(), " ")), " "),
+		strings.Join(strings.Fields(packErr), " "); got != want {
+		t.Errorf("modal body lost error content:\n got %q\nwant %q", got, want)
+	}
+	if p := m.scenarioDetail.preview; p == nil || p.Note != packErr {
+		t.Fatalf("the inline note must stay beside the screen: %+v", p)
+	}
+
+	_, _ = m.Update(special(tea.KeyEscape))
+	if m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if !strings.Contains(m.View().Content, "does not pack") {
+		t.Error("the step-detail error text must stay readable after the screen closes")
 	}
 }

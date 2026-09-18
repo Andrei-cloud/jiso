@@ -133,6 +133,7 @@ func (m *RootModel) applyAnalyzeWrite(msg analyzeWriteLoadedMsg) (tea.Model, tea
 	if msg.err != nil {
 		m.analyzeWriteLine = "write failed: " + msg.err.Error()
 		m.analyzeWriteOK = false
+		m.openErrorModal("cannot write analyze output", msg.err)
 
 		return m, nil
 	}

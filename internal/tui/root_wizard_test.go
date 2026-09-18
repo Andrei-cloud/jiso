@@ -301,3 +301,28 @@ func TestRootWizardFileItemsAreTxFiles(t *testing.T) {
 		}
 	}
 }
+
+// a tx file that vanished between listing and apply opens the error
+// screen naming the path (an explicit pick failure); the wizard step
+// keeps its inline missing-file line and stays open.
+func TestRootWizardMissingFileOpensModal(t *testing.T) {
+	r := wizardTestRoot(t)
+	r.upd(palette.OpenSendWizardMsg{})
+	r.upd(pages.WizardChooseFileMsg{Path: "/definitely/missing.json"})
+
+	if r.m.errModal == nil {
+		t.Fatal("a vanished pick must open the error screen")
+	}
+	mustShow(t, r.m.View().Content, "cannot open file", "/definitely/missing.json")
+	if err := r.m.wizard.State().Error; !strings.Contains(err, "no such file") {
+		t.Errorf("inline error = %q, want the missing-file line", err)
+	}
+
+	r.upd(special(tea.KeyEsc))
+	if r.m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if r.m.wizard == nil {
+		t.Fatal("the wizard must stay open underneath the screen")
+	}
+}

@@ -141,7 +141,12 @@ func TestRootServerStartFailureKeepsFormOpen(t *testing.T) {
 	if r.startCount() != 1 {
 		t.Fatalf("auto-retry after failure: %d starts", r.startCount())
 	}
-	// The form stays editable: Esc still closes it.
+	// The failure screen sits over the form; esc closes it first (my
+	// modal doctrine), the next esc still closes the form itself.
+	_, _ = r.m.Update(special(tea.KeyEsc))
+	if r.m.errModal != nil || r.m.serverDlg == nil {
+		t.Fatalf("esc must close the screen only: screen=%v form=%v", r.m.errModal != nil, r.m.serverDlg != nil)
+	}
 	_, _ = r.m.Update(special(tea.KeyEsc))
 	if r.m.serverDlg != nil {
 		t.Fatal("esc did not close the failed form")
@@ -405,5 +410,37 @@ func TestServerLogStaysOnServerPage(t *testing.T) {
 	r.key('1')
 	if v := r.m.View().Content; strings.Contains(v, "Responding 0810") {
 		t.Errorf("dashboard must not show server output:\n%s", v)
+	}
+}
+
+// a failed start opens the error screen with the serve leg's error and
+// leaves the form open underneath as retry context; esc closes only the
+// screen.
+func TestRootServerFormStartFailureOpensModal(t *testing.T) {
+	r := newServeTestRoot(t)
+	r.startErr = errors.New("listen tcp :9999: bind: address already in use")
+	_, _ = r.m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	r.key('4')
+	r.key('c')
+	_, cmd := r.m.Update(special(tea.KeyEnter))
+	r.run(cmd)
+
+	if r.m.errModal == nil {
+		t.Fatal("a failed start must open the error screen")
+	}
+	mustShow(t, r.m.View().Content, "cannot start mock server", "address already in use")
+	if r.m.serverDlg == nil {
+		t.Fatal("the start form must stay open underneath (retry context)")
+	}
+	if st := r.m.serverDlg.State(); st.Error == "" {
+		t.Error("the form keeps its inline error line")
+	}
+
+	_, _ = r.m.Update(special(tea.KeyEsc))
+	if r.m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if r.m.serverDlg == nil {
+		t.Fatal("esc must close the screen only: the retry form stays open")
 	}
 }

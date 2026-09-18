@@ -213,3 +213,26 @@ func TestStatusStripCurrentTruth(t *testing.T) {
 		t.Fatalf("strip after reconnect = %q, want the fresh connected line", line)
 	}
 }
+
+// TestBackgroundReconnectFailureGetsChipOnly: a ConnectionEvent failure
+// arriving with no user-issued connect in flight is the connection
+// manager's background flap — the chip stamps the truth, and a modal per
+// failed retry would be unusable (no error screen).
+func TestBackgroundReconnectFailureGetsChipOnly(t *testing.T) {
+	t.Parallel()
+
+	m, src, col := armCollector(t)
+	defer m.stopBridge()
+
+	src <- events.ConnectionEvent{State: events.StateDisconnected, Detail: "127.0.0.1:9999"}
+	m.Update(nextBridgeMsg(t, col))
+	src <- events.ConnectionEvent{State: events.StateFailed, Detail: "dial tcp: connection refused"}
+	m.Update(nextBridgeMsg(t, col))
+
+	if m.errModal != nil {
+		t.Fatal("a background reconnect failure must not open the error screen")
+	}
+	if got := m.frameProps("body").Conn; !strings.Contains(got.Text, "failed") {
+		t.Errorf("conn slot after the flap = %q, want the failure truth", got.Text)
+	}
+}

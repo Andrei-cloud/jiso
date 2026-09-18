@@ -10,6 +10,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -300,6 +301,7 @@ func (m *RootModel) closeWizard() {
 		m.connectRun, m.connectHost = nil, nil
 	}
 	m.wizard = nil
+	m.connectInitiated = false // same retirement as the §E dialog esc
 	m.debug.logf("send wizard close")
 }
 
@@ -333,6 +335,10 @@ func (m *RootModel) wizardChooseFile(path string) (tea.Model, tea.Cmd) {
 			st.Error = "no such file: " + path
 			m.wizard.SetState(st)
 			m.debug.logf("wizard file pick missing %s", path)
+			// The listing was stale — the picked file is gone at apply
+			// time. The modal names the full path; the step keeps its
+			// inline line.
+			m.openErrorModal("cannot open file", errors.New(st.Error))
 
 			return m, nil
 		}

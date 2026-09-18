@@ -232,6 +232,50 @@ func TestRootTxPickFileLoadErrorSurfacesOnB(t *testing.T) {
 	}
 }
 
+// a tx-file picked from §B that the app REJECTS must open the error screen
+// with the reason (an explicit load failure): the §B inline line stays for
+// re-reading after the screen closes.
+func TestRootTxPickFileLoadErrorOpensModal(t *testing.T) {
+	m := NewRootModel(newTxFileApp(t))
+	fake := fakeSettingsFixture()
+	fake.applyErrs = map[string]string{app.SettingTxFile: "transaction file rejected: field 22 is too short"}
+	m.settingsSrc = fake
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	_, _ = m.Update(ch('2')) // §B
+
+	dir := pickRootFixture(t)
+	m.filePickRootFn = func(key, value string) (string, string) { return dir, "fixture/" }
+
+	_, _ = m.Update(pages.TxPickFileMsg{})
+	_, cmd := m.Update(widgets.FilePickedMsg{Path: filepath.Join(dir, "a.json")})
+	applied, ok := cmd().(settingsAppliedMsg)
+	if !ok {
+		t.Fatalf("selection did not take the settings apply leg: %T", cmd())
+	}
+	_, _ = m.Update(applied)
+
+	if m.errModal == nil {
+		t.Fatal("a rejected tx-file load must open the error screen")
+	}
+	body := m.View().Content
+	for _, want := range []string{"cannot load transaction file", "field 22 is too short"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("error screen lacks %q:\n%s", want, body)
+		}
+	}
+	if m.txFileLoadErr == "" {
+		t.Error("the inline §B load-error line must stay")
+	}
+
+	_, _ = m.Update(special(tea.KeyEsc))
+	if m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if m.txFileLoadErr == "" {
+		t.Error("esc must leave the inline line behind for re-reading")
+	}
+}
+
 // the §B production picker roots at "/" with the tx file's dir as Start, so
 // the .. row leads and every up leg climbs above the start dir (this pins
 // the production wiring itself: no filePickRootFn).

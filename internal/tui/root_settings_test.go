@@ -260,6 +260,39 @@ func TestSettingsCommitInvalidShowsInlineError(t *testing.T) {
 	}
 }
 
+// a rejected spec-file load opens the error screen with the reason (the
+// same explicit-load doctrine as the tx file); the inline §L row error
+// stays beside the draft.
+func TestSettingsSpecLoadFailureOpensModal(t *testing.T) {
+	fake := fakeSettingsFixture()
+	fake.applyErrs = map[string]string{app.SettingSpec: `cannot load spec: unexpected end of JSON input`}
+	r := newSettingsTestRoot(t, fake)
+	r.gotoPage()
+
+	r.commit(app.SettingSpec, "broken.json")
+
+	if r.m.errModal == nil {
+		t.Fatal("a rejected spec load must open the error screen")
+	}
+	body := r.body()
+	for _, want := range []string{"cannot load specification file", "unexpected end of JSON input"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("error screen lacks %q:\n%s", want, body)
+		}
+	}
+	if r.m.settingsErrs[app.SettingSpec] == "" {
+		t.Error("the inline §L row error must stay")
+	}
+
+	r.pump(special(tea.KeyEsc))
+	if r.m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if r.m.settingsErrs[app.SettingSpec] == "" {
+		t.Error("the inline row error must survive the screen close")
+	}
+}
+
 func TestSettingsSaveOverlayWritesChangedOnly(t *testing.T) {
 	fake := fakeSettingsFixture()
 	r := newSettingsTestRoot(t, fake)

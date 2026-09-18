@@ -18,6 +18,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	app "jiso/internal/app"
+	"jiso/internal/app/events"
+	"jiso/internal/tui/bridge"
 	"jiso/internal/tui/pages"
 	"jiso/internal/tui/palette"
 )
@@ -101,6 +103,11 @@ func TestConnectFinalFailureStaysOpenNoAutoReconnect(t *testing.T) {
 	st := r.state(t)
 	if st.InFlight || st.Error == "" || !strings.Contains(st.Error, "connection refused") {
 		t.Fatalf("failure shape: %+v", st)
+	}
+	// The failure screen sits over the dialog; close it first.
+	_, _ = r.m.Update(special(tea.KeyEscape))
+	if r.m.errModal != nil || r.m.dlg == nil {
+		t.Fatalf("esc must close the screen and spare the dialog: screen=%v dlg=%v", r.m.errModal != nil, r.m.dlg != nil)
 	}
 	// Form editable again: focus still cycles over enabled fields.
 	_, _ = r.m.Update(special(tea.KeyTab))
@@ -401,5 +408,78 @@ func TestConnectListenerOptionsMapped(t *testing.T) {
 	}
 	if label := connectTargetLabel(opts); label != "0.0.0.0:8888" {
 		t.Fatalf("listener target label %q", label)
+	}
+}
+
+// a user-initiated attempt's final failure opens the error screen with
+// the whole dial error; the dialog stays open as retry context and esc
+// closes only the screen.
+func TestConnectFinalFailureOpensErrorModal(t *testing.T) {
+	r := newConnectTestRoot(t)
+	r.m.connectBackoff = func(int) time.Duration { return time.Millisecond }
+
+	r.m.dialConnect = func(_ context.Context, _ app.ConnectOptions) error {
+		return errors.New("dial tcp 127.0.0.1:65535: connect: connection refused")
+	}
+
+	r.openHotkey(t)
+	_, _ = r.m.Update(special(tea.KeyEnter))
+	r.drainToResult(t)
+
+	if r.m.errModal == nil {
+		t.Fatal("a user-initiated connect failure must open the error screen")
+	}
+	mustShow(t, r.m.View().Content, "cannot connect to server", "connection refused")
+	if r.m.dlg == nil {
+		t.Fatal("the dialog must stay open under the screen (retry context)")
+	}
+	if r.m.connectInitiated {
+		t.Fatal("the terminal verdict must retire the user-initiated stamp")
+	}
+
+	_, _ = r.m.Update(special(tea.KeyEsc))
+	if r.m.errModal != nil {
+		t.Fatal("esc must close the screen")
+	}
+	if r.m.dlg == nil {
+		t.Fatal("esc must close the screen only: the dialog stays open")
+	}
+}
+
+// a bus ConnectionEvent{Failed} arriving while the user's attempt loop
+// is still in flight is the app's per-dial stamp: the chip shows it, no
+// screen preempts the loop (the verdict comes with ConnectResultMsg).
+func TestConnectMidAttemptBusFailureKeepsChipOnly(t *testing.T) {
+	r := newConnectTestRoot(t)
+
+	var once sync.Once
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	r.m.dialConnect = func(ctx context.Context, _ app.ConnectOptions) error {
+		once.Do(func() { close(entered) })
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	r.openHotkey(t)
+	_, _ = r.m.Update(special(tea.KeyEnter))
+	waitSignal(t, entered)
+
+	_, _ = r.m.Update(bridge.Msg{Event: events.ConnectionEvent{State: events.StateFailed, Detail: "dial tcp: refused"}})
+	if r.m.errModal != nil {
+		t.Fatal("a mid-attempt bus failure must not open the error screen")
+	}
+
+	close(release)
+	r.drainToResult(t)
+	if r.m.errModal != nil {
+		t.Fatal("the attempt succeeded, so no failure screen may appear")
+	}
+	if r.m.connectInitiated {
+		t.Fatal("the terminal success must retire the user-initiated stamp")
 	}
 }

@@ -115,13 +115,14 @@ type RootModel struct {
 	// Connect dialog: dlg is the §E modal overlay (the stack is never
 	// touched while it is open); connectRun is the attempt-loop truth
 	// (nil = idle); connectSession remembers values for session prefill.
-	dlg            *pages.ConnectDialog
-	connectRun     *connectRun
-	connectHost    *pages.ConnectDialog // dialog the in-flight stamps target (§E or wizard step 0)
-	connectSession *pages.ConnectFormState
-	connectSender  bridge.Sender
-	dialConnect    func(ctx context.Context, opts app.ConnectOptions) error
-	connectBackoff func(attempt int) time.Duration
+	dlg              *pages.ConnectDialog
+	connectRun       *connectRun
+	connectInitiated bool                 // a dialog/wizard-issued attempt is in flight (bus failures outside it are background flaps)
+	connectHost      *pages.ConnectDialog // dialog the in-flight stamps target (§E or wizard step 0)
+	connectSession   *pages.ConnectFormState
+	connectSender    bridge.Sender
+	dialConnect      func(ctx context.Context, opts app.ConnectOptions) error
+	connectBackoff   func(attempt int) time.Duration
 
 	// Send wizard: wizard is the send-wizard modal overlay; wizardSpec/
 	// wizardFile hold the paths committed with the send; wizardFiles is

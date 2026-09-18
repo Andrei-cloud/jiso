@@ -128,6 +128,9 @@ func (m *RootModel) updateConnectDialog(msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			m.connectRun.cancel()
 			m.connectRun = nil
 		}
+		// The Esc'd-away walk's verdict arrives as a straggler at best:
+		// retire the failure-screen stamp with the dialog.
+		m.connectInitiated = false
 		m.dlg = nil
 		m.debug.logf("connect dialog close")
 
@@ -203,6 +206,10 @@ func (m *RootModel) armConnectAttempt(st pages.ConnectFormState, host *pages.Con
 	ctx, cancel := context.WithCancel(parent)
 	m.connectRun = &connectRun{cancel: cancel, total: attempts, lengthType: opts.LengthType}
 	m.connectHost = host
+	// From here the failure truth has two arrivals: the app stamps one bus
+	// ConnectionEvent per dial attempt (chip only — the loop may retry), and
+	// the loop's terminal verdict opens the screen. Both retire this stamp.
+	m.connectInitiated = true
 
 	st.InFlight = true
 	st.Error, st.Progress, st.Backoff = "", "", ""
@@ -314,6 +321,10 @@ func (m *RootModel) applyConnectResult(msg ConnectResultMsg) (tea.Model, tea.Cmd
 	}
 	run := m.connectRun
 	m.connectRun = nil
+	// Only a dialog/wizard-issued attempt gets the failure screen; a
+	// background flap never armed a run, so it never reaches here.
+	initiated := m.connectInitiated
+	m.connectInitiated = false
 	host := m.connectHostDlg()
 	m.connectHost = nil
 	if host == nil {
@@ -364,6 +375,11 @@ func (m *RootModel) applyConnectResult(msg ConnectResultMsg) (tea.Model, tea.Cmd
 			m.debug.logf("connect failed")
 		}
 		host.SetState(st)
+		// The host (dialog or wizard step 0) stays open as retry context;
+		// the screen makes the whole dial error readable over it.
+		if initiated {
+			m.openErrorModal("cannot connect to server", errors.New(st.Error))
+		}
 	}
 
 	return m, nil

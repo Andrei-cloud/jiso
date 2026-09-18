@@ -111,6 +111,10 @@ func (m *RootModel) applyScenarioStepDetail(msg scenarioStepDetailLoadedMsg) (te
 	}
 	if msg.err != nil {
 		p.Note = msg.err.Error()
+		// The overlay would show an error-only body: the modal makes the
+		// whole error readable; the inline note stays for re-reading
+		// after the screen closes.
+		m.openErrorModal("cannot preview step message", msg.err)
 	}
 	m.scenarioDetail.preview = p
 

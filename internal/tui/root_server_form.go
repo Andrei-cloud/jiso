@@ -328,6 +328,9 @@ func (m *RootModel) applyServerStartResult(msg serverStartResultMsg) (tea.Model,
 			m.serverDlg.SetState(st)
 		}
 		m.debug.logf("server start failed: %v", msg.err)
+		// The form stays open underneath as retry context; the modal
+		// makes the whole serve-leg error readable.
+		m.openErrorModal("cannot start mock server", msg.err)
 
 		return m, nil
 	}

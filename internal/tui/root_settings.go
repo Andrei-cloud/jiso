@@ -16,6 +16,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
@@ -174,6 +175,10 @@ func (m *RootModel) applySettingsApplied(msg settingsAppliedMsg) (tea.Model, tea
 		m.txFileLoadErr = msg.errs[app.SettingTxFile]
 		if m.txFileLoadErr == "" {
 			m.debug.logf("tx file loaded from §B: %s", msg.patch[app.SettingTxFile])
+		} else {
+			// An explicit load the user just asked for failed: the modal
+			// makes the whole reason readable over §B's empty state.
+			m.openErrorModal("cannot load transaction file", errors.New(m.txFileLoadErr))
 		}
 
 		return m, nil
@@ -186,6 +191,14 @@ func (m *RootModel) applySettingsApplied(msg settingsAppliedMsg) (tea.Model, tea
 	}
 	for key, err := range msg.errs {
 		m.settingsErrs[key] = err
+	}
+	// The two file-load keys report through the error screen too (the grid
+	// keeps its inline row error beside the draft): a rejected spec or
+	// tx-file is a failed load, not a malformed keystroke.
+	if e, bad := msg.errs[app.SettingTxFile]; bad {
+		m.openErrorModal("cannot load transaction file", errors.New(e))
+	} else if e, bad := msg.errs[app.SettingSpec]; bad {
+		m.openErrorModal("cannot load specification file", errors.New(e))
 	}
 	for key := range msg.patch {
 		if _, bad := msg.errs[key]; bad {

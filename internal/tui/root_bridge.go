@@ -72,6 +72,9 @@ func (m *RootModel) updateBridgeMsg(msg bridge.Msg) (tea.Model, tea.Cmd) {
 		m.conn = &c
 		if ev.State == events.StateConnected {
 			m.connSince = &now
+			// A user-issued attempt that reached its Connected truth is over;
+			// every later bus failure is a background flap — chip, no modal.
+			m.connectInitiated = false
 		} else {
 			m.connSince = nil
 		}

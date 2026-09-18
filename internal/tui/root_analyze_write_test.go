@@ -5,6 +5,7 @@
 package tui
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -257,5 +258,33 @@ func TestAnalyzeOutCommitThreadsAndGates(t *testing.T) {
 	}
 	if got := f.runOpts[1].OutputFile; got != out {
 		t.Errorf("re-run OutputFile = %q, want %q", got, out)
+	}
+}
+
+// a failing write opens the error screen with the engine error (an
+// explicit write failure); the run-step's inline write line stays.
+func TestAnalyzeWriteFailureOpensModal(t *testing.T) {
+	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
+	f := r.fakeSrc(t)
+	f.writeErr = errors.New("permission denied")
+	r.walkToRun(t)
+	r.enter()
+	r.closePicker() // the run re-presented the item picker
+
+	r.pump(ch('w'))
+	if f.writeN != 1 {
+		t.Fatalf("write ran %d times, want 1", f.writeN)
+	}
+	if r.m.errModal == nil {
+		t.Fatal("a failed write must open the error screen")
+	}
+	mustShow(t, r.view(), "cannot write analyze output", "permission denied")
+	if !strings.Contains(r.m.analyzeWriteLine, "write failed") {
+		t.Error("the inline write line stays")
+	}
+
+	r.pump(special(tea.KeyEsc))
+	if r.m.errModal != nil {
+		t.Fatal("esc must close the screen")
 	}
 }
