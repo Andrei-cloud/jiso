@@ -21,11 +21,13 @@ func modalBoxWidth(innerW int) int {
 }
 
 // modalBox wraps content in the subtle rounded border (ascii "+" under
-// the ascii theme), total width width.
+// the ascii theme), total width width. NormalBorder is box-drawing ink,
+// so the ASCII profile must take the true-ASCII set (widgets.Section's
+// idiom) — a 7-bit terminal cannot render box-drawing glyphs.
 func modalBox(th *theme.Theme, width int, content string) string {
 	border := lipgloss.RoundedBorder()
 	if th.ASCII {
-		border = lipgloss.NormalBorder()
+		border = lipgloss.ASCIIBorder()
 	}
 
 	return th.SubtleBorder.Border(border).Width(width).Render(content)

@@ -3,6 +3,9 @@
 |              pgdown page down | home top | end bottom    |
 | page actions enter detail | s send | f pick tx file      |
 |              / filter | o sort | esc back                |
+| error modal  enter ok / close | esc close                |
+|              j/k scroll one line                         |
+|              pgup/pgdown scroll ten lines                |
 | global       1-8 pages | :/ctrl+p palette | c connect    |
 |              tab/shift+tab focus pane                    |
 |              f9 toggle mouse / text selection | ? this   |

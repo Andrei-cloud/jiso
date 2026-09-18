@@ -53,7 +53,14 @@ func (m *RootModel) frameProps(content string) frame.Props {
 // frameProps renders and buildHitMap packs exactly this list, so the
 // cells the user sees and the cells that fire actions can never drift.
 func (m *RootModel) footerHints() []frame.KeyHint {
-	return append(globalFooterHints(&m.keys), m.Current().Hints()...)
+	hints := globalFooterHints(&m.keys)
+	if m.errModal != nil {
+		// While the error screen is open it owns the strip: the global
+		// legend plus the screen's own keys, page hints suppressed.
+		return append(hints, m.errModal.footerHints()...)
+	}
+
+	return append(hints, m.Current().Hints()...)
 }
 
 // applyAppFrameProps fills the frame props derived from the live app: config

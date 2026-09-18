@@ -7,6 +7,10 @@
 | page actions                   |
 | enter open | t review tx       |
 | / filter | r reload | esc back |
+| error modal                    |
+| enter ok / close | esc close   |
+| j/k scroll one line            |
+| pgup/pgdown scroll ten lines   |
 | global                         |
 | 1-8 pages | :/ctrl+p palette   |
 | c connect                      |

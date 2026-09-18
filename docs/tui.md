@@ -43,8 +43,8 @@ $ jiso tui
 - Key glyphs in body text (empty-state hints, wizard footers, inline toggle
   notes) render bold-accent, matching the footer's accented keys, so an
   inline affordance reads as a hotkey at a glance.
-- Modals (connect, forms, file picker, confirm, palette, help) render over
-  the current page; while open they own the keyboard, so typing `q` or a
+- Modals (connect, forms, file picker, confirm, palette, help, error) render
+  over the current page; while open they own the keyboard, so typing `q` or a
   digit into a field never quits or jumps pages. `ctrl+c` stays global.
 - Status strip (bottom rule): the newest **client-connection** line,
   receipt-timestamped and replaced on every connection-state change
@@ -75,7 +75,8 @@ names the screen from the wireframes (`.hermes/plans/wireframes-jiso-tui.md`).
 | — | `send-exchange` | Send exchange (§D) | Deep page opened by `s` on Transactions: request/response split |
 
 Root-owned overlays (never pages in the stack): connect dialog (§E), command
-palette, help overlay, file picker (§N1), start wizards (§N2), confirms (§N3).
+palette, help overlay, file picker (§N1), start wizards (§N2), confirms (§N3),
+error modal.
 
 ## Global keys
 
@@ -131,8 +132,8 @@ and nothing here adds a token to them.
   the page keys drive, clamped at both ends; horizontal wheel steps
   scroll nothing vertical. While a modal is open the wheel over the
   page behind it is inert — the modal owns the screen and the frozen
-  page stays frozen — except over the §M box itself, which scrolls
-  whenever it is open.
+  page stays frozen — except over the §M box and the error modal's body,
+  which scroll whenever they are open.
 - **Click a row** to move the cursor to it: the transactions and
   workers tables, the sessions list and tx history, the §G routes
   pane, the §J generated-item roster, and the file picker's entries.
@@ -437,6 +438,26 @@ included). Confirms fire on: quit with active workers, stop all workers,
 disconnect while workers or the mock server run, mock-server stop with live
 connections, analyze abort over an in-flight step, analyze / scenario-export
 / CTF overwrite of an existing path, and settings save.
+
+## Error modal
+
+A failed action that would otherwise leave the screen with nothing to show
+opens a modal box over the current page carrying the whole error: a long
+line wraps at the box's inner width, and a longer body pages **ten lines at
+a time**. While it is open it owns the keyboard — the page below stays
+frozen, page jumps included — its keys ride the footer next to the global
+legend, and a click on dead space outside the box closes it.
+
+| Keys | Action |
+|---|---|
+| `enter` | Acknowledge and close |
+| `esc` | Close |
+| `j` / `k` | Scroll the body one line down / up |
+| `pgdown` / `pgup` | Scroll the body ten lines down / up |
+
+Every other key is swallowed while the box is open; `ctrl+c` stays the
+graceful exit. A nil or empty error renders the honest `unknown error`
+under the title instead of an empty box.
 
 ## Data masking
 

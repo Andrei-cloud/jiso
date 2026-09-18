@@ -335,9 +335,10 @@ func TestHelpOverlayGoldenNarrowTrueColor(t *testing.T) {
 		renderHelpOverlay(t, pages.TransactionsPageID, colorprofile.TrueColor, 36))
 }
 
-// Pages without a registry (placeholders, fakes) still get the global
-// group and an honest context label.
-func TestHelpOverlayUnknownPageGetsGlobalOnly(t *testing.T) {
+// Pages without a registry (placeholders, fakes) still get the router's
+// own sections — the error-modal keys and the global group — and an honest
+// context label.
+func TestHelpOverlayUnknownPageGetsRouterGroupsOnly(t *testing.T) {
 	t.Parallel()
 
 	m := NewRootModel(nil)
@@ -354,8 +355,8 @@ func TestHelpOverlayUnknownPageGetsGlobalOnly(t *testing.T) {
 		titles = append(titles, g.Title)
 	}
 
-	if strings.Join(titles, ",") != helpGroupGlobal {
-		t.Fatalf("groups: got %v, want only %q", titles, helpGroupGlobal)
+	if got := strings.Join(titles, ","); got != helpGroupErrModal+","+helpGroupGlobal {
+		t.Fatalf("groups: got %v, want only the router groups %q, %q", titles, helpGroupErrModal, helpGroupGlobal)
 	}
 	if !strings.Contains(m.help.View(), "context: scratch page") {
 		t.Errorf("context label must name the current page:\n%s", m.help.View())

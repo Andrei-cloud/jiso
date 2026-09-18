@@ -52,6 +52,19 @@ func (m *RootModel) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
+	// The error screen owns the keyboard above the picker and §M:
+	// enter/esc close it, j/k and pgup/pgdown scroll the body, and every
+	// other key is swallowed so the page below (page jumps included)
+	// stays frozen.
+	if m.errModal != nil {
+		if m.errModal.UpdateKey(msg) {
+			m.errModal = nil
+			m.debug.logf("error modal close")
+		}
+
+		return m, nil
+	}
+
 	if next, cmd, ok := m.handlePickOrHelpKey(msg); ok {
 		return next, cmd
 	}

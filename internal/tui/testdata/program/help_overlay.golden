@@ -2,19 +2,19 @@
 | CONNECTION                                                                   |
 | +--------------------------------------------------------------------------+ |
 | |no link | c connects                                                      | |
-| +--------------------------------------------------------------------------+ |
-| MOCK SERVER                                                                  |
 | +-------+- HELP -- context: Dashboard page ------------------------+-------+ |
-| |o stopp| navigation   up/k up | down/j down | pgup page up        |       | |
+| MOCK SER| navigation   up/k up | down/j down | pgup page up        |         |
 | +-------|              pgdown page down | home top | end bottom    |-------+ |
-| SERVER L| page actions enter run action | D disconnect             |         |
+| |o stopp| page actions enter run action | D disconnect             |       | |
 | +-------|              t stress run                                |-------+ |
-| |no serv| global       1-8 pages | :/ctrl+p palette | c connect    |       | |
-| +-------|              tab/shift+tab focus pane                    |-------+ |
-| LAST SEN|              f9 toggle mouse / text selection | ? this   |         |
-| +-------|              q quit / back | ctrl+c graceful quit        |-------+ |
-| |no send+----------------------------------------------------------+       | |
-| +--------------------------------------------------------------------------+ |
+| SERVER L| error modal  enter ok / close | esc close                |         |
+| +-------|              j/k scroll one line                         |-------+ |
+| |no serv|              pgup/pgdown scroll ten lines                |       | |
+| +-------| global       1-8 pages | :/ctrl+p palette | c connect    |-------+ |
+| LAST SEN|              tab/shift+tab focus pane                    |         |
+| +-------|              f9 toggle mouse / text selection | ? this   |-------+ |
+| |no send|              q quit / back | ctrl+c graceful quit        |       | |
+| +-------+----------------------------------------------------------+-------+ |
 | QUICK ACTIONS                                                                |
 | +--------------------------------------------------------------------------+ |
 | |> Connect / reconnect                                                     | |

@@ -23,6 +23,7 @@ import (
 	"jiso/internal/tui/frame"
 	"jiso/internal/tui/geom"
 	"jiso/internal/tui/pages"
+	"jiso/internal/tui/theme"
 	"jiso/internal/tui/widgets"
 )
 
@@ -224,6 +225,16 @@ func (m *RootModel) buildHitMap() hitMap {
 			hm.add(r.Rect, selectHit(regionPicker, r.Index))
 		}
 	}
+	// §4 error screen: root-owned and topmost-drawn among the boxes, so it
+	// registers over everything they drew. The canvas-wide entry closes it
+	// (a dead-space click replays esc, the same key the footer spells); the
+	// box rect registers after, so the wheel over the body scrolls the
+	// body and a click inside the box stays inert.
+	if m.errModal != nil {
+		inner := m.innerWS()
+		hm.add(geom.Rect{X: ox, Y: oy, W: inner.Width, H: inner.Height}, keyHit(theme.KeyEsc))
+		hm.add(m.errModalHitRect(), scrollHit(regionErrModal))
+	}
 	// footer legend (hitmap_footer.go): topmost drawn, added last.
 	m.registerFooterHits(&hm)
 
@@ -233,6 +244,10 @@ func (m *RootModel) buildHitMap() hitMap {
 // regionHelp names the §M help box's scroll region (overlay: the box
 // scrolls its own keymap window through helpOverlay.ScrollBy).
 const regionHelp = "help:box"
+
+// regionErrModal names the error screen's scroll region (overlay: the box
+// scrolls its own wrapped body through errorModal.ScrollBy).
+const regionErrModal = "error:box"
 
 // regionPicker names the shared file picker's entry rows: a click moves the
 // picker cursor and runs the widget's own entry selection, dispatched directly
@@ -248,6 +263,21 @@ func (m *RootModel) helpHitRect() geom.Rect {
 	ox, oy := m.contentOrigin()
 
 	bw, bl := lipgloss.Width(hv), lipgloss.Height(hv)
+	x := max((inner.Width-bw)/2, 0)
+	y := max((inner.Height-bl)/2, 0)
+
+	return geom.Rect{X: ox + x, Y: oy + y, W: bw, H: min(bl, inner.Height-y)}
+}
+
+// errModalHitRect re-measures the error screen's ABSOLUTE drawn rect with
+// overlayCenter's centering math, mirroring helpHitRect; View is pure
+// display state, so re-rendering here matches the ink the frame just drew.
+func (m *RootModel) errModalHitRect() geom.Rect {
+	ev := m.errModal.View(m.innerWS().Width, m.innerWS().Height)
+	inner := m.innerWS()
+	ox, oy := m.contentOrigin()
+
+	bw, bl := lipgloss.Width(ev), lipgloss.Height(ev)
 	x := max((inner.Width-bw)/2, 0)
 	y := max((inner.Height-bl)/2, 0)
 
@@ -310,6 +340,13 @@ func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	}
+	if msg.region == regionErrModal {
+		if m.errModal != nil { // a straggler after the screen closed: inert
+			m.errModal.ScrollBy(msg.delta)
+		}
+
+		return m, nil
+	}
 	if m.modalOpen() {
 		return m, nil // the modal owns the screen; the page behind stays frozen
 	}
@@ -321,11 +358,11 @@ func (m *RootModel) handleScrollMsg(msg scrollMsg) (tea.Model, tea.Cmd) {
 }
 
 // modalOpen reports whether a root-owned modal (palette, dialogs, wizards,
-// file picker, §M box, or a pending §N3 confirm) owns the screen; while one is
-// open the page behind must stay frozen.
+// file picker, §M box, error screen, or a pending §N3 confirm) owns the
+// screen; while one is open the page behind must stay frozen.
 func (m *RootModel) modalOpen() bool {
 	if m.pal != nil || m.dlg != nil || m.wizard != nil || m.serverDlg != nil ||
-		m.workerWiz != nil || m.help != nil || m.filePick != nil {
+		m.workerWiz != nil || m.help != nil || m.filePick != nil || m.errModal != nil {
 		return true
 	}
 

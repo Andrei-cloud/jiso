@@ -8,6 +8,10 @@
 [page actions] enter	run action
 [page actions] D	disconnect
 [page actions] t	stress run
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -30,6 +34,10 @@
 [page actions] /	filter
 [page actions] o	sort
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -52,6 +60,10 @@
 [page actions] /	filter
 [page actions] tab or shift+tab	pane
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -73,6 +85,10 @@
 [page actions] enter	open route
 [page actions] G/end	follow log tail
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -95,6 +111,10 @@
 [page actions] K	stop all
 [page actions] enter	detail
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -116,6 +136,10 @@
 [page actions] /	filter
 [page actions] r	reload
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -135,6 +159,10 @@
 [page actions] 	goal t/r/s
 [page actions] w	write report
 [page actions] esc	back / abort
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -153,6 +181,10 @@
 [page actions] r	reload
 [page actions] tab or shift+tab	pane/field
 [page actions] esc	close / back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -169,6 +201,10 @@
 [page actions] right	expand
 [page actions] r	cycle pool
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -185,6 +221,10 @@
 [page actions] r	reload
 [page actions] f	pick file
 [page actions] esc	revert / back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect
@@ -198,6 +238,10 @@
 [page actions] enter	send again
 [page actions] h	describe/hexdump toggle
 [page actions] esc	back
+[error modal] enter	ok / close
+[error modal] esc	close
+[error modal] j/k	scroll one line
+[error modal] pgup/pgdown	scroll ten lines
 [global] 1-8	pages
 [global] :/ctrl+p	palette
 [global] c	connect

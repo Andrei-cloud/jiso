@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"jiso/internal/tui/geom"
 	"jiso/internal/tui/pages"
@@ -98,6 +99,41 @@ func TestProgHelpOverlay(t *testing.T) {
 	wantAltScreenRestore(t, buf)
 	checkProgGolden(t, "help_overlay", r.frame)
 	// esc-closes-overlay is layer-1 territory (TestHelpOverlayOpenToggleClose).
+}
+
+// TestProgErrModal: the error screen renders centered over the §B
+// transactions page: the multi-line body windows ten content rows at a
+// time (six `j` presses walk the window down), the footer swaps the page
+// keys for the modal's own, and the digits stay inert while it is open.
+func TestProgErrModal(t *testing.T) {
+	s := newProgSession(t, 80, 24)
+	_, _ = s.m.Update(ch('2')) // land on §B first; the open modal eats later jumps
+	fixture := errModalFixture(25)
+	s.m.openErrorModal("cannot load transaction file", errors.New(fixture))
+
+	r := s.run(t, "jjjjjj\x03")
+	wantClean(t, r)
+
+	if r.model.errModal == nil {
+		t.Fatal("the error modal must stay open until ctrl+c ends the session")
+	}
+	if got := r.model.Current().ID(); got != "transactions" {
+		t.Errorf("j-typing moved the frozen page to %q, want transactions", got)
+	}
+	frame := ansi.Strip(r.frame)
+	if !strings.Contains(frame, "cannot load transaction file") {
+		t.Errorf("frame lacks the error title:\n%s", frame)
+	}
+	if !strings.Contains(frame, "line 07") || !strings.Contains(frame, "line 16") {
+		t.Errorf("frame must show the ten-row window 07–16:\n%s", frame)
+	}
+	if strings.Contains(frame, "line 06") || strings.Contains(frame, "line 17") {
+		t.Errorf("frame must hide the rows outside the window:\n%s", frame)
+	}
+	if !strings.Contains(frame, "TRANSACTIONS") {
+		t.Errorf("frame lacks the §B page under the modal:\n%s", frame)
+	}
+	checkProgGolden(t, "err_modal", r.frame)
 }
 
 // TestProgPaletteSend: ':' opens the palette, typing "send" filters to

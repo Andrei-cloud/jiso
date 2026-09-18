@@ -12,6 +12,10 @@ import (
 // pages never contribute to it).
 const helpGroupGlobal = "global"
 
+// helpGroupErrModal is the §M group label for the root-owned error
+// screen's keys — router overlay chrome, never a page's contribution.
+const helpGroupErrModal = "error modal"
+
 // helpContextName maps a page ID to the §M context label
 // ("HELP — context: <page name>"). Unknown IDs (test fakes, deep pages)
 // fall back to the raw ID so the label always names the CURRENT page.
@@ -85,6 +89,23 @@ func globalHelpGroup(km *globalKeyMap) helpGroup {
 	return helpGroup{Title: helpGroupGlobal, Entries: entries}
 }
 
+// errorModalHelpGroup derives the §M error-modal section from the screen's
+// own keymap — the same bindings its UpdateKey matches on, never a
+// hand-copied list. The keys are contextual (they fire only while the box
+// is open) but always documented, like the global bindings.
+func errorModalHelpGroup() helpGroup {
+	km := newErrorModalKeys()
+
+	entries := []pages.HelpEntry{
+		{Group: helpGroupErrModal, Keys: helpKeysOf(km.ok), Note: "ok / close"},
+		{Group: helpGroupErrModal, Keys: helpKeysOf(km.cancel), Note: "close"},
+		{Group: helpGroupErrModal, Keys: helpKeysOf(km.lineDown) + "/" + helpKeysOf(km.lineUp), Note: "scroll one line"},
+		{Group: helpGroupErrModal, Keys: helpKeysOf(km.pageUp) + "/" + helpKeysOf(km.pageDown), Note: "scroll ten lines"},
+	}
+
+	return helpGroup{Title: helpGroupErrModal, Entries: entries}
+}
+
 // helpGroupsFor composes the overlay sections for one page: its registered
 // entries (grouped in registration order) plus the global group. Pages
 // without a registry (placeholders, fakes) show only the global group.
@@ -101,6 +122,7 @@ func helpGroupsFor(p Page, km *globalKeyMap) []helpGroup {
 			groups = append(groups, helpGroup{Title: e.Group, Entries: []pages.HelpEntry{e}})
 		}
 	}
+	groups = append(groups, errorModalHelpGroup())
 
 	return append(groups, globalHelpGroup(km))
 }

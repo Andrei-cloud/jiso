@@ -56,6 +56,12 @@ func (m *RootModel) View() tea.View {
 		// The file picker is centered exactly like the modals.
 		content = overlayCenter(content, boxed(m.filePick.View()), inner.Width, inner.Height)
 	}
+	if m.errModal != nil {
+		// The error screen reuses the centered modal box, drawn over the
+		// frozen page and the other overlays but under the confirms,
+		// which own the keyboard above it.
+		content = overlayCenter(content, m.errModal.View(inner.Width, inner.Height), inner.Width, inner.Height)
+	}
 	for _, c := range []*widgets.ConfirmDialog{
 		m.serverConfirm, m.workersConfirm, m.analyzeConfirm, m.ctfConfirm,
 		m.analyzeOverwriteConfirm, m.scenarioConfirm, m.disconnectConfirm,
