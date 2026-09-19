@@ -138,6 +138,12 @@ func (a *Analyze) footerLine(w int) string {
 				keySpan(a.th, base, "m", "security") + base.Render("   ") +
 				keySpan(a.th, base, "/", "filter") + base.Render("   ") +
 				keySpan(a.th, base, "w", "write") + base.Render("   ") + a.escHint()
+			if a.canUseItNow() {
+				// The scenario extract is on disk: offer its two immediate
+				// uses right where the operator stands (F12.4).
+				keys += base.Render("   ") + keySpan(a.th, base, "l", "tx file") +
+					base.Render("  ") + keySpan(a.th, base, "g", "server")
+			}
 		}
 	}
 

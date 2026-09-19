@@ -456,7 +456,7 @@ func (m *RootModel) doAnalyzeAbort() (tea.Model, tea.Cmd) {
 	m.analyzeOutput, m.analyzePreview, m.analyzeElapsed = nil, "", ""
 	m.analyzeItemRows, m.analyzeExcluded = nil, nil
 	m.analyzeUnparsableRows = nil
-	m.analyzeWriteLine, m.analyzeWriteOK = "", false
+	m.analyzeWriteLine, m.analyzeWriteOK, m.analyzeFileWritten = "", false, false
 	m.analyzeRunStale = true
 	m.popPage()
 

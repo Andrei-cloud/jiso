@@ -165,7 +165,11 @@ type AnalyzeState struct {
 	Preview      string
 	WriteLine    string
 	WriteOK      bool
-	Note         string
+	// FileWritten marks the last successful write of the run's items to
+	// disk (WriteOK only says [w] is armed). The post-write "use it now"
+	// keys read this: they must never promise a file that was not written.
+	FileWritten bool
+	Note        string
 
 	// Items is the generated-item picker's roster. ItemsID bumps per run
 	// attach: a fresh run re-opens the overlay, the same roster keeps the
@@ -251,6 +255,14 @@ type (
 		Field string
 		Side  string
 	}
+
+	// AnalyzeUseTxFileMsg is [l] after a scenario write: load the extract
+	// as the session's transactions file through the tx-file gate.
+	AnalyzeUseTxFileMsg struct{}
+
+	// AnalyzeUseServerMsg is [g] after a scenario write: open the §G
+	// server start form with the extract pre-filled as the routes file.
+	AnalyzeUseServerMsg struct{}
 )
 
 // AnalyzeUnparsableRow is one failure sample: offset and length in the

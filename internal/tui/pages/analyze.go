@@ -172,6 +172,12 @@ type analyzeNav struct {
 	Write     key.Binding
 	Filter    key.Binding
 
+	// Post-write "use it now" keys (scenario goal, run done + write OK):
+	// [l] loads the extract as the session tx file, [g] pre-fills the §G
+	// start form with it as the routes file.
+	UseTxFile key.Binding
+	UseServer key.Binding
+
 	help []HelpEntry // §M registry, built from the bindings above
 }
 
@@ -190,6 +196,8 @@ func newAnalyzeNav() analyzeNav {
 		Browse:    key.NewBinding(key.WithKeys("f")),
 		Write:     key.NewBinding(key.WithKeys("w")),
 		Filter:    key.NewBinding(key.WithKeys("/")),
+		UseTxFile: key.NewBinding(key.WithKeys("l")),
+		UseServer: key.NewBinding(key.WithKeys("g")),
 	}
 	nav.help = []HelpEntry{
 		navEntry("move", nav.Up, nav.Down),
@@ -200,6 +208,7 @@ func newAnalyzeNav() analyzeNav {
 		actEntry("flow filter", nav.Filter),
 		actEntry("goal t/r/s"),
 		actEntry("write report", nav.Write),
+		actEntry("use extract after write", nav.UseTxFile, nav.UseServer),
 		actEntry("back / abort", nav.Cancel),
 	}
 

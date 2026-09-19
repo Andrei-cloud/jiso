@@ -116,7 +116,7 @@ func (m *RootModel) handleAnalyzeChooseMask(msg pages.AnalyzeChooseMaskMsg) (tea
 // starts the analysis with stale selections (or never run): status
 // running, seq-tokened result.
 func (m *RootModel) armAnalyzeRun() tea.Cmd {
-	m.analyzeWriteLine, m.analyzeWriteOK = "", false
+	m.analyzeWriteLine, m.analyzeWriteOK, m.analyzeFileWritten = "", false, false
 	src := m.analyzeSource()
 	if src == nil {
 		m.analyzeStatus = pages.AnalyzeStatusError

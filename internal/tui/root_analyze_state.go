@@ -54,6 +54,7 @@ func (m *RootModel) analyzeState() pages.AnalyzeState {
 		Preview:      m.analyzePreview,
 		WriteLine:    m.analyzeWriteLine,
 		WriteOK:      m.analyzeWriteOK,
+		FileWritten:  m.analyzeFileWritten,
 		Note:         m.analyzeNote,
 		OutputPath:   m.analyzeOutputDisplay(),
 

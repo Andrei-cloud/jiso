@@ -365,6 +365,12 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.AnalyzeGroupToggleMsg:
 		return m.handleAnalyzeGroupToggle(msg)
 
+	case pages.AnalyzeUseTxFileMsg:
+		return m.handleAnalyzeUseTxFile()
+
+	case pages.AnalyzeUseServerMsg:
+		return m.handleAnalyzeUseServer()
+
 	case pages.AnalyzeAbortMsg:
 		return m.handleAnalyzeAbort()
 

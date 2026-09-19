@@ -133,12 +133,14 @@ func (m *RootModel) applyAnalyzeWrite(msg analyzeWriteLoadedMsg) (tea.Model, tea
 	if msg.err != nil {
 		m.analyzeWriteLine = "write failed: " + msg.err.Error()
 		m.analyzeWriteOK = false
+		m.analyzeFileWritten = false
 		m.openErrorModal("cannot write analyze output", msg.err)
 
 		return m, nil
 	}
 	m.analyzeWriteLine = "wrote " + strconv.Itoa(msg.count) + " item(s) to " + msg.path
 	m.analyzeWriteOK = true
+	m.analyzeFileWritten = true
 
 	return m, nil
 }
@@ -158,6 +160,7 @@ func (m *RootModel) handleAnalyzeOutCommit(msg pages.AnalyzeOutCommitMsg) (tea.M
 	m.analyzeRunStale = true
 	m.analyzeWriteLine = "output set: " + path + " - enter re-runs, w writes"
 	m.analyzeWriteOK = true
+	m.analyzeFileWritten = false // the pending target moved; nothing new is on disk
 	m.debug.logf("analyze output set %s", path)
 
 	return m, nil

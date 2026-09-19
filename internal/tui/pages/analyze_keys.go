@@ -256,6 +256,16 @@ func (a *Analyze) updateRun(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 // runMiscKey maps the run step's remaining shortcut keys (goal, mask,
 // output editor, filter, write) to their messages; the third result says
 // whether it handled the key.
+// canUseItNow is the one state that answers "what now?" right on the spot:
+// the scenario run finished and its file was actually written ([l] can
+// load it as the session's transactions file, [g] can pre-fill the §G
+// start form with it as the routes file). An armed-but-unwritten picker
+// is not enough — the keys must never promise a file that is not on disk.
+func (a *Analyze) canUseItNow() bool {
+	return a.state.Step == StepRun && a.state.Status == AnalyzeStatusDone &&
+		a.state.FileWritten && a.state.Goal == AnalyzeGoalScenario && a.state.OutputPath != ""
+}
+
 func (a *Analyze) runMiscKey(msg tea.KeyPressMsg) (Page, tea.Cmd, bool) {
 	switch msg.Text {
 	case "t":
@@ -266,6 +276,18 @@ func (a *Analyze) runMiscKey(msg tea.KeyPressMsg) (Page, tea.Cmd, bool) {
 		return a, func() tea.Msg { return AnalyzeChooseGoalMsg{Goal: AnalyzeGoalScenario} }, true
 	case "m":
 		return a, func() tea.Msg { return AnalyzeChooseMaskMsg{Raw: !a.state.MaskRaw} }, true
+	case "l":
+		if !a.canUseItNow() {
+			return a, nil, false
+		}
+
+		return a, func() tea.Msg { return AnalyzeUseTxFileMsg{} }, true
+	case "g":
+		if !a.canUseItNow() {
+			return a, nil, false
+		}
+
+		return a, func() tea.Msg { return AnalyzeUseServerMsg{} }, true
 	case "o":
 		// [o] edits the output file the generated items land in, seeded
 		// with the effective path.

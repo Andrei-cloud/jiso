@@ -159,6 +159,7 @@
 [page actions] /	flow filter
 [page actions] 	goal t/r/s
 [page actions] w	write report
+[page actions] l or g	use extract after write
 [page actions] esc	back / abort
 [error modal] enter	ok / close
 [error modal] esc	close

@@ -307,6 +307,12 @@ type RootModel struct {
 	analyzeItemsID      int                    // bumped per run attach: re-opens the picker
 	analyzeWriteLine    string
 	analyzeWriteOK      bool
+	// analyzeFileWritten marks the LAST SUCCESSFUL write of the run's
+	// items to disk. WriteOK only says the picker armed [w]; the
+	// "use it now" keys must not promise a file that was never written,
+	// so they read this flag instead. A new run, a failed write or an
+	// output-path retarget clears it.
+	analyzeFileWritten  bool
 	analyzeNote         string
 	analyzeSpecError    string
 	analyzeCaptureError string
