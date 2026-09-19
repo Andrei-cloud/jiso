@@ -305,3 +305,33 @@ func messageMTI(message *analyzer.AnnotatedMessage) string {
 
 	return mti
 }
+
+// NewAnalyzeOutputFromMatchedRoutes builds the matching wizard's routes
+// run: the wizard routes composed from the operator's conditions, the
+// paired-exchange count they were composed from, and the warnings naming
+// any shared-match ordering. Mode is the wire value "mock_routes" the
+// legacy variance-routes run already uses.
+func NewAnalyzeOutputFromMatchedRoutes(
+	streamFile string,
+	headerType string,
+	direction analyzer.TrafficDirection,
+	unsecure bool,
+	pairCount int,
+	routes []config.Item,
+	warnings []string,
+	outputFile string,
+) *AnalyzeOutput {
+	return &AnalyzeOutput{
+		Mode:                    "mock_routes",
+		StreamFile:              streamFile,
+		HeaderType:              headerType,
+		DirectionMode:           direction.Mode,
+		DirectionLabel:          direction.Label,
+		TargetPort:              int(direction.TargetPort),
+		Unsecure:                unsecure,
+		PairCount:               pairCount,
+		Warnings:                append([]string(nil), warnings...),
+		GeneratedMockRouteNames: itemNames(routes),
+		OutputFile:              outputFile,
+	}
+}

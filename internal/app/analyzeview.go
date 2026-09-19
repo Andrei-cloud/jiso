@@ -58,6 +58,10 @@ type AnalyzeRunOptions struct {
 	Flows        []FlowSelection
 	OutputFile   string
 	ScenarioName string
+	// Match is the matching wizard's selection (routes goal): when set,
+	// the run groups the capture on the operator's fields and emits
+	// wizard routes instead of the legacy auto-derived ones.
+	Match *analyzer.MatchSpec
 }
 
 // AnalyzeDefaults reports the wizard's step prefill: the configured
@@ -439,6 +443,7 @@ func (a *App) runAnalyzeFlows(ctx context.Context, opts AnalyzeRunOptions, spec 
 			Direction:    dir,
 			OutputFile:   outputFile,
 			ScenarioName: opts.ScenarioName,
+			Match:        opts.Match,
 		})
 		if err != nil {
 			return nil, nil, err

@@ -190,3 +190,52 @@ func TestAnalyzeMatchStepWalkAndTeleportAway(t *testing.T) {
 	r.pump(pages.AnalyzeChooseGoalMsg{Goal: pages.AnalyzeGoalTransactions})
 	r.mustStep(t, pages.StepRun)
 }
+
+// TestAnalyzeRunRoutesCarriesMatchSpec: Enter on the run step under the
+// routes goal hands the engine the operator's MatchSpec; with no
+// conditions at all the run is refused with an honest note (the wizard
+// never matches the whole capture as one route).
+func TestAnalyzeRunRoutesCarriesMatchSpec(t *testing.T) {
+	r, fake := walkToMatch(t)
+
+	// Advance to the run step and run (close the auto-presented picker
+	// idiom first, as every run-step test does).
+	r.enter() // matching -> run (enum re-armed)
+	r.mustStep(t, pages.StepRun)
+	r.pump(tea.WindowSizeMsg{Width: 120, Height: 40})
+	r.closePicker()
+	r.enter() // run
+	if fake.runN == 0 {
+		t.Fatal("run step Enter armed no run")
+	}
+	opts := fake.runOpts[fake.runN-1]
+	if opts.Mode != "routes" {
+		t.Fatalf("mode = %q, want routes", opts.Mode)
+	}
+	if opts.Match == nil || len(opts.Match.Conditions) != 2 {
+		t.Fatalf("match = %+v, want the two seeded conditions", opts.Match)
+	}
+	if opts.Match.Conditions[0].Field != "0" || opts.Match.Conditions[0].Value != "0200" {
+		t.Errorf("carried condition = %+v", opts.Match.Conditions[0])
+	}
+}
+
+func TestAnalyzeRunRoutesZeroCondsRefused(t *testing.T) {
+	r, fake := walkToMatch(t)
+	before := fake.runN
+
+	// Clear every condition (two seeds), then advance to run and Enter.
+	r.pump(pages.AnalyzeCondDeleteMsg{Index: 0})
+	r.pump(pages.AnalyzeCondDeleteMsg{Index: 0})
+	r.enter()
+	r.mustStep(t, pages.StepRun)
+	r.closePicker()
+	r.enter()
+
+	if fake.runN != before {
+		t.Errorf("zero-condition run armed a leg (runN %d -> %d)", before, fake.runN)
+	}
+	if !strings.Contains(r.m.analyzeNote, "condition") {
+		t.Errorf("refusal note = %q, want it to name the missing conditions", r.m.analyzeNote)
+	}
+}

@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"jiso/internal/analyzer"
 	app "jiso/internal/app"
 	"jiso/internal/tui/pages"
 )
@@ -136,6 +137,21 @@ func (m *RootModel) armAnalyzeRun() tea.Cmd {
 		return nil
 	}
 
+	// The routes goal runs through the matching wizard: the operator's
+	// conditions ride the leg whole (no auto-inference alongside), and
+	// zero conditions is refused — "match everything as one route" is
+	// never the intent of an empty wizard.
+	var match *analyzer.MatchSpec
+	if m.analyzeGoal == pages.AnalyzeGoalMockRoutes {
+		if len(m.analyzeConds) == 0 {
+			m.analyzeNote = "matching: add at least one condition first (r walks the wizard)"
+
+			return nil
+		}
+		ms := m.matchSpec()
+		match = &ms
+	}
+
 	m.analyzeRunWait = true
 	m.analyzeRunStale = false
 	m.analyzeStatus = pages.AnalyzeStatusRunning
@@ -152,6 +168,7 @@ func (m *RootModel) armAnalyzeRun() tea.Cmd {
 		Unsecure:   m.analyzeMaskRaw,
 		Flows:      append([]app.FlowSelection(nil), m.analyzeSelected...),
 		OutputFile: m.analyzeOutputPath,
+		Match:      match,
 	}
 
 	return func() tea.Msg {

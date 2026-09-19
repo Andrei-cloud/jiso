@@ -48,6 +48,7 @@ type AnalyzeEngineOptions struct {
 	Direction    analyzer.TrafficDirection
 	OutputFile   string
 	ScenarioName string // scenario mode; empty = AnalyzeDefaultScenarioName
+	Match        *analyzer.MatchSpec // routes mode: the matching wizard's selection (nil = legacy auto path)
 }
 
 // EnumeratePCAPFlows enumerates the capture's flows (port -> message
@@ -232,6 +233,9 @@ func RunAnalyzeEngine(opts AnalyzeEngineOptions) (*AnalyzeOutput, []config.Item,
 	if opts.Mode == AnalyzeModeScenario {
 		return runAnalyzeScenario(streamAnalyzer, opts)
 	}
+	if opts.Mode == AnalyzeModeRoutes && opts.Match != nil {
+		return runAnalyzeRoutesMatched(streamAnalyzer, opts)
+	}
 
 	messages, err := streamAnalyzer.ExtractMessagesFromFileWithDirection(opts.PcapPath, opts.HeaderType, opts.Direction)
 	if err != nil {
@@ -336,4 +340,46 @@ func runAnalyzeScenario(streamAnalyzer *analyzer.StreamAnalyzer, opts AnalyzeEng
 	output := NewAnalyzeOutputFromScenarioScaffold(opts.PcapPath, opts.HeaderType, opts.Unsecure, pairs, includeReversals, scenarioName, scaffold, opts.OutputFile)
 
 	return output, items, nil
+}
+
+// runAnalyzeRoutesMatched is the matching wizard's run leg: pair the
+// capture, keep the operator's conditions, and emit one route per group
+// of the chosen fields. No automatic match-field inference happens here:
+// the conditions are the operator's, and a card field appears only
+// because they typed it (the emitted match values get anonymized by
+// BuildRoutesFromMatch unless the run is unsecure).
+func runAnalyzeRoutesMatched(streamAnalyzer *analyzer.StreamAnalyzer, opts AnalyzeEngineOptions) (*AnalyzeOutput, []config.Item, error) {
+	annotated, err := streamAnalyzer.ExtractAnnotatedMessagesFromFile(opts.PcapPath, opts.HeaderType, opts.Direction.TargetPort)
+	if err != nil {
+		return nil, nil, &ConfigError{Path: opts.PcapPath, Err: fmt.Errorf("annotated extraction failed: %w", err)}
+	}
+	pairs, err := analyzer.NewCorrelator(opts.Unsecure).Correlate(annotated)
+	if err != nil {
+		return nil, nil, &ConfigError{Path: opts.PcapPath, Err: fmt.Errorf("correlation failed: %w", err)}
+	}
+
+	matchPairs := make([]analyzer.MatchPair, 0, len(pairs))
+	for _, p := range pairs {
+		mp := analyzer.MatchPair{}
+		if p.Request != nil {
+			mp.Request = p.Request.Message
+		}
+		if p.Response != nil {
+			mp.Response = p.Response.Message
+		}
+		matchPairs = append(matchPairs, mp)
+	}
+
+	routes, warnings := analyzer.BuildRoutesFromMatch(matchPairs, *opts.Match, opts.Unsecure)
+	if len(routes) == 0 {
+		if len(warnings) == 0 {
+			warnings = []string{"no routes were produced"}
+		}
+
+		return nil, nil, fmt.Errorf("matching wizard: %s", strings.Join(warnings, "; "))
+	}
+
+	output := NewAnalyzeOutputFromMatchedRoutes(opts.PcapPath, opts.HeaderType, opts.Direction, opts.Unsecure, len(matchPairs), routes, warnings, opts.OutputFile)
+
+	return output, routes, nil
 }
