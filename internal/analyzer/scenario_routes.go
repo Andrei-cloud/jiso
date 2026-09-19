@@ -17,9 +17,12 @@ import (
 // declared inside that function -- which is exactly why the whole thing lived in one
 // 530-line function: no other function could name those types.
 
-// mockRouteAccumulator is one distinct response behaviour seen for a request shape:
-// what to match, what to echo back, the cards it was seen with, and how often it
-// happened.
+// mockRouteAccumulator is one distinct response behaviour seen for a
+// request shape: what to match, what to echo back, and how often it
+// happened. It deliberately tracks NO card data: a behaviour's identity is
+// its request match and response shape, and card values never enter a
+// scaffold route's match (F12.3 — card-specific replay is the §J matching
+// wizard's explicit business, never the scaffold's automatic one).
 type mockRouteAccumulator struct {
 	baseMatchFields map[string]any
 	echoFields      []int
@@ -28,8 +31,6 @@ type mockRouteAccumulator struct {
 	reqMTI          string
 	reqDE3          string
 	respDE39        string
-	cards           []string
-	seenCards       map[string]bool
 	count           int
 }
 
@@ -43,8 +44,8 @@ type routeGroup struct {
 }
 
 // copyMatchFields copies an accumulator's base match fields. The copy is the point:
-// every accumulator in a group shares one base map, so writing a route's card filter
-// into it would leak that filter into every other route built from the group.
+// every accumulator in a group shares one base map, so writing any route-local
+// value into it would leak that value into every other route built from the group.
 func copyMatchFields(acc *mockRouteAccumulator) map[string]any {
 	mf := make(map[string]any)
 	for k, v := range acc.baseMatchFields {
@@ -90,9 +91,9 @@ func appendPrimaryRoutes(result *ScenarioScaffoldResult, order []string, groups 
 			return grp.accumulators[i].count > grp.accumulators[j].count
 		})
 
+		before := len(result.MockRoutes)
 		for idx, acc := range grp.accumulators {
 			mf := copyMatchFields(acc)
-			addCards(mf, acc)
 
 			var name string
 			if acc.respDE39 != "" {
@@ -102,6 +103,9 @@ func appendPrimaryRoutes(result *ScenarioScaffoldResult, order []string, groups 
 			}
 			desc := fmt.Sprintf("Auto-generated mock route for response flow %s DE3 %s (RC: %s)", acc.responseMTI, acc.reqDE3, acc.respDE39)
 			result.MockRoutes = append(result.MockRoutes, mockRouteItem(name, desc, mf, acc))
+		}
+		if warn := scaffoldSharingWarning(result.MockRoutes[before:]); warn != "" {
+			result.Warnings = append(result.Warnings, warn)
 		}
 	}
 }
@@ -126,14 +130,17 @@ func appendReversalRoutes(result *ScenarioScaffoldResult, order []string, groups
 			continue
 		}
 
+		before := len(result.MockRoutes)
 		for idx, acc := range grp.accumulators {
 			mf := copyMatchFields(acc)
-			addCards(mf, acc)
 
 			revReqMTI := fmt.Sprintf("%v", acc.baseMatchFields["0"])
 			name := fmt.Sprintf("Mock Reversal Route %s DE3=%s #%d", revReqMTI, acc.reqDE3, idx+1)
 			desc := fmt.Sprintf("Auto-generated mock route for reversal flow MTI %s DE3 %s", revReqMTI, acc.reqDE3)
 			result.MockRoutes = append(result.MockRoutes, mockRouteItem(name, desc, mf, acc))
+		}
+		if warn := scaffoldSharingWarning(result.MockRoutes[before:]); warn != "" {
+			result.Warnings = append(result.Warnings, warn)
 		}
 	}
 }
@@ -154,22 +161,36 @@ func mockRouteItem(name, description string, mf map[string]any, acc *mockRouteAc
 	}
 }
 
-// addCards narrows a route's match to the accumulator's observed card(s): a lone
-// card as the DE 2 match, several as a set.
-func addCards(mf map[string]any, acc *mockRouteAccumulator) {
-	if len(acc.cards) == 1 {
-		mf["2"] = acc.cards[0]
-	} else if len(acc.cards) > 1 {
-		mf["2"] = acc.cards
+// scaffoldSharingWarning names the ordering fact a card-free scaffold leaves
+// behind: when several routes replay different responses to one and the same
+// request match, the server is first-full-match-wins, so the RC-first ordering
+// above is load-bearing and a specific card's behaviour may never be reached.
+// Card-specific replay is the §J matching wizard's explicit business (a PAN
+// condition there is an operator's deliberate request), never the scaffold's.
+func scaffoldSharingWarning(routes []config.Item) string {
+	seen := make(map[string]int, len(routes))
+	for _, r := range routes {
+		b, err := json.Marshal(r.MatchFields)
+		if err != nil {
+			continue
+		}
+		seen[string(b)]++
 	}
+	for _, n := range seen {
+		if n > 1 {
+			return "several scaffold routes replay different responses to the same request match; they stay RC-first and the first matching route wins at runtime - card-specific replay belongs to the §J matching wizard"
+		}
+	}
+
+	return ""
 }
 
 // recordRoute accumulates one observed response under its shape group. It
 // reuses an accumulator whose (match, response MTI, response fields, echo
 // fields) signature equals this one's -- so N identical responses collapse into
-// a single route -- creating the group and accumulator on first sight, and
-// recording each distinct card value once. It returns the (possibly extended)
-// group order so callers keep deterministic primary/reversal emission order.
+// a single route -- creating the group and accumulator on first sight. It
+// returns the (possibly extended) group order so callers keep deterministic
+// primary/reversal emission order.
 func recordRoute(
 	groupMap map[string]*routeGroup,
 	groupOrder []string,
@@ -177,7 +198,7 @@ func recordRoute(
 	baseMatch map[string]any,
 	echoFields []int,
 	responseFields map[string]any,
-	respDE39, cardVal string,
+	respDE39 string,
 ) []string {
 	sigBytes, _ := json.Marshal([]any{baseMatch, responseMTI, responseFields, echoFields})
 	sig := string(sigBytes)
@@ -213,25 +234,20 @@ func recordRoute(
 			reqMTI:          reqMTI,
 			reqDE3:          reqDE3,
 			respDE39:        respDE39,
-			cards:           make([]string, 0),
-			seenCards:       make(map[string]bool),
 			count:           0,
 		}
 		grp.accumulators = append(grp.accumulators, acc)
 	}
 
 	acc.count++
-	if cardVal != "" && !acc.seenCards[cardVal] {
-		acc.seenCards[cardVal] = true
-		acc.cards = append(acc.cards, cardVal)
-	}
 
 	return groupOrder
 }
 
 // accumulatePrimaryRoute derives the primary response's shape (match fields,
-// response MTI, response/echo fields, card value) from a request/response pair
-// and folds it into the primary route groups via recordRoute.
+// response MTI, response/echo fields) from a request/response pair and folds
+// it into the primary route groups via recordRoute. No card data is read:
+// a scaffold route matches a request shape, never a card.
 func (sb *ScenarioBuilder) accumulatePrimaryRoute(
 	reqMsg, respMsg *iso8583.Message,
 	anon *Anonymizer,
@@ -240,8 +256,6 @@ func (sb *ScenarioBuilder) accumulatePrimaryRoute(
 	groupMap map[string]*routeGroup,
 	groupOrder []string,
 ) []string {
-	reqDE2 := getFieldString(reqMsg, 2)
-
 	respMTI, _ := respMsg.GetMTI()
 	if respMTI == "" {
 		respMTI = utils.ResponseMTI(reqMTI)
@@ -267,18 +281,13 @@ func (sb *ScenarioBuilder) accumulatePrimaryRoute(
 
 	echoFields, responseFields := extractEchoAndResponseFields(reqMsg, respMsg, unsecure, anon)
 
-	cardVal := ""
-	if reqDE2 != "" {
-		cardVal = anon.AnonymizePAN(reqDE2)
-	}
-
-	return recordRoute(groupMap, groupOrder, reqMTI, reqDE3, respMTI, baseMatch, echoFields, responseFields, respDE39, cardVal)
+	return recordRoute(groupMap, groupOrder, reqMTI, reqDE3, respMTI, baseMatch, echoFields, responseFields, respDE39)
 }
 
 // accumulateReversalRoute derives a reversal's response shape from a correlated
-// pair -- falling back to the request's DE3/DE2 and a default echo set when the
+// pair -- falling back to the request's DE3 and a default echo set when the
 // capture carries no reversal response -- and folds it into the reversal route
-// groups via recordRoute.
+// groups via recordRoute. Like the primary path it reads no card data.
 func (sb *ScenarioBuilder) accumulateReversalRoute(
 	pair *CorrelatedPair,
 	anon *Anonymizer,
@@ -298,16 +307,11 @@ func (sb *ScenarioBuilder) accumulateReversalRoute(
 	}
 
 	revDE3 := ""
-	revDE2 := ""
 	if pair.Reversal != nil && pair.Reversal.Message != nil {
 		revDE3 = FormatProcCode(getFieldString(pair.Reversal.Message, 3))
-		revDE2 = getFieldString(pair.Reversal.Message, 2)
 	}
 	if revDE3 == "" && pair.Request != nil && pair.Request.Message != nil {
 		revDE3 = FormatProcCode(getFieldString(pair.Request.Message, 3))
-	}
-	if revDE2 == "" && pair.Request != nil && pair.Request.Message != nil {
-		revDE2 = getFieldString(pair.Request.Message, 2)
 	}
 	if revDE3 == "" {
 		revDE3 = "000000"
@@ -326,12 +330,7 @@ func (sb *ScenarioBuilder) accumulateReversalRoute(
 	echoFields := shape.echoFields
 	responseFields := shape.responseFields
 
-	cardVal := ""
-	if revDE2 != "" {
-		cardVal = anon.AnonymizePAN(revDE2)
-	}
-
-	return recordRoute(groupMap, groupOrder, revReqMTI, revDE3, revRespMTI, baseMatch, echoFields, responseFields, respRC, cardVal)
+	return recordRoute(groupMap, groupOrder, revReqMTI, revDE3, revRespMTI, baseMatch, echoFields, responseFields, respRC)
 }
 
 // reversalResponseShape is the reversal response's observable shape: the MTI and

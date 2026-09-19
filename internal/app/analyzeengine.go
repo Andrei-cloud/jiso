@@ -338,6 +338,9 @@ func runAnalyzeScenario(streamAnalyzer *analyzer.StreamAnalyzer, opts AnalyzeEng
 	items = append(items, scaffold.MockRoutes...)
 
 	output := NewAnalyzeOutputFromScenarioScaffold(opts.PcapPath, opts.HeaderType, opts.Unsecure, pairs, includeReversals, scenarioName, scaffold, opts.OutputFile)
+	// The scaffold's honest notes (shared-match ordering after the PAN
+	// removal, F12.3) ride along to the operator's run summary.
+	output.Warnings = append(output.Warnings, scaffold.Warnings...)
 
 	return output, items, nil
 }

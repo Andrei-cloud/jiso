@@ -298,15 +298,27 @@ func TestScenarioBuilder_MockRoutes_DifferentCardsAndResponseCodes(t *testing.T)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// 3 distinct mock routes should be generated, each mapped to its card and response code
+	// F12.3: three distinct response behaviours still become three routes,
+	// but NO route matches on a card - and because they now share one
+	// request match, the sharing must be named and RC-first ordered (the
+	// server answers with the first full match).
 	require.Len(t, result.MockRoutes, 3)
 
-	for i, mr := range result.MockRoutes {
+	seenRC := make(map[string]bool)
+	for _, mr := range result.MockRoutes {
 		assert.Equal(t, config.TypeMockRoute, mr.Type)
 		assert.Equal(t, "0110", mr.ResponseMTI)
-		assert.Equal(t, cards[i], mr.MatchFields["2"])
-		assert.Equal(t, rcs[i], mr.ResponseFields["39"])
+		_, hasPAN := mr.MatchFields["2"]
+		assert.False(t, hasPAN, "scaffold routes must not match on card: %v", mr.MatchFields)
+		rc, _ := mr.ResponseFields["39"].(string)
+		assert.NotEmpty(t, rc)
+		seenRC[rc] = true
 	}
+	for _, rc := range rcs {
+		assert.True(t, seenRC[rc], "response code %s lost", rc)
+	}
+	assert.Equal(t, "00", result.MockRoutes[0].ResponseFields["39"], "RC-first order")
+	assert.NotEmpty(t, result.Warnings, "shared-match sharing must be named")
 }
 
 func TestScenarioBuilder_MockRoutes_GroupedCardsList(t *testing.T) {
@@ -350,20 +362,22 @@ func TestScenarioBuilder_MockRoutes_GroupedCardsList(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Should generate 2 grouped mock routes: 1 for RC=00 (Card 1) and 1 for RC=51 (Cards 2, 3, 4)
+	// F12.3: still two behaviour groups (RC 00, RC 51), but the cards are
+	// gone from the match - the routes now share one request match, so the
+	// sharing is named and the order stays RC-first.
 	require.Len(t, result.MockRoutes, 2)
 
-	// Route 1 (RC=00)
 	mr00 := result.MockRoutes[0]
 	assert.Equal(t, "0110", mr00.ResponseMTI)
 	assert.Equal(t, "00", mr00.ResponseFields["39"])
-	assert.Equal(t, "4000111122223333", mr00.MatchFields["2"])
+	assert.NotContains(t, mr00.MatchFields, "2")
 
-	// Route 2 (RC=51) with list of 3 cards
 	mr51 := result.MockRoutes[1]
 	assert.Equal(t, "0110", mr51.ResponseMTI)
 	assert.Equal(t, "51", mr51.ResponseFields["39"])
-	assert.Equal(t, []string{"4000222233334444", "4000333344445555", "4000444455556666"}, mr51.MatchFields["2"])
+	assert.NotContains(t, mr51.MatchFields, "2")
+
+	assert.NotEmpty(t, result.Warnings, "shared-match sharing must be named")
 }
 
 func TestScenarioBuilder_ExactEchoAndResponseFieldsSeparation(t *testing.T) {

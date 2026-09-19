@@ -25,6 +25,11 @@ type ScenarioScaffoldResult struct {
 	Datasets     []config.Item
 	Scenario     config.Item
 	MockRoutes   []config.Item
+	// Warnings names honest facts about the scaffold the operator should
+	// see — e.g. that several routes now replay different responses to
+	// one shared request match and stay RC-first (F12.3: scaffold routes
+	// never match cards, so a card's specific answer may be shadowed).
+	Warnings []string
 }
 
 // ScenarioBuilder constructs test scenario scaffolds from correlated request-response pairs
