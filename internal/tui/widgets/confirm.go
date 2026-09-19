@@ -1,6 +1,8 @@
 package widgets
 
 import (
+	"strings"
+
 	key "charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
@@ -43,8 +45,11 @@ type ConfirmDialog struct {
 }
 
 // NewConfirmDialog builds a pending dialog for question. The help texts
-// on the decision bindings are the DecisionKeys report — the owner
-// badges them into its hotkey strip (one surface per state).
+// on the decision bindings are the DecisionKeys report — the dialog
+// renders them inside its own box: a module window owns its hotkeys
+// in-body, the footer strip keeps only the global legend (UAT finding:
+// keys smuggled into the footer away from the box that acts on them
+// confuse the operator).
 func NewConfirmDialog(th *theme.Theme, question string) *ConfirmDialog {
 	return &ConfirmDialog{
 		theme:    th,
@@ -97,27 +102,35 @@ func (m *ConfirmDialog) Update(msg tea.Msg) (*ConfirmDialog, tea.Cmd) {
 	}
 }
 
-// DecisionKey is one decision key with its help text, for the owner's
-// hotkey strip (widgets keeps frame's hint type behind its import fence).
+// DecisionKey is one decision key with its help text; DecisionKeys
+// reports them so the dialog (and tests) can read what it must show.
 type DecisionKey struct{ Key, Desc string }
 
 // DecisionKeys reports the decision keys (y confirm, n cancel, esc
-// cancel) derived from the bindings Update acts on; the owner styles
-// them. Enter still cancels but is not advertised — n/esc carry the
-// default-No answer.
+// cancel) derived from the bindings Update acts on. Enter still cancels
+// but is not advertised — n/esc carry the default-No answer.
 func (m *ConfirmDialog) DecisionKeys() []DecisionKey {
 	yes, no, cancel := m.yes.Help(), m.no.Help(), m.cancel.Help()
 
 	return []DecisionKey{{yes.Key, yes.Desc}, {no.Key, no.Desc}, {cancel.Key, cancel.Desc}}
 }
 
-// View renders the overlay block: the question alone. The decision keys
-// ride the owner's hotkey strip badged (one hotkey surface per state);
-// after a decision it renders empty.
+// View renders the overlay block: the question with its own decision
+// line under it. The dialog is the surface that acts on these keys, so
+// it shows them itself (badged, one hotkey surface per state); after a
+// decision it renders empty.
 func (m *ConfirmDialog) View() string {
 	if m.state != phaseOpen {
 		return ""
 	}
+	seps := m.theme.Separator()
+	base := m.theme.Dim
+	hk := func(k string) string { return m.theme.Key(k) }
+	keys := make([]string, 0, 3)
+	for _, dk := range m.DecisionKeys() {
+		keys = append(keys, hk(dk.Key)+base.Render(" "+dk.Desc))
+	}
 
-	return m.theme.TextPrimary.Render(m.question)
+	return m.theme.TextPrimary.Render(m.question) + "\n" +
+		strings.Join(keys, base.Render(" "+seps+" "))
 }

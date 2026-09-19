@@ -35,14 +35,6 @@ func (m *RootModel) handleAnalyzeWrite() (tea.Model, tea.Cmd) {
 
 		return m, nil
 	}
-	if note := scenarioWriteIntegrity(m.analyzeOutput); note != "" {
-		// F12: a scenario extract must run right after extraction. The
-		// selection is operator-editable state, so this is refused with
-		// the keys that fix it - never a leg failure, never silent.
-		m.analyzeNote = note
-
-		return m, nil
-	}
 	src := m.analyzeSource()
 	if src == nil {
 		return m, nil
@@ -67,12 +59,24 @@ func (m *RootModel) handleAnalyzeWrite() (tea.Model, tea.Cmd) {
 
 // applyAnalyzeWriteStat routes the stat verdict: an existing target
 // opens the §N3 overwrite confirm (default No — the user's items stay
-// intact); a fresh target proceeds straight to the write.
+// intact); a fresh target with an intact extract proceeds straight to
+// the write. Either way, an incomplete scenario extract (F12: no
+// scenario item, or no mock routes) is not silently refused — the
+// confirm names what is missing and the operator decides.
 func (m *RootModel) applyAnalyzeWriteStat(msg analyzeWriteStatMsg) (tea.Model, tea.Cmd) {
 	m.analyzeWriteWait = false
 	if msg.seq != m.analyzeSeq || m.Current().ID() != pages.AnalyzePageID {
 		return m, nil
 	}
+	if ask := scenarioWriteMissing(msg.out); ask != "" {
+		m.analyzeIntegrityAsk = scenarioWriteIntegrity(msg.out)
+		if msg.exists {
+			return m.confirmIncomplete(ask, "overwrite "+msg.path+"? the extract has "+ask)
+		}
+
+		return m.confirmIncomplete(ask, "the extract has "+ask+" - write anyway?")
+	}
+
 	if msg.exists {
 		m.analyzeOverwriteConfirm = widgets.NewConfirmDialog(m.themeOrNil(), "overwrite "+msg.path+"?")
 
@@ -80,6 +84,15 @@ func (m *RootModel) applyAnalyzeWriteStat(msg analyzeWriteStatMsg) (tea.Model, t
 	}
 
 	return m.armAnalyzeWrite(msg.out, msg.path)
+}
+
+// confirmIncomplete asks the operator to confirm a scenario extract that
+// cannot run itself (F12): the box names what is missing; only an
+// explicit yes writes it. The dialog owns its decision keys in-body.
+func (m *RootModel) confirmIncomplete(missing, question string) (tea.Model, tea.Cmd) {
+	m.analyzeOverwriteConfirm = widgets.NewConfirmDialog(m.themeOrNil(), question)
+
+	return m, nil
 }
 
 // armAnalyzeWrite launches the cancellable write leg: the stored
@@ -113,10 +126,13 @@ func (m *RootModel) cancelAnalyzeWrite() {
 }
 
 // applyAnalyzeOverwriteConfirmed / applyAnalyzeOverwriteCancelled
-// drive the §N3 overwrite confirm (default No writes nothing).
+// drive the §N3 overwrite confirm and the F12 incomplete-extract
+// confirm (both live in analyzeOverwriteConfirm; default No writes
+// nothing). The integrity note survives only to explain a cancel.
 func (m *RootModel) applyAnalyzeOverwriteConfirmed() (tea.Model, tea.Cmd) {
 	confirm := m.analyzeOverwriteConfirm
 	m.analyzeOverwriteConfirm = nil
+	m.analyzeIntegrityAsk = ""
 	if confirm == nil || m.analyzeOutput == nil {
 		return m, nil // straggler after a reset
 	}
@@ -127,6 +143,13 @@ func (m *RootModel) applyAnalyzeOverwriteConfirmed() (tea.Model, tea.Cmd) {
 func (m *RootModel) applyAnalyzeOverwriteCancelled() (tea.Model, tea.Cmd) {
 	m.analyzeOverwriteConfirm = nil
 	m.analyzeWriteWait = false
+	if m.analyzeIntegrityAsk != "" {
+		// The operator said no to an incomplete extract: name the gap
+		// and the keys that fix it, so the next w can land (the note
+		// renders on the run step, done status included).
+		m.analyzeNote = m.analyzeIntegrityAsk
+		m.analyzeIntegrityAsk = ""
+	}
 
 	return m, nil
 }
@@ -195,13 +218,16 @@ func (m *RootModel) applyAnalyzeOutputPick(path string) (tea.Model, tea.Cmd) {
 	return m.handleAnalyzeOutCommit(pages.AnalyzeOutCommitMsg{Path: path})
 }
 
-// scenarioWriteIntegrity is the F12 self-run contract checked at the write
-// gate: the selection of a scenario run must be able to run itself right
-// after extraction. Transactions without the scenario item are no scenario
-// extract; a scenario without mock routes cannot start the mock server
-// from this file. Both are operator-editable states, so the refusal is
-// named with the keys that fix it, and the write never happens silently.
-func scenarioWriteIntegrity(out *app.AnalyzeOutput) string {
+// The F12 gaps, as the short phrases the confirm question carries.
+const (
+	missingScenarioItem = "no scenario item"
+	missingMockRoutes   = "no mock routes"
+)
+
+// scenarioWriteMissing names what a scenario-mode selection lacks for
+// the F12 self-run contract, as a short noun phrase for the confirm
+// question ("" when intact): "no scenario item" or "no mock routes".
+func scenarioWriteMissing(out *app.AnalyzeOutput) string {
 	if out == nil || out.Mode != "scenario" {
 		return ""
 	}
@@ -218,9 +244,26 @@ func scenarioWriteIntegrity(out *app.AnalyzeOutput) string {
 	}
 	switch {
 	case hasTx && !hasScenario:
-		return "write refused: the selection has no scenario item - the extract cannot run as a scenario ([x] reopens the picker, [a] selects all)"
+		return missingScenarioItem
 	case hasScenario && !hasRoute:
-		return "write refused: the selection has no mock routes - the mock server cannot start from this extract ([x] reopens the picker, [a] selects all)"
+		return missingMockRoutes
+	}
+
+	return ""
+}
+
+// scenarioWriteIntegrity is the full sentence behind scenarioWriteMissing:
+// what the gap means and the keys that fix it. It opens the confirm and
+// stays visible as the note when the operator cancels — the deliberate
+// subset write is allowed, never silently refused.
+func scenarioWriteIntegrity(out *app.AnalyzeOutput) string {
+	switch scenarioWriteMissing(out) {
+	case missingScenarioItem:
+		return "the selection has " + missingScenarioItem +
+			" - the extract cannot run as a scenario ([x] reopens the picker, [a] selects all)"
+	case missingMockRoutes:
+		return "the selection has " + missingMockRoutes +
+			" - the mock server cannot start from this extract ([x] reopens the picker, [a] selects all)"
 	}
 
 	return ""

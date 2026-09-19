@@ -131,30 +131,26 @@ func TestPageModalsSuppressPageHintsInFooter(t *testing.T) {
 	}
 }
 
-// TestConfirmPendingFooterSwapInDecisionKeys: the pending confirm's old
-// dim body line is gone from the box; its decision keys sit in the strip,
-// badged through the frame's Theme.Key path, as legend-only entries;
-// cancel restores the page hints.
-func TestConfirmPendingFooterSwapInDecisionKeys(t *testing.T) {
+// TestConfirmPendingFooterStaysGlobal: a module window owns its hotkeys
+// (UAT finding). The confirm box renders its decision keys IN-BODY; the
+// strip keeps only the global legend — never the box's keys, never the
+// frozen page's; cancel restores the page hints.
+func TestConfirmPendingFooterStaysGlobal(t *testing.T) {
 	m := footerRootT(t)
 	pageHints := m.Current().Hints()
 	m.workersConfirm = widgets.NewConfirmDialog(m.themeOrNil(), "stop all workers?")
 
 	hints := lite(m.footerHints())
 	assertLegend(t, hints)
-	for _, want := range []frameKeyHintLite{
+	for _, no := range []frameKeyHintLite{
 		{key: "y", desc: "confirm", primary: true},
 		{key: "n", desc: "cancel", primary: true},
 		{key: "esc", desc: "cancel", primary: true},
 	} {
-		found := false
 		for _, h := range hints {
-			if h == want {
-				found = true
+			if h == no {
+				t.Errorf("footer smuggles the confirm entry %+v: the box must own its keys", no)
 			}
-		}
-		if !found {
-			t.Errorf("footer lacks the confirm entry %+v: %+v", want, hints)
 		}
 	}
 	for _, ph := range lite(pageHints) {
@@ -164,7 +160,13 @@ func TestConfirmPendingFooterSwapInDecisionKeys(t *testing.T) {
 			}
 		}
 	}
-	if strings.Contains(ansi.Strip(m.View().Content), "default: no") {
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"y confirm", "n cancel", "esc cancel"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the confirm box must carry %q in-body:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, "default: no") {
 		t.Error("the confirm box must not repeat the old dim hint line")
 	}
 
@@ -177,9 +179,10 @@ func TestConfirmPendingFooterSwapInDecisionKeys(t *testing.T) {
 	}
 }
 
-// TestConfirmFooterKeysAreBadged: the strip renders y/n/esc in the
-// Theme.Key badge (the §14 complaint: unhighlighted hotkeys).
-func TestConfirmFooterKeysAreBadged(t *testing.T) {
+// TestConfirmBoxKeysAreBadged: the dialog's decision line renders y/n/esc
+// in the Theme.Key badge (the §14 complaint: unhighlighted hotkeys) —
+// badged inside the box, where the keys are actually acted on.
+func TestConfirmBoxKeysAreBadged(t *testing.T) {
 	m := footerRootT(t)
 	m.theme = helpGoldenTheme(colorprofile.TrueColor)
 	m.workersConfirm = widgets.NewConfirmDialog(m.themeOrNil(), "stop all workers?")
@@ -190,12 +193,12 @@ func TestConfirmFooterKeysAreBadged(t *testing.T) {
 	frame := m.View().Content
 	for _, k := range []string{"y", "n", "esc"} {
 		if want := boldOpen + k + reset; !strings.Contains(frame, want) {
-			t.Errorf("footer lacks the bold-accent badge for %q (%q)", k, want)
+			t.Errorf("the box lacks the bold-accent badge for %q (%q)", k, want)
 		}
 	}
 	for _, want := range []string{"y confirm", "n cancel", "esc cancel"} {
 		if !strings.Contains(ansi.Strip(frame), want) {
-			t.Errorf("footer must read %q:\n%s", want, ansi.Strip(frame))
+			t.Errorf("the box must read %q:\n%s", want, ansi.Strip(frame))
 		}
 	}
 }

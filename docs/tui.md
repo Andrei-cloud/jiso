@@ -40,10 +40,11 @@ $ jiso tui
   (`online` / `● ONLINE`), plus the spec / db / srv strip.
 - Footer: the global legend (page jumps, then palette / help / quit) followed
   by context hints generated from the current page's keymap. Never hardcoded
-  per page. One hotkey surface per state: while a keyboard-owning overlay
-  lists its keys in-body (dialogs, forms, wizards, file picker, inline
-  viewers) or documents every key in its box (help), the strip keeps the
-  global legend only — and a pending confirm swaps its decision keys into it.
+  per page. One hotkey surface per state: every keyboard-owning surface lists
+  its keys in-body — dialogs, forms, wizards, the file picker, inline viewers,
+  and the §M help box documents every key — so while one is open the strip
+  keeps the global legend only. A confirm box carries its own badged decision
+  line; its keys never ride the footer.
 - Key glyphs in body text (empty-state hints, wizard footers, inline toggle
   notes) render bold-accent, matching the footer's accented keys, so an
   inline affordance reads as a hotkey at a glance.
@@ -319,9 +320,12 @@ an all-deselected picker is an error). The roster is the **run step's own
 surface**: walking away from the step (either direction) closes it without
 applying, and the run-step radios `t`/`r`/`s`/`m` work with it open — they apply
 the pending selection (exactly as `esc` does), close the roster, and act as the
-radios they are. For a scenario run, `w` never persists a selection missing its
-scenario item or its mock routes: the refusal names what is missing and the key
-that fixes it, so a written extract always runs right after extraction.
+radios they are. For a scenario run, a selection missing its scenario item
+or its mock routes — a deliberate subset — is confirmed before written,
+never silently refused: the box names what is missing, `y` writes the
+selection as it stands (so the extract can still land for off-line use),
+and `n` writes nothing and leaves the note naming the gap and the keys
+that fix it, visible on the run step.
 `tab`/`shift+tab` move the picker focus
 between the item list and the file-form **preview**; while the preview holds the
 focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
@@ -475,10 +479,11 @@ default answer is always **No**:
 | `n`, `esc`, `enter` | Cancel — the default |
 
 Everything else is swallowed while a confirm is pending (page jumps
-included). While one is pending the box only asks its question: the
-decision keys (`y confirm`, `n cancel`, `esc cancel`) badge the footer
-strip next to the global legend, and the page's own context hints stay
-dropped until the answer lands. Confirms fire on: quit with active workers, stop all workers,
+included). While one is pending the box speaks for itself: the question
+sits over its own badged decision line (`y confirm · n cancel · esc
+cancel`) — a module window owns its hotkeys in-body. The strip keeps the
+global legend only, and the page's own context hints stay dropped until
+the answer lands. Confirms fire on: quit with active workers, stop all workers,
 disconnect while workers or the mock server run, mock-server stop with live
 connections, analyze abort over an in-flight step, analyze / scenario-export
 / CTF overwrite of an existing path, and settings save.

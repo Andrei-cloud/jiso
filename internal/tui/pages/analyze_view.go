@@ -411,6 +411,12 @@ func (a *Analyze) statusBlock(w int) string {
 			}
 			b.WriteString(clipCells(a.th.Status(kind, a.state.WriteLine), w, clipTail(a.th)) + "\n")
 		}
+		// Notes render here too (UAT finding: a note set while done was
+		// invisible): the run step is where the operator reads why a
+		// write did not land or what a cancel means.
+		if a.state.Note != "" {
+			b.WriteString(clipCells(a.th.Status(theme.KindWarn, a.state.Note), w, clipTail(a.th)) + "\n")
+		}
 		if a.state.Elapsed != "" {
 			b.WriteString(a.th.Dim.Render("done in "+a.state.Elapsed) + "\n")
 		}

@@ -56,8 +56,9 @@ func (m *RootModel) View() tea.View {
 		content = overlayCenter(content, boxed(m.filePick.View()), inner.Width, inner.Height)
 	}
 	for _, c := range m.confirms() {
-		// §N3 confirms: the question renders in a centered modal box over
-		// the unchanged page; the decision keys ride the footer strip.
+		// §N3 confirms: the question and its own decision line render in
+		// a centered modal box over the unchanged page (module windows
+		// own their hotkeys in-body; the strip keeps the global legend).
 		if c != nil && c.Pending() {
 			content = overlayCenter(content, boxed(c.View()), inner.Width, inner.Height)
 		}

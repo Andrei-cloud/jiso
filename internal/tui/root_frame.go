@@ -48,11 +48,10 @@ func (m *RootModel) frameProps(content string) frame.Props {
 // frameProps renders and buildHitMap packs exactly this list, so the
 // cells the user sees and the cells that fire actions can never drift.
 //
-// One hotkey surface per state: a pending confirm swaps its badged
-// decision keys into the strip (the box only asks); the form dialogs,
-// wizards, and picker list their keys in-body, and the §M box documents
-// every key — while any of them is open the strip keeps only the global
-// group, never the frozen page's keys.
+// One hotkey surface per state: the confirm box, the form dialogs, the
+// wizards, and the picker all list their keys IN-BODY (the §M box is the
+// keymap itself); while any of them is open the strip keeps only the
+// global group, never the frozen page's keys and never the overlay's.
 func (m *RootModel) footerHints() []frame.KeyHint {
 	hints := globalFooterHints(&m.keys)
 	if m.errModal != nil {
@@ -61,12 +60,9 @@ func (m *RootModel) footerHints() []frame.KeyHint {
 		return append(hints, m.errModal.footerHints()...)
 	}
 	if c := m.pendingConfirm(); c != nil {
-		// The confirm's question is the box; the decision keys are the
-		// footer's — badged by the frame's Theme.Key path.
-		for _, dk := range c.DecisionKeys() {
-			hints = append(hints, frame.KeyHint{Key: dk.Key, Desc: dk.Desc, Primary: true})
-		}
-
+		// The confirm box carries its own decision keys in-body (a module
+		// window owns its hotkeys): the strip keeps only the global
+		// legend, never the box's keys and never the frozen page's.
 		return hints
 	}
 	if m.dlg != nil || m.wizard != nil || m.serverDlg != nil ||

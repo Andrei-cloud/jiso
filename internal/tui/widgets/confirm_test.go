@@ -116,10 +116,10 @@ func TestConfirmNonKeyMsgsIgnored(t *testing.T) {
 	}
 }
 
-// The box only asks: the decision keys ride the owner's hotkey strip
-// (badged by the frame), so the dialog's own render carries the question
-// and no key hint line.
-func TestConfirmViewRendersQuestionOnly(t *testing.T) {
+// The box asks AND owns its keys (UAT finding: a module window carries
+// its hotkeys in-body): the dialog renders the question plus a badged
+// decision line, and nothing else.
+func TestConfirmViewCarriesDecisionKeys(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -134,23 +134,26 @@ func TestConfirmViewRendersQuestionOnly(t *testing.T) {
 			m := NewConfirmDialog(tc.th(t), "Drop the session database?")
 			m.Open()
 			ls := lines(m.View())
-			if len(ls) != 1 {
-				t.Fatalf("view is %d lines, want the question alone:\n%s", len(ls), m.View())
+			if len(ls) != 2 {
+				t.Fatalf("view is %d lines, want question + decision line:\n%s", len(ls), m.View())
 			}
 			if ls[0] != "Drop the session database?" && strip(ls[0]) != "Drop the session database?" {
 				t.Errorf("question line %q", strip(ls[0]))
 			}
-			for _, gone := range []string{"confirm", "cancel", "default"} {
-				if strings.Contains(strip(m.View()), gone) {
-					t.Errorf("render still carries the old hint word %q:\n%s", gone, m.View())
+			for _, want := range []string{"y confirm", "n cancel", "esc cancel"} {
+				if !strings.Contains(strip(m.View()), want) {
+					t.Errorf("decision line must carry %q:\n%s", want, m.View())
 				}
+			}
+			if strings.Contains(strip(m.View()), "default") {
+				t.Errorf("render still carries the old default hint:\n%s", m.View())
 			}
 		})
 	}
 }
 
-// DecisionKeys reports the decision key/help pairs the owner badged into
-// its hotkey strip, derived from the bindings Update acts on.
+// DecisionKeys reports the decision key/help pairs the dialog renders in
+// its own box, derived from the bindings Update acts on.
 func TestConfirmDecisionKeys(t *testing.T) {
 	t.Parallel()
 

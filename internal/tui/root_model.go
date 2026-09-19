@@ -314,6 +314,11 @@ type RootModel struct {
 	// output-path retarget clears it.
 	analyzeFileWritten  bool
 	analyzeNote         string
+	// analyzeIntegrityAsk holds the full F12 sentence while the confirm
+	// about an incomplete scenario extract is pending. It becomes the
+	// run-step note only when the operator cancels; a yes or any write
+	// result clears it.
+	analyzeIntegrityAsk string
 	analyzeSpecError    string
 	analyzeCaptureError string
 	analyzeConfirm      *widgets.ConfirmDialog

@@ -19,9 +19,10 @@ import (
 )
 
 // scenarioRunOut builds a realistic scenario-goal output: transaction +
-// its dataset + the scenario item + one mock route (the roster F12's
-// write-integrity guard expects; the fake's default roster is a tx-mode
-// one and a scenario run never ships without its scenario item).
+// its dataset + the scenario item + one mock route (the complete roster
+// the F12 write confirm accepts without asking; the fake's default roster
+// is a tx-mode one and a scenario run never ships without its scenario
+// item).
 func scenarioRunOut(extract string) *app.AnalyzeOutput {
 	out := &app.AnalyzeOutput{Mode: "scenario", ScenarioName: "Captured Run"}
 	out.AttachGeneratedItems([]config.Item{
@@ -145,10 +146,12 @@ func scenarioExtractRoot(t *testing.T) (*analyzeTestRoot, *fakeAnalyze, string) 
 	return r, fake, extract
 }
 
-// TestAnalyzeWriteRefusedWhenScenarioItemDropped: the picker is free to
-// deselect anything, but [w] must not silently write an extract that
-// cannot run as a scenario - the note names the key that fixes it.
-func TestAnalyzeWriteRefusedWhenScenarioItemDropped(t *testing.T) {
+// TestAnalyzeWriteIncompleteConfirmsThenWrites: the picker is free to
+// deselect anything, and a deliberate subset must LAND (UAT finding: w
+// did nothing). With the scenario item dropped, [w] opens the F12
+// confirm naming the gap - never a silent refusal - and yes writes the
+// selection as-is.
+func TestAnalyzeWriteIncompleteConfirmsThenWrites(t *testing.T) {
 	r, fake, _ := scenarioExtractRoot(t)
 
 	// Roster rows: 0 transaction, 1 dataset, 2 route, 3 scenario.
@@ -161,17 +164,33 @@ func TestAnalyzeWriteRefusedWhenScenarioItemDropped(t *testing.T) {
 	r.pump(ch('w'))
 
 	if fake.writeN != 0 {
-		t.Fatalf("a scenario extract without the scenario item was written (%d legs)", fake.writeN)
+		t.Fatalf("an incomplete extract wrote before the confirm (%d legs)", fake.writeN)
 	}
-	if !strings.Contains(r.m.analyzeNote, "no scenario item") {
-		t.Errorf("refusal note = %q, want it to name the missing scenario item", r.m.analyzeNote)
+	c := r.m.analyzeOverwriteConfirm
+	if c == nil || !c.Pending() {
+		t.Fatalf("w with a dropped scenario item must confirm, not refuse:\n%s", r.view())
+	}
+	if !strings.Contains(c.Question(), "no scenario item") {
+		t.Errorf("confirm question = %q, want it to name the missing scenario item", c.Question())
+	}
+	// The box owns its decision keys in-body (module-window hotkeys).
+	if view := r.view(); !strings.Contains(view, "y confirm") || !strings.Contains(view, "esc cancel") {
+		t.Errorf("the confirm box must carry its keys:\n%s", view)
+	}
+
+	r.pump(ch('y'))
+	if fake.writeN != 1 {
+		t.Fatalf("after y: writeN = %d, want the deliberate subset written", fake.writeN)
+	}
+	if r.m.analyzeIntegrityAsk != "" {
+		t.Errorf("a confirmed write must clear the integrity ask, got %q", r.m.analyzeIntegrityAsk)
 	}
 }
 
-// TestAnalyzeWriteRefusedWhenRoutesDropped: same honesty the UAT asked
-// for - an extract whose selection has a scenario but no mock routes
-// cannot start the mock server, so the write is refused and named.
-func TestAnalyzeWriteRefusedWhenRoutesDropped(t *testing.T) {
+// TestAnalyzeWriteIncompleteRoutesConfirm: same honesty - an extract
+// whose selection has a scenario but no mock routes confirms, and yes
+// writes.
+func TestAnalyzeWriteIncompleteRoutesConfirm(t *testing.T) {
 	r, fake, _ := scenarioExtractRoot(t)
 
 	// Deselect the route row (index 2) and apply.
@@ -182,15 +201,50 @@ func TestAnalyzeWriteRefusedWhenRoutesDropped(t *testing.T) {
 	r.pump(ch('w'))
 
 	if fake.writeN != 0 {
-		t.Fatalf("an extract without mock routes was written (%d legs)", fake.writeN)
+		t.Fatalf("an incomplete extract wrote before the confirm (%d legs)", fake.writeN)
 	}
-	if !strings.Contains(r.m.analyzeNote, "no mock routes") {
-		t.Errorf("refusal note = %q, want it to name the missing mock routes", r.m.analyzeNote)
+	c := r.m.analyzeOverwriteConfirm
+	if c == nil || !strings.Contains(c.Question(), "no mock routes") {
+		t.Fatalf("w with the route row dropped must confirm naming the gap, got %v", c)
+	}
+
+	r.pump(ch('y'))
+	if fake.writeN != 1 {
+		t.Fatalf("after y: writeN = %d, want the deliberate subset written", fake.writeN)
 	}
 }
 
-// TestAnalyzeWriteFullSelectionStillWrites: the guard must not stand in
-// the way of the default complete selection.
+// TestAnalyzeWriteIncompleteCancelNamesGap: no at the confirm writes
+// nothing, and the note explains the gap WITH THE KEYS THAT FIX IT on
+// the run step - the done status renders notes (invisible-feedback
+// regression: the old silent refusal landed where nothing showed it).
+func TestAnalyzeWriteIncompleteCancelNamesGap(t *testing.T) {
+	r, fake, _ := scenarioExtractRoot(t)
+
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch(' '))
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEnter})
+	r.pump(ch('w'))
+	r.pump(ch('n')) // explicit No — nothing is written
+
+	if fake.writeN != 0 {
+		t.Fatalf("cancel must write nothing, got %d legs", fake.writeN)
+	}
+	if r.m.analyzeOverwriteConfirm != nil {
+		t.Fatal("cancel must close the confirm")
+	}
+	if !strings.Contains(r.m.analyzeNote, "no scenario item") {
+		t.Errorf("cancel note = %q, want it to name the missing scenario item", r.m.analyzeNote)
+	}
+	if view := r.view(); !strings.Contains(view, "no scenario item") {
+		t.Errorf("the run step must render the cancel note:\n%s", view)
+	}
+}
+
+// TestAnalyzeWriteFullSelectionStillWrites: the confirm must not stand
+// in the way of the default complete selection - no box, straight leg.
 func TestAnalyzeWriteFullSelectionStillWrites(t *testing.T) {
 	r, fake, _ := scenarioExtractRoot(t)
 
@@ -199,5 +253,8 @@ func TestAnalyzeWriteFullSelectionStillWrites(t *testing.T) {
 
 	if fake.writeN != 1 {
 		t.Fatalf("write legs = %d, want 1 for the complete scenario selection", fake.writeN)
+	}
+	if r.m.analyzeOverwriteConfirm != nil {
+		t.Error("a complete extract must not be asked the integrity question")
 	}
 }

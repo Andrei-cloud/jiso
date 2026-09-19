@@ -457,6 +457,7 @@ func (m *RootModel) doAnalyzeAbort() (tea.Model, tea.Cmd) {
 	m.analyzeItemRows, m.analyzeExcluded = nil, nil
 	m.analyzeUnparsableRows = nil
 	m.analyzeWriteLine, m.analyzeWriteOK, m.analyzeFileWritten = "", false, false
+	m.analyzeIntegrityAsk = ""
 	m.analyzeRunStale = true
 	m.popPage()
 
@@ -470,6 +471,7 @@ func (m *RootModel) leaveAnalyze() {
 		m.analyzeSeq++
 		m.cancelAnalyzeWrite()
 		m.analyzeOverwriteConfirm = nil
+		m.analyzeIntegrityAsk = ""
 		m.analyzeSpecWait, m.analyzeEnumWait, m.analyzeRunWait, m.analyzeWriteWait = false, false, false, false
 		m.analyzeStatus = pages.AnalyzeStatusIdle
 		m.analyzeStep = pages.StepCapture
