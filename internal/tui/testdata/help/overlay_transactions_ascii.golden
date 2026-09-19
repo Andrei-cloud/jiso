@@ -2,7 +2,8 @@
 | navigation   up/k up | down/j down | pgup page up        |
 |              pgdown page down | home top | end bottom    |
 | page actions enter detail | s send | f pick tx file      |
-|              / filter | o sort | esc back                |
+|              x assign spec to row | / filter | o sort    |
+|              esc back                                    |
 | error modal  enter ok / close | esc close                |
 |              j/k scroll one line                         |
 |              pgup/pgdown scroll ten lines                |

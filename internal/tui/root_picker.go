@@ -85,12 +85,16 @@ func (m *RootModel) cancelFilePicker() {
 	runID := m.pendingScenarioRun
 	m.pendingScenarioRun = ""
 	m.pendingScenarioPreviewID, m.pendingScenarioPreviewAt = "", 0
+	specTx := m.pendingTxSpecID
+	m.pendingTxSpecID = ""
 	m.closeFilePicker()
 	switch {
 	case target == settingsSpecForFileTarget && pending != "":
 		m.pushToast("transaction file not loaded - pick a specification file first (f again)", widgets.ToastInfo)
 	case target == scenarioSpecTarget && runID != "":
 		m.pushToast("scenario not run - pick a specification file first", widgets.ToastInfo)
+	case target == txSpecTarget && specTx != "":
+		m.pushToast("spec not assigned - x again", widgets.ToastInfo)
 	}
 }
 
@@ -119,6 +123,10 @@ const settingsSpecForFileTarget = "settings:spec-for-file"
 // step preview opens: the picked spec lands first, then the waiting work.
 const scenarioSpecTarget = "scenario:runspec"
 
+// txSpecTarget routes the §B `x` browse: the picked spec rebinds the one
+// transaction under the row cursor, never the tx file.
+const txSpecTarget = "tx:assignspec"
+
 // applyFilePicked routes a selection to the target's commit seam; settings
 // targets reuse commitSettingKey so validation stays in one place.
 func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.Cmd) {
@@ -145,6 +153,8 @@ func (m *RootModel) applyFilePicked(msg widgets.FilePickedMsg) (tea.Model, tea.C
 		return m.applySpecForFilePick(msg.Path)
 	case scenarioSpecTarget:
 		return m.applyScenarioSpecPick(msg.Path)
+	case txSpecTarget:
+		return m.applyTxSpecPick(msg.Path)
 	case analyzePickTarget:
 		// The §J capture step: the pick commits through the same
 		// capture-choose leg Enter uses (validate + advance).
@@ -259,6 +269,48 @@ func (m *RootModel) handleTxPickFile() (tea.Model, tea.Cmd) {
 	return m.openFilePicker(OpenFilePickerMsg{
 		Target: app.SettingTxFile, Root: root, RootLabel: label, Start: start, Exts: txPickExts,
 	})
+}
+
+// handleTxAssignSpec resolves §B `x` into an OpenFilePickerMsg: a spec
+// browse rooted at the current spec's directory, committed through
+// applyTxSpecPick, which rebinds the one pending transaction.
+func (m *RootModel) handleTxAssignSpec(id string) (tea.Model, tea.Cmd) {
+	if m.filePick != nil {
+		return m, nil // one modal at a time
+	}
+	value := ""
+	if m.app != nil {
+		if cfg := m.app.Config(); cfg != nil {
+			value = cfg.GetSpec()
+		}
+	}
+	m.pendingTxSpecID = id
+	root, label, start := m.pickTree(app.SettingSpec, value)
+
+	return m.openFilePicker(OpenFilePickerMsg{
+		Target: txSpecTarget, Root: root, RootLabel: label, Start: start,
+		Exts: settingsPickExts(app.SettingSpec),
+	})
+}
+
+// applyTxSpecPick commits the §B `x` browse: the collection revalidates
+// the file, a success toast names both sides of the binding, and a file
+// that does not parse opens the error screen instead of silently keeping
+// the old spec.
+func (m *RootModel) applyTxSpecPick(path string) (tea.Model, tea.Cmd) {
+	id := m.pendingTxSpecID
+	m.pendingTxSpecID = ""
+	if id == "" || m.app == nil {
+		return m, nil // nothing waits beneath this browse
+	}
+	if err := m.app.Transactions().SetTransactionSpec(id, path); err != nil {
+		m.openErrorModal("cannot assign specification file", err)
+
+		return m, nil
+	}
+	m.pushToast("spec "+filepath.Base(path)+" set for "+id, widgets.ToastSuccess)
+
+	return m, nil
 }
 
 // settingsPathKeys are the §L rows whose values are file paths; `f` opens

@@ -36,6 +36,31 @@ func (tc *TransactionCollection) SetSpec(spec *iso8583.MessageSpec) {
 	}
 }
 
+// SetTransactionSpec rebinds one transaction to a spec file, the §B `x`
+// verb for entries the tx file left without one. The path must resolve to
+// a parseable spec (the same resolution compose will later use), so a
+// typo is rejected here instead of silently falling back at send time.
+// An empty path restores the fallback. The tx file on disk is never
+// rewritten: the binding lives for the session.
+func (tc *TransactionCollection) SetTransactionSpec(name, specPath string) error {
+	t, err := tc.findTransaction(name)
+	if err != nil {
+		return err
+	}
+	if specPath == "" {
+		t.Spec = ""
+
+		return nil
+	}
+	spec, err := utils.CreateSpecFromFile(specPath)
+	if err != nil || spec == nil {
+		return fmt.Errorf("spec file %q does not parse: %w", specPath, err)
+	}
+	t.Spec = specPath
+
+	return nil
+}
+
 // NewTransactionCollection loads the transaction file at filename against specs.
 // An empty filename gives an empty collection rather than an error: running with
 // a --spec and no transaction file is valid, it simply has nothing to send.

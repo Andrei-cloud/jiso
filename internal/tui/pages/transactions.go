@@ -57,31 +57,34 @@ var (
 // txNav is the page keymap: filter-mode esc/backspace/enter plus the
 // page-local triggers; navigation itself is owned by widgets.Table.
 type txNav struct {
-	Cancel    key.Binding
-	Backspace key.Binding
-	Enter     key.Binding
-	Filter    key.Binding
-	Sort      key.Binding
-	Send      key.Binding
-	PickFile  key.Binding
+	Cancel     key.Binding
+	Backspace  key.Binding
+	Enter      key.Binding
+	Filter     key.Binding
+	Sort       key.Binding
+	Send       key.Binding
+	PickFile   key.Binding
+	AssignSpec key.Binding
 
 	help []HelpEntry // §M registry, built from the bindings above
 }
 
 func newTxNav() txNav {
 	nav := txNav{
-		Cancel:    key.NewBinding(key.WithKeys(theme.KeyEsc)),
-		Backspace: key.NewBinding(key.WithKeys("backspace")),
-		Enter:     key.NewBinding(key.WithKeys(theme.KeyEnter)),
-		Filter:    key.NewBinding(key.WithKeys("/")),
-		Sort:      key.NewBinding(key.WithKeys("o")),
-		Send:      key.NewBinding(key.WithKeys("s")),
-		PickFile:  key.NewBinding(key.WithKeys("f")),
+		Cancel:     key.NewBinding(key.WithKeys(theme.KeyEsc)),
+		Backspace:  key.NewBinding(key.WithKeys("backspace")),
+		Enter:      key.NewBinding(key.WithKeys(theme.KeyEnter)),
+		Filter:     key.NewBinding(key.WithKeys("/")),
+		Sort:       key.NewBinding(key.WithKeys("o")),
+		Send:       key.NewBinding(key.WithKeys("s")),
+		PickFile:   key.NewBinding(key.WithKeys("f")),
+		AssignSpec: key.NewBinding(key.WithKeys("x")),
 	}
 	nav.help = append(tableNavHelp(),
 		actEntry("detail", nav.Enter),
 		actEntry("send", nav.Send),
 		actEntry("pick tx file", nav.PickFile),
+		actEntry("assign spec to row", nav.AssignSpec),
 		actEntry("filter", nav.Filter),
 		actEntry("sort", nav.Sort),
 		actEntry("back", nav.Cancel),
@@ -323,6 +326,8 @@ func (t *Transactions) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 		return t, t.yieldSelected(func(id string) tea.Msg { return TxSendMsg{ID: id} })
 	case key.Matches(msg, t.nav.PickFile):
 		return t, func() tea.Msg { return TxPickFileMsg{} }
+	case key.Matches(msg, t.nav.AssignSpec):
+		return t, t.yieldSelected(func(id string) tea.Msg { return TxAssignSpecMsg{ID: id} })
 	case key.Matches(msg, t.nav.Cancel):
 		// Esc unwinds to the dashboard (the registry "back" entry means
 		// back).
@@ -356,7 +361,8 @@ func (t *Transactions) yieldSelected(msgFor func(string) tea.Msg) tea.Cmd {
 }
 
 // Hints is the §B context keymap; detail/send are primary so the narrow
-// footer keeps them. `f` picks the tx file, `o` cycles the sort.
+// footer keeps them. `f` picks the tx file, `x` binds a spec to the
+// selected row, `o` cycles the sort.
 func (t *Transactions) Hints() []frame.KeyHint {
 	return []frame.KeyHint{
 		{Key: "/", Desc: "filter"},
@@ -364,6 +370,7 @@ func (t *Transactions) Hints() []frame.KeyHint {
 		{Key: "f", Desc: "file"},
 		{Key: theme.KeyEnter, Desc: "detail", Primary: true},
 		{Key: "s", Desc: "send", Primary: true},
+		{Key: "x", Desc: "spec"},
 		{Key: theme.KeyNavJK, Desc: "nav"},
 	}
 }

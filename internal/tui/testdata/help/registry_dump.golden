@@ -31,6 +31,7 @@
 [page actions] enter	detail
 [page actions] s	send
 [page actions] f	pick tx file
+[page actions] x	assign spec to row
 [page actions] /	filter
 [page actions] o	sort
 [page actions] esc	back

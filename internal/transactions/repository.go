@@ -27,6 +27,10 @@ type Repository interface {
 
 	// SetSpec updates the default fallback spec for transaction composition
 	SetSpec(spec *iso8583.MessageSpec)
+
+	// SetTransactionSpec rebinds one transaction to a spec file (empty
+	// restores the fallback); the path must parse or it is an error
+	SetTransactionSpec(name, specPath string) error
 }
 
 // Ensure TransactionCollection implements Repository interface

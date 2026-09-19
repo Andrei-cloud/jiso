@@ -57,6 +57,23 @@ func TestTxPickFileMsg(t *testing.T) {
 	}
 }
 
+// TestTxAssignSpecYieldsMsg: x yields TxAssignSpecMsg{ID} for the
+// selected row (root owns the spec browse).
+func TestTxAssignSpecYieldsMsg(t *testing.T) {
+	t.Parallel()
+
+	p := txPage(t, populatedState(), 120, 32)
+	_, _ = p.Update(press('j'))
+
+	_, cmd := p.Update(press('x'))
+	if cmd == nil {
+		t.Fatal("x returned no cmd")
+	}
+	if got, ok := cmd().(TxAssignSpecMsg); !ok || got.ID != txPurchase {
+		t.Errorf("x dispatched %#v, want TxAssignSpecMsg{Purchase}", cmd())
+	}
+}
+
 // TestTxEmptyViewNoRowMsgs: Enter/s with no rows are nil-cmd no-ops.
 func TestTxEmptyViewNoRowMsgs(t *testing.T) {
 	t.Parallel()
@@ -64,7 +81,7 @@ func TestTxEmptyViewNoRowMsgs(t *testing.T) {
 	p := txPage(t, populatedState(), 120, 32)
 	typeFilter(t, p, "zzz")
 
-	for _, key := range []rune{'\r', 's'} {
+	for _, key := range []rune{'\r', 's', 'x'} {
 		_, cmd := p.Update(press(key))
 		if cmd != nil {
 			t.Errorf("key %q on empty view returned a cmd", key)
@@ -133,8 +150,8 @@ func TestTxUnknownKeysIgnored(t *testing.T) {
 
 	type stranger struct{ N int }
 	// t is deliberately in the list: unbound on §B (picker moved to f),
-	// so it must be an ignored key.
-	for _, msg := range []tea.Msg{press('x'), press('q'), press('t'), stranger{1}, nil} {
+	// so it must be an ignored key. (x is bound now: §B assign-spec.)
+	for _, msg := range []tea.Msg{press('q'), press('t'), stranger{1}, nil} {
 		next, cmd := p.Update(msg)
 		if cmd != nil {
 			t.Errorf("Update(%T) returned a cmd", msg)

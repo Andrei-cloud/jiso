@@ -48,7 +48,7 @@ func (m *RootModel) routeExchangeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case pages.TxDetailMsg, pages.TxSendMsg, pages.TxPickFileMsg, pages.TxComposeMsg:
+	case pages.TxDetailMsg, pages.TxSendMsg, pages.TxPickFileMsg, pages.TxComposeMsg, pages.TxAssignSpecMsg:
 		return m.handleTxMsg(msg)
 
 	case pages.InspectorPopMsg:

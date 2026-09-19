@@ -167,6 +167,45 @@ func TestInfoSpecAndDataset(t *testing.T) {
 	}
 }
 
+// TestSetTransactionSpec pins the §B `x` verb: a parseable spec rebinds
+// the row, a file that does not parse is rejected without touching the
+// old binding, the empty path restores the fallback, and an unknown
+// transaction name is an error — the spec file on disk is never rewritten.
+func TestSetTransactionSpec(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	txFile := filepath.Join(tmpDir, "transactions.json")
+	sampleJSON := `[{"type":"transaction","name":"purchase","description":"Purchase","fields":{"0":"0200"}}]`
+	require.NoError(t, os.WriteFile(txFile, []byte(sampleJSON), 0o644))
+	tc, err := NewTransactionCollection(txFile, iso8583.Spec87)
+	require.NoError(t, err)
+
+	specPath := filepath.Join("..", "..", "specs", "spec.json")
+	require.NoError(t, tc.SetTransactionSpec("purchase", specPath))
+	info, err := tc.Info("purchase")
+	require.NoError(t, err)
+	assert.Equal(t, specPath, info.Spec, "parsed spec rebinds the row")
+
+	require.NoError(t, tc.SetTransactionSpec("purchase", ""))
+	info, err = tc.Info("purchase")
+	require.NoError(t, err)
+	assert.Equal(t, "", info.Spec, "empty path restores the fallback")
+
+	bad := filepath.Join(tmpDir, "bad.json")
+	require.NoError(t, os.WriteFile(bad, []byte("not json"), 0o644))
+	require.Error(t, tc.SetTransactionSpec("purchase", bad))
+	info, err = tc.Info("purchase")
+	require.NoError(t, err)
+	assert.Equal(t, "", info.Spec, "a rejected path must not overwrite the old binding")
+
+	require.NoError(t, tc.SetTransactionSpec("purchase", specPath))
+	require.Error(t, tc.SetTransactionSpec("ghost", specPath), "unknown name is an error")
+	info, err = tc.Info("purchase")
+	require.NoError(t, err)
+	assert.Equal(t, specPath, info.Spec, "rebinding is visible to compose via the shared row")
+}
+
 func TestTransactionCollectionSuite(t *testing.T) {
 	t.Parallel()
 

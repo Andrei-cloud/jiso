@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"jiso/internal/config"
 	"jiso/internal/tui/bridge"
 	"jiso/internal/tui/pages"
+	"jiso/internal/tui/widgets"
 )
 
 // txFixtureJSON is a two-transaction file (§B sample, trimmed).
@@ -399,5 +401,58 @@ func TestTxSendConnectedStartsWalk(t *testing.T) {
 	}
 	if !m.sendRun.state.Done {
 		t.Error("run not closed after the final stage")
+	}
+}
+
+// TestRootTxAssignSpec: x on §B opens the spec browse pending on that
+// row; a file that does not parse opens the error screen and leaves the
+// binding untouched; a real spec rebinds the row and closes the browse.
+func TestRootTxAssignSpec(t *testing.T) {
+	m := NewRootModel(newTxApp(t, txFixtureJSON))
+	pumpMsgs(t, m, tea.WindowSizeMsg{Width: 120, Height: 32}, ch('2'))
+	pumpMsgs(t, m, pages.TxAssignSpecMsg{ID: "Purchase"})
+
+	if m.filePick == nil {
+		t.Fatal("x opened no spec browse")
+	}
+	if m.filePickTarget != txSpecTarget || m.pendingTxSpecID != "Purchase" {
+		t.Fatalf("browse pending: target=%q id=%q", m.filePickTarget, m.pendingTxSpecID)
+	}
+
+	// A file that does not parse: the error screen opens and the row
+	// keeps its old (empty) binding.
+	bad := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(bad, []byte("not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pumpMsgs(t, m, widgets.FilePickedMsg{Path: bad})
+	if m.errModal == nil {
+		t.Fatal("rejected spec opened no error screen")
+	}
+	if info, err := m.app.Transactions().Info("Purchase"); err != nil || info.Spec != "" {
+		t.Errorf("rejected pick changed the binding: %+v %v", info, err)
+	}
+	pumpMsgs(t, m, special(tea.KeyEsc)) // esc closes the screen
+
+	// A real spec rebinds the row and the browse is over.
+	specPath, err := filepath.Abs(filepath.Join("..", "..", "specs", "spec.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pumpMsgs(t, m, pages.TxAssignSpecMsg{ID: "Purchase"})
+	pumpMsgs(t, m, widgets.FilePickedMsg{Path: specPath})
+	if m.filePick != nil || m.pendingTxSpecID != "" {
+		t.Errorf("browse left open after the pick: pick=%v pending=%q", m.filePick != nil, m.pendingTxSpecID)
+	}
+	info, err := m.app.Transactions().Info("Purchase")
+	if err != nil || info.Spec != specPath {
+		t.Errorf("row not rebound: info=%+v err=%v", info, err)
+	}
+
+	// Esc from the browse drops the pending row with an honest toast.
+	pumpMsgs(t, m, pages.TxAssignSpecMsg{ID: "Sign On"})
+	pumpMsgs(t, m, special(tea.KeyEsc))
+	if m.pendingTxSpecID != "" || m.filePick != nil {
+		t.Errorf("esc left state behind: pending=%q pick=%v", m.pendingTxSpecID, m.filePick != nil)
 	}
 }

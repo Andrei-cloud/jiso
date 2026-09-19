@@ -73,6 +73,13 @@ type TxSendMsg struct {
 // logged no-op.
 type TxPickFileMsg struct{}
 
+// TxAssignSpecMsg asks the router to browse a specification file for the
+// row with ID (§B `x`): the pick rebinds that one transaction's spec for
+// the session (the tx file itself is never rewritten).
+type TxAssignSpecMsg struct {
+	ID string
+}
+
 // matchText is the filter haystack: the lowercased concatenation of every
 // display field, so one substring hit on any column keeps the row.
 func (r TxRow) matchText() string {

@@ -197,6 +197,7 @@ read never runs on the UI thread.
 | `enter` | Open detail (Message Inspector) |
 | `s` | Open the send exchange for the selected tx (opens the send wizard when not connected) |
 | `f` | Pick a tx file (file picker; entries with no declared spec ask for a specification file first when none is set) |
+| `x` | Assign a specification file to the selected transaction (session binding; the tx file is never rewritten) |
 | `/` | Live filter (claims the keyboard; `esc` exits the filter first) |
 | `o` | Cycle sort column |
 | `esc` | Back |

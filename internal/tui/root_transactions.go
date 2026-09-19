@@ -125,6 +125,10 @@ func (m *RootModel) handleTxMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.debug.logf("tx pick file")
 
 		return m.handleTxPickFile()
+	case pages.TxAssignSpecMsg:
+		m.debug.logf("tx assign spec id=%s", msg.ID)
+
+		return m.handleTxAssignSpec(msg.ID)
 	case pages.TxComposeMsg:
 		m.debug.logf("tx compose id=%s", msg.ID)
 	}

@@ -351,13 +351,15 @@ type RootModel struct {
 	// cancel); production roots it at "/" so every pick can climb back.
 	// pendingTxFile holds a specless tx-file pick that waits on the
 	// chained spec-for-file browse (Esc drops it, a spec pick applies
-	// both). toast is the Toast stack (armToastTick/toastTickf).
+	// both). pendingTxSpecID holds the §B `x` row awaiting its spec
+	// browse. toast is the Toast stack (armToastTick/toastTickf).
 	filePick        *widgets.FilePicker
 	filePickTarget  string
 	filePickRootFn  func(key, value string) (root, label string)
 	txFilePickFromB bool
 	txFileLoadErr   string
 	pendingTxFile   string
+	pendingTxSpecID string
 	toast           *widgets.Toast
 	toastTTL        time.Duration
 	toastTickWait   bool
