@@ -86,3 +86,28 @@ func TestBuildRoutesNoPairsMatch(t *testing.T) {
 	require.Nil(t, routes)
 	require.NotEmpty(t, warnings)
 }
+
+func TestMatchPreviewAndSeed(t *testing.T) {
+	pairs := matchRoutesFixturePairs(t)
+	m := MatchSpec{Conditions: []MatchCond{{Side: "req", Field: "0", Cond: "equals", Value: "0200"}}}
+	surv, groups := MatchPreview(pairs, m)
+	require.Equal(t, 2, surv)
+	require.Equal(t, 1, groups, "no GroupBy -> one group")
+
+	surv, groups = MatchPreview(pairs, MatchSpec{
+		Conditions: m.Conditions,
+		GroupBy:    []GroupField{{Field: "4", Side: CondSideReq}},
+	})
+	require.Equal(t, 2, surv)
+	require.Equal(t, 2, groups)
+
+	surv, _ = MatchPreview(pairs, MatchSpec{Conditions: []MatchCond{{Side: "req", Field: "0", Cond: "equals", Value: "0300"}}})
+	require.Equal(t, 0, surv)
+
+	mti, de3 := HeadlineRequest(pairs)
+	require.Equal(t, "0200", mti)
+	require.Equal(t, "000000", de3)
+
+	empty, _ := HeadlineRequest(nil)
+	require.Empty(t, empty)
+}

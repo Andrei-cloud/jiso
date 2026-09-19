@@ -61,6 +61,43 @@ const (
 	CondSideResp = "resp"
 )
 
+// CondLadder is the ordered condition vocabulary the wizard cycles with
+// the space key — exactly the forms server/matcher.go parses.
+var CondLadder = []string{"equals", "exists", "prefix", "oneof", "regex", "notin"}
+
+// NextCond cycles one step along CondLadder (unknown values restart at
+// equals, so a hand-edited file still edits cleanly).
+func NextCond(cond string) string {
+	for i, c := range CondLadder {
+		if c == cond {
+			return CondLadder[(i+1)%len(CondLadder)]
+		}
+	}
+
+	return CondLadder[0]
+}
+
+// CondTakesList reports whether the condition carries a comma-separated
+// list (one-of / not-in) rather than a scalar value.
+func CondTakesList(cond string) bool {
+	return cond == "oneof" || cond == "notin"
+}
+
+// IsCardField is the PAN/track field set the written extract anonymizes:
+// DE 2, DE 35/45 (track data), DE 55 (EMV).
+func IsCardField(id int) bool {
+	return id == 2 || id == 35 || id == 45 || id == 55
+}
+
+// CondIsCard reports whether a condition targets card data — the wizard's
+// anonymization warning trigger. Non-numeric paths (composite ids) are not
+// card fields.
+func (c MatchCond) CondIsCard() bool {
+	id, err := strconv.Atoi(c.Field)
+
+	return err == nil && IsCardField(id)
+}
+
 // Matches reports whether the condition holds on the pair.
 func (c MatchCond) Matches(req, resp *iso8583.Message) bool {
 	msg := req

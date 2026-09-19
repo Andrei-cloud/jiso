@@ -47,7 +47,7 @@ type AnalyzeEngineOptions struct {
 	Unsecure     bool
 	Direction    analyzer.TrafficDirection
 	OutputFile   string
-	ScenarioName string // scenario mode; empty = AnalyzeDefaultScenarioName
+	ScenarioName string              // scenario mode; empty = AnalyzeDefaultScenarioName
 	Match        *analyzer.MatchSpec // routes mode: the matching wizard's selection (nil = legacy auto path)
 }
 

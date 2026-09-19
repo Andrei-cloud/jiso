@@ -101,6 +101,83 @@ func matchesAll(m MatchSpec, p MatchPair) bool {
 	return true
 }
 
+// MatchPreview is the live line's cheap fold: how many pairs the
+// conditions keep and how many groups the chosen fields split them into.
+// It composes no routes (the run does), so the matching step can refresh
+// on every keystroke without touching the capture again.
+func MatchPreview(pairs []MatchPair, m MatchSpec) (surviving, groups int) {
+	seen := map[string]bool{}
+	for _, p := range pairs {
+		if p.Request == nil || !matchesAll(m, p) {
+			continue
+		}
+		surviving++
+		key, _ := groupKey(m, p)
+		seen[key] = true
+	}
+
+	return surviving, len(seen)
+}
+
+// HeadlineRequest reports the most frequent request MTI and, among the
+// pairs carrying that MTI, the most frequent DE3 — the wizard's two seed
+// conditions (empty strings when the scan is empty). Ties resolve to the
+// first seen in capture order, so the seed is deterministic.
+func HeadlineRequest(pairs []MatchPair) (mti, de3 string) {
+	mtiCount := map[string]int{}
+	var mtiOrder []string
+	for _, p := range pairs {
+		if p.Request == nil {
+			continue
+		}
+		m, _ := condFieldValue(p.Request, "0")
+		if m == "" {
+			continue
+		}
+		if _, ok := mtiCount[m]; !ok {
+			mtiOrder = append(mtiOrder, m)
+		}
+		mtiCount[m]++
+	}
+	if len(mtiOrder) == 0 {
+		return "", ""
+	}
+	mti = bestOf(mtiOrder, mtiCount)
+
+	de3Count := map[string]int{}
+	var de3Order []string
+	for _, p := range pairs {
+		if p.Request == nil {
+			continue
+		}
+		if m, _ := condFieldValue(p.Request, "0"); m != mti {
+			continue
+		}
+		d, ok := condFieldValue(p.Request, "3")
+		if !ok {
+			continue
+		}
+		if _, seen := de3Count[d]; !seen {
+			de3Order = append(de3Order, d)
+		}
+		de3Count[d]++
+	}
+
+	return mti, bestOf(de3Order, de3Count)
+}
+
+// bestOf picks the highest-count key, earliest seen first on ties.
+func bestOf(order []string, count map[string]int) string {
+	best := ""
+	for _, k := range order {
+		if best == "" || count[k] > count[best] {
+			best = k
+		}
+	}
+
+	return best
+}
+
 // groupKey builds the grouping key and the captured value map. An empty
 // GroupBy collapses every survivor into one group.
 func groupKey(m MatchSpec, p MatchPair) (string, map[string]string) {
@@ -159,7 +236,7 @@ func routeForGroup(
 	mf := RenderMatchFields(m, values)
 	if !unsecure {
 		for key := range mf {
-			if id, err := strconv.Atoi(key); err == nil && isCardField(id) {
+			if id, err := strconv.Atoi(key); err == nil && IsCardField(id) {
 				mf[key] = anon.AnonymizeFieldValue(id, mf[key])
 			}
 		}
@@ -187,12 +264,6 @@ func routeForGroup(
 	}, ""
 }
 
-// isCardField is the PAN/track field set the extract anonymizes: DE 2,
-// DE 35/45 (track data), DE 55 (EMV).
-func isCardField(id int) bool {
-	return id == 2 || id == 35 || id == 45 || id == 55
-}
-
 // groupDesc renders the group values for the route name; card-side values
 // are anonymized for the same reason they are in the match — the name
 // lands in the written file.
@@ -201,7 +272,7 @@ func groupDesc(values map[string]string, anon *Anonymizer, unsecure bool) string
 	for _, g := range sortedKeys(values) {
 		v := values[g]
 		if !unsecure {
-			if id, err := strconv.Atoi(g); err == nil && isCardField(id) {
+			if id, err := strconv.Atoi(g); err == nil && IsCardField(id) {
 				v = anon.AnonymizePAN(v)
 			}
 		}
