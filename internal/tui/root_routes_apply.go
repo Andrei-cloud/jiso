@@ -23,6 +23,9 @@ func (m *RootModel) routeAnalyzeApplyMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case analyzeRunLoadedMsg:
 		return m.applyAnalyzeRun(msg)
 
+	case analyzeScanLoadedMsg:
+		return m.applyAnalyzeScan(msg)
+
 	case analyzeWriteLoadedMsg:
 		return m.applyAnalyzeWrite(msg)
 

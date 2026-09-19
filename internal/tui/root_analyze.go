@@ -130,6 +130,10 @@ func analyzeExistingFile(path string) (string, bool) {
 type analyzeSource interface {
 	StatPath(ctx context.Context, path string) error
 	EnumerateFlows(ctx context.Context, pcapPath, headerType, specPath string) (*app.AnalyzeEnumeration, error)
+	// ScanForMatch pairs the capture once for the matching wizard; the
+	// live line is folded from its cache on every edit, so no keystroke
+	// re-reads the pcap.
+	ScanForMatch(ctx context.Context, opts app.AnalyzeScanOptions) (*app.AnalyzeScan, error)
 	RunAnalyze(ctx context.Context, opts app.AnalyzeRunOptions) (*app.AnalyzeOutput, error)
 	// WriteAnalyze takes the write-leg ctx: abort/leave cancel it so a
 	// stale leg never starts a second SaveItems on a file an earlier one
@@ -263,9 +267,10 @@ func (m *RootModel) handleAnalyzeStepDelta(msg pages.AnalyzeStepDeltaMsg) (tea.M
 }
 
 // setAnalyzeStep lands on step n: the seq bump cancels every in-flight leg
-// and arriving at the run step arms flow enumeration. A FORWARD arrival at
-// the capture or spec step lands with the file browser open on the
-// previously chosen file — browsing is those steps' default surface.
+// and arriving at the run step arms flow enumeration, at the matching step
+// the one-time pairing scan. A FORWARD arrival at the capture or spec step
+// lands with the file browser open on the previously chosen file —
+// browsing is those steps' default surface.
 func (m *RootModel) setAnalyzeStep(n int) tea.Cmd {
 	if n == m.analyzeStep {
 		return nil
@@ -274,8 +279,13 @@ func (m *RootModel) setAnalyzeStep(n int) tea.Cmd {
 	m.analyzeStep = n
 	m.analyzeSeq++
 	m.analyzeSpecWait, m.analyzeEnumWait, m.analyzeRunWait, m.analyzeWriteWait = false, false, false, false
+	m.analyzeScanWait = false
 	m.analyzeNote = ""
 	m.analyzeStatus = pages.AnalyzeStatusIdle
+
+	if n == pages.StepMatching {
+		return m.armAnalyzeScan()
+	}
 	m.analyzeBrowserArmed = false
 	if n == pages.StepRun {
 		return m.armAnalyzeEnum()

@@ -72,6 +72,23 @@ func (m *RootModel) handleAnalyzeChooseGoal(msg pages.AnalyzeChooseGoalMsg) (tea
 	case pages.AnalyzeGoalTransactions, pages.AnalyzeGoalMockRoutes, pages.AnalyzeGoalScenario:
 		m.analyzeGoal = msg.Goal
 		m.analyzeRunStale = true
+	default:
+		return m, nil
+	}
+	// The routes goal owns the matching step and the other two do not:
+	// switching goals relocates the operator to the step that exists in
+	// the new rail. Pressing r on the run step walks into the wizard
+	// (scan armed); pressing t/s from the wizard lands on run. A write in
+	// flight refuses the relocation (one write, no queue, no undo).
+	switch {
+	case m.analyzeWriteWait:
+		m.analyzeNote = "write in flight - wait for it to finish"
+
+		return m, nil
+	case msg.Goal == pages.AnalyzeGoalMockRoutes && m.analyzeStep == pages.StepRun:
+		return m, m.setAnalyzeStep(pages.StepMatching)
+	case msg.Goal != pages.AnalyzeGoalMockRoutes && m.analyzeStep == pages.StepMatching:
+		return m, m.setAnalyzeStep(pages.StepRun)
 	}
 
 	return m, nil

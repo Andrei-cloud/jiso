@@ -42,17 +42,20 @@ type fakeAnalyze struct {
 	enum     *app.AnalyzeEnumeration
 	enumErr  error
 	statErrs map[string]error
+	scan     *app.AnalyzeScan
+	scanErr  error
 	runOut   *app.AnalyzeOutput
 	runErr   error
 	writeErr error
 
-	statN, enumN, runN, writeN int
-	enumPaths                  []string
-	enumHeaders                []string
-	enumSpecs                  []string
-	runOpts                    []app.AnalyzeRunOptions
-	written                    []string
-	writtenSel                 []int
+	statN, enumN, scanN, runN, writeN int
+	enumPaths                         []string
+	enumHeaders                       []string
+	enumSpecs                         []string
+	scanOpts                          []app.AnalyzeScanOptions
+	runOpts                           []app.AnalyzeRunOptions
+	written                           []string
+	writtenSel                        []int
 }
 
 func (f *fakeAnalyze) StatPath(_ context.Context, path string) error {
@@ -139,6 +142,7 @@ func fakeAnalyzeFixture() *fakeAnalyze {
 		{Type: config.TypeDataset, Name: "dataset_0200_"},
 		{Type: config.TypeMockRoute, Name: "route-0200-00"},
 	})
+	f.scan = fakeScanFixture()
 
 	return f
 }

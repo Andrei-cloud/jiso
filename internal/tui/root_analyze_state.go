@@ -56,6 +56,12 @@ func (m *RootModel) analyzeState() pages.AnalyzeState {
 		WriteOK:      m.analyzeWriteOK,
 		Note:         m.analyzeNote,
 		OutputPath:   m.analyzeOutputDisplay(),
+
+		Conds:         m.analyzeCondViews(),
+		Variances:     m.analyzeGroupOptions(),
+		MatchLine:     m.analyzeMatchLine,
+		MatchWarn:     m.analyzeMatchWarn,
+		MatchScanning: m.analyzeScanWait,
 	}
 	st.Items = m.analyzeItemsView()
 	st.ItemsID = m.analyzeItemsID

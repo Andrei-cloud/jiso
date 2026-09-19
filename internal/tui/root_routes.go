@@ -344,6 +344,27 @@ func (m *RootModel) routeAnalyzeMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.AnalyzeItemsApplyMsg:
 		return m.handleAnalyzeItemsApply(msg)
 
+	case pages.AnalyzeCondAddMsg:
+		return m.handleAnalyzeCondAdd()
+
+	case pages.AnalyzeCondDeleteMsg:
+		return m.handleAnalyzeCondDelete(msg)
+
+	case pages.AnalyzeCondWhenMsg:
+		return m.handleAnalyzeCondWhen(msg)
+
+	case pages.AnalyzeCondSideMsg:
+		return m.handleAnalyzeCondSide(msg)
+
+	case pages.AnalyzeCondSetFieldMsg:
+		return m.handleAnalyzeCondSetField(msg)
+
+	case pages.AnalyzeCondSetValueMsg:
+		return m.handleAnalyzeCondSetValue(msg)
+
+	case pages.AnalyzeGroupToggleMsg:
+		return m.handleAnalyzeGroupToggle(msg)
+
 	case pages.AnalyzeAbortMsg:
 		return m.handleAnalyzeAbort()
 

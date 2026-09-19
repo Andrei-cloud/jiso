@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"jiso/internal/analyzer"
 	app "jiso/internal/app"
 	"jiso/internal/app/events"
 	"jiso/internal/config"
@@ -310,6 +311,18 @@ type RootModel struct {
 	analyzeSpecError    string
 	analyzeCaptureError string
 	analyzeConfirm      *widgets.ConfirmDialog
+
+	// Matching wizard (routes goal): the operator's conditions and
+	// grouping, the scan-once cache (armed on arrival, re-evaluated on
+	// every edit without re-reading the capture), the folded live line
+	// and the inline warning. The run converts these to an
+	// analyzer.MatchSpec; edits mark the run stale.
+	analyzeConds     []analyzer.MatchCond
+	analyzeGroup     []analyzer.GroupField
+	analyzeScan      *app.AnalyzeScan
+	analyzeScanWait  bool
+	analyzeMatchLine string
+	analyzeMatchWarn string
 
 	// Analyze write gate: analyzeStatFn overrides os.Stat (tests);
 	// analyzeOverwriteConfirm is the §N3 overwrite confirm (default No);
