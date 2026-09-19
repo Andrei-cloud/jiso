@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	app "jiso/internal/app"
+	"jiso/internal/config"
 	"jiso/internal/tui/pages"
 	"jiso/internal/tui/widgets"
 )
@@ -31,6 +32,14 @@ func (m *RootModel) handleAnalyzeWrite() (tea.Model, tea.Cmd) {
 		// land the items in the stale target. Re-run first.
 		m.analyzeWriteLine = "selections changed - enter re-runs the analysis first"
 		m.analyzeWriteOK = false
+
+		return m, nil
+	}
+	if note := scenarioWriteIntegrity(m.analyzeOutput); note != "" {
+		// F12: a scenario extract must run right after extraction. The
+		// selection is operator-editable state, so this is refused with
+		// the keys that fix it - never a leg failure, never silent.
+		m.analyzeNote = note
 
 		return m, nil
 	}
@@ -184,4 +193,35 @@ func (m *RootModel) applyAnalyzeOutputPick(path string) (tea.Model, tea.Cmd) {
 	}
 
 	return m.handleAnalyzeOutCommit(pages.AnalyzeOutCommitMsg{Path: path})
+}
+
+// scenarioWriteIntegrity is the F12 self-run contract checked at the write
+// gate: the selection of a scenario run must be able to run itself right
+// after extraction. Transactions without the scenario item are no scenario
+// extract; a scenario without mock routes cannot start the mock server
+// from this file. Both are operator-editable states, so the refusal is
+// named with the keys that fix it, and the write never happens silently.
+func scenarioWriteIntegrity(out *app.AnalyzeOutput) string {
+	if out == nil || out.Mode != "scenario" {
+		return ""
+	}
+	var hasScenario, hasRoute, hasTx bool
+	for _, it := range out.SelectedItems() {
+		switch it.Type {
+		case config.TypeScenario:
+			hasScenario = true
+		case config.TypeMockRoute:
+			hasRoute = true
+		case config.TypeTransaction:
+			hasTx = true
+		}
+	}
+	switch {
+	case hasTx && !hasScenario:
+		return "write refused: the selection has no scenario item - the extract cannot run as a scenario ([x] reopens the picker, [a] selects all)"
+	case hasScenario && !hasRoute:
+		return "write refused: the selection has no mock routes - the mock server cannot start from this extract ([x] reopens the picker, [a] selects all)"
+	}
+
+	return ""
 }

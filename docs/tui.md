@@ -315,7 +315,14 @@ After a run the **generated-item picker** auto-presents: `space` toggles a row,
 `a` all-or-none, `enter` applies the selection, `esc` applies it too and closes,
 `x` reopens — a transaction and its dataset share a toggle group so they move
 together, and `w` then writes exactly the selected set (no separate dry-run step;
-an all-deselected picker is an error). `tab`/`shift+tab` move the picker focus
+an all-deselected picker is an error). The roster is the **run step's own
+surface**: walking away from the step (either direction) closes it without
+applying, and the run-step radios `t`/`r`/`s`/`m` work with it open — they apply
+the pending selection (exactly as `esc` does), close the roster, and act as the
+radios they are. For a scenario run, `w` never persists a selection missing its
+scenario item or its mock routes: the refusal names what is missing and the key
+that fixes it, so a written extract always runs right after extraction.
+`tab`/`shift+tab` move the picker focus
 between the item list and the file-form **preview**; while the preview holds the
 focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
 (the title shows the visible window, e.g. `3-25/100`). The **unparsable viewer**

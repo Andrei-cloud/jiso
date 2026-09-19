@@ -307,6 +307,15 @@ func (a *Analyze) SetState(state AnalyzeState) {
 		a.draft = ""
 		a.filtering = false
 		a.condEditing, a.condDraft, a.groupOpen = false, "", false
+		// The generated-item roster is the RUN step's surface: leaving the
+		// step closes it (without a silent apply) so it can never swallow
+		// another step's keystrokes — the UAT regression where wizard
+		// letters toggled the pending write selection and enter applied a
+		// 1-of-192 pick silently. [x] reopens it fresh on the run step.
+		a.itemsOpen, a.previewFocused, a.previewOff = false, false, 0
+		// The unparsable viewer is the run step's surface too: same law,
+		// no keys stolen from the wizard.
+		a.unparsableOpen = false
 		a.step = state.Step
 		if state.Step == StepRun {
 			a.draft = state.FlowFilter
@@ -333,7 +342,10 @@ func (a *Analyze) SetState(state AnalyzeState) {
 		for _, it := range state.Items {
 			a.itemSel = append(a.itemSel, it.Included)
 		}
-		a.itemsOpen = len(state.Items) > 0 // a fresh run re-presents the picker
+		// A fresh run re-presents the picker - but only while the operator
+		// stands on the run step, the roster's own surface: it must never
+		// pop over the wizard and swallow its keystrokes.
+		a.itemsOpen = state.Step == StepRun && len(state.Items) > 0
 	}
 	if state.UnparsableID != a.unparsableShownID {
 		// A fresh enumeration re-seats the cursor over the new samples but

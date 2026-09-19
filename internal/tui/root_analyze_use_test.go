@@ -8,11 +8,32 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	app "jiso/internal/app"
+	"jiso/internal/config"
 	"jiso/internal/tui/pages"
 )
+
+// scenarioRunOut builds a realistic scenario-goal output: transaction +
+// its dataset + the scenario item + one mock route (the roster F12's
+// write-integrity guard expects; the fake's default roster is a tx-mode
+// one and a scenario run never ships without its scenario item).
+func scenarioRunOut(extract string) *app.AnalyzeOutput {
+	out := &app.AnalyzeOutput{Mode: "scenario", ScenarioName: "Captured Run"}
+	out.AttachGeneratedItems([]config.Item{
+		{Type: config.TypeTransaction, Name: "Captured 0200", DatasetName: "dataset_captured"},
+		{Type: config.TypeDataset, Name: "dataset_captured"},
+		{Type: config.TypeMockRoute, Name: "Captured Route", ResponseMTI: "0210"},
+		{Type: config.TypeScenario, Name: "Captured Run"},
+	})
+	out.OutputFile = extract
+
+	return out
+}
 
 // scenarioWriteFixture: the fake's run output is a scenario whose output
 // file exists on disk as a specless transaction + scenario (the shape a
@@ -21,16 +42,15 @@ func scenarioWriteFixture(t *testing.T) (*analyzeTestRoot, *fakeAnalyze, string)
 	t.Helper()
 
 	fake := fakeAnalyzeFixture()
-	fake.runOut.Mode = app.AnalyzeModeScenario
-	fake.runOut.ScenarioName = "PCAP Captured Test Scenario"
 
 	extract := filepath.Join(t.TempDir(), "captured-extract.json")
 	body := `[{"type":"transaction","name":"Captured 0200","description":"d","fields":{"0":"0200"}},` +
-		`{"type":"scenario","name":"Captured Run","description":"d","steps":[{"name":"s1","use_transaction_id":"Captured 0200"}]}]`
+		`{"type":"scenario","name":"Captured Run","description":"d","steps":[{"name":"s1","use_transaction_id":"Captured 0200"}]},` +
+		`{"type":"mock_route","name":"Captured Route","description":"d","response_mti":"0210","match_fields":{"0":"0200"}}]`
 	if err := os.WriteFile(extract, []byte(body), 0o644); err != nil {
 		t.Fatalf("extract: %v", err)
 	}
-	fake.runOut.OutputFile = extract
+	fake.runOut = scenarioRunOut(extract)
 
 	r := newAnalyzeTestRoot(t, fake)
 	r.walkToRun(t)
@@ -101,5 +121,83 @@ func TestAnalyzeUseKeysInertBeforeWrite(t *testing.T) {
 	r.pump(pages.AnalyzeUseServerMsg{})
 	if r.m.serverDlg != nil {
 		t.Error("[g] before the write must not open the server form")
+	}
+}
+
+// scenarioExtractRoot: a scenario-goal run whose picker auto-presents a
+// four-row roster (transaction, dataset, route, scenario).
+func scenarioExtractRoot(t *testing.T) (*analyzeTestRoot, *fakeAnalyze, string) {
+	t.Helper()
+
+	fake := fakeAnalyzeFixture()
+
+	extract := filepath.Join(t.TempDir(), "captured-extract.json")
+	if err := os.WriteFile(extract, []byte("[]"), 0o644); err != nil {
+		t.Fatalf("seed extract: %v", err)
+	}
+	fake.runOut = scenarioRunOut(extract)
+
+	r := newAnalyzeTestRoot(t, fake)
+	r.walkToRun(t)
+	r.pump(pages.AnalyzeChooseGoalMsg{Goal: pages.AnalyzeGoalScenario})
+	r.enter() // run: picker auto-presents
+
+	return r, fake, extract
+}
+
+// TestAnalyzeWriteRefusedWhenScenarioItemDropped: the picker is free to
+// deselect anything, but [w] must not silently write an extract that
+// cannot run as a scenario - the note names the key that fixes it.
+func TestAnalyzeWriteRefusedWhenScenarioItemDropped(t *testing.T) {
+	r, fake, _ := scenarioExtractRoot(t)
+
+	// Roster rows: 0 transaction, 1 dataset, 2 route, 3 scenario.
+	// Deselect the scenario row and apply.
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch(' '))
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEnter})
+	r.pump(ch('w'))
+
+	if fake.writeN != 0 {
+		t.Fatalf("a scenario extract without the scenario item was written (%d legs)", fake.writeN)
+	}
+	if !strings.Contains(r.m.analyzeNote, "no scenario item") {
+		t.Errorf("refusal note = %q, want it to name the missing scenario item", r.m.analyzeNote)
+	}
+}
+
+// TestAnalyzeWriteRefusedWhenRoutesDropped: same honesty the UAT asked
+// for - an extract whose selection has a scenario but no mock routes
+// cannot start the mock server, so the write is refused and named.
+func TestAnalyzeWriteRefusedWhenRoutesDropped(t *testing.T) {
+	r, fake, _ := scenarioExtractRoot(t)
+
+	// Deselect the route row (index 2) and apply.
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch(' '))
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEnter})
+	r.pump(ch('w'))
+
+	if fake.writeN != 0 {
+		t.Fatalf("an extract without mock routes was written (%d legs)", fake.writeN)
+	}
+	if !strings.Contains(r.m.analyzeNote, "no mock routes") {
+		t.Errorf("refusal note = %q, want it to name the missing mock routes", r.m.analyzeNote)
+	}
+}
+
+// TestAnalyzeWriteFullSelectionStillWrites: the guard must not stand in
+// the way of the default complete selection.
+func TestAnalyzeWriteFullSelectionStillWrites(t *testing.T) {
+	r, fake, _ := scenarioExtractRoot(t)
+
+	r.closePicker() // Esc applies the all-included selection
+	r.pump(ch('w'))
+
+	if fake.writeN != 1 {
+		t.Fatalf("write legs = %d, want 1 for the complete scenario selection", fake.writeN)
 	}
 }

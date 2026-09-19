@@ -34,8 +34,8 @@ func stepDeltaCmd(delta int) tea.Cmd {
 // step's open filter; Esc walks back one step (aborting on step 1), Enter
 // commits the step, PgUp/PgDn/Tab jump steps.
 func (a *Analyze) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
-	if a.itemsOpen {
-		return a.updateItemsKey(msg) // the picker overlay owns the keyboard wholesale
+	if a.itemsOpen && a.state.Step == StepRun {
+		return a.updateItemsKey(msg) // the roster owns keys only on its own step
 	}
 	if a.unparsableOpen {
 		return a.updateUnparsableKey(msg) // the hexdump viewer owns it too

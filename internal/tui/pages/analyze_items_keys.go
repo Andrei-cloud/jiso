@@ -15,6 +15,20 @@ func (a *Analyze) updateItemsKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	n := len(a.state.Items)
 	rows := a.itemsWindow()
 
+	if radio, ok := a.runStepRadioKey(msg); ok {
+		// The run-step radios (goal, security) belong to the step UNDER
+		// the roster: pressing one applies the pending selection exactly
+		// as Esc would, closes the roster, and reaches the root as the
+		// radio it is — t/r/s/m keep working with the picker open.
+		a.itemsOpen = false
+		a.previewFocused, a.previewOff = false, 0
+
+		return a, tea.Batch(
+			func() tea.Msg { return AnalyzeItemsApplyMsg{Excluded: a.itemsExcluded()} },
+			func() tea.Msg { return radio },
+		)
+	}
+
 	switch {
 	case key.Matches(msg, a.nav.Cancel):
 		// Closing with Esc applies the selection, exactly like Enter.
@@ -64,6 +78,25 @@ func (a *Analyze) updateItemsKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	a.scrollItemsIntoView(rows)
 
 	return a, nil
+}
+
+// runStepRadioKey maps the run step's radio letters (goal t/r/s, security
+// m) to their messages: these pass through an open roster, applying the
+// pending selection on the way out, because they belong to the step the
+// operator is standing on, not to the roster covering it.
+func (a *Analyze) runStepRadioKey(msg tea.KeyPressMsg) (tea.Msg, bool) {
+	switch msg.Text {
+	case "t":
+		return AnalyzeChooseGoalMsg{Goal: AnalyzeGoalTransactions}, true
+	case "r":
+		return AnalyzeChooseGoalMsg{Goal: AnalyzeGoalMockRoutes}, true
+	case "s":
+		return AnalyzeChooseGoalMsg{Goal: AnalyzeGoalScenario}, true
+	case "m":
+		return AnalyzeChooseMaskMsg{Raw: !a.state.MaskRaw}, true
+	}
+
+	return nil, false
 }
 
 // previewScrollKey scrolls the preview by one row or one window and reports
