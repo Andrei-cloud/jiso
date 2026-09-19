@@ -158,6 +158,7 @@
 [page actions] f	browse capture/spec
 [page actions] /	flow filter
 [page actions] 	goal t/r/s
+[page actions] 	matching a/d/space/s/e/g (routes goal)
 [page actions] w	write report
 [page actions] l or g	use extract after write
 [page actions] esc	back / abort

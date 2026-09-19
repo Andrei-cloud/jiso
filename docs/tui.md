@@ -65,7 +65,7 @@ names the screen from the wireframes (`.hermes/plans/wireframes-jiso-tui.md`).
 | `4` | `server` | Mock Server (§G) | Serve stats, route table, live SERVER LOG, start form |
 | `5` | `stress` | Workers & Stress (§H) | Worker table, TPS sparkline, per-worker progress |
 | `6` | `db` | Sessions (§I) | Session list, stats, tx history, tx review |
-| `7` | `analyze` | PCAP Analyze (§J) | 4-step wizard (capture/spec/header/run), flow table, report |
+| `7` | `analyze` | PCAP Analyze (§J) | 4-step wizard (5 for the mock-routes goal), flow table, matching wizard, report |
 | `8` | `help` | Help (§M) | Full key registry as a page (same content as the `?` overlay) |
 | — | `scenarios` | Scenarios (§F) | Scenario list, live step stream, report export |
 | — | `ctf` | CTF Export (§K) | Visa-eligible sessions, CTF parameters, file preview |
@@ -263,6 +263,33 @@ the engine default; opening §J with a previous capture pick, or advancing
 into spec with a file already chosen, opens the browser on it; backing up
 keeps the inline list).
 
+The **mock-routes goal** grows a fifth step — `matching` — seated between
+header and run (pressing `r` on the run step walks into it; leaving the
+routes goal relocates back to run). It pairs the capture once and then
+answers every edit from that cache: the live line reads
+`~N pairs match · M route(s)`. Conditions are the operator's — the wizard
+never infers a match field and never matches the whole capture as one
+route (a zero-condition run is refused). Starter conditions seed once from
+the headline request (MTI + DE3) and stay untouched after that.
+
+| Key | Action (matching step) |
+|---|---|
+| `j` / `k` | Move the condition cursor |
+| `a` | Add a condition row (type its FIELD freely; dot-paths like `55.1` compose) |
+| `d` | Delete the row |
+| `space` | Cycle WHEN: equals → exists → prefix → one-of → regex → not-in |
+| `s` | Flip the row's SIDE (request ↔ response; resp conds filter pairs, never match) |
+| `e` | Edit the VALUE (one-of/not-in take comma-separated text) |
+| `g` | Open the group-by pane: `j`/`k` move, `space` toggles a varied field into the grouping, `enter`/`esc` return |
+| `enter` | Advance to run (a card-data, invalid-regex or unknown-field warning shows inline; zero conditions are refused AT RUN, not here) |
+| `esc` | Back to header |
+
+A condition on DE 2/35/45/55 warns that card/track data will be matched and
+saved anonymized — allowed only because the operator typed it. Grouping on
+a response field replays each observed answer as its own route; when those
+routes share one request match the emission stays RC-first and the run
+names the sharing in its warnings.
+
 On the **run** step the enumerated **dst** (request) and **src** (response) flow
 rows are all cursor-reachable and each shows the peer port (`from`/`to` for
 origin clarity); `space` toggles one **direction** independently — the analysis
@@ -280,6 +307,8 @@ by default; scenario folds a port's two directions into one unit):
 | `u` | Open the unparsable-message reviewer (parsed fields + marked hexdump) |
 | `enter` | Run the analysis |
 | `w` | Write the selected generated items (§N3 overwrite confirm) |
+| `l` | After a scenario write: load the extract as the session transactions file (the tx-file gate chains a spec browse when entries lack specs) |
+| `g` | After a scenario write: open the server start form with the extract pre-filled as the routes file |
 | `esc` | Back a step · §N3 abort while a leg is in flight |
 
 After a run the **generated-item picker** auto-presents: `space` toggles a row,
@@ -296,7 +325,7 @@ focus `j`/`k` scroll it and `PgUp`/`PgDn` page it when its content does not fit
 
 | Keys | Action |
 |---|---|
-| `enter` | Run the selected scenario (spec prompt first when a step lacks a spec; steps stream live, failed steps show the validation diff) |
+| `enter` | Run the selected scenario (spec prompt first when a step lacks a spec — seated on the spec the extract recorded, when it names one; steps stream live, failed steps show the validation diff) |
 | `enter` | On a STEPS-pane row: preview the step's request/response message overlay (asks for a spec when the step would fall back to the engine default) |
 | `j` / `k` | Move the STEPS-pane cursor (STEPS focused) / scroll the message preview (overlay open) |
 | `tab` / `shift+tab` | Switch focus between the SCENARIOS list and the STEPS pane |

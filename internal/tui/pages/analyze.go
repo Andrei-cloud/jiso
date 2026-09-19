@@ -207,6 +207,7 @@ func newAnalyzeNav() analyzeNav {
 		actEntry("browse capture/spec", nav.Browse),
 		actEntry("flow filter", nav.Filter),
 		actEntry("goal t/r/s"),
+		actEntry("matching a/d/space/s/e/g (routes goal)"),
 		actEntry("write report", nav.Write),
 		actEntry("use extract after write", nav.UseTxFile, nav.UseServer),
 		actEntry("back / abort", nav.Cancel),
