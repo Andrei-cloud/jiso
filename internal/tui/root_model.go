@@ -312,8 +312,8 @@ type RootModel struct {
 	// "use it now" keys must not promise a file that was never written,
 	// so they read this flag instead. A new run, a failed write or an
 	// output-path retarget clears it.
-	analyzeFileWritten  bool
-	analyzeNote         string
+	analyzeFileWritten bool
+	analyzeNote        string
 	// analyzeIntegrityAsk holds the full F12 sentence while the confirm
 	// about an incomplete scenario extract is pending. It becomes the
 	// run-step note only when the operator cancels; a yes or any write

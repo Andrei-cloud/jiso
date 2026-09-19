@@ -3,9 +3,12 @@ package analyzer
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	json "github.com/goccy/go-json"
 	"github.com/moov-io/iso8583"
+	"github.com/moov-io/iso8583/field"
 
 	"jiso/internal/config"
 	"jiso/internal/utils"
@@ -57,8 +60,9 @@ func copyMatchFields(acc *mockRouteAccumulator) map[string]any {
 
 // appendPrimaryRoutes turns each primary route group into mock routes. A group with
 // one behaviour becomes a clean generic route, matched on the request fields only; a
-// group with several is sorted so a "00" response comes first and the most-seen
-// behaviour follows, because the first matching route wins at runtime.
+// group with several is sorted by observed frequency (an approved code wins only
+// ties), because the first matching route wins at runtime and the replay should
+// answer the way the capture answered most often.
 func appendPrimaryRoutes(result *ScenarioScaffoldResult, order []string, groups map[string]*routeGroup) {
 	for _, gKey := range order {
 		grp := groups[gKey]
@@ -79,27 +83,46 @@ func appendPrimaryRoutes(result *ScenarioScaffoldResult, order []string, groups 
 			continue
 		}
 
-		// Multiple behaviors -> Sort accumulators: "00" first, then by frequency
+		// Multiple behaviors -> sort by the frequency of the ANSWER.
+		// Behaviour signatures can differ only in response details
+		// (per-file DE62 batch ids), which makes every signature rare
+		// while the outcome the steps assert was overwhelmingly one
+		// code (UAT echo-backs: 83 declines against 2 approvals all
+		// counted one). The code the capture showed most often answers
+		// first; an approved code wins only TIES - a mock must
+		// reproduce the network's dominant behaviour.
+		codeSeen := make(map[string]int, len(grp.accumulators))
+		for _, acc := range grp.accumulators {
+			codeSeen[acc.respDE39] += acc.count
+		}
 		sort.SliceStable(grp.accumulators, func(i, j int) bool {
-			if grp.accumulators[i].respDE39 == "00" && grp.accumulators[j].respDE39 != "00" {
-				return true
+			a, b := grp.accumulators[i], grp.accumulators[j]
+			if ca, cb := codeSeen[a.respDE39], codeSeen[b.respDE39]; ca != cb {
+				return ca > cb
 			}
-			if grp.accumulators[i].respDE39 != "00" && grp.accumulators[j].respDE39 == "00" {
-				return false
+			if a.count != b.count {
+				return a.count > b.count
 			}
 
-			return grp.accumulators[i].count > grp.accumulators[j].count
+			return a.respDE39 == "00" && b.respDE39 != "00"
 		})
 
 		before := len(result.MockRoutes)
 		for idx, acc := range grp.accumulators {
 			mf := copyMatchFields(acc)
 
+			// The name LEADS with a zero-padded emission rank: the
+			// generated-items store persists items sorted by name, so
+			// any order the answer frequency decides would be lost at
+			// save time (an RC=00-suffixed name sorted alphabetically
+			// before RC=06 - and the first-matching route wins at
+			// runtime, so the rare approval silently beat 83 declines).
+			// Rank #1 answers first, and the order survives the store.
 			var name string
 			if acc.respDE39 != "" {
-				name = fmt.Sprintf("Mock Route %s DE3=%s RC=%s #%d", acc.responseMTI, acc.reqDE3, acc.respDE39, idx+1)
+				name = fmt.Sprintf("Mock Route #%04d %s DE3=%s RC=%s", idx+1, acc.responseMTI, acc.reqDE3, acc.respDE39)
 			} else {
-				name = fmt.Sprintf("Mock Route %s DE3=%s #%d", acc.responseMTI, acc.reqDE3, idx+1)
+				name = fmt.Sprintf("Mock Route #%04d %s DE3=%s", idx+1, acc.responseMTI, acc.reqDE3)
 			}
 			desc := fmt.Sprintf("Auto-generated mock route for response flow %s DE3 %s (RC: %s)", acc.responseMTI, acc.reqDE3, acc.respDE39)
 			result.MockRoutes = append(result.MockRoutes, mockRouteItem(name, desc, mf, acc))
@@ -135,7 +158,9 @@ func appendReversalRoutes(result *ScenarioScaffoldResult, order []string, groups
 			mf := copyMatchFields(acc)
 
 			revReqMTI := fmt.Sprintf("%v", acc.baseMatchFields["0"])
-			name := fmt.Sprintf("Mock Reversal Route %s DE3=%s #%d", revReqMTI, acc.reqDE3, idx+1)
+			// Rank leads the name (see appendPrimaryRoutes): the store
+			// sorts items by name, and the first matching route wins.
+			name := fmt.Sprintf("Mock Reversal Route #%04d %s DE3=%s", idx+1, revReqMTI, acc.reqDE3)
 			desc := fmt.Sprintf("Auto-generated mock route for reversal flow MTI %s DE3 %s", revReqMTI, acc.reqDE3)
 			result.MockRoutes = append(result.MockRoutes, mockRouteItem(name, desc, mf, acc))
 		}
@@ -161,6 +186,86 @@ func mockRouteItem(name, description string, mf map[string]any, acc *mockRouteAc
 	}
 }
 
+// noteDroppedFields folds dropped-field keys into the scaffold's honest
+// warnings, naming each field once: a capture of 300 pairs must not
+// repeat the same sentence 300 times.
+func noteDroppedFields(result *ScenarioScaffoldResult, dropped []string) {
+	for _, key := range dropped {
+		w := "scaffold dropped field " + key + ": captured value is longer than the spec maximum - the message could not pack otherwise"
+		dup := false
+		for _, have := range result.Warnings {
+			if have == w {
+				dup = true
+
+				break
+			}
+		}
+		if !dup {
+			result.Warnings = append(result.Warnings, w)
+		}
+	}
+}
+
+// dropUnpackableFields removes from fields every string value the spec
+// cannot encode: the capture may carry raw values longer than the
+// field's declared maximum, and such a template fails the pack at
+// scenario-run time (the UAT capture's 0400 carried a 36-char DE61
+// against a spec maximum of 18 - the reversal steps could never send).
+// Composer keyword values ({{...}}) expand at run time and are left
+// alone; field shapes the guard cannot measure (composites, unbounded
+// lengths) are kept. It returns the dropped keys sorted.
+func dropUnpackableFields(spec *iso8583.MessageSpec, fields map[string]any) []string {
+	var dropped []string
+	for key, v := range fields {
+		id, err := strconv.Atoi(key)
+		if err != nil || id == 0 {
+			continue
+		}
+		s, ok := v.(string)
+		if !ok || strings.HasPrefix(s, "{{") {
+			continue
+		}
+		if fieldExceedsSpecMax(spec, id, s) {
+			delete(fields, key)
+			dropped = append(dropped, key)
+		}
+	}
+	sort.Strings(dropped)
+
+	return dropped
+}
+
+// fieldExceedsSpecMax reports whether value cannot encode under the
+// spec's definition for field id, counting what the composer actually
+// packs: String/Numeric count characters; Binary values are packed as
+// raw string bytes (the UAT capture's 0400 carried a 36-char DE61
+// against an 18-byte Binary definition and could never pack); Hex
+// values pack as their hex-decoded byte count. Composites and other
+// shapes stay untouched.
+func fieldExceedsSpecMax(spec *iso8583.MessageSpec, id int, value string) bool {
+	if spec == nil {
+		return false
+	}
+	fd := spec.Fields[id]
+	if fd == nil || fd.Spec() == nil {
+		return false
+	}
+	maxLen := fd.Spec().Length
+	if maxLen <= 0 {
+		return false
+	}
+	n := len(value)
+	switch fd.(type) {
+	case *field.String, *field.Numeric, *field.Binary:
+	case *field.Hex:
+		n = (n + 1) / 2
+	default:
+		return false
+	}
+
+	return n > maxLen
+}
+
 // scaffoldSharingWarning names the ordering fact a card-free scaffold leaves
 // behind: when several routes replay different responses to one and the same
 // request match, the server is first-full-match-wins, so the RC-first ordering
@@ -178,7 +283,7 @@ func scaffoldSharingWarning(routes []config.Item) string {
 	}
 	for _, n := range seen {
 		if n > 1 {
-			return "several scaffold routes replay different responses to the same request match; they stay RC-first and the first matching route wins at runtime - card-specific replay belongs to the §J matching wizard"
+			return "several scaffold routes replay different responses to the same request match; the most-seen response answers first (approved wins only ties) and the first matching route wins at runtime - card-specific replay belongs to the §J matching wizard"
 		}
 	}
 
@@ -265,9 +370,14 @@ func (sb *ScenarioBuilder) accumulatePrimaryRoute(
 		respDE39 = "00"
 	}
 
+	// The match carries only fields the request actually sends: the
+	// scaffold's own template drops an absent DE3 (admin 0302/0620
+	// messages carry none), and a fabricated "3":"000000" could then
+	// never match its own replayed request - every such message fell to
+	// the server's RC-12 fallback instead of its route.
 	baseMatch := map[string]any{"0": reqMTI}
-	if reqDE3 != "" {
-		baseMatch["3"] = reqDE3
+	if reqDE3 := getFieldString(reqMsg, 3); reqDE3 != "" {
+		baseMatch["3"] = FormatProcCode(reqDE3)
 	}
 	if reqDE70 := getFieldString(reqMsg, 70); reqDE70 != "" {
 		baseMatch["70"] = reqDE70

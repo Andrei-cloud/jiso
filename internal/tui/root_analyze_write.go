@@ -41,6 +41,10 @@ func (m *RootModel) handleAnalyzeWrite() (tea.Model, tea.Cmd) {
 	}
 	m.analyzeWriteWait = true
 	m.analyzeWriteLine = ""
+	// A new write intent supersedes any older note (UAT finding: a note
+	// from an earlier cancel sat next to "✓ wrote" and read like a
+	// warning about the fresh success).
+	m.analyzeNote = ""
 	seq := m.analyzeSeq
 	out := m.analyzeOutput
 	outPath := out.OutputFile

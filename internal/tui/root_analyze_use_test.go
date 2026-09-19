@@ -243,6 +243,44 @@ func TestAnalyzeWriteIncompleteCancelNamesGap(t *testing.T) {
 	}
 }
 
+// TestAnalyzeWriteCancelThenConfirmSuccessStandsAlone: the note from a
+// cancel must not survive into a later successful write - UAT found the
+// "⚠ no scenario item" note sitting under "✓ wrote 1 item(s)", reading
+// like a warning about the fresh success.
+func TestAnalyzeWriteCancelThenConfirmSuccessStandsAlone(t *testing.T) {
+	r, fake, _ := scenarioExtractRoot(t)
+
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch('j'))
+	r.pump(ch(' '))
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEnter})
+	r.pump(ch('w'))
+	r.pump(ch('n')) // cancel first: the note is set
+	if !strings.Contains(r.m.analyzeNote, "no scenario item") {
+		t.Fatalf("cancel must leave the note, got %q", r.m.analyzeNote)
+	}
+
+	r.pump(ch('w')) // write again, deliberately
+	if r.m.analyzeNote != "" {
+		t.Errorf("a fresh write intent must clear the stale note, got %q", r.m.analyzeNote)
+	}
+	if r.m.analyzeOverwriteConfirm == nil {
+		t.Fatal("the incomplete selection must confirm again")
+	}
+	r.pump(ch('y'))
+	if fake.writeN != 1 {
+		t.Fatalf("after y: writeN = %d, want 1", fake.writeN)
+	}
+	view := r.view()
+	if !strings.Contains(view, "wrote") {
+		t.Fatalf("the success line must show:\n%s", view)
+	}
+	if strings.Contains(view, "no scenario item") {
+		t.Errorf("the success must stand alone, no stale warning:\n%s", view)
+	}
+}
+
 // TestAnalyzeWriteFullSelectionStillWrites: the confirm must not stand
 // in the way of the default complete selection - no box, straight leg.
 func TestAnalyzeWriteFullSelectionStillWrites(t *testing.T) {

@@ -300,8 +300,9 @@ func TestScenarioBuilder_MockRoutes_DifferentCardsAndResponseCodes(t *testing.T)
 
 	// F12.3: three distinct response behaviours still become three routes,
 	// but NO route matches on a card - and because they now share one
-	// request match, the sharing must be named and RC-first ordered (the
-	// server answers with the first full match).
+	// request match, the sharing must be named and ordered frequency-first
+	// with the approved code winning the ties (the server answers with the
+	// first full match).
 	require.Len(t, result.MockRoutes, 3)
 
 	seenRC := make(map[string]bool)
@@ -364,20 +365,68 @@ func TestScenarioBuilder_MockRoutes_GroupedCardsList(t *testing.T) {
 
 	// F12.3: still two behaviour groups (RC 00, RC 51), but the cards are
 	// gone from the match - the routes now share one request match, so the
-	// sharing is named and the order stays RC-first.
+	// sharing is named and the answer is frequency-first: the 51 the
+	// capture showed three times leads the 00 it showed once (a mock
+	// replays the network's dominant behaviour, not a forced approval).
 	require.Len(t, result.MockRoutes, 2)
 
-	mr00 := result.MockRoutes[0]
-	assert.Equal(t, "0110", mr00.ResponseMTI)
-	assert.Equal(t, "00", mr00.ResponseFields["39"])
-	assert.NotContains(t, mr00.MatchFields, "2")
-
-	mr51 := result.MockRoutes[1]
+	mr51 := result.MockRoutes[0]
 	assert.Equal(t, "0110", mr51.ResponseMTI)
 	assert.Equal(t, "51", mr51.ResponseFields["39"])
 	assert.NotContains(t, mr51.MatchFields, "2")
 
+	mr00 := result.MockRoutes[1]
+	assert.Equal(t, "0110", mr00.ResponseMTI)
+	assert.Equal(t, "00", mr00.ResponseFields["39"])
+	assert.NotContains(t, mr00.MatchFields, "2")
+
 	assert.NotEmpty(t, result.Warnings, "shared-match sharing must be named")
+}
+
+// TestScenarioBuilder_RouteOrderFollowsAnswerFrequency: five distinct
+// response SIGNATURES (each carrying a unique per-file batch detail in
+// DE48) share one request match, and the capture's ANSWER was 06 three
+// times against 00 twice. The dominant answer must lead the shared
+// match - signature rarity must not hand the win to the rare approval
+// (the UAT echo-back finding: 83 declines lost to 2 approvals because
+// every decline signature was unique).
+func TestScenarioBuilder_RouteOrderFollowsAnswerFrequency(t *testing.T) {
+	t.Parallel()
+
+	spec := utils.GetDefaultSpec()
+
+	mkPair := func(rc, tag string) *CorrelatedPair {
+		req := iso8583.NewMessage(spec)
+		req.MTI("0100")
+		require.NoError(t, req.Field(3, "000000"))
+		require.NoError(t, req.Field(11, tag))
+
+		resp := iso8583.NewMessage(spec)
+		resp.MTI("0110")
+		require.NoError(t, resp.Field(3, "000000"))
+		require.NoError(t, resp.Field(11, tag))
+		require.NoError(t, resp.Field(39, rc))
+		require.NoError(t, resp.Field(48, "BATCH-"+tag))
+
+		return &CorrelatedPair{
+			Request:  &AnnotatedMessage{Message: req, Direction: DirectionRequest},
+			Response: &AnnotatedMessage{Message: resp, Direction: DirectionResponse},
+			Label:    "Pair " + tag,
+		}
+	}
+	pairs := []*CorrelatedPair{
+		mkPair("00", "1"), mkPair("06", "2"), mkPair("06", "3"), mkPair("06", "4"), mkPair("00", "5"),
+	}
+
+	result, err := NewScenarioBuilder(spec).Build(pairs, ScenarioScaffoldOptions{
+		ScenarioName:       "Answer Frequency",
+		GenerateMockRoutes: true,
+		Unsecure:           true,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result.MockRoutes)
+	require.Equal(t, "06", result.MockRoutes[0].ResponseFields["39"],
+		"the most-seen answer leads the shared match")
 }
 
 func TestScenarioBuilder_ExactEchoAndResponseFieldsSeparation(t *testing.T) {

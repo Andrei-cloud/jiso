@@ -3,8 +3,11 @@ package app
 import (
 	"sort"
 
+	json "github.com/goccy/go-json"
+
 	"jiso/internal/analyzer"
 	"jiso/internal/config"
+	"jiso/internal/transactions"
 )
 
 // AnalyzeOutput is the JSON-serializable result of a capture analysis run
@@ -262,7 +265,17 @@ func NewAnalyzeOutputFromScenarioScaffold(
 		out.Pairs = append(out.Pairs, view)
 	}
 	out.PairCount = len(out.Pairs)
+	// The step count is the scaffold's own, not one-per-pair: an
+	// attached reversal adds a step of its own, and a standalone
+	// reversal pair (its original outside the capture) emits just the
+	// reversal step - counting pairs over-reported it.
 	out.ScenarioStepCount = out.PairCount
+	if scaffold != nil && len(scaffold.Scenario.Steps) > 0 {
+		var steps []transactions.ScenarioStep
+		if err := json.Unmarshal(scaffold.Scenario.Steps, &steps); err == nil {
+			out.ScenarioStepCount = len(steps)
+		}
+	}
 
 	if scaffold == nil {
 		return out

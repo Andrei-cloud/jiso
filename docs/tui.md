@@ -288,8 +288,22 @@ the headline request (MTI + DE3) and stay untouched after that.
 A condition on DE 2/35/45/55 warns that card/track data will be matched and
 saved anonymized — allowed only because the operator typed it. Grouping on
 a response field replays each observed answer as its own route; when those
-routes share one request match the emission stays RC-first and the run
-names the sharing in its warnings.
+routes share one request match the **most-seen answer leads** (an approved
+code wins only ties) and the run names the sharing in its warnings — route
+names lead with a zero-padded rank (`#0001` answers first) so the order
+survives the items store's alphabetical save.
+
+The same frequency rule shapes the automatic **scenario** scaffold: routes
+match only what the requests actually carry (an admin `0302`/`0620` message
+with no DE 3 gets a DE 3-free match, so its own replayed requests hit their
+routes), the dominant response answers a shared request shape, and template
+values the spec cannot encode are dropped with a named warning instead of
+shipping a message that fails to pack. The written extract therefore starts
+the mock server and replays its own scenario — request, response and
+reversal steps — against itself; a step whose captured answer was a
+minority for its request shape fails honestly (the capture showed the same
+request shape answered differently over time), and replaying that specific
+answer is the §J matching wizard's job.
 
 On the **run** step the enumerated **dst** (request) and **src** (response) flow
 rows are all cursor-reachable and each shows the peer port (`from`/`to` for

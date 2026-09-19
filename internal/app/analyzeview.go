@@ -376,7 +376,9 @@ func mergeAnalyzeOutputs(into, extra *AnalyzeOutput) {
 		into.PairCount++
 		into.Pairs = append(into.Pairs, pair)
 	}
-	into.ScenarioStepCount = into.PairCount
+	// Step counts sum as scaffolded (attached reversals add steps;
+	// a standalone reversal pair emits just its own step).
+	into.ScenarioStepCount += extra.ScenarioStepCount
 
 	into.GeneratedTransactionNames = append(into.GeneratedTransactionNames, extra.GeneratedTransactionNames...)
 	into.GeneratedDatasetNames = append(into.GeneratedDatasetNames, extra.GeneratedDatasetNames...)

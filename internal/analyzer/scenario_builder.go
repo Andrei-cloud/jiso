@@ -27,8 +27,9 @@ type ScenarioScaffoldResult struct {
 	MockRoutes   []config.Item
 	// Warnings names honest facts about the scaffold the operator should
 	// see — e.g. that several routes now replay different responses to
-	// one shared request match and stay RC-first (F12.3: scaffold routes
-	// never match cards, so a card's specific answer may be shadowed).
+	// one shared request match, answered most-seen-first (F12.3:
+	// scaffold routes never match cards, so a card's specific answer may
+	// be shadowed).
 	Warnings []string
 }
 
@@ -86,9 +87,19 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 
 		// 1. Build base transaction template and request step
 		txFields := buildMessageTemplateFields(reqMsg, opts.Unsecure, anon)
+		noteDroppedFields(result, dropUnpackableFields(sb.spec, txFields))
 		txName := fmt.Sprintf("Tx %s DE3=%s #%d", reqMTI, reqDE3, idx+1)
 		stepName := fmt.Sprintf("%s DE3=%s (Step #%d)", reqMTI, reqDE3, idx+1)
 		includeRev := opts.IncludeReversals[idx]
+		// A standalone reversal pair (its original lives outside the
+		// capture; the correlator emits the 04xx as its own pair) already
+		// IS the reversal: the request step sends it and its primary
+		// route replays the captured 0410/0430. Attaching a second,
+		// "Reversal of" step would send the same message twice and
+		// double-suffix the step name.
+		if pair.Reversal == pair.Request {
+			includeRev = false
+		}
 
 		txItem, reqStep, err := requestScaffold(reqMTI, reqDE3, txName, stepName, txFields, pair, includeRev)
 		if err != nil {
@@ -99,7 +110,8 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 
 		// 3. Build Reversal Template and Step if requested
 		if includeRev {
-			revTxItem, revStep := buildReversal(pair, reqMTI, reqDE3, stepName, idx, txFields, anon)
+			revTxItem, revStep, droppedRev := sb.buildReversal(pair, reqMTI, reqDE3, stepName, idx, txFields, anon)
+			noteDroppedFields(result, droppedRev)
 			result.Transactions = append(result.Transactions, revTxItem)
 			scenarioSteps = append(scenarioSteps, revStep)
 		}
@@ -129,8 +141,9 @@ func (sb *ScenarioBuilder) Build(pairs []*CorrelatedPair, opts ScenarioScaffoldO
 // scenario step: the template copies the captured reversal message (mapping the
 // responder-generated fields to composer keywords) when one was captured, and
 // falls back to the request fields otherwise; the step asserts the reversal
-// response code.
-func buildReversal(pair *CorrelatedPair, reqMTI, reqDE3, stepName string, idx int, txFields map[string]any, anon *Anonymizer) (config.Item, transactions.ScenarioStep) {
+// response code. Values the spec cannot encode are dropped (returned for the
+// scaffold's warnings) rather than shipped as a template that cannot pack.
+func (sb *ScenarioBuilder) buildReversal(pair *CorrelatedPair, reqMTI, reqDE3, stepName string, idx int, txFields map[string]any, anon *Anonymizer) (config.Item, transactions.ScenarioStep, []string) {
 	revTxName := fmt.Sprintf("Reversal for %s DE3=%s #%d", reqMTI, reqDE3, idx+1)
 	revFields := make(map[string]any)
 
@@ -178,6 +191,7 @@ func buildReversal(pair *CorrelatedPair, reqMTI, reqDE3, stepName string, idx in
 		revFields["90"] = "{{context.OrigMTI}}{{context.OrigSTAN}}{{context.OrigDateTime}}0000000000000000000000"
 	}
 
+	dropped := dropUnpackableFields(sb.spec, revFields)
 	revFieldsBytes, _ := json.Marshal(revFields)
 	revTxItem := config.Item{
 		Type:        config.TypeTransaction,
@@ -204,7 +218,7 @@ func buildReversal(pair *CorrelatedPair, reqMTI, reqDE3, stepName string, idx in
 		},
 	}
 
-	return revTxItem, revStep
+	return revTxItem, revStep, dropped
 }
 
 // anonymizerFor returns the builder's anonymizer, rebuilding one when the

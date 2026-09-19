@@ -61,6 +61,31 @@ func TestBuildRoutesGroupByResponseSharesMatch(t *testing.T) {
 	require.NotEmpty(t, warnings, "shared-match sharing must be named")
 }
 
+func TestBuildRoutesAnswerFrequencyOrdersSharedRoutes(t *testing.T) {
+	// The capture answered 05 three times and 00 twice, each under a
+	// unique response detail (per-file batch in DE48). Grouping by the
+	// response code must hand the shared match to the DOMINANT answer
+	// first - per-detail signature rarity must not smuggle the rare
+	// approval back to the front.
+	mk := func(rc, batch string) MatchPair {
+		rq := matchSpecMsg(t, "0200", map[int]string{2: "4111111111111111", 3: "000000", 4: "100"})
+		rs := matchSpecMsg(t, "0210", map[int]string{39: rc, 48: "BATCH-" + batch})
+
+		return MatchPair{Request: rq, Response: rs}
+	}
+	pairs := []MatchPair{mk("00", "a1"), mk("05", "b1"), mk("05", "b2"), mk("05", "b3"), mk("00", "a2")}
+	m := MatchSpec{
+		Conditions: []MatchCond{{Side: "req", Field: "0", Cond: "equals", Value: "0200"}},
+		GroupBy:    []GroupField{{Field: "39", Side: CondSideResp}},
+	}
+	routes, warnings := BuildRoutesFromMatch(pairs, m, false)
+
+	require.Len(t, routes, 2)
+	require.NotEmpty(t, warnings, "shared-match sharing must be named")
+	require.Equal(t, "05", routes[0].ResponseFields["39"], "the dominant answer leads")
+	require.Equal(t, "00", routes[1].ResponseFields["39"])
+}
+
 func TestBuildRoutesPANCondAnonymized(t *testing.T) {
 	pairs := matchRoutesFixturePairs(t)
 	pan := "4111111111111111"

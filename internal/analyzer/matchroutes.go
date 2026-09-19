@@ -28,8 +28,9 @@ const (
 // value enters each route's match (routes stay distinct at match time); a
 // response-side group value shapes only the replayed response — when that
 // leaves routes sharing one match, the emission is deterministic
-// (RC-first, then most-seen) and the sharing is named in warnings, because
-// first-match-wins at runtime makes the order part of the answer.
+// (most-seen first, an approval winning only ties) and the sharing is
+// named in warnings, because first-match-wins at runtime makes the order
+// part of the answer.
 // Saved match values on PAN/track fields are anonymized unless unsecure,
 // so a written extract never carries live card data.
 func BuildRoutesFromMatch(pairs []MatchPair, m MatchSpec, unsecure bool) ([]config.Item, []string) {
@@ -70,25 +71,52 @@ func BuildRoutesFromMatch(pairs []MatchPair, m MatchSpec, unsecure bool) ([]conf
 		g.pairs = append(g.pairs, p)
 	}
 
-	routes := make([]config.Item, 0, len(order))
+	built := make([]orderedRoute, 0, len(order))
 	for idx, g := range order {
 		route, warn := routeForGroup(m, g.values, g.pairs, idx, len(order), anon, unsecure)
 		if warn != "" {
 			warnings = append(warnings, warn)
 			continue // a group with no captured response composes no route
 		}
-		routes = append(routes, route)
+		built = append(built, orderedRoute{item: route, count: len(g.pairs)})
 	}
 
-	// RC-first among routes that share one match: the matcher is
-	// first-full-match-wins, so the approval replay answers first.
-	sort.SliceStable(routes, func(i, j int) bool {
-		return routeRCHolds00(routes[i]) && !routeRCHolds00(routes[j])
+	// Frequency-first among routes that share one match: the matcher is
+	// first-full-match-wins, so the ANSWER the operator grouped most
+	// often answers first and an approval wins only TIES. Counting is
+	// by response code, not by group size alone: several groups can
+	// replay the same code in different detail (per-file DE62 values),
+	// and together they are the capture's dominant answer.
+	codeSeen := make(map[string]int, len(built))
+	for _, b := range built {
+		codeSeen[routeAnswerCode(b.item)] += b.count
+	}
+	sort.SliceStable(built, func(i, j int) bool {
+		ca, cb := codeSeen[routeAnswerCode(built[i].item)], codeSeen[routeAnswerCode(built[j].item)]
+		if ca != cb {
+			return ca > cb
+		}
+		if built[i].count != built[j].count {
+			return built[i].count > built[j].count
+		}
+
+		return routeRCHolds00(built[i].item) && !routeRCHolds00(built[j].item)
 	})
+	routes := make([]config.Item, 0, len(built))
+	for _, b := range built {
+		routes = append(routes, b.item)
+	}
 	if shared := sharedMatchWarning(routes); shared != "" {
 		warnings = append(warnings, shared)
 	}
 	return routes, warnings
+}
+
+// orderedRoute is one composed route with how many surviving pairs its
+// group carried - the frequency that decides the answer order.
+type orderedRoute struct {
+	item  config.Item
+	count int
 }
 
 // matchesAll reports whether every condition holds on the pair.
@@ -297,6 +325,17 @@ func sortedKeys(m map[string]string) []string {
 // sort puts the approval replay first among shared matches.
 func routeRCHolds00(r config.Item) bool {
 	return r.ResponseFields["39"] == "00"
+}
+
+// routeAnswerCode extracts the response code a route replays ("" when
+// the route's response carries none) - the answer whose capture
+// frequency orders shared-match routes.
+func routeAnswerCode(r config.Item) string {
+	if c, ok := r.ResponseFields["39"].(string); ok {
+		return c
+	}
+
+	return ""
 }
 
 // sharedMatchWarning names the sharing when several routes render the
