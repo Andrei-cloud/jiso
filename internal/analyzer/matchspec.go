@@ -54,8 +54,12 @@ type MatchPair struct {
 	Response *iso8583.Message
 }
 
-// CondSideResp is the only Side value that is not the request default.
-const CondSideResp = "resp"
+// CondSideReq/CondSideResp are the two sides a condition or group field
+// can read. The empty Side means req.
+const (
+	CondSideReq  = "req"
+	CondSideResp = "resp"
+)
 
 // Matches reports whether the condition holds on the pair.
 func (c MatchCond) Matches(req, resp *iso8583.Message) bool {
