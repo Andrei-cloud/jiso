@@ -237,21 +237,57 @@ func (m *RootModel) handleAnalyzeStepDelta(msg pages.AnalyzeStepDeltaMsg) (tea.M
 }
 
 // setAnalyzeStep lands on step n: the seq bump cancels every in-flight leg
-// and arriving at the run step arms flow enumeration.
+// and arriving at the run step arms flow enumeration. A FORWARD arrival at
+// the capture or spec step lands with the file browser open on the
+// previously chosen file — browsing is those steps' default surface.
 func (m *RootModel) setAnalyzeStep(n int) tea.Cmd {
 	if n == m.analyzeStep {
 		return nil
 	}
+	forward := n > m.analyzeStep
 	m.analyzeStep = n
 	m.analyzeSeq++
 	m.analyzeSpecWait, m.analyzeEnumWait, m.analyzeRunWait, m.analyzeWriteWait = false, false, false, false
 	m.analyzeNote = ""
 	m.analyzeStatus = pages.AnalyzeStatusIdle
+	m.analyzeBrowserArmed = false
 	if n == pages.StepRun {
 		return m.armAnalyzeEnum()
 	}
+	if forward {
+		m.autoOpenAnalyzeBrowser()
+	}
 
 	return nil
+}
+
+// autoOpenAnalyzeBrowser is the file steps' default surface: a forward
+// arrival whose step already has a chosen file opens the shared picker
+// through the [f] browse's own leg (targets and start dirs stay
+// single-sourced), then PositionFile seats the list cursor on the
+// previous pick itself — cursor only, the operator confirms with Enter.
+// Nothing chosen yet (the first pass) leaves the inline candidate scan.
+// The armed bool is fresh per setAnalyzeStep, so one arrival opens the
+// browser exactly once; a later arrival re-arms and fires again.
+func (m *RootModel) autoOpenAnalyzeBrowser() {
+	var prev string
+	var spec bool
+	switch m.analyzeStep {
+	case pages.StepCapture:
+		prev = m.analyzeCapturePath
+	case pages.StepSpec:
+		spec, prev = true, m.analyzeSpecPath
+	default:
+		return
+	}
+	if m.analyzeBrowserArmed || m.filePick != nil || prev == "" {
+		return
+	}
+	m.analyzeBrowserArmed = true
+	m.handleAnalyzeBrowse(spec)
+	if m.filePick != nil {
+		m.filePick.PositionFile(prev)
+	}
 }
 
 // handleAnalyzeCommitSpec commits the spec path ("" = the engine default)

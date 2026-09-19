@@ -258,7 +258,7 @@ backed with `esc`, jumped with `pgup`/`pgdown`; `tab`/`shift+tab` revisit a
 previous step. On the first three steps `j`/`k` move, `space` selects, `enter`
 advances (capture and spec also take a typed path or `f` to browse — the
 spec step's picker offers `.json` files, and `enter` on an empty spec keeps
-the engine default).
+the engine default; re-entering capture or spec opens the browser on the last pick).
 
 On the **run** step the enumerated **dst** (request) and **src** (response) flow
 rows are all cursor-reachable and each shows the peer port (`from`/`to` for

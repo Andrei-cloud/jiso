@@ -292,19 +292,24 @@ type RootModel struct {
 	analyzeRunWait        bool
 	analyzeWriteWait      bool
 	analyzeRunStale       bool
-	analyzeOutput         *app.AnalyzeOutput
-	analyzeRunStart       time.Time
-	analyzeElapsed        string
-	analyzePreview        string
-	analyzeItemRows       []pages.AnalyzeItemRow // generated-item picker roster
-	analyzeExcluded       []string               // picker-deselected item keys
-	analyzeItemsID        int                    // bumped per run attach: re-opens the picker
-	analyzeWriteLine      string
-	analyzeWriteOK        bool
-	analyzeNote           string
-	analyzeSpecError      string
-	analyzeCaptureError   string
-	analyzeConfirm        *widgets.ConfirmDialog
+	// analyzeBrowserArmed marks the file-browser auto-open as done for
+	// the CURRENT step arrival; every setAnalyzeStep transition re-arms
+	// it, so one arrival opens the browser once and esc-back-and-forth
+	// cannot loop it.
+	analyzeBrowserArmed bool
+	analyzeOutput       *app.AnalyzeOutput
+	analyzeRunStart     time.Time
+	analyzeElapsed      string
+	analyzePreview      string
+	analyzeItemRows     []pages.AnalyzeItemRow // generated-item picker roster
+	analyzeExcluded     []string               // picker-deselected item keys
+	analyzeItemsID      int                    // bumped per run attach: re-opens the picker
+	analyzeWriteLine    string
+	analyzeWriteOK      bool
+	analyzeNote         string
+	analyzeSpecError    string
+	analyzeCaptureError string
+	analyzeConfirm      *widgets.ConfirmDialog
 
 	// Analyze write gate: analyzeStatFn overrides os.Stat (tests);
 	// analyzeOverwriteConfirm is the §N3 overwrite confirm (default No);
