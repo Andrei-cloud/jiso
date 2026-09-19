@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/pages"
+	"jiso/internal/tui/palette"
 	"jiso/internal/tui/widgets"
 )
 
@@ -185,6 +186,89 @@ func TestAnalyzeSpecReArrivalAutoOpensOnLastPick(t *testing.T) {
 	}
 	if got := r.m.filePick.CurrentDir(); got != dir {
 		t.Fatalf("[f] re-open start = %q, want the spec dir", got)
+	}
+
+	// The typed draft path survives too: after esc, printables reach
+	// the step's filter/typed draft.
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if r.m.filePick != nil {
+		t.Fatal("esc must close the re-opened browser")
+	}
+	r.typeText("vi")
+	if d, editing := r.m.analyze.Draft(); !editing || d != "vi" {
+		t.Fatalf("draft after esc = %q/%v, want the typed vi", d, editing)
+	}
+}
+
+// Opening §J with a previous capture pick shows the browser seated on
+// that pcap — the step's ENTRY is the capture arm's arrival; a fresh
+// entry keeps the inline scan; esc-then-leave-then-re-enter fires again
+// (the guard bool is entry-scoped).
+func TestAnalyzeEntryAutoOpensCaptureBrowser(t *testing.T) {
+	f := fakeAnalyzeFixture()
+	r := newAnalyzeTestRoot(t, f)
+	r.gotoAnalyze()
+	if r.m.filePick != nil {
+		t.Fatal("entering fresh (nothing picked) keeps the inline capture scan")
+	}
+	r.commitCapture(r.pcap) // the real commit leg records the pick
+	r.mustStep(t, pages.StepSpec)
+
+	r.pump(ch('1')) // leave mid-wizard; the path survives the leave
+	r.pump(ch('7')) // re-entry: the browser opens on the previous capture pick
+	r.mustStep(t, pages.StepCapture)
+	if r.m.filePick == nil {
+		t.Fatalf("re-entry with a previous capture pick must open the browser:\n%s", r.view())
+	}
+	if r.m.filePickTarget != analyzePickTarget {
+		t.Fatalf("entry target = %q, want %q", r.m.filePickTarget, analyzePickTarget)
+	}
+	if got, want := r.m.filePick.CurrentDir(), filepath.Dir(r.pcap); got != want {
+		t.Fatalf("entry start dir = %q, want the pick's dir %q", got, want)
+	}
+	if got := r.m.filePick.CursorName(); got != "cap.pcap" {
+		t.Fatalf("entry cursor = %q, want the previous pick", got)
+	}
+
+	// esc closes the browser; esc again aborts (step 1 leaves the
+	// wizard); a fresh re-entry fires again.
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if r.m.filePick != nil {
+		t.Fatal("esc must close the entry browser")
+	}
+	r.pump(tea.KeyPressMsg{Code: tea.KeyEscape})
+	r.pump(ch('7'))
+	if r.m.filePick == nil {
+		t.Fatal("a fresh entry fires again")
+	}
+	if got := r.m.filePick.CursorName(); got != "cap.pcap" {
+		t.Fatalf("second entry cursor = %q, want the previous pick", got)
+	}
+}
+
+// Entry while a browse is already open (a page jump can arrive as a
+// GoToPageMsg over an open picker — keys stay with the picker): the open
+// picker is the surface the operator is using — entry never burns or
+// re-opens it.
+func TestAnalyzeEntryLeavesOpenBrowseAlone(t *testing.T) {
+	r := newAnalyzeTestRoot(t, fakeAnalyzeFixture())
+	dir, _ := pickDir(t)
+	r.m.analyzeCapturePath = r.pcap
+	r.pump(OpenFilePickerMsg{Target: settingsSpecForFileTarget, Root: dir, RootLabel: "fixture/"})
+	pick := r.m.filePick
+	if pick == nil {
+		t.Fatal("precondition: a browse must be open before the page jump")
+	}
+
+	r.pump(palette.GoToPageMsg{ID: pages.AnalyzePageID})
+	if r.m.Current().ID() != pages.AnalyzePageID {
+		t.Fatalf("the jump must land on §J, got %q", r.m.Current().ID())
+	}
+	if r.m.filePick != pick {
+		t.Fatal("entry must not re-open or replace the already-open browse")
+	}
+	if r.m.filePickTarget != settingsSpecForFileTarget {
+		t.Fatalf("entry burned the open browse target %q", r.m.filePickTarget)
 	}
 }
 

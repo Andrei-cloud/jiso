@@ -261,14 +261,28 @@ func (m *RootModel) setAnalyzeStep(n int) tea.Cmd {
 	return nil
 }
 
+// enterAnalyze is the capture step's ENTRY arrival: opening §J with a
+// previous capture pick shows the file browser seated on it (the wizard
+// carries the path across leaves). A browse already open when the page
+// lands — a GoToPageMsg can arrive while one is open — is the surface
+// the operator is using, so the filePick guard inside leaves it alone.
+func (m *RootModel) enterAnalyze() {
+	if m.Current().ID() != pages.AnalyzePageID {
+		return
+	}
+	m.analyzeBrowserArmed = false // entry re-arms the capture arm (entry-scoped)
+	m.autoOpenAnalyzeBrowser()
+}
+
 // autoOpenAnalyzeBrowser is the file steps' default surface: a forward
-// arrival whose step already has a chosen file opens the shared picker
-// through the [f] browse's own leg (targets and start dirs stay
-// single-sourced), then PositionFile seats the list cursor on the
-// previous pick itself — cursor only, the operator confirms with Enter.
+// arrival (or the page entry, for the capture step) whose step already
+// has a chosen file opens the shared picker through the [f] browse's own
+// leg (targets and start dirs stay single-sourced), then PositionFile
+// seats the list cursor on the previous pick itself — cursor only, the
+// operator confirms with Enter.
 // Nothing chosen yet (the first pass) leaves the inline candidate scan.
-// The armed bool is fresh per setAnalyzeStep, so one arrival opens the
-// browser exactly once; a later arrival re-arms and fires again.
+// The armed bool is fresh per arrival, so one arrival opens the browser
+// exactly once; a later arrival re-arms and fires again.
 func (m *RootModel) autoOpenAnalyzeBrowser() {
 	var prev string
 	var spec bool

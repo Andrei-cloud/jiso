@@ -35,6 +35,7 @@ func (m *RootModel) Push(p Page) {
 	m.leaveDisconnect()
 	p = m.seedSize(p)
 	m.stack = append(m.stack, p)
+	m.enterAnalyze()
 
 	m.debug.logf("page push id=%s depth=%d", p.ID(), len(m.stack))
 }
@@ -73,6 +74,7 @@ func (m *RootModel) Replace(p Page) {
 	m.leaveDisconnect()
 	p = m.seedSize(p)
 	m.stack = []Page{p}
+	m.enterAnalyze()
 
 	m.debug.logf("page jump from=%s to=%s", from, p.ID())
 }
