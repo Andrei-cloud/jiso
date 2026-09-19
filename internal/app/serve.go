@@ -10,6 +10,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/moov-io/iso8583"
@@ -25,6 +26,12 @@ const (
 	serveDefaultPort   = "9999"
 	serveDefaultHeader = "binary2"
 )
+
+// serveSpecDefault is the ServeSpec label for a start that resolved no
+// spec file (empty path, or one that would not load): the engine ran on
+// its built-in default spec, and the detail says so instead of naming a
+// file that was never used.
+const serveSpecDefault = "(default)"
 
 // ServeFallbackRoute is the RouteCounts key carrying the catch-all
 // fallback hits (server.FallbackRouteName, re-exported so frontends never
@@ -96,9 +103,11 @@ func (a *App) ServeStart(port, headerType, specPath, txPath, routesFile string) 
 	}
 
 	var spec *iso8583.MessageSpec
+	specLabel := serveSpecDefault
 	if sp := strings.TrimSpace(specPath); sp != "" {
 		if s, err := utils.CreateSpecFromFile(sp); err == nil {
 			spec = s
+			specLabel = filepath.Base(sp)
 		}
 	}
 	if spec == nil {
@@ -124,6 +133,7 @@ func (a *App) ServeStart(port, headerType, specPath, txPath, routesFile string) 
 	}
 	a.srv = srv
 	a.serveRoutes = routes
+	a.serveSpec = specLabel
 
 	return nil
 }
@@ -148,6 +158,20 @@ func (a *App) ServeRunning() bool {
 	defer a.serveMu.Unlock()
 
 	return a.srv != nil && a.srv.IsRunning()
+}
+
+// ServeSpec names the specification the (last) started mock server was
+// built with: the basename of the spec file ServeStart resolved, or the
+// default marker when it resolved the engine's built-in default (an
+// empty or unloadable spec path — ServeStart never requires a spec).
+// "" marks a server that was never started. The answer belongs to the
+// server, not the config: it stays fixed across a stop and ignores any
+// later change to the config's spec.
+func (a *App) ServeSpec() string {
+	a.serveMu.Lock()
+	defer a.serveMu.Unlock()
+
+	return a.serveSpec
 }
 
 // ServeSnapshot is the in-process stats accessor: the same ServerStats

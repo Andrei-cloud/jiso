@@ -26,6 +26,8 @@ type StatsCard struct {
 
 // RouteDetail is the Enter-on-route detail view: every line is a
 // root-derived display string from the route config, rendered verbatim.
+// Spec names the specification the server was started with ("" renders
+// the dash: a never-started config route has no server-side association).
 type RouteDetail struct {
 	Name           string
 	Description    string
@@ -34,6 +36,7 @@ type RouteDetail struct {
 	EchoLines      []string // "11"
 	RespMTI        string
 	RespLines      []string // "39=00" per response field
+	Spec           string   // the spec the server was started with
 	Latency        string   // "100ms ±25ms" / "0ms"
 	DropConnection bool
 }

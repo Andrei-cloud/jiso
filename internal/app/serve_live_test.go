@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -201,6 +202,52 @@ func TestServeLiveSpecFallbackAndRoutesFailure(t *testing.T) {
 	snap := a2.ServeSnapshot()
 	if snap.TotalServed != 1 || snap.Matched != 0 || snap.RouteCounts[ServeFallbackRoute] != 1 {
 		t.Fatalf("fallback accounting: served=%d matched=%d routes=%v", snap.TotalServed, snap.Matched, snap.RouteCounts)
+	}
+}
+
+// TestServeSpecNamesTheServersSpec: ServeSpec reports the specification the
+// (last) started server resolved with — the resolved spec file's basename,
+// the default marker when the start resolved the engine's built-in default
+// (ServeStart never requires a spec: an empty path silently resolves the
+// default), and "" only when no server was ever started. It is the server's
+// own spec, immune to later config edits, so the route detail can say
+// honestly which specification that server speaks.
+func TestServeSpecNamesTheServersSpec(t *testing.T) {
+	a := serveLiveApp(t)
+	tx := serveLiveTxFile(t, serveLiveTxJSON)
+	if got := a.ServeSpec(); got != "" {
+		t.Fatalf("never-started ServeSpec = %q, want the empty never-started marker", got)
+	}
+
+	specPath := filepath.Join("..", "..", "specs", "spec.json")
+	if err := a.ServeStart("0", "binary2", specPath, tx, ""); err != nil {
+		t.Fatalf("ServeStart with a spec file: %v", err)
+	}
+	if got := a.ServeSpec(); got != "spec.json" {
+		t.Fatalf("started ServeSpec = %q, want the resolved basename %q", got, "spec.json")
+	}
+
+	// The association froze at start: rewriting the global config spec must
+	// not move the server's own answer.
+	a.Config().SetSpec("other.json")
+	if got := a.ServeSpec(); got != "spec.json" {
+		t.Fatalf("ServeSpec followed the config: %q", got)
+	}
+	if err := a.ServeStop(); err != nil {
+		t.Fatalf("ServeStop: %v", err)
+	}
+	if got := a.ServeSpec(); got != "spec.json" {
+		t.Fatalf("stopped ServeSpec = %q, want the last start's spec", got)
+	}
+
+	// A start with an empty spec path resolves the engine's built-in
+	// default spec; say so honestly instead of naming no file at all.
+	b := serveLiveApp(t)
+	if err := b.ServeStart("0", "binary2", "", tx, ""); err != nil {
+		t.Fatalf("ServeStart without a spec path: %v", err)
+	}
+	if got := b.ServeSpec(); got != serveSpecDefault {
+		t.Fatalf("default-resolved ServeSpec = %q, want %q", got, serveSpecDefault)
 	}
 }
 

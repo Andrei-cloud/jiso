@@ -356,29 +356,51 @@ func (s *Server) sectionW(title, body string, x, y, w, h int, focused bool) stri
 	return out
 }
 
-// detailBody renders the Enter-on-route detail view: every line is a
-// muted label plus the root-derived value (match/echo/latency per the
-// route config; empty sections render the dash).
+// serverDetailLabelCol is the route detail's label column: every k=v
+// pair takes its own line and continuation lines align under it.
+const serverDetailLabelCol = 12
+
+// detailBody renders the Enter-on-route detail view: a muted label plus
+// the root-derived values — one k=v pair per line, continuation lines
+// aligned at the label column, never joined into one long line (a long
+// single value is truncated at the pane width, not wrapped mid-row).
+// The reading order ends spec, latency: spec names the specification the
+// server owning this route was started with, not the global config's.
 func (s *Server) detailBody() string {
 	d := s.state.Routes[s.detailIdx].Detail
-	row := func(label, value string) string {
-		return s.th.Deemphasized.Render(padRight(label, 12)) +
-			s.th.TextPrimary.Render(dashIf(s.th, value))
+	label := func(text string) string {
+		return s.th.Deemphasized.Render(padRight(text, serverDetailLabelCol))
 	}
-	list := func(lines []string) string { return strings.Join(lines, " ") }
+	pad := s.th.Deemphasized.Render(strings.Repeat(" ", serverDetailLabelCol))
+	value := func(text string) string {
+		return s.th.TextPrimary.Render(dashIf(s.th, text))
+	}
 
-	lines := []string{
-		titleLine(s.th, "ROUTE "+dashIf(s.th, d.Name)),
-		row("description", d.Description),
-		row("match", list(d.MatchLines)),
-		row("required", list(d.RequiredLines)),
-		row("echo", list(d.EchoLines)),
-		row("resp mti", d.RespMTI),
-		row("resp fields", list(d.RespLines)),
-		row("latency", plainDecor(s.th, d.Latency)),
+	lines := []string{titleLine(s.th, "ROUTE "+dashIf(s.th, d.Name))}
+	add := func(text string, values []string) {
+		if len(values) == 0 {
+			lines = append(lines, label(text)+value(""))
+
+			return
+		}
+		for i, v := range values {
+			if i == 0 {
+				lines = append(lines, label(text)+value(v))
+			} else {
+				lines = append(lines, pad+value(v))
+			}
+		}
 	}
+	add("description", []string{d.Description})
+	add("match", d.MatchLines)
+	add("required", []string{strings.Join(d.RequiredLines, " ")})
+	add("echo", []string{strings.Join(d.EchoLines, " ")})
+	add("resp mti", []string{d.RespMTI})
+	add("resp fields", d.RespLines)
+	add("spec", []string{d.Spec})
+	add("latency", []string{plainDecor(s.th, d.Latency)})
 	if d.DropConnection {
-		lines = append(lines, row("behavior", "drops connection"))
+		add("behavior", []string{"drops connection"})
 	}
 	lines = append(lines, s.th.Deemphasized.Render("esc back"))
 

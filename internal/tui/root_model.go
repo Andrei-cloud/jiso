@@ -209,6 +209,7 @@ type RootModel struct {
 	serveStopFn    func() error
 	serveStatsFn   func() *app.ServerStats
 	serveRoutesFn  func() []config.MockRouteConfig
+	serveSpecFn    func() string
 
 	// Workers: the canonical §H page (hotkey slot 5). Root folds worker
 	// bus events into workerRows (the row cache is truth, never written

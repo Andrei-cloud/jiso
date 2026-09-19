@@ -462,8 +462,9 @@ func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
 			},
 		},
 		{
-			"type": "mock_route",
-			"name": "Sign On Route",
+			"type":        "mock_route",
+			"name":        "Sign On Route",
+			"description": "sign on",
 			"match_fields": map[string]any{
 				"0": "0800",
 			},
@@ -484,6 +485,9 @@ func (suite *TransactionCollectionSuite) TestMockRouteLatencyJitterParsing() {
 	routes := tc.GetMockRoutes()
 	suite.Require().Len(routes, 1)
 	suite.Equal("Sign On Route", routes[0].Name)
+	// The route keeps its description: it is what the §G route detail's
+	// description line shows, so the composition must not drop it.
+	suite.Equal("sign on", routes[0].Description)
 	suite.Equal(100, routes[0].LatencyMs)
 	suite.Equal(25, routes[0].JitterMs)
 }

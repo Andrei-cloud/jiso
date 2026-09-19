@@ -85,6 +85,7 @@ type App struct {
 	serveMu     sync.Mutex
 	srv         *server.Server
 	serveRoutes []config.MockRouteConfig
+	serveSpec   string
 
 	// Settings facade state (TUI §L). settingsMu guards
 	// settingsOverrides, the session-only values for §L keys the

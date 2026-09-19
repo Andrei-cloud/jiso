@@ -12,8 +12,6 @@ package tui
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -81,6 +79,20 @@ func (m *RootModel) serveRoutesList() []config.MockRouteConfig {
 	}
 
 	return m.app.ServeRoutes()
+}
+
+// serveSpecLabel reads the specification name the running/stopped server
+// resolved at start ("" when none was ever started); every route detail
+// row carries it, because the runtime holds one spec per server.
+func (m *RootModel) serveSpecLabel() string {
+	if m.serveSpecFn != nil {
+		return m.serveSpecFn()
+	}
+	if m.app == nil {
+		return ""
+	}
+
+	return m.app.ServeSpec()
 }
 
 // serverStatsConsumer reports the pages that render the live mock-server
@@ -321,6 +333,7 @@ func (m *RootModel) serverRouteRows() []pages.RouteRow {
 
 	rows := make([]pages.RouteRow, 0, len(routes))
 	th := m.themeOrNil()
+	spec := m.serveSpecLabel()
 	for _, r := range routes {
 		rows = append(rows, pages.RouteRow{
 			ID:      r.Name,
@@ -328,152 +341,9 @@ func (m *RootModel) serverRouteRows() []pages.RouteRow {
 			Resp:    r.ResponseMTI,
 			Hits:    counts[r.Name],
 			Latency: routeLatencyCell(r),
-			Detail:  routeDetail(th, r),
+			Detail:  routeDetail(th, r, spec),
 		})
 	}
 
 	return rows
-}
-
-// routeCellValueCells caps one rendered value in a §G route cell: longer
-// strings take the theme's ellipsis and the full value belongs in the
-// detail, which is where the whole pair lives.
-const routeCellValueCells = 24
-
-// routeMatchCell is the compact MATCH cell: the route name plus the MTI it
-// matches, with the processing code when the route narrows to one
-// ("Purchase Auth 0200/000000"), or the bare name plus "any" when the route
-// declares no match fields (the catch-all — `serve routes` says ANY).
-// Match pairs never render here: a row summarises, the detail reveals.
-func routeMatchCell(th *theme.Theme, r config.MockRouteConfig) string {
-	mti, hasMTI := routeScalar(th, r.MatchFields["0"])
-	de3, hasDE3 := routeScalar(th, r.MatchFields["3"])
-
-	switch {
-	case len(r.MatchFields) == 0:
-		return r.Name + " any"
-	case hasMTI && hasDE3:
-		return r.Name + " " + mti + "/" + de3
-	case hasMTI:
-		return r.Name + " " + mti
-	default:
-		// Matches on other fields only: the name is all a row can say about
-		// it, and it never claims the catch-all "any".
-		return r.Name
-	}
-}
-
-// routeScalar reads one match criterion for the row summary. Only a scalar
-// summarises a route — a nested payload is no summary, so the caller falls
-// back to the route name and the pair stays in the detail.
-func routeScalar(th *theme.Theme, v any) (string, bool) {
-	switch val := v.(type) {
-	case string:
-		return th.Truncate(val, routeCellValueCells), true
-	case float64, int, bool:
-		return fmt.Sprintf("%v", val), true
-	}
-
-	return "", false
-}
-
-// routeLatencyCell is the LATENCY cell: the effective base delay
-// (delay_ms, else latency_ms — the engine's own fallback) with the
-// jitter suffix the design shows ("100±25ms").
-func routeLatencyCell(r config.MockRouteConfig) string {
-	base := routeBaseDelayMs(r)
-	if r.JitterMs > 0 {
-		return strconv.Itoa(base) + "\xc2\xb1" + strconv.Itoa(r.JitterMs) + "ms"
-	}
-
-	return strconv.Itoa(base) + "ms"
-}
-
-// routeDetail builds the Enter-on-route detail view from the route
-// config (internal/config MockRouteConfig — the tx file mock_routes
-// schema): match/required/echo/response fields, latency, drop flag.
-func routeDetail(th *theme.Theme, r config.MockRouteConfig) pages.RouteDetail {
-	d := pages.RouteDetail{
-		Name:           r.Name,
-		Description:    r.Description,
-		MatchLines:     sortedFieldPairs(th, r.MatchFields),
-		RequiredLines:  append([]string(nil), r.RequiredFields...),
-		RespMTI:        r.ResponseMTI,
-		RespLines:      sortedFieldPairs(th, r.ResponseFields),
-		Latency:        routeLatencyDetail(r),
-		DropConnection: r.DropConnection,
-	}
-	for _, e := range r.EchoFields {
-		d.EchoLines = append(d.EchoLines, strconv.Itoa(e))
-	}
-
-	return d
-}
-
-// routeLatencyDetail is the detail view's long-form latency line.
-func routeLatencyDetail(r config.MockRouteConfig) string {
-	base := routeBaseDelayMs(r)
-	if r.JitterMs > 0 {
-		return strconv.Itoa(base) + "ms \xc2\xb1" + strconv.Itoa(r.JitterMs) + "ms"
-	}
-
-	return strconv.Itoa(base) + "ms"
-}
-
-// routeBaseDelayMs mirrors MockRouteConfig.GetTotalDelay's base-delay
-// fallback (delay_ms wins, latency_ms is the alias) without its jitter
-// random draw — the cell shows the configured values, not a sample.
-func routeBaseDelayMs(r config.MockRouteConfig) int {
-	if r.DelayMs == 0 && r.LatencyMs > 0 {
-		return r.LatencyMs
-	}
-
-	return r.DelayMs
-}
-
-// sortedFieldPairs renders a match/response field map deterministically
-// ("11=000000" per entry, keys ascending), capping each value: the full
-// value is the detail's job, a %v dump of a nested map is not readable.
-func sortedFieldPairs(th *theme.Theme, fields map[string]any) []string {
-	if len(fields) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(fields))
-	for k := range fields {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	pairs := make([]string, 0, len(keys))
-	for _, k := range keys {
-		pairs = append(pairs, k+"="+fieldValue(th, fields[k]))
-	}
-
-	return pairs
-}
-
-// fieldValue renders one field-map value for display: a long string is
-// clipped with the theme's ellipsis (ASCII profile included), and a map or
-// slice is counted rather than dumped.
-func fieldValue(th *theme.Theme, v any) string {
-	switch val := v.(type) {
-	case string:
-		return th.Truncate(val, routeCellValueCells)
-	case map[string]any:
-		return compositeCount(len(val))
-	case []any:
-		return compositeCount(len(val))
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-// compositeCount names the size of a nested value that a cell cannot show
-// in full ("2 values", "1 value").
-func compositeCount(n int) string {
-	if n == 1 {
-		return "1 value"
-	}
-
-	return strconv.Itoa(n) + " values"
 }

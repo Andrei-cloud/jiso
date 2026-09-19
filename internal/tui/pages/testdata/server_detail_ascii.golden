@@ -1,0 +1,27 @@
+MOCK SERVER  * running :9999 (binary2)  uptime 00:42:11
+ROUTE 0200/proc
+description purchase auth
+match       0=0200
+            3=000000
+            11=000000
+required    3 11
+echo        11
+resp mti    0210
+resp fields 39=00
+spec        visa.json
+latency     100ms ~25ms
+esc back
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -161,6 +161,7 @@ func (tc *TransactionCollection) addItem(item ConfigItem) {
 	case "mock_route":
 		r := cfg.MockRouteConfig{
 			Name:           item.Name,
+			Description:    item.Description,
 			MatchFields:    item.MatchFields,
 			RequiredFields: item.RequiredFields,
 			EchoFields:     item.EchoFields,

@@ -6,6 +6,7 @@
 package pages
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -17,29 +18,37 @@ import (
 
 // serverRoutes is the §G route set (three rows; the third
 // drops connections). Match is the summary the root emits — name plus the
-// matched MTI (/DE3), or "any" — while Detail still carries every pair.
+// matched MTI (/DE3), or "any" — while Detail still carries every pair,
+// numerically ordered, and names the spec the server was started with
+// (deliberately not the config spec, per the §9 association complaint).
+//
+// MIRROR — keep in sync with serveFixtureRoutes in root_server_test.go:
+// the root builds these rows from config.MockRouteConfig and
+// TestRootServerDetailDerivation (root_server_detail_test.go) pins the
+// derived strings against this literal (different packages, the import
+// fence forbids a shared test source). Change one side, change the other.
 func serverRoutes() []RouteRow {
 	return []RouteRow{
 		{
 			ID: "0200/proc", Match: "0200/proc 0200/000000", Resp: "0210", Hits: 812, Latency: "100±25ms",
 			Detail: RouteDetail{
 				Name: "0200/proc", Description: "purchase auth",
-				MatchLines: []string{"0=0200", "11=000000", "3=000000"}, RequiredLines: []string{"3", "11"},
+				MatchLines: []string{"0=0200", "3=000000", "11=000000"}, RequiredLines: []string{"3", "11"},
 				EchoLines: []string{"11"}, RespMTI: "0210",
-				RespLines: []string{"39=00"}, Latency: "100ms ±25ms",
+				RespLines: []string{"39=00"}, Spec: "visa.json", Latency: "100ms ±25ms",
 			},
 		},
 		{
 			ID: "0800/nmc", Match: "0800/nmc any", Resp: "0810", Hits: 380, Latency: "0ms",
 			Detail: RouteDetail{
-				Name: "0800/nmc", RespMTI: "0810", Latency: "0ms",
+				Name: "0800/nmc", RespMTI: "0810", Spec: "visa.json", Latency: "0ms",
 			},
 		},
 		{
 			ID: "0200/proc-mc", Match: "0200/proc-mc 0200", Resp: "0210", Hits: 6, Latency: "50ms",
 			Detail: RouteDetail{
 				Name: "0200/proc-mc", MatchLines: []string{"0=0200"}, RespMTI: "0210",
-				Latency: "50ms", DropConnection: true,
+				Spec: "visa.json", Latency: "50ms", DropConnection: true,
 			},
 		},
 	}
@@ -213,9 +222,60 @@ func TestServerDetailShowsMatchEchoLatency(t *testing.T) {
 	_, _ = s.Update(press('r'))
 	_, _ = s.Update(specialCode(tea.KeyEnter))
 	body := strings.Join(bodyLinesOf(t, s), "\n")
-	for _, want := range []string{"description", "purchase auth", "11=000000", "3 11", "resp mti", "0210", "100ms ~25ms"} {
+	// "spec" and the server's own basename join the pin: the detail names
+	// the specification the server was started with, which is the
+	// fixture's Spec and never a re-echo of any other label.
+	for _, want := range []string{
+		"description", "purchase auth", "11=000000", "3 11", "resp mti", "0210",
+		"100ms ~25ms", "spec", "visa.json",
+	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("detail lacks %q:\n%s", want, body)
+		}
+	}
+}
+
+// TestServerDetailPairsAlignUnderLabel pins the detail's line layout:
+// every k=v pair takes its own line, continuation lines align under the
+// label column (width 12), values are never joined into one long line,
+// and the label order is the natural reading order with spec after
+// resp fields and before latency.
+func TestServerDetailPairsAlignUnderLabel(t *testing.T) {
+	t.Parallel()
+
+	s := serverPage(t, serverRunningState(), 120, 32)
+	_, _ = s.Update(press('r'))
+	_, _ = s.Update(specialCode(tea.KeyEnter))
+
+	var lines []string
+	for _, l := range bodyLinesOf(t, s) {
+		lines = append(lines, strings.TrimRight(stripANSI(l), " "))
+	}
+
+	want := []string{
+		"ROUTE 0200/proc",
+		"description purchase auth",
+		"match       0=0200",
+		"            3=000000",
+		"            11=000000",
+		"required    3 11",
+		"echo        11",
+		"resp mti    0210",
+		"resp fields 39=00",
+		"spec        visa.json",
+		"latency     100ms ~25ms",
+		"esc back",
+	}
+	start := slices.Index(lines, want[0])
+	if start < 0 {
+		t.Fatalf("detail title missing:\n%s", strings.Join(lines, "\n"))
+	}
+	if start+len(want) > len(lines) {
+		t.Fatalf("detail block runs off the body:\n%s", strings.Join(lines, "\n"))
+	}
+	for i, w := range want {
+		if got := lines[start+i]; got != w {
+			t.Errorf("detail line %d = %q, want %q", i, got, w)
 		}
 	}
 }

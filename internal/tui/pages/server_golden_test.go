@@ -8,6 +8,7 @@ package pages
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
 
 	"jiso/internal/tui/widgets"
@@ -69,6 +70,18 @@ func TestServerGoldens(t *testing.T) {
 			page.SetState(st)
 			_, _ = page.Update(windowSize(80, 32))
 			checkGolden(t, "server_log80_"+p.name, page.View().Content)
+		})
+
+		t.Run("server_detail_"+p.name, func(t *testing.T) {
+			th := testTheme(t, p.prof)
+			page := NewServer(th)
+			page.SetState(serverRunningState())
+			_, _ = page.Update(windowSize(120, 32))
+			// The keyboard truth of opening the detail: r focuses the
+			// routes pane, enter opens the cursor's row (the first).
+			_, _ = page.Update(press('r'))
+			_, _ = page.Update(specialCode(tea.KeyEnter))
+			checkGolden(t, "server_detail_"+p.name, page.View().Content)
 		})
 
 		t.Run("server_confirm_"+p.name, func(t *testing.T) {

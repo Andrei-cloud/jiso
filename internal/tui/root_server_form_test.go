@@ -461,7 +461,7 @@ func TestServerFormRoutesPrefillIsExplicitOnly(t *testing.T) {
 		t.Fatalf("routes prefill = %q, want empty (the config file is not a routes file)", got)
 	}
 
-	const picked = "/tmp/routes-only.json"
+	picked := filepath.Join(t.TempDir(), "routes-only.json")
 	st.Field(serverFieldRoutes).Value = picked
 	r.m.serverDlg.SetState(st)
 	_, cmd := r.m.Update(special(tea.KeyEnter))

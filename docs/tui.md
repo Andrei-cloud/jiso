@@ -225,10 +225,11 @@ read never runs on the UI thread.
 ### server — Mock Server
 
 Three columns while the server emits output: the compact STATS card, the
-ROUTES table (MATCH/RESP/HITS; MATCH summarizes the route as its name plus
-the MTI it matches and the processing code, or `any` for the catch-all, and
-the full match pairs live in the route detail; latency lives there too), and
-the SERVER LOG as the big right pane — root-timestamped, compacted
+ROUTES table (MATCH summarizes the route as its name plus the MTI it
+matches and the processing code, or `any` for the catch-all, and the full
+match pairs — read line by line, each on its own row — live in the route
+detail, with the spec that server was started with and latency), and the
+SERVER LOG as the big right pane — root-timestamped, compacted
 (`09:17:03 🟢 Echo · 0800→0810 · RC 00`), newest at the bottom.
 
 | Keys | Action |
