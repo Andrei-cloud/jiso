@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -394,5 +395,31 @@ func TestScenarioRunNilSenderTerminal(t *testing.T) {
 	_, _ = m.Update(pages.ScenarioRunMsg{ID: "E2E Purchase"})
 	if m.scenarioRun == nil || !m.scenarioRun.done {
 		t.Error("second nil-sender run was ignored in-flight (wedge)")
+	}
+}
+
+// TestRootScenarioRunFailureOpensScreen: a run whose engine leg returns
+// an error opens the error screen over the page (UAT finding 8) — the
+// whole cause must be readable, not only the one-line run summary.
+func TestRootScenarioRunFailureOpensScreen(t *testing.T) {
+	m := NewRootModel(newScenarioApp(t))
+	col := &scenCollector{msgs: make(chan tea.Msg, 32)}
+	m.SetScenarioSender(func(msg tea.Msg) { col.msgs <- msg })
+	boom := errors.New("scenario engine unavailable: tx repository is nil")
+	m.runScenario = fakeScenarioEngine(nil, nil, boom)
+
+	_, _ = m.Update(pages.ScenarioRunMsg{ID: "E2E Purchase"})
+	for _, msg := range col.nextAll(t) {
+		_, _ = m.Update(msg)
+	}
+
+	if m.errModal == nil {
+		t.Fatal("failed run opened no error screen")
+	}
+	if !strings.Contains(strings.Join(m.errModal.Lines(), "\n"), "engine unavailable") {
+		t.Errorf("screen lacks the cause: %v", m.errModal.Lines())
+	}
+	if !strings.Contains(m.scenarioRun.summary, "run failed") {
+		t.Errorf("summary lost the failure: %q", m.scenarioRun.summary)
 	}
 }

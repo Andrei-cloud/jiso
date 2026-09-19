@@ -272,9 +272,33 @@ func (m *RootModel) applySendStage(msg SendStageMsg) (tea.Model, tea.Cmd) {
 		// injectable-clock completion stamp, frozen with the run.
 		m.lastSendAt = r.end
 		m.pushSendHistory(*st, r.end)
+		// The failed stage's whole cause rides the error screen (UAT
+		// findings 4/8): the page's stage strip is one line, the screen
+		// makes the cause readable and scrollable over the frozen page.
+		if !msg.OK && msg.Err != nil {
+			m.openErrorModal(sendStageFailureTitle(msg.Stage), msg.Err)
+		}
 	}
 
 	return m, nil
+}
+
+// sendStageFailureTitle names a failed stage for the error screen's
+// title, in the screen's "cannot ..." voice; stage names come from the
+// same five the segmented indicator shows.
+func sendStageFailureTitle(stage int) string {
+	switch stage {
+	case 0:
+		return "cannot connect to server"
+	case 1:
+		return "cannot send transaction"
+	case 2:
+		return "no response received"
+	case 3:
+		return "cannot parse response"
+	default:
+		return "message validation failed"
+	}
 }
 
 // sendHistoryMax bounds the session send-history ring.

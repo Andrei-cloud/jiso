@@ -108,6 +108,9 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 		m.scenarioRun.summary = "run failed: " + errNoSenderWired.Error()
 		m.syncScenarios()
 		m.debug.logf("scenario run id=%s closed: %v", id, errNoSenderWired)
+		// The run never started — nothing to show but the cause, so the
+		// error screen opens over the page instead of a lone summary line.
+		m.openErrorModal("cannot run scenario", errNoSenderWired)
 
 		return m, nil
 	}
@@ -217,6 +220,9 @@ func (m *RootModel) applyScenarioDone(msg scenarioDoneMsg) (tea.Model, tea.Cmd) 
 
 	if msg.err != nil {
 		r.summary = "run failed: " + msg.err.Error()
+		// The whole cause rides the error screen (UAT finding 8): the
+		// run closed with nothing to show, so the screen speaks first.
+		m.openErrorModal("scenario run failed", msg.err)
 
 		return m, nil
 	}
