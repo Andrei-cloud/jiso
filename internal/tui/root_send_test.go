@@ -33,6 +33,11 @@ func newSendTestRoot(t *testing.T) *sendTestRoot {
 	m := NewRootModel(newTxFileApp(t))
 	col := make(chan tea.Msg, 32)
 	m.SetSendSender(func(msg tea.Msg) { col <- msg })
+	// The direct-send fixture truth: every root here exercises sends on
+	// a CONNECTED session (an offline send belongs to the wizard, pinned
+	// in root_transactions_test.go); stamp the connection the same way
+	// the bridge's live pump does.
+	stampConnected(t, m)
 
 	r := &sendTestRoot{m: m, col: col, clock: time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)}
 	r.advance = func(d time.Duration) { r.clock = r.clock.Add(d) }
@@ -544,6 +549,7 @@ func TestSendTickSingleFlightAcrossResend(t *testing.T) {
 // TxSendMsg re-arms (closing again) instead of being ignored forever.
 func TestSendNilSenderTerminal(t *testing.T) {
 	m := NewRootModel(newTxFileApp(t))
+	stampConnected(t, m) // the connected direct-send fixture (see newSendTestRoot)
 
 	_, cmd := m.Update(pages.TxSendMsg{ID: "Purchase"})
 	if cmd != nil {

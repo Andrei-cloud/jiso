@@ -269,3 +269,53 @@ func TestWizardOnConnectedAdvancesAndStamps(t *testing.T) {
 		t.Fatalf("target not stamped: %+v", w.State())
 	}
 }
+
+// The pre-selection homes the send step's cursor onto the chosen
+// transaction: Enter with no navigation commits it, arrows still move off
+// it (a cursor start, never a commit), and every earlier step keeps its
+// own Enter leg.
+func TestWizardPresetHomesSendStepCursor(t *testing.T) {
+	t.Parallel()
+
+	w := newWizard(t, wizardState(asciiTheme(t)), true) // the offline four-step shape
+	w.SetPreset("Refund")
+
+	if _, ok := wizardMsg(t, w, special(tea.KeyEnter)).(WizardConnectAttemptMsg); !ok {
+		t.Fatal("the connect step keeps its own Enter after a pre-selection")
+	}
+	w.AdvanceStep() // spec
+	w.AdvanceStep() // file
+	w.AdvanceStep() // send
+	if got, ok := wizardMsg(t, w, special(tea.KeyEnter)).(WizardSendMsg); !ok || got.Name != "Refund" {
+		t.Fatalf("send step cursor: %#v, want WizardSendMsg{Refund}", got)
+	}
+
+	_, _ = w.Update(special(tea.KeyDown))
+	if got, ok := wizardMsg(t, w, special(tea.KeyEnter)).(WizardSendMsg); !ok || got.Name != "Sign On" {
+		t.Fatalf("navigation off the pre-selection: %#v, want Sign On", got)
+	}
+}
+
+// The root advances and then pushes the re-derived template list (a tx
+// file pick loads fresh templates); the arrival re-homes the preset
+// against the list that is live now, not the one at advance time.
+func TestWizardPresetRehomesAfterFreshTemplateList(t *testing.T) {
+	t.Parallel()
+
+	st := wizardState(asciiTheme(t))
+	st.Steps = []string{WizardStepFile, WizardStepSend}
+	w := newWizard(t, st, false)
+	w.SetPreset("Refund")
+
+	w.AdvanceStep() // → send, homed on the previous listing
+	fresh := st
+	fresh.Templates = []WizardTemplate{
+		{Name: "Sign On"}, {Name: "Refund", MTI: "0200"}, {Name: "Purchase", MTI: "0200"},
+	}
+	w.SetState(fresh)
+	w.HomeCursor()
+
+	if got, ok := wizardMsg(t, w, special(tea.KeyEnter)).(WizardSendMsg); !ok || got.Name != "Refund" {
+		t.Fatalf("cursor after the fresh listing: %#v, want Refund", got)
+	}
+}

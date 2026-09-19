@@ -392,3 +392,17 @@ func (m *RootModel) targetDisplay() string {
 
 	return cfg.GetHost() + ":" + cfg.GetPort()
 }
+
+// sendTargetReady reports whether a send has everything the §D walk dials
+// through: the connection truth the chip shows (latest bus event, app
+// snapshot fallback) plus a host:port to dial. A missing element belongs
+// to the send wizard's connect-first walk, never to a dial over an
+// incomplete address.
+func (m *RootModel) sendTargetReady() bool {
+	if !m.connectionLive() {
+		return false
+	}
+	cfg := m.configOrNil()
+
+	return cfg != nil && cfg.GetHost() != "" && cfg.GetPort() != ""
+}

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -9,7 +10,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/app"
+	"jiso/internal/app/events"
 	"jiso/internal/config"
+	"jiso/internal/tui/bridge"
 	"jiso/internal/tui/pages"
 )
 
@@ -240,5 +243,161 @@ func TestRootFilterSurvivesSync(t *testing.T) {
 	_, _ = m.Update(special(tea.KeyRight)) // non-printable: nav, then a full root sync
 	if got := m.tx.SelectedID(); got != "Purchase" {
 		t.Errorf("sync dropped selection: %q", got)
+	}
+}
+
+// stampConnected parks the chip's connection truth on the root through
+// the bridge route the live pump uses — the same bookkeeping
+// connectionLive reads.
+func stampConnected(t *testing.T, m *RootModel) {
+	t.Helper()
+
+	_, _ = m.Update(bridge.Msg{Event: events.ConnectionEvent{
+		State:  events.StateConnected,
+		Detail: "127.0.0.1:65535",
+	}})
+}
+
+// stampOffline drops that truth again — the counter-press the offline
+// journeys (connect dialog, wizard fallback) need on a connected root.
+func stampOffline(t *testing.T, m *RootModel) {
+	t.Helper()
+
+	_, _ = m.Update(bridge.Msg{Event: events.ConnectionEvent{State: events.StateDisconnected}})
+}
+
+// wantNoWalk asserts s armed nothing: no send run, no connect attempt,
+// and the send collector stays quiet for its full patience window (the
+// count mechanism the send tests share).
+func wantNoWalk(t *testing.T, m *RootModel, col chan tea.Msg) {
+	t.Helper()
+
+	if m.sendRun != nil {
+		t.Error("s started a send run; missing elements belong to the wizard")
+	}
+	if m.connectRun != nil {
+		t.Error("s armed a connect attempt")
+	}
+	select {
+	case msg := <-col:
+		t.Fatalf("s armed the walk: %v", msg)
+	case <-time.After(120 * time.Millisecond):
+	}
+}
+
+// TestTxSendOfflineWalksWizard: s on a row while the session is offline
+// opens the send wizard (connect-first shape) with that transaction
+// pre-selected and starts no send; the connected path keeps its own pins
+// in the send tests.
+func TestTxSendOfflineWalksWizard(t *testing.T) {
+	m := NewRootModel(newTxApp(t, txSpecDatasetFixtureJSON))
+	col := make(chan tea.Msg, 32)
+	m.SetSendSender(func(msg tea.Msg) { col <- msg })
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+
+	_, cmd := m.Update(pages.TxSendMsg{ID: "Echo"})
+	if cmd != nil {
+		t.Errorf("offline s returned a cmd; the wizard opens without one")
+	}
+	wantNoWalk(t, m, col)
+	if m.wizard == nil {
+		t.Fatal("offline s must open the send wizard")
+	}
+	if got := m.wizard.CurrentStepID(); got != pages.WizardStepConnect {
+		t.Errorf("wizard step = %q, want connect", got)
+	}
+	if st := m.wizard.State(); len(st.Steps) != 4 || st.Steps[0] != pages.WizardStepConnect {
+		t.Errorf("offline steps %v, want [connect spec file send]", st.Steps)
+	}
+	if got := m.wizard.Preset(); got != "Echo" {
+		t.Errorf("template pre-selection = %q, want Echo", got)
+	}
+}
+
+// TestTxSendHalfTargetWalksWizard: the chip says connected but the dial
+// target is half-unset — either missing half routes s to the wizard
+// instead of arming a walk over an incomplete address. The setters
+// reject empty writes, so the half state is built by never setting the
+// missing side.
+func TestTxSendHalfTargetWalksWizard(t *testing.T) {
+	for _, half := range []struct {
+		name string
+		host string
+		port string
+	}{
+		{"port unset", "127.0.0.1", ""},
+		{"host unset", "", "65535"},
+	} {
+		t.Run(half.name, func(t *testing.T) {
+			m := NewRootModel(newTxApp(t, txFixtureJSON))
+			col := make(chan tea.Msg, 32)
+			m.SetSendSender(func(msg tea.Msg) { col <- msg })
+			cfg := config.GetConfig()
+			txFile, spec := cfg.GetFile(), cfg.GetSpec()
+			cfg.Reset()
+			cfg.SetSpec(spec)
+			cfg.SetFile(txFile)
+			cfg.SetHost(half.host)
+			cfg.SetPort(half.port)
+			if half.port == "" && cfg.GetPort() != "" {
+				t.Fatal("fixture did not leave the port unset")
+			}
+			if half.host == "" && cfg.GetHost() != "" {
+				t.Fatal("fixture did not leave the host unset")
+			}
+			stampConnected(t, m)
+
+			_, cmd := m.Update(pages.TxSendMsg{ID: "Purchase"})
+			if cmd != nil {
+				t.Errorf("half-set s returned a cmd; the wizard opens without one")
+			}
+			wantNoWalk(t, m, col)
+			if m.wizard == nil {
+				t.Fatal("half-set target s must open the send wizard")
+			}
+			if got := m.wizard.Preset(); got != "Purchase" {
+				t.Errorf("template pre-selection = %q, want Purchase", got)
+			}
+		})
+	}
+}
+
+// TestTxSendConnectedStartsWalk: with the chip's truth connected and the
+// target set, s is what the send tests pin: §D arms and walks to Done,
+// the wizard stays closed.
+func TestTxSendConnectedStartsWalk(t *testing.T) {
+	m := NewRootModel(newTxApp(t, txSpecDatasetFixtureJSON))
+	col := make(chan tea.Msg, 32)
+	m.SetSendSender(func(msg tea.Msg) { col <- msg })
+	stampConnected(t, m)
+	m.liveConnect = func(context.Context) error { return nil }
+	m.liveSend = func(context.Context, string) (*liveExchange, error) {
+		return cannedExchange(t, m.app.Service().GetSpec()), nil
+	}
+
+	_, cmd := m.Update(pages.TxSendMsg{ID: "Echo"})
+	if cmd == nil {
+		t.Fatal("connected s must arm the walk (elapsed tick)")
+	}
+	if m.wizard != nil {
+		t.Error("connected s opened the wizard")
+	}
+	if m.sendRun == nil {
+		t.Fatal("connected s started no send run")
+	}
+	for i := 0; i < pages.SendStageCount; i++ {
+		select {
+		case msg := <-col:
+			sm, ok := msg.(SendStageMsg)
+			if !ok {
+				t.Fatalf("collector got %T, want SendStageMsg", msg)
+			}
+			_, _ = m.Update(sm)
+		case <-time.After(2 * time.Second):
+			t.Fatal("send goroutine delivered no stage msg")
+		}
+	}
+	if !m.sendRun.state.Done {
+		t.Error("run not closed after the final stage")
 	}
 }

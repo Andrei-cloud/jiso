@@ -95,9 +95,13 @@ func mtiFromFields(fieldsJSON string) string {
 
 // handleTxMsg interprets the §B/§C pages' row messages. Enter on §B
 // opens the §C inspector with state built for that tx. s on §B (and
-// Enter on the §D page — same TxSendMsg path) starts the live exchange:
-// root pushes §D and launches the stage goroutine; a send while one is
-// in flight is ignored (no queue, no retry). f on §B (TxPickFileMsg)
+// Enter on the §D page — same TxSendMsg path) starts the live exchange
+// when the connection and the dial target are set: root pushes §D and
+// launches the stage goroutine; a send while one is in flight is ignored
+// (no queue, no retry). When either is missing the same key opens the
+// send wizard instead — its connect-first walk collects the missing
+// elements with the chosen transaction pre-selected, and no send
+// starts. f on §B (TxPickFileMsg)
 // opens the shared file picker, and a selection commits the tx-file
 // path through the same settings commit path §L uses — a file whose
 // entries declare no spec chains into a spec browse first. The compose-
@@ -109,6 +113,13 @@ func (m *RootModel) handleTxMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.openInspector(msg.ID)
 	case pages.TxSendMsg:
 		m.debug.logf("tx send id=%s", msg.ID)
+		if m.app != nil && !m.sendTargetReady() {
+			// Offline or no dialable target: the wizard takes the
+			// operator through the missing elements (connect first) with
+			// this transaction already under the template cursor.
+			return m.openSendWizardFor(msg.ID)
+		}
+
 		return m, m.startSend(msg.ID)
 	case pages.TxPickFileMsg:
 		m.debug.logf("tx pick file")

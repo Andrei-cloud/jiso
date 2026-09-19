@@ -151,6 +151,7 @@ func TestJourneyWorkerWizardLadder(t *testing.T) {
 // the modal → dashboard underneath.
 func TestJourneySendWizardLadder(t *testing.T) {
 	escLadder(t, func(t *testing.T, r *sendTestRoot) {
+		stampOffline(t, r.m) // the wizard fallback is the offline journey
 		r.m.Update(ch('s'))
 		if r.m.wizard == nil {
 			t.Fatal("s on the dashboard must open the send wizard")
@@ -181,6 +182,7 @@ func TestJourneyDashboardStressWizard(t *testing.T) {
 // closes → dashboard.
 func TestJourneyConnectDialogLadder(t *testing.T) {
 	escLadder(t, func(t *testing.T, r *sendTestRoot) {
+		stampOffline(t, r.m) // "c" opens the dialog only without a connection
 		r.m.Update(ch('c'))
 		if r.m.dlg == nil {
 			t.Fatal("c on the dashboard must open the connect dialog")

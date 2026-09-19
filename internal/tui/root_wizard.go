@@ -83,6 +83,21 @@ func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// openSendWizardFor opens the send wizard with txID pre-selected: the
+// step machine keeps its shapes (connect first while offline), and the
+// send step's cursor opens on that template, so the operator arrives at
+// it with the send armed on the transaction they picked. The choice is
+// a cursor start, never a commit: the walk and the Enter commit stay as
+// the wizard page owns them.
+func (m *RootModel) openSendWizardFor(txID string) (tea.Model, tea.Cmd) {
+	next, cmd := m.openWizard()
+	if m.wizard != nil {
+		m.wizard.SetPreset(txID)
+	}
+
+	return next, cmd
+}
+
 // cfg0 is the config's current tx-file path ("" when unwired).
 func cfg0(m *RootModel) string {
 	if cfg := m.configOrNil(); cfg != nil {
@@ -363,6 +378,10 @@ func (m *RootModel) wizardChooseFile(path string) (tea.Model, tea.Cmd) {
 	st.Templates = tpls
 	m.wizard.AdvanceStep()
 	m.wizard.SetState(st)
+	// The advance homed the send-step cursor on the previous listing;
+	// re-home it against the templates just loaded (a no-op without a
+	// pre-selection).
+	m.wizard.HomeCursor()
 	m.debug.logf("wizard file pick %s templates=%d", abs, len(st.Templates))
 
 	return m, nil

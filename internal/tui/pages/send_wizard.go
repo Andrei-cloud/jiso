@@ -9,14 +9,12 @@
 // templates. The wizard is presentation + input routing only: every leg
 // (connect attempt, spec/file commits, the send walk) runs in the root,
 // which pushes snapshots via SetState and receives the Wizard*Msg values
-// back through the Update command.
+// back through the Update command. The key routing lives in
+// send_wizard_keys.go.
 package pages
 
 import (
 	"strings"
-
-	key "charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 
 	"jiso/internal/tui/theme"
 )
@@ -96,6 +94,8 @@ type SendWizard struct {
 	step   int // index into state.Steps
 	sel    int // list cursor (spec/file/template lists)
 	filter string
+
+	preselect string // template the send step's cursor opens on (root-owned pick)
 
 	width, height int
 	nav           connectNav // focus/adjust bindings reused
@@ -192,21 +192,6 @@ func (w *SendWizard) SetState(state WizardState) {
 	w.clampSel()
 }
 
-// Update routes sizes and keys; every key reaches here (the router does
-// not intercept Enter/Esc for this modal).
-func (w *SendWizard) Update(msg tea.Msg) (Modal, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		w.width, w.height = msg.Width, msg.Height
-
-		return w, nil
-	case tea.KeyPressMsg:
-		return w.updateKey(msg)
-	}
-
-	return w, nil
-}
-
 // currentStep is the id at the cursor position.
 func (w *SendWizard) currentStep() string {
 	if w.step < 0 || w.step >= len(w.state.Steps) {
@@ -214,110 +199,6 @@ func (w *SendWizard) currentStep() string {
 	}
 
 	return w.state.Steps[w.step]
-}
-
-// updateKey routes one key: the connect step forwards to the embedded
-// dialog (Enter/Esc included), the list steps own their cursor/filter.
-func (w *SendWizard) updateKey(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
-	if w.currentStep() == WizardStepConnect {
-		return w.updateConnectStep(msg)
-	}
-
-	switch {
-	case key.Matches(msg, wizardKeyEnter):
-		return w.advance()
-	case key.Matches(msg, wizardKeyEsc):
-		return w.back()
-	case !w.Editing() && key.Matches(msg, w.nav.Up):
-		w.sel = max(w.sel-1, 0)
-	case !w.Editing() && key.Matches(msg, w.nav.Down):
-		w.sel = min(w.sel+1, max(w.filteredCount()-1, 0))
-	case !w.Editing() && key.Matches(msg, wizardKeyBrowse):
-		// [f] in NAVIGATE mode opens the root-owned file picker; once
-		// typing has entered edit mode every printable — f included —
-		// goes into the filter (the two-mode contract).
-		return w, emitMsg(WizardBrowseMsg{IsSpec: w.currentStep() == WizardStepSpec})
-	default:
-		// j/k/arrows navigate only on an empty filter; once the user
-		// types, every printable rune (j and k included — the
-		// live-filter lesson) goes into the filter.
-		w.filterList(msg)
-	}
-
-	return w, nil
-}
-
-// updateConnectStep forwards everything to the embedded dialog; Enter
-// (not while an attempt runs) arms the attempt, Esc closes the wizard
-// (cancelling an in-flight attempt first — the root owns the leg).
-func (w *SendWizard) updateConnectStep(msg tea.KeyPressMsg) (Modal, tea.Cmd) {
-	if w.dlg == nil {
-		return w.back()
-	}
-	if w.dlg.pickerOpen {
-		_, _ = w.dlg.Update(msg)
-
-		return w, nil
-	}
-	st := w.dlg.State()
-	if st.InFlight {
-		if key.Matches(msg, wizardKeyEsc) {
-			return w, emitMsg(WizardCancelMsg{})
-		}
-
-		return w, nil // form frozen while attempting (progress line only)
-	}
-
-	switch {
-	case key.Matches(msg, wizardKeyEnter):
-		return w, emitMsg(WizardConnectAttemptMsg{})
-	case key.Matches(msg, wizardKeyEsc):
-		return w, emitMsg(WizardCancelMsg{})
-	}
-	_, _ = w.dlg.Update(msg)
-
-	return w, nil
-}
-
-// advance applies the current selection (or a path-shaped filter) and
-// emits the step's choose message; the send step emits the template name.
-func (w *SendWizard) advance() (Modal, tea.Cmd) {
-	switch w.currentStep() {
-	case WizardStepSpec:
-		if path, ok := w.pickedPath(w.state.SpecItems); ok {
-			return w, emitMsg(WizardChooseSpecMsg{Path: path})
-		}
-	case WizardStepFile:
-		if path, ok := w.pickedPath(w.state.FileItems); ok {
-			return w, emitMsg(WizardChooseFileMsg{Path: path})
-		}
-	case WizardStepSend:
-		idx := w.filteredTemplates()
-		if len(idx) > 0 && w.sel < len(idx) {
-			return w, emitMsg(WizardSendMsg{Name: w.state.Templates[idx[w.sel]].Name})
-		}
-	}
-
-	return w, nil
-}
-
-// back steps one wizard step back (clearing the filter first when one is
-// active); on the first step it cancels the wizard.
-func (w *SendWizard) back() (Modal, tea.Cmd) {
-	if w.filter != "" {
-		w.filter = ""
-		w.clampSel()
-
-		return w, nil
-	}
-	if w.step > 0 {
-		w.step--
-		w.resetStepInput()
-
-		return w, nil
-	}
-
-	return w, emitMsg(WizardCancelMsg{})
 }
 
 // resetStepInput clears the filter/cursor when the step changes, homing
@@ -330,13 +211,40 @@ func (w *SendWizard) resetStepInput() {
 		w.sel = currentIndexOf(w.state.SpecItems)
 	case WizardStepFile:
 		w.sel = currentIndexOf(w.state.FileItems)
+	case WizardStepSend:
+		w.sel = templateIndexOf(w.state.Templates, w.preselect)
 	}
+}
+
+// templateIndexOf returns the index of the named template, 0 when the
+// name is empty or the current listing does not carry it (a pre-selection
+// homes the cursor, never strands it past the list).
+func templateIndexOf(templates []WizardTemplate, name string) int {
+	if name == "" {
+		return 0
+	}
+	for i, t := range templates {
+		if t.Name == name {
+			return i
+		}
+	}
+
+	return 0
 }
 
 // HomeCursor resets filter/cursor for the current step (root calls it
 // once the initial state is loaded, so the cursor opens on the current
 // item rather than the alphabetically-first one).
 func (w *SendWizard) HomeCursor() { w.resetStepInput() }
+
+// SetPreset names a transaction template for the send step's cursor to
+// open on (root sets it when the wizard opens from a chosen transaction).
+// A cursor start, never a commit: Enter still runs the step's leg and
+// navigation still moves the cursor.
+func (w *SendWizard) SetPreset(name string) { w.preselect = name }
+
+// Preset reports the pre-selected template name ("" when none).
+func (w *SendWizard) Preset() string { return w.preselect }
 
 // BackToStep lands on an EARLIER rail step for a rail click:
 // Backward revisits are free exactly like the wizard's own Esc
@@ -361,22 +269,6 @@ func currentIndexOf(items []WizardItem) int {
 	}
 
 	return 0
-}
-
-// filterList types into the step filter; Esc/backspace are handled in
-// updateKey. Non-printable keys are ignored.
-func (w *SendWizard) filterList(msg tea.KeyPressMsg) {
-	if r, ok := printableRune(msg.Text); ok {
-		w.filter += string(r)
-		w.clampSel()
-
-		return
-	}
-	if key.Matches(msg, wizardKeyBackspace) && w.filter != "" {
-		r := []rune(w.filter)
-		w.filter = string(r[:len(r)-1])
-		w.clampSel()
-	}
 }
 
 // looksLikePath reports whether the filter should be treated as a typed
@@ -457,18 +349,6 @@ func (w *SendWizard) clampSel() {
 	if w.sel >= n {
 		w.sel = max(n-1, 0)
 	}
-}
-
-var (
-	wizardKeyEnter     = key.NewBinding(key.WithKeys(theme.KeyEnter))
-	wizardKeyEsc       = key.NewBinding(key.WithKeys(theme.KeyEsc))
-	wizardKeyBrowse    = key.NewBinding(key.WithKeys("f"))
-	wizardKeyBackspace = key.NewBinding(key.WithKeys("backspace"))
-)
-
-// emitMsg adapts a value to the tea.Cmd return (the dashboard idiom).
-func emitMsg(msg tea.Msg) tea.Cmd {
-	return func() tea.Msg { return msg }
 }
 
 var _ Modal = (*SendWizard)(nil)
