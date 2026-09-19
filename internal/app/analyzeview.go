@@ -338,23 +338,26 @@ func (a *App) RunAnalyze(ctx context.Context, opts AnalyzeRunOptions) (*AnalyzeO
 	return merged, nil
 }
 
-// stampGeneratedSpec records the spec each generated transaction was composed
-// with on the item itself (config.Item.Spec), so the written file describes
-// itself. NewTransactionCollection (the load) and the composer (the send) both
-// resolve a transaction's own Spec via utils.ResolveSpec, falling back to the
-// session's global spec only when the item carries none. Without this stamp a
-// capture analyzed with, say, the visa spec is validated against whatever spec
-// the session happens to hold when the file is later opened, so a tool-written
-// extract is rejected on the transactions screen for fields that are correct
-// for its own spec (the file the tool wrote would not load).
-// An empty specPath means the engine default spec was used — there is nothing
-// portable to record, so items keep resolving to the session spec.
+// stampGeneratedSpec records the spec each generated item was composed
+// with on the item itself (config.Item.Spec), so the written file
+// describes itself. NewTransactionCollection (the load) and the composer
+// (the send) both resolve a transaction's own Spec via utils.ResolveSpec,
+// falling back to the session's global spec only when the item carries
+// none; the SCENARIO item carries the same provenance so the §F spec gate
+// can seat its browse on the spec this extract was captured with (F12.2).
+// Without this stamp a capture analyzed with, say, the visa spec is
+// validated against whatever spec the session happens to hold when the
+// file is later opened, so a tool-written extract is rejected on the
+// transactions screen for fields that are correct for its own spec (the
+// file the tool wrote would not load).
+// An empty specPath means the engine default spec was used — there is
+// nothing portable to record, so items keep resolving to the session spec.
 func stampGeneratedSpec(items []config.Item, specPath string) {
 	if specPath == "" {
 		return
 	}
 	for i := range items {
-		if items[i].Type == config.TypeTransaction {
+		if items[i].Type == config.TypeTransaction || items[i].Type == config.TypeScenario {
 			items[i].Spec = specPath
 		}
 	}
