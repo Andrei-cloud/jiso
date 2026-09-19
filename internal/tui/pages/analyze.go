@@ -58,6 +58,17 @@ type Analyze struct {
 	unparsableCursor  int
 	unparsableOff     int
 
+	// Matching-step screens (routes goal): the group-by pane (page-local,
+	// opens/closes without a root round trip) and the inline FIELD/VALUE
+	// editor (the [o] output-editor idiom). condRow pins the row the editor
+	// was opened on so a cursor move mid-edit cannot retarget the commit.
+	groupOpen     bool
+	groupSel      int
+	condEditing   bool
+	condEditField bool
+	condDraft     string
+	condRow       int
+
 	// itemsRect and previewRect are the picker panes' DRAWN rects from
 	// the last overlay render (zero = not on screen) — the geometry the
 	// wheel hit map registers.
@@ -242,6 +253,8 @@ func (a *Analyze) Editing() bool {
 		return a.draft != ""
 	case StepRun:
 		return a.filtering || a.outEditing
+	case StepMatching:
+		return a.condEditing
 	}
 
 	return false
@@ -250,9 +263,10 @@ func (a *Analyze) Editing() bool {
 // ClaimsKeyboard claims the keyboard only while editing or an overlay is
 // open, so global keys stay live in navigate mode: capture/spec claim while
 // a typed path is in progress (the first byte reaches them through the
-// global layer), run while "/" or [o] is open, overlays wholesale. Ctrl+C global.
+// global layer), run while "/" or [o] is open, the matching step while its
+// editor or group pane is open, overlays wholesale. Ctrl+C global.
 func (a *Analyze) ClaimsKeyboard() bool {
-	if a.itemsOpen || a.unparsableOpen {
+	if a.itemsOpen || a.unparsableOpen || a.groupOpen {
 		return true
 	}
 
@@ -267,6 +281,8 @@ func (a *Analyze) editingStep() bool {
 		return true
 	case StepRun:
 		return a.filtering
+	case StepMatching:
+		return a.condEditing
 	}
 
 	return false
@@ -280,6 +296,7 @@ func (a *Analyze) SetState(state AnalyzeState) {
 	if state.Step != a.step {
 		a.draft = ""
 		a.filtering = false
+		a.condEditing, a.condDraft, a.groupOpen = false, "", false
 		a.step = state.Step
 		if state.Step == StepRun {
 			a.draft = state.FlowFilter
@@ -340,6 +357,17 @@ func (a *Analyze) Hints() []frame.KeyHint {
 	case StepHeader:
 		return []frame.KeyHint{
 			{Key: theme.KeyEnter, Desc: "next", Primary: true},
+			{Key: theme.KeyEsc, Desc: "back", Primary: true},
+		}
+	case StepMatching:
+		return []frame.KeyHint{
+			{Key: theme.KeyEnter, Desc: "next", Primary: true},
+			{Key: "a", Desc: "add condition"},
+			{Key: theme.KeyNavJK, Desc: "move"},
+			{Key: "space", Desc: "when"},
+			{Key: "s", Desc: "side"},
+			{Key: "e", Desc: "edit value"},
+			{Key: "g", Desc: "group by"},
 			{Key: theme.KeyEsc, Desc: "back", Primary: true},
 		}
 	}

@@ -46,6 +46,12 @@ func (a *Analyze) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 	if a.state.Step == StepRun && a.filtering {
 		return a.updateFlowFilterKey(msg)
 	}
+	if a.state.Step == StepMatching && a.condEditing {
+		return a.updateCondEditKey(msg)
+	}
+	if a.state.Step == StepMatching && a.groupOpen {
+		return a.updateGroupKey(msg)
+	}
 	switch {
 	case key.Matches(msg, a.nav.Cancel):
 		return a.updateEsc()
@@ -82,6 +88,8 @@ func (a *Analyze) updateKey(msg tea.KeyPressMsg) (Page, tea.Cmd) {
 		return a.updateHeader(msg)
 	case StepRun:
 		return a.updateRun(msg)
+	case StepMatching:
+		return a.updateMatching(msg)
 	}
 
 	return a, nil
@@ -126,6 +134,10 @@ func (a *Analyze) updateEnter() (Page, tea.Cmd) {
 
 		return a, func() tea.Msg { return AnalyzeCommitSpecMsg{Value: v} }
 	case StepHeader:
+		return a, func() tea.Msg { return AnalyzeNextMsg{} }
+	case StepMatching:
+		// Advancing is always allowed; running with zero conditions is
+		// what root refuses (the note lands there, not here).
 		return a, func() tea.Msg { return AnalyzeNextMsg{} }
 	case StepRun:
 		f := a.draft

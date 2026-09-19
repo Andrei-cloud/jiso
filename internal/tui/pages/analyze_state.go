@@ -182,7 +182,76 @@ type AnalyzeState struct {
 	// OutputPath is the effective output file the generated items will
 	// land in; the [o] editor state is page-owned.
 	OutputPath string
+
+	// The matching wizard (routes goal): condition rows, the group-by
+	// suggestions from the scan, the folded live line ("~42 pairs match ·
+	// 2 route(s)" or "scanning..."), the inline warning, and the scan
+	// wait flag. Root derives all of it from the scan cache; the page
+	// owns only the cursors and the editor draft.
+	Conds         []AnalyzeCond
+	Variances     []AnalyzeGroupOption
+	MatchLine     string
+	MatchWarn     string
+	MatchScanning bool
 }
+
+// AnalyzeCond is one matching-wizard condition row, root-derived for
+// display: Side is the readable half ("req"/"resp"), When is the ladder
+// token (equals/exists/prefix/oneof/regex/notin), Value carries the scalar
+// (equals/exists/prefix/regex) and ValuesText the one-of/not-in list joined
+// for display and re-editing. Field is the typed field path, "" while the
+// row is still being composed.
+type AnalyzeCond struct {
+	Side       string
+	Field      string
+	When       string
+	Value      string
+	ValuesText string
+}
+
+// AnalyzeGroupOption is one field whose captured values varied — the
+// group-by pane's row. Vary is the root-derived display count ("2 distinct
+// values") and On marks the field chosen into the grouping.
+type AnalyzeGroupOption struct {
+	Field string
+	Side  string // analyzer sides: "req" | "resp"
+	Vary  string
+	On    bool
+}
+
+// The matching-wizard messages: the conds keymap ([a]dd, [d]elete, [space]
+// cycle WHEN, [s] flip side, editor commits) and the group-by pane's
+// toggle. Root owns the condition truth; the page only routes verbs.
+type (
+	// AnalyzeCondAddMsg is [a] on the matching step: append a condition row.
+	AnalyzeCondAddMsg struct{}
+	// AnalyzeCondDeleteMsg is [d]: drop the row at Index.
+	AnalyzeCondDeleteMsg struct{ Index int }
+	// AnalyzeCondWhenMsg is [space]: cycle the row's condition along the
+	// ladder (equals→exists→prefix→one-of→regex→not-in→equals).
+	AnalyzeCondWhenMsg struct{ Index int }
+	// AnalyzeCondSideMsg is [s]: flip the row's req/resp side.
+	AnalyzeCondSideMsg struct{ Index int }
+	// AnalyzeCondSetFieldMsg commits a typed FIELD path from the editor
+	// (opened on a row whose field is still empty).
+	AnalyzeCondSetFieldMsg struct {
+		Index int
+		Value string
+	}
+	// AnalyzeCondSetValueMsg commits a typed VALUE from the editor; one-of
+	// and not-in arrive as comma-separated text and root parses the list.
+	AnalyzeCondSetValueMsg struct {
+		Index int
+		Value string
+	}
+	// AnalyzeGroupToggleMsg is [space] in the group-by pane: flip the field
+	// into or out of the grouping. Field+Side identify the row (a field id
+	// can vary on both sides).
+	AnalyzeGroupToggleMsg struct {
+		Field string
+		Side  string
+	}
+)
 
 // AnalyzeUnparsableRow is one failure sample: offset and length in the
 // carved stream, the unpack reason, the raw head bytes, the stop byte

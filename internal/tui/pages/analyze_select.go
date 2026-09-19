@@ -103,6 +103,8 @@ func (a *Analyze) clampSel() {
 		n = len(a.state.Headers)
 	case StepRun:
 		n = len(a.visibleFlowRows())
+	case StepMatching:
+		n = len(a.state.Conds)
 	}
 	if n == 0 {
 		a.sel = 0

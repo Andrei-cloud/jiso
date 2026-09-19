@@ -165,6 +165,8 @@ func (a *Analyze) stepBody(w int) string {
 		return a.headersBody(w)
 	case StepRun:
 		return a.runBody(w)
+	case StepMatching:
+		return a.matchingBody(w)
 	}
 
 	return ""
