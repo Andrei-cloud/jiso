@@ -180,6 +180,7 @@ func (tc *TransactionCollection) addItem(item ConfigItem) {
 			Name:        item.Name,
 			Description: item.Description,
 			DatasetName: item.DatasetName,
+			Spec:        item.Spec,
 			Steps:       steps,
 		}
 		tc.scenarios[item.Name] = &s

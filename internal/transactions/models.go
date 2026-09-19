@@ -47,10 +47,14 @@ type Dataset struct {
 // Scenario is an ordered set of steps run over one connection, sharing session
 // state so a value extracted by one step can be sent by the next.
 type Scenario struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	DatasetName string         `json:"dataset_name"`
-	Steps       []ScenarioStep `json:"steps"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	DatasetName string `json:"dataset_name"`
+	// Spec is the specification this scenario was captured/declared
+	// with (the same provenance its step transactions carry); "" when
+	// the file declared none. The §F spec gate seats its browse on it.
+	Spec  string         `json:"spec,omitempty"`
+	Steps []ScenarioStep `json:"steps"`
 }
 
 // ScenarioStep is one step: which transaction to compose, the overrides that

@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -82,8 +83,14 @@ func (m *RootModel) startScenarioRun(id string) (tea.Model, tea.Cmd) {
 	if len(m.scenarioSpecFallback(id)) > 0 {
 		m.pendingScenarioRun = id
 		m.debug.logf("scenario run id=%s gated on the spec browse", id)
+		next, cmd := m.openFilePicker(m.scenarioSpecBrowse())
+		// Seat the list cursor on the recorded file (cursor only — the
+		// operator confirms with Enter, F7's explicitness stands).
+		if rec := m.scenarioRecordedSpec(id); rec != "" && m.filePick != nil {
+			m.filePick.PositionFile(rec)
+		}
 
-		return m.openFilePicker(m.scenarioSpecBrowse())
+		return next, cmd
 	}
 
 	m.scenarioRun = &scenarioRun{id: id, steps: m.declaredSteps(id)}
@@ -299,11 +306,18 @@ func (m *RootModel) scenarioSpecFallback(id string) []int {
 }
 
 // scenarioSpecBrowse builds the chained spec browse for a gated scenario
-// op: rooted at "/" and starting in the current spec's dir if one is set
-// (the gate itself runs with none), offering the spec extensions.
+// op: rooted at "/". It seats the browse on the extract's own spec when the
+// scenario carries one (recorded on the scenario item, or the single spec
+// all its step transactions declare), so loading a wizard extract and
+// running it starts on the spec it was captured with instead of the root —
+// F7 stays explicit (the operator still confirms), but a mismatched spec
+// stops being the default outcome. With nothing recorded it starts in the
+// current spec's dir if one is set, else "/".
 func (m *RootModel) scenarioSpecBrowse() OpenFilePickerMsg {
 	start := "/"
-	if cfg := m.configOrNil(); cfg != nil && cfg.GetSpec() != "" {
+	if recorded := m.scenarioRecordedSpec(m.pendingScenarioRun); recorded != "" && dirExists(filepath.Dir(recorded)) {
+		start = filepath.Dir(recorded)
+	} else if cfg := m.configOrNil(); cfg != nil && cfg.GetSpec() != "" {
 		start = filepath.Dir(cfg.GetSpec())
 	}
 
@@ -314,6 +328,58 @@ func (m *RootModel) scenarioSpecBrowse() OpenFilePickerMsg {
 		Start:     start,
 		Exts:      settingsPickExts(app.SettingSpec),
 	}
+}
+
+// scenarioRecordedSpec reports the specification a scenario names for
+// itself: the spec recorded on the scenario item, or (if it names none)
+// the single spec its step transactions agree on. Steps that declare no
+// spec don't vote (they are precisely why the gate is open); a scenario
+// whose declaring steps disagree records nothing portable and returns "".
+func (m *RootModel) scenarioRecordedSpec(id string) string {
+	tc := m.scenarioCollection()
+	if tc == nil || id == "" {
+		return ""
+	}
+	scenario, err := tc.GetScenario(id)
+	if err != nil || scenario == nil {
+		return ""
+	}
+	if scenario.Spec != "" {
+		return scenario.Spec
+	}
+
+	var shared string
+	for _, step := range scenario.Steps {
+		if step.UseTransactionID == "" {
+			continue
+		}
+		info, err := tc.Info(step.UseTransactionID)
+		if err != nil || info.Spec == "" {
+			continue // a specless step doesn't vote
+		}
+		if shared == "" {
+			shared = info.Spec
+
+			continue
+		}
+		if shared != info.Spec {
+			return "" // the declaring steps disagree: nothing portable
+		}
+	}
+
+	return shared
+}
+
+// dirExists reports a directory that is actually there: a stale recorded
+// spec path (an extract moved from an old temp dir) must degrade to the
+// classic browse start, never to a browse that looks empty.
+func dirExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+
+	return err == nil && info.IsDir()
 }
 
 // scenarioSpecAppliedMsg is the chained spec apply's result: errs carries
