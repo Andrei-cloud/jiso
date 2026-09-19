@@ -92,10 +92,11 @@ func (a *Analyze) railLine(w int) string {
 	// three sections at most: the title, the step body and the footer
 	parts := make([]string, 0, 3)
 	parts = append(parts, titleLine(a.th, titleAnalyze))
-	labels := make([]string, 0, StepCount)
-	for i := 0; i < StepCount; i++ {
-		label := strconv.Itoa(i+1) + " " + StepNames[i]
-		if i == a.state.Step {
+	steps := StepsForGoal(a.state.Goal)
+	labels := make([]string, 0, len(steps))
+	for i, step := range steps {
+		label := strconv.Itoa(i+1) + " " + StepNames[step]
+		if step == a.state.Step {
 			labels = append(labels, a.th.Accent.Render(label))
 		} else {
 			labels = append(labels, a.th.Dim.Render(label))
@@ -119,6 +120,14 @@ func (a *Analyze) footerLine(w int) string {
 			keySpan(a.th, base, "f", "browse") + base.Render("   ") + a.escHint()
 	case StepHeader:
 		keys = keySpan(a.th, base, "Enter", "next") + base.Render("   ") + a.escHint()
+	case StepMatching:
+		keys = keySpan(a.th, base, "a", "add") + base.Render("  ") +
+			keySpan(a.th, base, "d", "delete") + base.Render("  ") +
+			keySpan(a.th, base, "space", "when") + base.Render("  ") +
+			keySpan(a.th, base, "s", "side") + base.Render("  ") +
+			keySpan(a.th, base, "e", "value") + base.Render("  ") +
+			keySpan(a.th, base, "g", "group by") + base.Render("   ") +
+			keySpan(a.th, base, "Enter", "next") + base.Render("   ") + a.escHint()
 	case StepRun:
 		if a.filtering {
 			keys = keySpan(a.th, base, "Enter", "run") + base.Render("   ") +

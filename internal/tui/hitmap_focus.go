@@ -207,9 +207,11 @@ func (m *RootModel) handleFocusMsg(msg focusMsg) (tea.Model, tea.Cmd) {
 		return m, nil // the modal owns the screen; the page behind stays frozen
 	}
 	if msg.region == pages.RegionAnalyzeRail && msg.index != m.analyzeStep {
-		// PgUp/PgDn path: backward jumps are free revisits; forward runs
-		// the current step's gated commit, advancing at most one step.
-		return m.handleAnalyzeStepDelta(pages.AnalyzeStepDeltaMsg{Delta: msg.index - m.analyzeStep})
+		// Rail clicks are position-aware (the routes goal interleaves the
+		// matching step): backward jumps are free revisits; any forward
+		// click runs the current step's gated commit, advancing at most
+		// one step — the rail never teleports past the gates.
+		return m.analyzeRailJump(msg.index)
 	}
 
 	return m, nil

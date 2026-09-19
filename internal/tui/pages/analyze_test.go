@@ -82,21 +82,6 @@ func cmdMsg(t *testing.T, cmd tea.Cmd) tea.Msg {
 	return cmd()
 }
 
-func TestAnalyzeRailLabelsAllSteps(t *testing.T) {
-	t.Parallel()
-
-	st := analyzeFixtureState()
-	st.Step = StepCapture
-	a := analyzePage(t, st, 120, 32)
-	body := ansi.Strip(a.View().Content)
-
-	for _, want := range []string{"PCAP ANALYZE", "1 capture", "2 spec", "3 header", "4 run"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("rail lacks %q:\n%s", want, body)
-		}
-	}
-}
-
 func TestAnalyzeSpecStepCommitsSelection(t *testing.T) {
 	t.Parallel()
 

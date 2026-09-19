@@ -192,6 +192,32 @@ type (
 	}
 )
 
+// analyzeRailJump folds a click on a rail label: backward positions are
+// free revisits (no gates behind you), any forward position passes through
+// the current step's gated commit and advances at most one step, and a
+// position outside the goal's rail is inert (the rail changed under the
+// click). Positions, not indices: under the routes goal the matching step
+// sits between header and run.
+func (m *RootModel) analyzeRailJump(target int) (tea.Model, tea.Cmd) {
+	cur := pages.StepPosition(m.analyzeGoal, m.analyzeStep)
+	tgt := -1
+	for i, s := range pages.StepsForGoal(m.analyzeGoal) {
+		if s == target {
+			tgt = i
+
+			break
+		}
+	}
+	switch {
+	case tgt < 0 || tgt == cur:
+		return m, nil
+	case tgt < cur:
+		return m, m.setAnalyzeStep(target)
+	default:
+		return m.handleAnalyzeStepDelta(pages.AnalyzeStepDeltaMsg{Delta: 1})
+	}
+}
+
 // handleAnalyzeNext is Enter on a non-text step: advance one step
 // through the gates.
 func (m *RootModel) handleAnalyzeNext() (tea.Model, tea.Cmd) {
@@ -210,9 +236,9 @@ func (m *RootModel) handleAnalyzeStepDelta(msg pages.AnalyzeStepDeltaMsg) (tea.M
 			return m, nil
 		}
 
-		return m, m.setAnalyzeStep(max(step+msg.Delta, 0))
+		return m, m.setAnalyzeStep(pages.StepPrev(m.analyzeGoal, step))
 	}
-	target := min(step+1, pages.StepCount-1)
+	target := pages.StepNext(m.analyzeGoal, step)
 	if target == step {
 		return m, nil
 	}

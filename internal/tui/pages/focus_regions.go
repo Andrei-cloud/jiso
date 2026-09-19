@@ -54,13 +54,24 @@ func (a *Analyze) FocusRegions() []FocusRegion {
 	}
 	w, _ := frame.ContentSize(a.width, a.height)
 
-	spans := railSpans(titleLine(a.th, titleAnalyze), StepNames, a.pick(" \u25b8 ", " > "), w)
+	// The rail is goal-aware (the routes goal interleaves "matching"),
+	// but the published Index is the STEP index: a rail click jumps to the
+	// step it landed on, wherever that sits in the rail.
+	names := make([]string, 0, StepCount)
+	steps := StepsForGoal(a.state.Goal)
+	for _, step := range steps {
+		names = append(names, StepNames[step])
+	}
+	spans := railSpans(titleLine(a.th, titleAnalyze), names, a.pick(" \u25b8 ", " > "), w)
 	out := make([]FocusRegion, 0, len(spans))
 	for _, s := range spans {
+		if s.Index >= len(steps) {
+			continue
+		}
 		out = append(out, FocusRegion{
 			ID:    RegionAnalyzeRail,
 			Rect:  geom.Rect{X: s.X, Y: 0, W: s.W, H: 1},
-			Index: s.Index,
+			Index: steps[s.Index],
 		})
 	}
 

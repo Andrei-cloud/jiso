@@ -13,14 +13,17 @@ import (
 // AnalyzePageID is the router id of the §J analyze page (hotkey 7, label "analyze").
 const AnalyzePageID = "analyze"
 
-// Wizard step indices: capture ▸ spec ▸ header ▸ run; the small choices
-// (goal, security, flows) fold into inline rows on the run step.
+// Wizard step indices: capture ▸ spec ▸ header ▸ run, plus the routes
+// goal's matching wizard (StepMatching), which the rail interleaves
+// between header and run — see StepsForGoal. The small choices (goal,
+// security, flows) fold into inline rows on the run step.
 const (
-	StepCapture = iota // 1 capture file
-	StepSpec           // 2 message spec
-	StepHeader         // 3 length header
-	StepRun            // 4 run (summary + folded options + results)
-	StepCount   = 4
+	StepCapture  = iota // 1 capture file
+	StepSpec            // 2 message spec
+	StepHeader          // 3 length header
+	StepRun             // 4 run (summary + folded options + results)
+	StepMatching        // routes goal only: the matching-fields wizard
+	StepCount    = 5
 )
 
 // Run-status tokens (root-owned; the page renders them, never times them).
@@ -38,8 +41,59 @@ const (
 	AnalyzeGoalScenario     = "scenario"
 )
 
-// StepNames are the wizard rail's labels in step order.
-var StepNames = []string{"capture", "spec", "header", "run"}
+// StepNames are the wizard rail's labels, indexed by step.
+var StepNames = []string{"capture", "spec", "header", "run", "matching"}
+
+// StepsForGoal is the wizard's rail order for a goal: the mock-routes goal
+// interleaves the matching wizard between header and run; the transactions
+// and scenario goals run the classic four steps. Navigation walks
+// positions in this list, never raw step indices: the matching step exists
+// only inside the routes rail.
+func StepsForGoal(goal string) []int {
+	if goal == AnalyzeGoalMockRoutes {
+		return []int{StepCapture, StepSpec, StepHeader, StepMatching, StepRun}
+	}
+
+	return []int{StepCapture, StepSpec, StepHeader, StepRun}
+}
+
+// StepNext/StepPrev return the step at position ±1 in the goal's rail,
+// clamped to the ends (a clamp, not a stop: the operator never leaves the
+// wizard by walking off the rail).
+func StepNext(goal string, step int) int {
+	return stepAtPosition(goal, StepPosition(goal, step)+1)
+}
+
+func StepPrev(goal string, step int) int {
+	return stepAtPosition(goal, StepPosition(goal, step)-1)
+}
+
+// StepPosition reports a step's position in the goal's rail (rail steps
+// only); a step outside the rail resolves to the rail's end (run).
+func StepPosition(goal string, step int) int {
+	steps := StepsForGoal(goal)
+	for i, s := range steps {
+		if s == step {
+			return i
+		}
+	}
+	// A step outside the goal's rail (the goal radio just changed under
+	// the operator) resolves to run: the rail always contains run, and
+	// landing there re-runs the enum arm the results screen needs.
+	return len(steps) - 1
+}
+
+func stepAtPosition(goal string, pos int) int {
+	steps := StepsForGoal(goal)
+	if pos < 0 {
+		pos = 0
+	}
+	if pos >= len(steps) {
+		pos = len(steps) - 1
+	}
+
+	return steps[pos]
+}
 
 // AnalyzeRadio is one radio option; Key is its direct-select key.
 type AnalyzeRadio struct {
