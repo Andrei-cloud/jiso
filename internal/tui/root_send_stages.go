@@ -193,8 +193,21 @@ func parseExchange(ex *liveExchange) (*parsedExchange, error) {
 	if ex.Request == nil {
 		return nil, errors.New("request message missing")
 	}
+
+	// A run that died before Receive still owns its composed request:
+	// describe it now so the §D request pane (and the send-history
+	// detail opened later) carries the field tree instead of dots
+	// (UAT: "opening details they are empty"). The response half stays
+	// unrendered — the page's honest "no response" state owns it.
 	if ex.Response == nil {
-		return nil, errors.New("response message missing")
+		out := &parsedExchange{}
+		var err error
+		if out.request, err = exchangeRows(ex.Request); err != nil {
+			return nil, fmt.Errorf("describe request: %w", err)
+		}
+		out.requestHex = messageHexDump(ex.Request)
+
+		return out, nil
 	}
 
 	out := &parsedExchange{}

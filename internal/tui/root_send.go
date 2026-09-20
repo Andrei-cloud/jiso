@@ -214,7 +214,15 @@ func (m *RootModel) walkSend(
 	emit(SendStageMsg{Stage: 1, OK: true})
 
 	if err != nil {
-		emit(SendStageMsg{Stage: 2, Err: err})
+		// A dead receive still owns its composed request: describe it
+		// now so this screen — and the send-history detail opened from
+		// it later — carries the field tree instead of pending dots
+		// (UAT observation #3: "opening details they are empty").
+		if parsed, perr := parseExchange(ex); perr == nil {
+			emit(SendStageMsg{Stage: 2, Err: err, parsed: parsed})
+		} else {
+			emit(SendStageMsg{Stage: 2, Err: err})
+		}
 
 		return
 	}

@@ -136,16 +136,25 @@ func TestParseExchangeSTANNormalizedMatch(t *testing.T) {
 	}
 }
 
-// TestParseExchangeErrors: the parse stage fails honestly on missing
-// messages (the Receive-success contract was violated).
+// TestParseExchangeErrors: the parse stage fails honestly on a missing
+// request. A missing RESPONSE is not an error since UAT observation #3:
+// a run that died before Receive still describes its request half so the
+// §D panes and the send-history detail carry the field tree.
 func TestParseExchangeErrors(t *testing.T) {
 	if _, err := parseExchange(&liveExchange{}); err == nil {
 		t.Error("missing request: want error")
 	}
 	m := NewRootModel(newTxFileApp(t))
 	spec := m.app.Service().GetSpec()
-	if _, err := parseExchange(&liveExchange{Request: cannedRequest(t, spec)}); err == nil {
-		t.Error("missing response: want error")
+	parsed, err := parseExchange(&liveExchange{Request: cannedRequest(t, spec)})
+	if err != nil {
+		t.Errorf("request-only exchange must describe, got %v", err)
+	}
+	if len(parsed.request) == 0 {
+		t.Error("request rows must be present for a request-only exchange")
+	}
+	if parsed.response != nil {
+		t.Error("no response rows may be fabricated without a response")
 	}
 }
 
