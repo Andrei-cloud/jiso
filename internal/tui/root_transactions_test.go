@@ -308,8 +308,9 @@ func TestTxSendOfflineWalksWizard(t *testing.T) {
 	if got := m.wizard.CurrentStepID(); got != pages.WizardStepConnect {
 		t.Errorf("wizard step = %q, want connect", got)
 	}
-	if st := m.wizard.State(); len(st.Steps) != 4 || st.Steps[0] != pages.WizardStepConnect {
-		t.Errorf("offline steps %v, want [connect spec file send]", st.Steps)
+	if st := m.wizard.State(); len(st.Steps) != 2 ||
+		st.Steps[0] != pages.WizardStepConnect || st.Steps[1] != pages.WizardStepSend {
+		t.Errorf("offline steps %v, want [connect send] (UAT: spec and tx file are resolved; the wizard asks only for the missing connection)", st.Steps)
 	}
 	if got := m.wizard.Preset(); got != "Echo" {
 		t.Errorf("template pre-selection = %q, want Echo", got)

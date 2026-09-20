@@ -29,18 +29,19 @@ import (
 // entries is a data-file mistake; the filter still reaches them via path).
 const wizardTemplateLimit = 200
 
-// openWizard opens (or re-focuses) the send wizard: three steps when a
-// connection is live, four (connect first) when it is not — "send selected
-// with connection settings undefined opens connection settings first".
+// openWizard opens (or re-focuses) the send wizard asking only for what
+// is actually missing (UAT): from the §B list the tx file already carries
+// the transaction under the cursor, and a loaded/assigned spec needs no
+// re-pick — so a fully-resolved context with a live connection lands on
+// the send step, an offline one walks connect then send, and the spec and
+// file steps appear only while those choices are genuinely unresolved.
 func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 	if m.wizard != nil {
 		return m, nil
 	}
 	th := m.themeOrNil()
 	w := pages.NewSendWizard(th)
-	st := pages.WizardState{
-		Steps: []string{pages.WizardStepSpec, pages.WizardStepFile, pages.WizardStepSend},
-	}
+	st := pages.WizardState{}
 	if cfg := m.configOrNil(); cfg != nil {
 		st.SpecItems = wizardSpecItems(cfg.GetSpec())
 		st.FileItems = wizardFileItems(m.themeOrNil(), m.wizardFileValue(cfg), m.wizardFiles)
@@ -48,6 +49,19 @@ func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 			st.Target = host + ":" + cfg.GetPort()
 		}
 	}
+	if f := cfg0(m); f != "" {
+		st.Templates = wizardTemplates(m.themeOrNil(), f)
+	}
+	// Ask for the spec only while no spec is assigned; ask for the tx
+	// file only while no file with transactions is loaded. The send
+	// step always closes the rail.
+	if cfg := m.configOrNil(); cfg == nil || strings.TrimSpace(cfg.GetSpec()) == "" {
+		st.Steps = append(st.Steps, pages.WizardStepSpec)
+	}
+	if len(st.Templates) == 0 {
+		st.Steps = append(st.Steps, pages.WizardStepFile)
+	}
+	st.Steps = append(st.Steps, pages.WizardStepSend)
 	if m.connectionLive() {
 		st.TargetOK = true
 	} else {
@@ -58,9 +72,6 @@ func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 		applyConnectRules(&form)
 		m.stampTLSNote(&form)
 		w.SetConnectForm(form)
-	}
-	if f := cfg0(m); f != "" {
-		st.Templates = wizardTemplates(m.themeOrNil(), f)
 	}
 	m.pushWizardFileRecents()
 	w.SetState(st)

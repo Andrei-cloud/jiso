@@ -59,8 +59,8 @@ func TestRootWizardLiveSkipsConnectStep(t *testing.T) {
 		t.Fatal("wizard must open")
 	}
 	st := r.m.wizard.State()
-	if len(st.Steps) != 3 || st.Steps[0] != pages.WizardStepSpec {
-		t.Fatalf("live steps %v, want [spec file send]", st.Steps)
+	if len(st.Steps) != 1 || st.Steps[0] != pages.WizardStepSend {
+		t.Fatalf("live steps %v, want [send] (a fully-resolved live session asks for nothing but the send)", st.Steps)
 	}
 	if !st.TargetOK {
 		t.Fatal("a live connection must mark the target ok")
@@ -258,24 +258,23 @@ func TestRootDirectSendFallsBackToWizard(t *testing.T) {
 // naming error line ("no templates" dead end on the send step).
 func TestRootWizardSpecFileRejected(t *testing.T) {
 	r := wizardTestRoot(t)
-	r.connect()
+	cfg := r.m.app.Config()
+	specPath := cfg.GetSpec()
+	cfg.Reset()
+	cfg.SetSpec(specPath)
+	cfg.SetHost("127.0.0.1")
+	cfg.SetPort("65535")
+	// No tx file: the wizard keeps the file step in the rail — the
+	// UAT rule is to ask only for what is unresolved, and this one is.
 	spec := t.TempDir() + "/flex.json"
 	if err := os.WriteFile(spec, []byte(`{"name":"flex"}`), 0o600); err != nil {
 		t.Fatalf("write spec: %v", err)
 	}
+	r.connect()
 	r.upd(palette.OpenSendWizardMsg{})
-	// A fully configured session homes the wizard on the
-	// send step; stepping back (Esc) twice lands on spec, from where
-	// the rejection path below walks file again.
-	if got := r.m.wizard.CurrentStepID(); got != pages.WizardStepSend {
-		t.Fatalf("step = %q, want send (a configured session must home on send)", got)
+	if got := r.m.wizard.CurrentStepID(); got != pages.WizardStepFile {
+		t.Fatalf("step = %q, want file (the one unresolved choice opens first)", got)
 	}
-	r.upd(tea.KeyPressMsg{Code: tea.KeyEscape}) // send -> file
-	r.upd(tea.KeyPressMsg{Code: tea.KeyEscape}) // file -> spec
-	if got := r.m.wizard.CurrentStepID(); got != pages.WizardStepSpec {
-		t.Fatalf("step = %q, want spec after two Esc", got)
-	}
-	r.upd(pages.WizardChooseSpecMsg{Path: spec})
 	_, _ = r.m.Update(pages.WizardChooseFileMsg{Path: spec})
 
 	if r.m.wizard == nil {

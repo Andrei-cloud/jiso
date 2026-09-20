@@ -146,12 +146,16 @@ func (w *SendWizard) Editing() bool {
 func (w *SendWizard) ConnectForm() *ConnectDialog { return w.dlg }
 
 // SetConnectForm installs the root-built form for the connect step and
-// flips the wizard into its four-step shape (called when the wizard opens
-// offline).
+// puts the connect step at the head of the rail (called when the wizard
+// opens offline). The rest of the rail belongs to the root ("ask only
+// for what is missing"), so the step is prepended, never a fixed
+// four-step shape swapped in.
 func (w *SendWizard) SetConnectForm(st ConnectFormState) {
 	if w.dlg == nil {
 		w.dlg = NewConnectDialog(w.th)
-		w.state.Steps = []string{WizardStepConnect, WizardStepSpec, WizardStepFile, WizardStepSend}
+		if len(w.state.Steps) == 0 || w.state.Steps[0] != WizardStepConnect {
+			w.state.Steps = append([]string{WizardStepConnect}, w.state.Steps...)
+		}
 	}
 	w.dlg.SetState(st)
 }
