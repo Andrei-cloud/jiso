@@ -221,7 +221,7 @@ func extractFieldValue(req *iso8583.Message, fieldKey string) (string, bool) {
 		f = matchedSub
 	}
 
-	val, err := f.String()
+	val, err := utils.WireValue(f)
 	if err != nil {
 		return "", false
 	}

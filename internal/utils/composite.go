@@ -129,7 +129,7 @@ func ExtractFieldData(f field.Field, specField *field.Spec) (any, bool) {
 		return val, true
 	}
 
-	str, err := f.String()
+	str, err := WireValue(f)
 	if err != nil || str == "" {
 		return nil, false
 	}

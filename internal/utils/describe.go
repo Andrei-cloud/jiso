@@ -156,7 +156,7 @@ func DescribeFieldContainer(container FieldContainer, w io.Writer, indent string
 			continue
 		}
 
-		str, err := f.String()
+		str, err := WireValue(f)
 		if err != nil {
 			errorList = append(errorList, err.Error())
 			continue

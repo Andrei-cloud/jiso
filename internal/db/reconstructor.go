@@ -26,21 +26,25 @@ type ReconstructedMessage struct {
 	ParseError    string
 }
 
-// Reconstruct reconstructs an ISO 8583 message from stored JSON or raw HEX fallback,
-// packing it using the provided specification path (or default spec) to generate
-// raw HEX output and parsed Describe tree text.
+// Reconstruct rebuilds the review view of a stored transaction. The recorded
+// JSON is the source of truth for the tree: its values were extracted from
+// the message itself, while specPath names the session config — possibly a
+// different dialect than the record spoke (a stamped Visa exchange recorded
+// while the session was dialled on flex). The HEX pane shows the recorded
+// wire bytes when present, and only for legacy rows that carry none falls
+// back to repacking under the resolved spec.
 func Reconstruct(jsonStr, rawHexStr, specPath string) (*ReconstructedMessage, error) {
 	spec := utils.ResolveSpec(specPath, utils.GetDefaultSpec())
 
-	// 1. Try reconstructing from JSON if available
+	// 1. Recorded JSON renders the tree as stored.
 	if strings.TrimSpace(jsonStr) != "" {
-		res, err := reconstructFromJSON(jsonStr, spec)
+		res, err := reconstructFromJSON(jsonStr, rawHexStr, spec)
 		if err == nil {
 			return res, nil
 		}
 	}
 
-	// 2. Try reconstruction from raw HEX fallback if available
+	// 2. Raw HEX (recorded or legacy formatted dump) is the only payload.
 	if strings.TrimSpace(rawHexStr) != "" {
 		return reconstructFromHEX(rawHexStr, spec)
 	}
@@ -50,7 +54,7 @@ func Reconstruct(jsonStr, rawHexStr, specPath string) (*ReconstructedMessage, er
 	}, nil
 }
 
-func reconstructFromJSON(jsonStr string, spec *iso8583.MessageSpec) (*ReconstructedMessage, error) {
+func reconstructFromJSON(jsonStr, rawHexStr string, spec *iso8583.MessageSpec) (*ReconstructedMessage, error) {
 	var data map[string]any
 	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
@@ -59,11 +63,37 @@ func reconstructFromJSON(jsonStr string, spec *iso8583.MessageSpec) (*Reconstruc
 	mti, _ := data["mti"].(string)
 	fieldsMap, _ := data["fields"].(map[string]any)
 
+	var buf bytes.Buffer
+	utils.DescribeStoredJSON(&buf, mti, fieldsMap, spec)
+	res := &ReconstructedMessage{DescribeText: buf.String()}
+
+	// Recorded wire bytes are the honest HEX pane.
+	if raw, ok := parseStoredHex(rawHexStr); ok {
+		res.HEX = utils.HexDump(raw)
+		return res, nil
+	}
+
+	// Legacy rows stored no wire hex: repack the values to render the pane.
+	// The resolved spec may not be the dialect the message spoke; say so
+	// rather than dropping the (complete) tree with it.
+	packed, err := repackRecord(mti, fieldsMap, spec)
+	if err != nil {
+		res.HEX = fmt.Sprintf("(Repack with spec %s failed: %v)", specDisplayName(spec), err)
+		res.ParseError = err.Error()
+		return res, nil
+	}
+	res.HEX = utils.HexDump(packed)
+
+	return res, nil
+}
+
+// repackRecord builds a message from recorded JSON values and packs it,
+// the pre-JSON-tree behaviour, kept for rows that carry no wire hex.
+func repackRecord(mti string, fieldsMap map[string]any, spec *iso8583.MessageSpec) ([]byte, error) {
 	msg := iso8583.NewMessage(spec)
 	if mti != "" {
 		msg.MTI(mti)
 	}
-
 	for k, v := range fieldsMap {
 		fieldID, err := strconv.Atoi(k)
 		if err != nil {
@@ -71,49 +101,83 @@ func reconstructFromJSON(jsonStr string, spec *iso8583.MessageSpec) (*Reconstruc
 		}
 		switch val := v.(type) {
 		case map[string]any:
-			_ = utils.SetCompositeFieldValue(msg, spec, fieldID, val)
+			if err := utils.SetCompositeFieldValue(msg, spec, fieldID, val); err != nil {
+				continue
+			}
 		default:
-			valStr := fmt.Sprintf("%v", v)
-			_ = msg.Field(fieldID, valStr)
+			if err := msg.Field(fieldID, fmt.Sprintf("%v", v)); err != nil {
+				continue
+			}
 		}
 	}
 
-	packedBytes, err := msg.Pack()
-	hexStr := ""
-	if err == nil {
-		hexStr = utils.HexDump(packedBytes)
-	} else {
-		hexStr = fmt.Sprintf("(Failed to pack message bytes: %v)", err)
+	return msg.Pack()
+}
+
+// parseStoredHex decodes a stored hex column: plain hex (what LogTransactionToDB
+// writes since wire bytes became always-recorded) or a legacy formatted
+// HexDump blob (offset / hex / ASCII columns, decoded from the hex column only).
+func parseStoredHex(s string) ([]byte, bool) {
+	if strings.TrimSpace(s) == "" {
+		return nil, false
+	}
+	clean := strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', '\n', '\r', '\t':
+			return -1
+		}
+		return r
+	}, s)
+	if b, err := hex.DecodeString(clean); err == nil && len(b) > 0 {
+		return b, true
 	}
 
-	var buf bytes.Buffer
-	if err := utils.Describe(msg, &buf, iso8583.DoNotFilterFields()...); err != nil {
-		fmt.Fprintf(&buf, "\n(Describe error: %v)", err)
+	var out []byte
+	for _, line := range strings.Split(s, "\n") {
+		if i := strings.IndexByte(line, '|'); i >= 0 {
+			line = line[:i] // drop the ASCII gutter of a formatted dump
+		}
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue // blank or offset-only line
+		}
+		hexPart := strings.Join(parts[1:], "") // drop the offset column
+		if len(hexPart)%2 != 0 {
+			return nil, false
+		}
+		b, err := hex.DecodeString(hexPart)
+		if err != nil {
+			return nil, false
+		}
+		out = append(out, b...)
+	}
+	if len(out) == 0 {
+		return nil, false
 	}
 
-	return &ReconstructedMessage{
-		Message:       msg,
-		HEX:           hexStr,
-		DescribeText:  buf.String(),
-		IsRawFallback: false,
-	}, nil
+	return out, true
+}
+
+// specDisplayName names a spec for error text, mirroring Describe's header rule.
+func specDisplayName(spec *iso8583.MessageSpec) string {
+	if spec != nil && spec.Name != "" {
+		return spec.Name
+	}
+
+	return "ISO 8583"
 }
 
 func reconstructFromHEX(rawHexStr string, spec *iso8583.MessageSpec) (*ReconstructedMessage, error) {
-	cleanHex := strings.ReplaceAll(rawHexStr, " ", "")
-	cleanHex = strings.ReplaceAll(cleanHex, "\n", "")
-	cleanHex = strings.ReplaceAll(cleanHex, "\r", "")
-
-	rawBytes, err := hex.DecodeString(cleanHex)
-	if err != nil {
-		// If it's formatted bytes string
+	rawBytes, decoded := parseStoredHex(rawHexStr)
+	if !decoded {
+		// Not hex at all: keep the old behaviour of reviewing the bytes as text.
 		rawBytes = []byte(rawHexStr)
 	}
 
 	hexDumpStr := utils.HexDump(rawBytes)
 
 	msg := iso8583.NewMessage(spec)
-	err = msg.Unpack(rawBytes)
+	err := msg.Unpack(rawBytes)
 	if err == nil {
 		var buf bytes.Buffer
 		_ = utils.Describe(msg, &buf, iso8583.DoNotFilterFields()...)
