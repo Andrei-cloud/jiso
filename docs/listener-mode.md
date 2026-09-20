@@ -129,7 +129,7 @@ func main() {
 
 ## Internal Code Structure
 
-- [`internal/connection/manager_listen.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/connection/manager_listen.go): Implements `Listen()`, `attemptReListen()`, and listener timeout logic.
-- [`internal/connection/manager_listen_test.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/connection/manager_listen_test.go): Unit tests covering listener lifecycle, message sending over accepted sockets, timeouts, and cancellation.
-- [`internal/service/service.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/service/service.go): Service wrapper exposing listener controls.
-- [`internal/command/connect.go`](file:///Users/andrei/Developer/go/src/github.com/andrei-cloud/jiso/internal/command/connect.go): connection mode selection prompts for interactive flows.
+- [`internal/connection/manager_listen.go`](../internal/connection/manager_listen.go): Implements `Listen()`, `attemptReListen()`, and listener timeout logic.
+- [`internal/connection/manager_listen_test.go`](../internal/connection/manager_listen_test.go): Unit tests covering listener lifecycle, message sending over accepted sockets, timeouts, and cancellation.
+- [`internal/service/service.go`](../internal/service/service.go): Service wrapper exposing listener controls.
+- [`internal/command/connect.go`](../internal/command/connect.go): connection mode selection prompts for interactive flows.
