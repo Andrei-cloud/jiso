@@ -240,6 +240,12 @@
 == send-exchange — Send exchange page
 [page actions] enter	send again
 [page actions] h	describe/hexdump toggle
+[page actions] j/down	scroll focused pane
+[page actions] k/up	scroll focused pane up
+[page actions] pgdown	page down
+[page actions] pgup	page up
+[page actions] home	pane top
+[page actions] end	pane bottom
 [page actions] esc	back
 [error modal] enter	ok / close
 [error modal] esc	close

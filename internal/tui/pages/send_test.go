@@ -303,7 +303,7 @@ func TestSendStatusLine(t *testing.T) {
 	}
 }
 
-// TestSendHintsAndIDs: page id, Enter/Esc/h hints.
+// TestSendHintsAndIDs: page id, Enter/Esc/h + scroll hints.
 func TestSendHintsAndIDs(t *testing.T) {
 	t.Parallel()
 
@@ -312,10 +312,11 @@ func TestSendHintsAndIDs(t *testing.T) {
 		t.Fatalf("ID = %q, want %q", s.ID(), SendPageID)
 	}
 	hints := s.Hints()
-	if len(hints) != 3 {
+	if len(hints) != 5 {
 		t.Fatalf("hints = %+v", hints)
 	}
-	if hints[0].Key != "enter" || hints[1].Key != "esc" || hints[2].Key != "h" {
+	if hints[0].Key != "enter" || hints[1].Key != "esc" || hints[2].Key != "h" ||
+		hints[3].Key != "j/k" || hints[4].Key != "tab" {
 		t.Errorf("hints = %+v", hints)
 	}
 }

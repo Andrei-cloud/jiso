@@ -25,6 +25,8 @@ const (
 	RegionAnalyzeItems   = "analyze:items"   // §J generated-item roster
 	RegionAnalyzePreview = "analyze:preview" // §J generated-item preview
 	RegionCtfRecords     = "ctf:records"     // §K record viewer box
+	RegionSendRequest    = "send:request"    // §D REQUEST pane rows/hex
+	RegionSendResponse   = "send:response"   // §D RESPONSE pane rows/hex
 
 	// Select-only regions: these panes draw every row they have (no wheel
 	// window), so they publish no scrollHit — a row click still selects.

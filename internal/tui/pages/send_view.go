@@ -216,6 +216,14 @@ func (s *Send) panesStacked(w, y, h int, reqTitle, respTitle string) string {
 func (s *Send) pane(title string, rows []ExchangeRow, x, y, w, h int, request bool) string {
 	inner := max(h-3, 1)
 	contentW := max(max(w-2, 1)-2, 1)
+	// Record the truthful inner height (scroll clamps and page steps
+	// derive from it) and the pane's own scroll offset.
+	if request {
+		s.paneInnerReq = inner
+	} else {
+		s.paneInnerResp = inner
+	}
+	off := min(s.curScroll(request), max(s.contentLen(request)-inner, 0))
 	// UAT: the h toggle switches the WHOLE pane from the Describe rows
 	// to the standard hexdump of the packed message (and back).
 	if s.state.HexOn {
@@ -224,11 +232,41 @@ func (s *Send) pane(title string, rows []ExchangeRow, x, y, w, h int, request bo
 			dump = s.state.RequestHex
 		}
 		if len(dump) > 0 {
-			return s.sectionBox(title, s.dumpBody(dump, inner, contentW), x, y, w, h)
+			return s.sectionBox(title+s.scrollMark(off, len(dump), inner, request), s.dumpBody(dump, inner, contentW, off), x, y, w, h)
 		}
 	}
 
-	return s.sectionBox(title, s.rowsBody(rows, inner, contentW, request), x, y, w, h)
+	return s.sectionBox(title+s.scrollMark(off, len(rows), inner, request), s.rowsBody(rows, inner, contentW, request, off), x, y, w, h)
+}
+
+// scrollMark marks a pane that is scrolled or scrollable: ▴ once lines
+// are above the window, ▾ while lines remain below (ascii ^/v); the
+// keyboard-focused pane shows its line position, the other its arrows
+// alone (dim), so both states read at a glance.
+func (s *Send) scrollMark(off, content, inner int, request bool) string {
+	if content <= inner {
+		return ""
+	}
+	up, down := "▴", "▾"
+	if s.th.ASCII {
+		up, down = "^", "v"
+	}
+	marks := ""
+	if off > 0 {
+		marks += up
+	}
+	if off+inner < content {
+		marks += down
+	}
+	if marks == "" {
+		return ""
+	}
+	focused := (request && s.focusedIsRequest()) || (!request && !s.focusedIsRequest())
+	if focused && off > 0 {
+		return " " + s.th.Deemphasized.Render(fmt.Sprintf("%s %d/%d", marks, off+1, content))
+	}
+
+	return " " + s.th.Dim.Render(marks)
 }
 
 // sectionBox draws one pre-styled-title pane box with the shared
@@ -246,8 +284,8 @@ func (s *Send) sectionBox(title, body string, x, y, w, h int) string {
 
 // dumpBody renders standard hexdump lines clipped to the pane: the
 // 8-hex-digit offset deemphasized, bytes and ASCII gutter primary.
-func (s *Send) dumpBody(dump []string, inner, maxW int) string {
-	lines := make([]string, 0, inner)
+func (s *Send) dumpBody(dump []string, inner, maxW, off int) string {
+	lines := make([]string, 0, len(dump))
 	for _, ln := range dump {
 		offset, rest, ok := strings.Cut(ln, "  ")
 		styled := s.th.TextPrimary.Render(ln)
@@ -256,6 +294,10 @@ func (s *Send) dumpBody(dump []string, inner, maxW int) string {
 		}
 		lines = append(lines, clipCells(styled, maxW, clipTail(s.th)))
 	}
+	if off > len(lines) {
+		off = max(len(lines)-1, 0)
+	}
+	lines = lines[off:]
 	for len(lines) < inner {
 		lines = append(lines, "")
 	}
@@ -266,8 +308,8 @@ func (s *Send) dumpBody(dump []string, inner, maxW int) string {
 // rowsBody renders the rows clipped to inner lines, one line per row.
 // The correlation note is reserved its width before clipping so a
 // clipped value never truncates mid-note.
-func (s *Send) rowsBody(rows []ExchangeRow, inner, maxW int, request bool) string {
-	lines := make([]string, 0, inner)
+func (s *Send) rowsBody(rows []ExchangeRow, inner, maxW int, request bool, off int) string {
+	lines := make([]string, 0, len(rows))
 	for _, r := range rows {
 		note := s.noteSuffix(r)
 		lines = append(lines, clipCells(s.rowBase(r), maxW-lipgloss.Width(note), clipTail(s.th))+note)
@@ -279,6 +321,10 @@ func (s *Send) rowsBody(rows []ExchangeRow, inner, maxW int, request bool) strin
 		}
 		lines = append(lines, s.th.Dim.Render(placeholder))
 	}
+	if off > len(lines) {
+		off = max(len(lines)-1, 0)
+	}
+	lines = lines[off:]
 	for len(lines) < inner {
 		lines = append(lines, "")
 	}
