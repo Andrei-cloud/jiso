@@ -330,7 +330,15 @@ After a run the **generated-item picker** auto-presents: `space` toggles a row,
 `a` all-or-none, `enter` applies the selection, `esc` applies it too and closes,
 `x` reopens — a transaction and its dataset share a toggle group so they move
 together, and `w` then writes exactly the selected set (no separate dry-run step;
-an all-deselected picker is an error). The roster is the **run step's own
+an all-deselected picker is an error). Included rows render NAME and KIND in the
+status-ok green so the written set stays visible in a long roster; route rows
+carry an **RC** column with the response code they answer with. Toggling a row
+ON selects the **complete scenario** it belongs to (UAT): a transaction pulls in
+the routes whose match it satisfies and, when the capture had one, its reversal
+template and the reversal's own route; a route pulls in every transaction it
+answers (and their reversals); a reversal pulls back the pair it reverses. The
+closure runs one way only — deselecting drops that row (and its dataset) alone,
+never linked items another kept selection still needs. The roster is the **run step's own
 surface**: walking away from the step (either direction) closes it without
 applying, and the run-step radios `t`/`r`/`s`/`m` work with it open — they apply
 the pending selection (exactly as `esc` does), close the roster, and act as the

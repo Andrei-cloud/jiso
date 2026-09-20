@@ -353,7 +353,9 @@ type AnalyzeItemRow struct {
 	Key      string
 	Name     string
 	Kind     string
-	Group    string // shared by a transaction and its dataset, so they toggle together
+	Group    string   // shared by a transaction and its dataset, so they toggle together
+	RC       string   // mock_route rows: the response code this route answers with ("" otherwise)
+	Links    []string // keys this row belongs with: toggling it ON selects them too (the complete scenario)
 	Included bool
 	Preview  string
 }

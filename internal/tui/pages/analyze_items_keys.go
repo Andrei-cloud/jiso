@@ -140,17 +140,65 @@ func (a *Analyze) itemsExcluded() []string {
 	return excluded
 }
 
-// toggleItemAt flips the row at i and its Group partner, so a dataset is
-// included and written only together with its transaction.
+// toggleItemAt flips the row at i. Including pulls the COMPLETE scenario:
+// the row's links (a transaction belongs with the routes that answer it
+// and with its reversal pair; a route belongs with every transaction it
+// answers) and each pulled row pulls its own - an include-only closure,
+// so picking one purchase selects the whole replayable flow (UAT: the
+// operator must be able to capture a complete scenario by picking any
+// piece of it). Deselecting touches only the row and its Group partner:
+// linked items stay, because another kept selection may need the same
+// route.
 func (a *Analyze) toggleItemAt(i int) {
 	if i >= len(a.itemSel) || i >= len(a.state.Items) {
 		return
 	}
-	next := !a.itemSel[i]
+	if !a.itemSel[i] {
+		a.includeWithScenario(i)
+
+		return
+	}
+	a.itemSel[i] = false
 	group := a.state.Items[i].Group
+	if group == "" {
+		return
+	}
 	for j := range a.itemSel {
-		if j == i || (group != "" && j < len(a.state.Items) && a.state.Items[j].Group == group) {
-			a.itemSel[j] = next
+		if j != i && j < len(a.state.Items) && a.state.Items[j].Group == group {
+			a.itemSel[j] = false
+		}
+	}
+}
+
+// includeWithScenario selects the seed and everything linked to it
+// (transitively), each pulled row also bringing its Group partner
+// (dataset) along.
+func (a *Analyze) includeWithScenario(seed int) {
+	byKey := make(map[string]int, len(a.state.Items))
+	for j, it := range a.state.Items {
+		byKey[it.Key] = j
+	}
+	a.itemSel[seed] = true
+	queue := []int{seed}
+	seen := map[int]bool{seed: true}
+	for len(queue) > 0 {
+		k := queue[0]
+		queue = queue[1:]
+		if g := a.state.Items[k].Group; g != "" {
+			for j := range a.state.Items {
+				if !seen[j] && j != k && a.state.Items[j].Group == g {
+					seen[j] = true
+					a.itemSel[j] = true
+					queue = append(queue, j)
+				}
+			}
+		}
+		for _, lk := range a.state.Items[k].Links {
+			if j, ok := byKey[lk]; ok && !seen[j] {
+				seen[j] = true
+				a.itemSel[j] = true
+				queue = append(queue, j)
+			}
 		}
 	}
 }

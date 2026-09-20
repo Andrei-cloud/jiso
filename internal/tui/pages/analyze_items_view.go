@@ -17,6 +17,7 @@ import (
 const (
 	analyzeItemsListW = 46 // roster column width at full width
 	analyzeItemsKindW = 12 // kind column inside the roster
+	analyzeItemsRCW   = 4  // response-code column (route rows only)
 )
 
 // itemsPaneH is the picker's pane budget: render clips the overlay to h-2
@@ -75,15 +76,34 @@ func (a *Analyze) itemsOverlay(w, h int) string {
 }
 
 // itemsRoster draws the selectable roster rows: cursor cell, inclusion
-// marker, name and kind.
+// marker, name, kind and (route rows) the response code they answer with.
+// An included row renders its NAME and KIND in the status-ok green, so
+// the written set stays visible on a long list (UAT usability finding);
+// the cursor row keeps the accent - it is the one being acted on.
 func (a *Analyze) itemsRoster(w, h int) string {
-	// Stable columns — [cursor+mark gutter][NAME nameW][gap][KIND kindW];
-	// the name is PADDED to nameW so the KIND column lines up on every row
-	// AND with the header.
+	// Stable columns — [cursor+mark gutter][NAME nameW][gap][KIND kindW]
+	// ([gap][RC rcW]); the name is PADDED to nameW so every column lines
+	// up on every row AND with the header. The RC column appears when any
+	// row is a route (a tx-only run keeps its width).
 	const gutter, gap = 4, 2
-	nameW := max(w-gutter-analyzeItemsKindW-gap, 10)
+	showRC := false
+	for _, it := range a.state.Items {
+		if it.RC != "" {
+			showRC = true
+
+			break
+		}
+	}
+	rcSeg := 0
+	if showRC {
+		rcSeg = gap + analyzeItemsRCW
+	}
+	nameW := max(w-gutter-analyzeItemsKindW-gap-rcSeg, 10)
 	head := padRight("", gutter) + padRight("NAME", nameW) + padRight("", gap) +
 		padRight("KIND", analyzeItemsKindW)
+	if showRC {
+		head += padRight("", gap) + padRight("RC", analyzeItemsRCW)
+	}
 	lines := make([]string, 0, h+1)
 	lines = append(lines, a.th.Deemphasized.Render(head))
 	hidden := 0
@@ -104,9 +124,15 @@ func (a *Analyze) itemsRoster(w, h int) string {
 		}
 		name := padRight(truncateCells(it.Name, nameW, clipTail(a.th)), nameW)
 		line := cell + mark + name + strings.Repeat(" ", gap) + padRight(it.Kind, analyzeItemsKindW)
-		if i == a.itemCursor {
+		if showRC {
+			line += strings.Repeat(" ", gap) + padRight(truncateCells(it.RC, analyzeItemsRCW, ""), analyzeItemsRCW)
+		}
+		switch {
+		case i == a.itemCursor:
 			lines = append(lines, a.th.Accent.Render(clipCells(line, w, clipTail(a.th))))
-		} else {
+		case on:
+			lines = append(lines, a.th.StatusOK.Render(clipCells(line, w, clipTail(a.th))))
+		default:
 			lines = append(lines, a.th.TextPrimary.Render(clipCells(line, w, clipTail(a.th))))
 		}
 		// Record the drawn row for the click hit map: the roster is pinned

@@ -339,3 +339,108 @@ func TestPreviewScrollsWhenOverflowing(t *testing.T) {
 		t.Fatalf("reopening must reset the preview sub-pane: off %d focused %v", a.previewOff, a.previewFocused)
 	}
 }
+
+// scenarioLinkFixture is a scaffolded scenario roster: a purchase and its
+// dataset, the route answering it, the purchase's reversal and the reversal's
+// own route - rows linked as the root links them for a real scenario run.
+func scenarioLinkFixture() []AnalyzeItemRow {
+	txK := "transaction|Tx 0100 DE3=000000 #1"
+	dsK := "dataset|dataset_captured"
+	rtK := "mock_route|Mock Route #0001 0110 DE3=000000"
+	rvK := "transaction|Reversal for 0100 DE3=000000 #1"
+	rrK := "mock_route|Mock Reversal Route #0001 0400 DE3=000000"
+
+	return []AnalyzeItemRow{
+		{Key: txK, Name: "Tx 0100 DE3=000000 #1", Kind: "transaction", Group: "dataset_captured",
+			Included: true, Preview: `{}`, Links: []string{rtK, rvK}},
+		{Key: dsK, Name: "dataset_captured", Kind: "dataset", Group: "dataset_captured",
+			Included: true, Preview: `{}`},
+		{Key: rtK, Name: "Mock Route #0001 0110 DE3=000000", Kind: "mock_route", RC: "51",
+			Included: true, Preview: `{}`, Links: []string{txK}},
+		{Key: rvK, Name: "Reversal for 0100 DE3=000000 #1", Kind: "transaction",
+			Included: true, Preview: `{}`, Links: []string{txK, rrK}},
+		{Key: rrK, Name: "Mock Reversal Route #0001 0400 DE3=000000", Kind: "mock_route", RC: "00",
+			Included: true, Preview: `{}`, Links: []string{rvK}},
+	}
+}
+
+// TestAnalyzeItemsIncludeClosureCompletesScenario (UAT): picking ANY piece
+// of the scenario selects the complete replayable flow - the response route
+// alone pulls in the purchase (with its dataset), the purchase pulls its
+// reversal, and the reversal pulls its own route.
+func TestAnalyzeItemsIncludeClosureCompletesScenario(t *testing.T) {
+	t.Parallel()
+
+	st := analyzeFixtureState()
+	st.Step = StepRun
+	st.Status = AnalyzeStatusDone
+	st.ItemsID = 1
+	st.Items = scenarioLinkFixture()
+	a := analyzePage(t, st, 140, 32)
+
+	// Start from none: a deselects everything when all are included.
+	_, _ = a.Update(ch('a'))
+
+	// Pick just the response route (row 2): the closure completes the flow.
+	_, _ = a.Update(ch('j'))
+	_, _ = a.Update(ch('j'))
+	_, _ = a.Update(ch(' '))
+
+	_, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg, ok := cmdMsg(t, cmd).(AnalyzeItemsApplyMsg)
+	if !ok {
+		t.Fatalf("enter yielded %T, want AnalyzeItemsApplyMsg", cmd)
+	}
+	if len(msg.Excluded) != 0 {
+		t.Errorf("picking one route must complete the scenario, still excluded: %v", msg.Excluded)
+	}
+}
+
+// TestAnalyzeItemsDeselectCascadeIsLocal: deselecting a route drops that row
+// alone - the transactions it answered stay (they are valid items on their
+// own), and no linked item is dragged away from another kept selection.
+func TestAnalyzeItemsDeselectCascadeIsLocal(t *testing.T) {
+	t.Parallel()
+
+	st := analyzeFixtureState()
+	st.Step = StepRun
+	st.Status = AnalyzeStatusDone
+	st.ItemsID = 1
+	st.Items = scenarioLinkFixture()
+	a := analyzePage(t, st, 140, 32)
+
+	_, _ = a.Update(ch('j'))
+	_, _ = a.Update(ch('j'))
+	_, _ = a.Update(ch(' '))
+
+	_, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg, ok := cmdMsg(t, cmd).(AnalyzeItemsApplyMsg)
+	if !ok {
+		t.Fatalf("enter yielded %T, want AnalyzeItemsApplyMsg", cmd)
+	}
+	if len(msg.Excluded) != 1 || msg.Excluded[0] != "mock_route|Mock Route #0001 0110 DE3=000000" {
+		t.Errorf("deselecting the route must drop only it, excluded: %v", msg.Excluded)
+	}
+}
+
+// TestAnalyzeItemsRosterShowsResponseCode: the roster's RC column carries
+// each route's answer (the response code it replays) so the operator can
+// steer by outcome; non-route rows leave it blank.
+func TestAnalyzeItemsRosterShowsResponseCode(t *testing.T) {
+	t.Parallel()
+
+	st := analyzeFixtureState()
+	st.Step = StepRun
+	st.Status = AnalyzeStatusDone
+	st.ItemsID = 1
+	st.Items = scenarioLinkFixture()
+	a := analyzePage(t, st, 140, 32)
+
+	view := ansi.Strip(a.View().Content)
+	if !strings.Contains(view, "RC") {
+		t.Errorf("the roster must show the RC column header:\n%s", view)
+	}
+	if !strings.Contains(view, "51") || !strings.Contains(view, "00") {
+		t.Errorf("route rows must show the response codes they answer with:\n%s", view)
+	}
+}
