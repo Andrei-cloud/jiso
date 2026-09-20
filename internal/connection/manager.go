@@ -230,11 +230,32 @@ func (m *Manager) GetSpec() *iso8583.MessageSpec {
 	return m.spec
 }
 
-// SetSpec updates the ISO8583 message specification
+// SetSpec updates the ISO8583 message specification. The live moov
+// connection unpacks inbound with the spec it was BUILT with, so storing
+// m.spec alone would leave that reader parsing the old wire format: every
+// response would fail unpacking, and moov's readLoop skips (silently, as an
+// UnpackError) messages it cannot unpack — the sender waits on its STAN and
+// times out although the server matched and answered (UAT round-10 flake).
+// So on an online connection the change is applied by rebuilding it, exactly
+// what adoptSpecFor does when a composed message needs a different spec.
 func (m *Manager) SetSpec(spec *iso8583.MessageSpec) {
+	_ = m.setSpec(spec)
+}
+
+// setSpec is SetSpec with the rebuild outcome surfaced.
+func (m *Manager) setSpec(spec *iso8583.MessageSpec) error {
 	m.statusMu.Lock()
-	defer m.statusMu.Unlock()
 	m.spec = spec
+	online := m.Connection != nil && m.Connection.Status() == moovconnection.StatusOnline
+	m.statusMu.Unlock()
+
+	if !online {
+		return nil // next Connect builds with the new spec
+	}
+
+	naps, header := m.connParams()
+
+	return m.Connect(naps, header)
 }
 
 // Send sends an ISO8583 message with optional debug logging

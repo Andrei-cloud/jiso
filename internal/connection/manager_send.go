@@ -86,19 +86,16 @@ func (m *Manager) adoptSpecFor(msg *iso8583.Message) error {
 	msgSpec := msg.GetSpec()
 	m.statusMu.RLock()
 	cur := m.spec
-	conn := m.Connection
-	online := conn != nil && conn.Status() == moovconnection.StatusOnline
 	m.statusMu.RUnlock()
 	if msgSpec == nil || cur == nil || msgSpec == cur || msgSpec.Name == cur.Name {
 		return nil
 	}
 
-	m.SetSpec(msgSpec)
-	if !online {
-		return nil // not dialled yet: the next Connect builds with the new spec
-	}
-	naps, header := m.connParams()
-	if err := m.Connect(naps, header); err != nil {
+	// setSpec stores the spec and, on an online connection, rebuilds it:
+	// the moov reader unpacks inbound with the spec it was dialled with,
+	// and a reader left on the old wire format silently drops every
+	// response (see Manager.setSpec).
+	if err := m.setSpec(msgSpec); err != nil {
 		return fmt.Errorf("failed to switch the connection to spec %q: %w", msgSpec.Name, err)
 	}
 
