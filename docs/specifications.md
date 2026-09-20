@@ -148,6 +148,7 @@ controls how **tag identifiers** are encoded.
 | `"Binary"`    | Raw bytes; no character conversion. Value is treated as a hex string by the library when marshaling to/from JSON/Go. | EMV TLV values, PIN blocks, MAC. |
 | `"HexToASCII"`| Two ASCII hex characters per source byte (`0A` → `0x30 0x41`). | MAC and bitmap fields in some ASCII-based specs where the bitmap must be human-readable. |
 | `"ASCIIToHex"`| Reverse of `HexToASCII`: pairs of ASCII hex digits are collapsed to a single byte. | Tag encoders when the Data-Set ID is written as ASCII hex in the spec but packed as a single byte on the wire. |
+| `"PackedBCDHex"` | Unsigned packed BCD where `length` counts DIGITS (`ceil(len/2)` bytes consumed) and every nibble 0x0–0xF decodes to its hex character. | Track 2 Data (DE35) in VisaNet: LL counts digits (≤37), data is packed BCD carrying the `D` separator and `F` pad nibbles — `BCD` rejects those nibbles and `ASCIIToHex` consumes 2× the bytes (from the forked `moov-io/iso8583`; see `docs/moov-track2-de35-gap.md`). |
 
 ### 6.2 Tag Encoders (used in `tag.enc`)
 
