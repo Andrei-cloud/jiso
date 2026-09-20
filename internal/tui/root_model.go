@@ -132,6 +132,10 @@ type RootModel struct {
 	wizardSpec  string
 	wizardFile  string
 	wizardFiles []string
+	// wizardPresetTx is the transaction "s" armed when the wizard opened
+	// from §B: the connect step fires it on success instead of stopping
+	// at the picker. Cleared on open/close/commit.
+	wizardPresetTx string
 	// lastSentTemplate is the most recent send's template; the
 	// one-keystroke dashboard send reuses it.
 	lastSentTemplate string

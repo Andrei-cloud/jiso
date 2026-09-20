@@ -39,6 +39,7 @@ func (m *RootModel) openWizard() (tea.Model, tea.Cmd) {
 	if m.wizard != nil {
 		return m, nil
 	}
+	m.wizardPresetTx = "" // a plain palette open carries no armed transaction
 	th := m.themeOrNil()
 	w := pages.NewSendWizard(th)
 	st := pages.WizardState{}
@@ -104,9 +105,42 @@ func (m *RootModel) openSendWizardFor(txID string) (tea.Model, tea.Cmd) {
 	next, cmd := m.openWizard()
 	if m.wizard != nil {
 		m.wizard.SetPreset(txID)
+		m.wizardPresetTx = txID // the connect step auto-fires this send (see root_connect)
 	}
 
 	return next, cmd
+}
+
+// wizardAutoSendPreset fires the pre-selected transaction's send when the
+// wizard was opened for it and its connect step just succeeded: the
+// operator chose the transaction in §B and armed the send with "s" — the
+// picker afterwards would ask them to choose what they already chose. The
+// preset must still resolve in the wizard's current templates; when it does
+// not (file swapped mid-walk), the picker stays and the operator chooses
+// there.
+func (m *RootModel) wizardAutoSendPreset() tea.Cmd {
+	name := m.wizardPresetTx
+	m.wizardPresetTx = ""
+	if name == "" || m.wizard == nil {
+		return nil
+	}
+	found := false
+	for _, t := range m.wizard.State().Templates {
+		if t.Name == name {
+			found = true
+
+			break
+		}
+	}
+	if !found {
+		m.debug.logf("wizard preset vanished tx=%s (picker stays)", name)
+
+		return nil
+	}
+	m.debug.logf("wizard auto-send after connect tx=%s", name)
+	_, cmd := m.wizardSend(name)
+
+	return cmd
 }
 
 // cfg0 is the config's current tx-file path ("" when unwired).
@@ -327,6 +361,7 @@ func (m *RootModel) closeWizard() {
 		m.connectRun, m.connectHost = nil, nil
 	}
 	m.wizard = nil
+	m.wizardPresetTx = ""
 	m.connectInitiated = false // same retirement as the §E dialog esc
 	m.debug.logf("send wizard close")
 }
@@ -434,6 +469,7 @@ func (m *RootModel) wizardSend(name string) (tea.Model, tea.Cmd) {
 		}
 	}
 	m.wizard = nil
+	m.wizardPresetTx = ""
 	m.lastSentTemplate = name
 	m.pushWizardFileRecents()
 	m.debug.logf("wizard send tx=%s", name)

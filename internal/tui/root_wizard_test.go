@@ -106,6 +106,64 @@ func TestRootWizardSendCommitsAndStarts(t *testing.T) {
 	}
 }
 
+// TestWizardConnectAutoSendsPreset pins the UAT law: "s" on a transaction
+// in §B arms that transaction; when the wizard's connect step succeeds the
+// send fires — the operator is never asked to choose the transaction they
+// already chose.
+func TestWizardConnectAutoSendsPreset(t *testing.T) {
+	r := wizardTestRoot(t)
+	r.upd(pages.TxSendMsg{ID: "Purchase"})
+	if r.m.wizard == nil {
+		t.Fatal("offline s must open the wizard")
+	}
+	if r.m.wizardPresetTx != "Purchase" {
+		t.Fatalf("preset = %q, want Purchase", r.m.wizardPresetTx)
+	}
+
+	// The wizard-hosted connect step's terminal success verdict.
+	r.m.connectRun = &connectRun{cancel: func() {}, total: 1}
+	r.m.connectHost = r.m.wizard.ConnectForm()
+	r.m.connectInitiated = true
+	cmd := r.upd(ConnectResultMsg{OK: true, Target: "127.0.0.1:9999"})
+	if cmd != nil {
+		_, _ = r.m.Update(cmd()) // let the armed send command run
+	}
+
+	if r.m.wizard != nil {
+		t.Error("the fired send must close the wizard (no picker afterwards)")
+	}
+	if r.m.sendRun == nil {
+		t.Error("connect success with an armed preset must start that transaction's send")
+	}
+	if r.m.wizardPresetTx != "" {
+		t.Error("the preset must be consumed by the fire")
+	}
+}
+
+// The auto-fire only trusts the preset while it still names a loaded
+// template; a preset that no longer resolves leaves the picker in place
+// rather than sending the wrong thing or nothing at all.
+func TestWizardConnectPresetVanishedKeepsPicker(t *testing.T) {
+	r := wizardTestRoot(t)
+	r.upd(pages.TxSendMsg{ID: "Purchase"})
+	r.m.wizardPresetTx = "No Such Transaction"
+
+	r.m.connectRun = &connectRun{cancel: func() {}, total: 1}
+	r.m.connectHost = r.m.wizard.ConnectForm()
+	r.m.connectInitiated = true
+	r.upd(ConnectResultMsg{OK: true, Target: "127.0.0.1:9999"})
+
+	if r.m.wizard == nil {
+		t.Fatal("a vanished preset must not close the wizard")
+	}
+	if r.m.sendRun != nil {
+		t.Error("a vanished preset must not start a send")
+	}
+	if r.m.wizardPresetTx != "" {
+		t.Error("the vanished preset must be cleared, not retried later")
+	}
+}
+
 func TestRootWizardBrowseOpensPickerAndFeedsBack(t *testing.T) {
 	r := wizardTestRoot(t)
 	r.upd(palette.OpenSendWizardMsg{})

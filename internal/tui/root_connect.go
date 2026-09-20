@@ -332,6 +332,8 @@ func (m *RootModel) applyConnectResult(msg ConnectResultMsg) (tea.Model, tea.Cmd
 	}
 	standalone := host == m.dlg
 
+	var autoCmd tea.Cmd // set when a wizard-hosted success fires the armed send
+
 	switch {
 	case errors.Is(msg.Err, context.Canceled):
 		if standalone {
@@ -358,6 +360,9 @@ func (m *RootModel) applyConnectResult(msg ConnectResultMsg) (tea.Model, tea.Cmd
 			m.dlg = nil
 		} else if m.wizard != nil {
 			m.wizard.OnConnected(msg.Target)
+			// Opened from §B with a transaction armed: the walk ends here,
+			// the send starts now — no transaction picker in between.
+			autoCmd = m.wizardAutoSendPreset()
 		}
 		m.debug.logf("connect ok target=%s", msg.Target)
 
@@ -382,7 +387,7 @@ func (m *RootModel) applyConnectResult(msg ConnectResultMsg) (tea.Model, tea.Cmd
 		}
 	}
 
-	return m, nil
+	return m, autoCmd
 }
 
 // connectAttempts is the retry-count source: config reconnect-attempts —
