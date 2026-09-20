@@ -889,7 +889,7 @@
       "type": "Track2",
       "length": 37,
       "description": "Track 2 Data",
-      "enc": "ASCIIToHex",
+      "enc": "PackedBCDHex",
       "prefix": "Binary.L"
     },
     "36": {
@@ -3267,7 +3267,7 @@
     },
     "118": {
       "type": "String",
-      "length": 12,
+      "length": 256,
       "description": "Intra Country Data",
       "enc": "EBCDIC",
       "prefix": "Binary.L"

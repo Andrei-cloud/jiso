@@ -1,8 +1,11 @@
 # Track2 (DE35) cannot be parsed from `specs/visa.json` — a moov-io/iso8583 gap
 
-**Status:** open finding, verified empirically against live VisaNet traffic.
+**Status:** RESOLVED upstream. `github.com/moov-io/iso8583` gained the
+`PackedBCDHex` encoder (see `../iso8583/encoding/packedbcdhex.go`); jiso
+now pins that fork via a `go.mod` replace and `specs/visa.json` unpacks
+**666/666** messages of the live capture, all MTIs, zero failures.
 **Scope:** field 35 (Track 2 Data). No other field in the capture fails.
-**Bottom line:** `specs/visa.json` is already correct and *cannot* be made to
+**Bottom line (as found):** `specs/visa.json` is already correct and *cannot* be made to
 parse these 96 messages through JSON. The fix is a small change in the
 upstream library `github.com/moov-io/iso8583` (used at v0.26.0, not vendored).
 
@@ -80,12 +83,12 @@ only variable field before the reported failure is DE35 at offset 69, LL byte
 
 | offset | Track2 = **37 bytes** (moov today) | Track2 = **19 bytes** (spec-correct) |
 |--------|------------------------------------|--------------------------------------|
-| 69  | DE35 LL=37, data 37 B | DE35 LL=37, data 19 B = `4085653077770572D30042210000036199995` |
-| 89  | *(inside track2 data)* | **DE37 RRN `621509018851`** ✓ |
-| 101 | *(inside track2 data)* | **DE41 terminal `10018993`** ✓ |
-| 107 | DE37 RRN `931001104110` (wrong) | *(inside DE42)* |
-| 109 | | **DE42 merchant `10011041101    `** ✓ |
-| 124 | | **DE43 `AL GHAZAL ALTHAHBI SMON  Abu Dhabi    AE`** (full 40 B) ✓ |
+| 69  | DE35 LL=37, data 37 B | DE35 LL=37, data 19 B = 37 track-2 digits (PAN + `D` + expiry + service + discretionary; real values masked in this doc) |
+| 89  | *(inside track2 data)* | **DE37 RRN: valid 12-digit retrieval reference** ✓ |
+| 101 | *(inside track2 data)* | **DE41 terminal ID: valid 8-char terminal** ✓ |
+| 107 | DE37 RRN: reads track data, not an RRN (wrong) | *(inside DE42)* |
+| 109 | | **DE42 merchant ID: numeric + space pad, exactly 15 B** ✓ |
+| 124 | | **DE43 acceptor name/city/country, space-padded, full 40 B** ✓ |
 | 164 | | **DE44 LL=9 `"    2   2"`** ✓ |
 | 174 | | **DE49 currency `0784` (AED)** ✓ |
 | 176 | | **DE51 currency `0784` (AED)** ✓ |
@@ -207,15 +210,21 @@ in `specs/visa.json` is empirically correct for this live traffic (including the
 EMV composite DE55, DE60/62/63, DE104/123, and the 0302/0312, 0400/0410,
 0620/0630, 0800/0810 message families).
 
-## 8. Impact on jiso today
+## 8. Resolution in jiso
 
-* `specs/visa.json` needs **no** change to be *correct*: once moov ships the
-  encoder above, flipping DE35's `enc` to `PackedBCDHex` is the only follow-up.
-  Today jiso gracefully reports these 96 as "unparsable" in the §J reviewer;
-  that count is a faithful reflection of the upstream limitation, not a jiso bug.
-* The only way for jiso to parse these *today* would be to vendor/`replace` moov
-  with the patch — a dependency-policy decision left to the maintainer, not a
-  spec-JSON change, and out of scope for this verification pass.
+* `github.com/moov-io/iso8583` now ships `encoding.PackedBCDHex` and the
+  `"PackedBCDHex"` JSON/YAML spec vocabulary entry (§7's recommended
+  fix, proven there: swapping only DE35's behaviour took the capture
+  from 570/666 to 666/666). The change lives in the `../iso8583` fork
+  (branch `feat/packedbcdhex-track2`, PR to upstream moov pending), and
+  jiso's `go.mod` pins it: `replace github.com/moov-io/iso8583 => ../iso8583`.
+* `specs/visa.json` DE35 now reads
+  `"enc": "PackedBCDHex"` (with `prefix: Binary.L`, length 37) — the
+  digit-count LLVAR semantics the VisaNet spec defines. All 666 messages
+  of `visaonlnode1.pcap` unpack with zero unparsable, and all 96 Track 2
+  fields surface as structured `Track2` values.
+* DE118's declared max was raised 12 → 256 to match the doc (§9), the
+  one latent reject risk the verification surfaced.
 
 ## 9. Appendix — accuracy measured against the whole capture
 
@@ -235,14 +244,12 @@ are noted (none is a failure), and **one latent reject risk**:
 | DE59  | LLVAR + ≤14 ANS; ≤15 bytes | String / Binary.L / **999** | 14 | far looser (harmless) |
 | DE60  | LLVAR + 12 N packed BCD; 7 bytes total | Binary / Binary.L / 255 | 6 | wire LL is a *byte count* here → Binary correct ✓ |
 | DE61  | LLVAR + 12 N BCD (7 B) **or 36 N** | Binary / Binary.L / 18 | 18 | 36-digit variant = 18 B, LL=byte count → parses ✓ |
-| DE118 | LLVAR + 3 ANS + 252 ANS; **≤256 bytes** | String / Binary.L / **12** | (absent) | **tighter than doc → would reject a valid longer DE118** |
+| DE118 | LLVAR + 3 ANS + 252 ANS; **≤256 bytes** | String / Binary.L / **256** | (absent) | raised 12 → 256, now aligned with the doc |
 | DE104/123/125/126/127 | LLVAR + ≤255 bytes | …/ Binary.L / 255 | 152 / 119 / 197 / 55 / 67 | exact ✓ |
 
 Reading the table: raising a variable-length max (e.g. **DE118 12 → 256** to
 match the doc) is the **safe** direction — a larger max never rejects a message
-that parses today — and is the one spec-JSON change this verification would
-endorse for robustness, even though no DE118 appears in `visaonlnode1.pcap`.
-Tightening a loose max (DE46/DE59) toward the doc is **not** endorsed from this
-evidence alone: it cannot make the capture parse better and risks rejecting
-valid traffic not in this sample. DE118's change is offered to the maintainer,
-not applied here, to keep this round's edits only what the capture itself tests.
+that parses today — and was applied to `specs/visa.json`. Tightening a loose
+max (DE46/DE59) toward the doc is **not** endorsed from this evidence alone:
+it cannot make the capture parse better and risks rejecting valid traffic not
+in this sample, so those stay as measured.
