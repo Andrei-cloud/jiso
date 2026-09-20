@@ -53,4 +53,4 @@ require (
 	modernc.org/sqlite v1.56.0 // indirect
 )
 
-replace github.com/moov-io/iso8583 => ../iso8583
+replace github.com/moov-io/iso8583 => github.com/Andrei-cloud/iso8583 v0.0.0-20260920102856-636d172d04f6
