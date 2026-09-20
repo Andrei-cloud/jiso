@@ -210,8 +210,8 @@ func TestScenarioBuilder_Anonymized14StepExecutionWithMockServer(t *testing.T) {
 	// 14 Steps imitating real PCAP captured transactions
 	// Steps with different processing codes, approvals (00), declines (51), and reversals
 	cards := []string{
-		"4174480011112222", // Step 1: 0100 DE3=000000 -> 00
-		"4085658933334444", // Step 2: 0100 DE3=000000 -> 00
+		"4111111111111111", // Step 1: 0100 DE3=000000 -> 00
+		"5555555555554444", // Step 2: 0100 DE3=000000 -> 00
 		"4000123456789010", // Step 3: 0100 DE3=200000 -> 00
 		"4111222233334444", // Step 4: 0100 DE3=100000 -> 00
 		"4222333344445555", // Step 5: 0100 DE3=100000 -> 00
@@ -381,7 +381,7 @@ func TestWizardRoutesReplayCardSpecificDeclines(t *testing.T) {
 	spec := utils.GetDefaultSpec()
 
 	cards := []string{
-		"4174480011112222", "4085658933334444", "4000123456789010", "4111222233334444",
+		"4111111111111111", "5555555555554444", "4000123456789010", "4111222233334444",
 		"4222333344445555", "4333444455556666", "4444555566667777", "4555666677778888",
 		"4666777788889999", "4777888899990000", "4888999900001111", "4999000011112222",
 		"4444555566667777", "4000123456789010",

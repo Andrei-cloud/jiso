@@ -221,7 +221,7 @@ func TestGenerateCTF_CompositeSubfieldsAndCleanTID(t *testing.T) {
 			RequestJSON: `{
 				"mti": "0100",
 				"fields": {
-					"2": "4085652009074000",
+					"2": "4000000000000002",
 					"3": "000000",
 					"4": "4598",
 					"34": {
@@ -249,7 +249,7 @@ func TestGenerateCTF_CompositeSubfieldsAndCleanTID(t *testing.T) {
 			RequestJSON: `{
 				"mti": "0100",
 				"fields": {
-					"2": "4085658930133000",
+					"2": "4000000000000010",
 					"3": "000000",
 					"4": "12996",
 					"41": "99999999",

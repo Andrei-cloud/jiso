@@ -65,7 +65,7 @@ func TestExtractFieldData_And_ExtractMessageFields(t *testing.T) {
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0100")
-	require.NoError(t, msg.Field(2, "4085652009074000"))
+	require.NoError(t, msg.Field(2, "4000000000000002"))
 
 	compMap := map[string]any{
 		"1": "A",
@@ -77,7 +77,7 @@ func TestExtractFieldData_And_ExtractMessageFields(t *testing.T) {
 	fields := ExtractMessageFields(msg, spec)
 	require.NotNil(t, fields)
 
-	assert.Equal(t, "4085652009074000", fields["2"])
+	assert.Equal(t, "4000000000000002", fields["2"])
 
 	f62, ok := fields["62"].(map[string]any)
 	require.True(t, ok)

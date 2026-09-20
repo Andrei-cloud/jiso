@@ -513,7 +513,7 @@ func TestMessageToJSONWithSpec_CompositeFields(t *testing.T) {
 
 	msg := iso8583.NewMessage(spec)
 	msg.MTI("0100")
-	require.NoError(t, msg.Field(2, "4085652009074000"))
+	require.NoError(t, msg.Field(2, "4000000000000002"))
 
 	// Pack composite field 62 using utils.SetCompositeFieldValue
 	compData := map[string]any{
@@ -534,7 +534,7 @@ func TestMessageToJSONWithSpec_CompositeFields(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(jsonStr), &parsed))
 	assert.Equal(t, "0100", parsed.MTI)
-	assert.Equal(t, "4085652009074000", parsed.Fields["2"])
+	assert.Equal(t, "4000000000000002", parsed.Fields["2"])
 
 	f62, ok := parsed.Fields["62"].(map[string]any)
 	require.True(t, ok, "Field 62 in JSON should be a structured map of subfields, got: %T (%v)", parsed.Fields["62"], parsed.Fields["62"])
