@@ -338,7 +338,12 @@ the routes whose match it satisfies and, when the capture had one, its reversal
 template and the reversal's own route; a route pulls in every transaction it
 answers (and their reversals); a reversal pulls back the pair it reverses. The
 closure runs one way only — deselecting drops that row (and its dataset) alone,
-never linked items another kept selection still needs. The roster is the **run step's own
+never linked items another kept selection still needs. Every piece also pulls
+the **scenario item** (one way — selecting the scenario alone pulls nothing);
+at write time the scenario's steps are **scoped to the written selection**:
+steps whose transaction is not being written drop, and a scenario left with no
+transactions is not written at all — exporting a subset never ships a plan for
+the full capture. The roster is the **run step's own
 surface**: walking away from the step (either direction) closes it without
 applying, and the run-step radios `t`/`r`/`s`/`m` work with it open — they apply
 the pending selection (exactly as `esc` does), close the roster, and act as the

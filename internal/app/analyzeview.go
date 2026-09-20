@@ -408,6 +408,7 @@ func (a *App) WriteAnalyze(ctx context.Context, out *AnalyzeOutput) error {
 	if len(sel) == 0 {
 		return fmt.Errorf("analyze: every generated item is deselected - nothing to write to '%s'", out.OutputFile)
 	}
+	sel = scopeScenarioSteps(sel)
 	if err := config.SaveItems(out.OutputFile, sel); err != nil {
 		return fmt.Errorf("failed to save generated items to '%s': %w", out.OutputFile, err)
 	}

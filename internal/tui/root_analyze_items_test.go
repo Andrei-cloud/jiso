@@ -88,4 +88,15 @@ func TestAnalyzeItemRowsScenarioLinksAndResponseCode(t *testing.T) {
 	if slices.Contains(revRoute.Links, tx.Key) {
 		t.Error("a 0400-match route must not link the 0100 request template")
 	}
+	// Every piece pulls the scenario item (its steps scope to the
+	// written transactions at write time); the scenario pulls nothing.
+	scen := byName["Captured"]
+	if len(scen.Links) != 0 {
+		t.Errorf("the scenario item must pull no pieces, got %v", scen.Links)
+	}
+	for name, row := range map[string]pages.AnalyzeItemRow{"tx": tx, "reversal": rev, "route": route, "reversal route": revRoute} {
+		if !slices.Contains(row.Links, scen.Key) {
+			t.Errorf("%s must pull the scenario item on select, links: %v", name, row.Links)
+		}
+	}
 }

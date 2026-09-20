@@ -126,6 +126,30 @@ func analyzeItemLinks(items []config.Item) map[string][]string {
 		}
 	}
 
+	// One-way pull: selecting any transaction or route also selects the
+	// scenario ITEM, so a closure pick exports a replayable scenario (its
+	// steps are scoped to the written transactions at write time).
+	// Selecting the scenario alone does not pull every piece - the
+	// operator may want the plan only.
+	scenKey := ""
+	for _, it := range items {
+		if it.Type == config.TypeScenario {
+			scenKey = app.ItemKey(it)
+
+			break
+		}
+	}
+	if scenKey != "" {
+		for i := range txs {
+			links[txs[i].key] = append(links[txs[i].key], scenKey)
+		}
+		for _, it := range items {
+			if it.Type == config.TypeMockRoute {
+				links[app.ItemKey(it)] = append(links[app.ItemKey(it)], scenKey)
+			}
+		}
+	}
+
 	return links
 }
 

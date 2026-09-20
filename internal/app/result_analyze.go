@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"sort"
 
 	json "github.com/goccy/go-json"
@@ -347,4 +348,60 @@ func NewAnalyzeOutputFromMatchedRoutes(
 		GeneratedMockRouteNames: itemNames(routes),
 		OutputFile:              outputFile,
 	}
+}
+
+// scopeScenarioSteps scopes the write set's scenario item so its steps
+// cover exactly the transactions selected for the write (UAT: exporting a
+// selection must not ship a scenario that plans the FULL capture). A step
+// whose transaction is not being written would leave the file's scenario
+// unusable - the runner finds no such template - so those steps drop; a
+// scenario whose transactions were all deselected drops from the write
+// (there is nothing to replay); and a scenario selected with every
+// transaction stays exactly as scaffolded.
+func scopeScenarioSteps(sel []config.Item) []config.Item {
+	scen := -1
+	selTx := map[string]bool{}
+	for i, it := range sel {
+		switch it.Type {
+		case config.TypeTransaction:
+			selTx[it.Name] = true
+		case config.TypeScenario:
+			scen = i
+		}
+	}
+	if scen < 0 {
+		return sel
+	}
+	var steps []transactions.ScenarioStep
+	if err := json.Unmarshal(sel[scen].Steps, &steps); err != nil {
+		return sel // unreadable scaffolding rides verbatim; the loader names it
+	}
+	kept := make([]transactions.ScenarioStep, 0, len(steps))
+	for _, st := range steps {
+		if st.UseTransactionID == "" || selTx[st.UseTransactionID] {
+			kept = append(kept, st)
+		}
+	}
+	if len(kept) == len(steps) {
+		return sel // the full selection: the scenario is already the whole plan
+	}
+	if len(kept) == 0 {
+		narrowed := make([]config.Item, 0, len(sel)-1)
+		narrowed = append(narrowed, sel[:scen]...)
+		narrowed = append(narrowed, sel[scen+1:]...)
+
+		return narrowed
+	}
+	b, err := json.Marshal(kept)
+	if err != nil {
+		return sel
+	}
+	sc := sel[scen]
+	sc.Steps = b
+	sc.Description = fmt.Sprintf(
+		"Scaffolded test scenario scoped to the written selection: %d step(s) over %d written transaction(s)",
+		len(kept), len(selTx))
+	sel[scen] = sc
+
+	return sel
 }

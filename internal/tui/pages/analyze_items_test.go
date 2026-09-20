@@ -444,3 +444,34 @@ func TestAnalyzeItemsRosterShowsResponseCode(t *testing.T) {
 		t.Errorf("route rows must show the response codes they answer with:\n%s", view)
 	}
 }
+
+// TestAnalyzeItemsPickSelectsTheScenarioItem: a transaction's links carry
+// the scenario item (the one-way root wiring), so picking the purchase
+// alone also selects the plan that exports it - the picker's closure is
+// blind to what the links mean, the root decides.
+func TestAnalyzeItemsPickSelectsTheScenarioItem(t *testing.T) {
+	t.Parallel()
+
+	st := analyzeFixtureState()
+	st.Step = StepRun
+	st.Status = AnalyzeStatusDone
+	st.ItemsID = 1
+	st.Items = []AnalyzeItemRow{
+		{Key: "transaction|Tx 0100 DE3=000000 #1", Name: "Tx 0100 DE3=000000 #1", Kind: "transaction",
+			Included: true, Preview: `{}`, Links: []string{"scenario|Captured"}},
+		{Key: "scenario|Captured", Name: "Captured", Kind: "scenario", Included: true, Preview: `{}`},
+	}
+	a := analyzePage(t, st, 140, 32)
+
+	_, _ = a.Update(ch('a')) // none included
+	_, _ = a.Update(ch(' ')) // pick the purchase
+
+	_, cmd := a.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg, ok := cmdMsg(t, cmd).(AnalyzeItemsApplyMsg)
+	if !ok {
+		t.Fatalf("enter yielded %T, want AnalyzeItemsApplyMsg", cmd)
+	}
+	if len(msg.Excluded) != 0 {
+		t.Errorf("picking the purchase must pull the scenario item in, excluded: %v", msg.Excluded)
+	}
+}
