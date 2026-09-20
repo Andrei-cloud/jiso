@@ -68,3 +68,17 @@ a real capture before merge.
 - Test fixtures use neutral synthetic PANs only; UAT artifacts
   (session databases, capture files, capture-derived templates) are
   git-ignored so they can never enter the repository.
+
+## Downloads
+
+Self-contained binaries (no runtime dependencies; static `CGO_ENABLED=0`
+builds with the default spec baked in) for `linux/{amd64,arm64}`,
+`darwin/{amd64,arm64}` and `windows/{amd64,arm64}` are attached to this
+release as `jiso-v2.1.0-<os>-<arch>.tar.gz` (`.zip` on Windows), each
+archive containing the binary plus `LICENSE`.
+
+Verify a download:
+
+```
+shasum -a 256 -c checksums.txt
+```
