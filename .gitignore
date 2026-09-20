@@ -41,3 +41,7 @@ docs/parity-matrix.md
 
 # SDD subagent workspace (task briefs, reports, review diffs) — local artifacts, not repo content
 .superpowers/
+
+# UAT / capture artifacts (PCI-adjacent — never commit)
+UAT_Results.md
+transactions/
