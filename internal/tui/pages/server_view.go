@@ -129,16 +129,15 @@ func (s *Server) render(w, h int) string {
 			return clipBlockStyled(s.th, head+"\n"+body, h, w)
 		}
 
-		// The LOG is the live signal and owns the big right pane at full
-		// height; STATS and ROUTES keep their natural (short) heights,
-		// top-aligned (JoinHorizontal pads).
+		// One aligned grid: all three boxes share the pane height (UAT:
+		// natural per-box heights read as a misaligned screen). The LOG
+		// stays the big right pane; STATS and ROUTES draw the same
+		// height, bodies top-aligned inside.
 		statsW, logW, routesW := server3ColWidths(w)
-		statsH := min(serverStatsBoxH, paneH)
-		routesH := min(paneH, max(len(s.state.Routes)+5, 6))
 
-		leftSec := s.leftBox(headH, statsW, statsH)
+		leftSec := s.leftBox(headH, statsW, paneH)
 		routesX := lipgloss.Width(leftSec) + serverSectionGap
-		routesSec := s.routesBox(routesX, headH, routesW, routesH)
+		routesSec := s.routesBox(routesX, headH, routesW, paneH)
 		logSec := s.logBox(routesX+lipgloss.Width(routesSec)+serverSectionGap, headH, logW, paneH)
 
 		body := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -285,24 +284,20 @@ func (s *Server) leftBox(y, w, h int) string {
 // formatCount, the match percent root-derived (dash when unknown).
 func (s *Server) statsBody() string {
 	st := s.state.Stats
-	// Two cells, not three: the suffix this took was retired when the compact card
-	// form moved percent and drop_conn onto their own continuation lines.
+	// One flat, aligned label/value block: every metric is its own
+	// first-column row (UAT: the hanging indented "100.0%" and
+	// "drop_conn" continuation lines read as stray, unaligned text).
 	line := func(label, value string) string {
 		return s.th.Deemphasized.Render(padRight(label, serverStatsLabelCol)) +
 			s.th.TextPrimary.Render(value)
-	}
-	// The compact card form: percent and drop_conn get their own indented
-	// continuation lines so the card fits the narrow first column.
-	sub := func(text string) string {
-		return "  " + s.th.Deemphasized.Render(text)
 	}
 
 	return strings.Join([]string{
 		line("served", formatCount(int64(st.Served))),
 		line("matched", formatCount(int64(st.Matched))),
-		sub(dashIf(s.th, st.MatchPct)),
+		line("match %", dashIf(s.th, st.MatchPct)),
 		line("fallback", formatCount(int64(st.Fallback))),
-		sub("drop_conn " + formatCount(int64(st.Dropped))),
+		line("drop_conn", formatCount(int64(st.Dropped))),
 		line("req err", formatCount(int64(st.ReqErr))),
 		line("live conns", formatCount(int64(st.LiveConns))),
 	}, "\n")
