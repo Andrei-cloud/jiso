@@ -1239,6 +1239,13 @@
               "enc": "Binary",
               "prefix": "BerTLV"
             },
+            "9F34": {
+              "type": "Binary",
+              "length": 3,
+              "description": "Cardholder Verification Method Results",
+              "enc": "Binary",
+              "prefix": "BerTLV"
+            },
             "9F35": {
               "type": "Binary",
               "length": 1,
