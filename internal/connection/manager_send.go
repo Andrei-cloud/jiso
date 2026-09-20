@@ -68,11 +68,51 @@ func (m *Manager) buildFullPayload(msg *iso8583.Message) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// adoptSpecFor makes the connection speak the dialect of the message it is
+// about to send. An analyzed extract stamps its transactions with the
+// capture's own spec, and the composer honors that stamp - but the reply
+// is unpacked with the spec the connection was BUILT with. Sending a
+// visa-dialect request over a flex connection therefore lost every answer
+// to an invisible decode failure (UAT: "no response received" next to a
+// server log that had matched and answered, and raw unpack-error dumps
+// bleeding over the screen). Reconnecting is the honest cost of changing
+// dialect mid-session; silently discarding the response is not. Dialect
+// identity is the spec name; the adopted pointer equals the message's, so
+// the next same-dialect send skips the work.
+func (m *Manager) adoptSpecFor(msg *iso8583.Message) error {
+	if msg == nil {
+		return nil
+	}
+	msgSpec := msg.GetSpec()
+	m.statusMu.RLock()
+	cur := m.spec
+	conn := m.Connection
+	online := conn != nil && conn.Status() == moovconnection.StatusOnline
+	m.statusMu.RUnlock()
+	if msgSpec == nil || cur == nil || msgSpec == cur || msgSpec.Name == cur.Name {
+		return nil
+	}
+
+	m.SetSpec(msgSpec)
+	if !online {
+		return nil // not dialled yet: the next Connect builds with the new spec
+	}
+	naps, header := m.connParams()
+	if err := m.Connect(naps, header); err != nil {
+		return fmt.Errorf("failed to switch the connection to spec %q: %w", msgSpec.Name, err)
+	}
+
+	return nil
+}
+
 // Send writes one message and waits for its reply. It refuses when the connection
 // is not online instead of queueing: an operator who sends into a dropped
 // connection wants that answer now, not after a timeout that ends in the same
 // message.
 func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
+	if err := m.adoptSpecFor(msg); err != nil {
+		return nil, err
+	}
 	// Connection validation and error handling
 	m.statusMu.RLock()
 	conn := m.Connection
@@ -154,6 +194,9 @@ func (m *Manager) Send(msg *iso8583.Message) (*iso8583.Message, error) {
 
 // BackgroundSend sends a message without debug logging (for background operations)
 func (m *Manager) BackgroundSend(msg *iso8583.Message) (*iso8583.Message, error) {
+	if err := m.adoptSpecFor(msg); err != nil {
+		return nil, err
+	}
 	m.statusMu.RLock()
 	conn := m.Connection
 	status := moovconnection.StatusOffline
@@ -186,6 +229,9 @@ func (m *Manager) SendAsync(
 	msg *iso8583.Message,
 	transactionName string,
 ) (<-chan *iso8583.Message, error) {
+	if err := m.adoptSpecFor(msg); err != nil {
+		return nil, err
+	}
 	m.statusMu.RLock()
 	conn := m.Connection
 	status := moovconnection.StatusOffline

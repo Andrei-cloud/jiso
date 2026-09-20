@@ -203,6 +203,15 @@ read never runs on the UI thread.
 | `o` | Cycle sort column |
 | `esc` | Back |
 
+Sending a transaction follows the message's dialect: an extracted template
+carries the spec stamped from its capture, and the connection **adopts** that
+spec for the exchange (reconnecting when it differs) — inbound replies are
+unpacked with the spec the connection was built with, so without the adoption
+a visa-dialect request over a flex connection silently lost its answer: the
+server matched and replied, the client reported "no response received". The
+adoption is why the reply arrives; raw unpack-error dumps are debug-only now
+(`--debug`), never painted over the screen.
+
 ### scenario — Message Inspector
 
 | Keys | Action |
@@ -323,7 +332,7 @@ by default; scenario folds a port's two directions into one unit):
 | `enter` | Run the analysis |
 | `w` | Write the selected generated items (§N3 overwrite confirm) |
 | `l` | After a scenario write: load the extract as the session transactions file (the tx-file gate chains a spec browse when entries lack specs) |
-| `g` | After a scenario write: open the server start form with the extract pre-filled as the routes file |
+| `g` | After a scenario write: open the server start form with the extract pre-filled as the routes file — and its **own stamped spec** pre-filled into the spec field (the server starts in the dialect the extract's transactions speak; an unstamped file leaves the remembered spec alone) |
 | `esc` | Back a step · §N3 abort while a leg is in flight |
 
 After a run the **generated-item picker** auto-presents: `space` toggles a row,

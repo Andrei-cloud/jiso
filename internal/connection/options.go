@@ -59,8 +59,16 @@ func (m *Manager) buildConnectionOptions() []moovconnection.Option {
 
 			var unpackErr *iso8583errors.UnpackError
 			if errors.As(err, &unpackErr) {
-				outputf("Unpack error: %s\n", unpackErr)
-				outputf("\n%v\n", hex.Dump(unpackErr.RawMessage))
+				// The raw-bytes forensics dump is DEBUG-only: plain stderr
+				// writes land on the terminal's active screen, and the TUI
+				// renders there too - an undial-gated hex.Dump bled across
+				// the frame and read as a broken screen (fatal UAT). The
+				// send-detail view owns this dump in-frame; the CLI keeps
+				// it under --debug.
+				if m.debugMode.Load() {
+					outputf("Unpack error: %s\n", unpackErr)
+					outputf("\n%v\n", hex.Dump(unpackErr.RawMessage))
+				}
 				return
 			}
 

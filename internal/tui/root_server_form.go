@@ -9,6 +9,8 @@
 package tui
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -357,10 +359,56 @@ func (m *RootModel) pickServerFormField(fieldKey, path string) (tea.Model, tea.C
 	if f := st.Field(fieldKey); f != nil {
 		f.Value = path
 	}
+	note := ""
+	if fieldKey == serverFieldRoutes {
+		// A capture extract knows the dialect its messages were captured
+		// in - it stamps that spec on every transaction. Serving it on any
+		// other dialect means the server cannot even unpack the requests
+		// the extract's transactions compose (fatal UAT: visa-stamped
+		// extract on a flex spec - every request died in ASCII decoding).
+		// The file's own stamp therefore fills the form's spec field.
+		if hint := extractStampedSpec(path); hint != "" {
+			if sp := st.Field(serverFieldSpecPath); sp != nil && sp.Value != hint {
+				sp.Value = hint
+				note = " · spec " + filepath.Base(hint) + " (the file's own)"
+			}
+		}
+	}
 	m.serverDlg.SetState(st)
-	m.pushToast(filepath.Base(path)+" selected", widgets.ToastSuccess)
+	m.pushToast(filepath.Base(path)+" selected"+note, widgets.ToastSuccess)
 
 	return m, nil
+}
+
+// extractStampedSpec reads a written items file and returns the spec path
+// the analyzer stamped on its transactions or scenario ("" when the file
+// carries no usable stamp - unreadable, unstamped, or the stamped path no
+// longer exists).
+func extractStampedSpec(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var items []struct {
+		Type string `json:"type"`
+		Spec string `json:"spec"`
+	}
+	if err := json.Unmarshal(data, &items); err != nil {
+		return ""
+	}
+	for _, it := range items {
+		spec := strings.TrimSpace(it.Spec)
+		if spec == "" {
+			continue
+		}
+		if it.Type == "transaction" || it.Type == "scenario" {
+			if _, err := os.Stat(spec); err == nil {
+				return spec
+			}
+		}
+	}
+
+	return ""
 }
 
 // focusedFormFieldKey reads the key of the dialog's focused field
